@@ -8,7 +8,7 @@ const { mockGenerateObject, mockGetClientSnapshots } = vi.hoisted(() => ({
 vi.mock("ai", () => ({
   generateObject: (...args: unknown[]) => mockGenerateObject(...args),
 }));
-vi.mock("@ai-sdk/anthropic", () => ({ anthropic: vi.fn(() => "mock-model") }));
+vi.mock("@ai-sdk/openai", () => ({ openai: vi.fn(() => "mock-model") }));
 vi.mock("@/lib/prisma", () => ({ prisma: {} }));
 vi.mock("@/lib/services/client.service", () => ({ getClientsForTrainer: vi.fn() }));
 

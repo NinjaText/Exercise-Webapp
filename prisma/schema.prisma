@@ -136,24 +136,28 @@ model User {
   assessedBy       Assessment[]       @relation("AssessedBy")
   exercisesCreated Exercise[]
 
-  programsCreated        Program[]            @relation("ProgramsCreated")
-  programsAssigned       Program[]            @relation("ProgramsAssigned")
-  sessionsV2             WorkoutSessionV2[]   @relation("SessionsV2")
-  checkInTemplates       CheckInTemplate[]    @relation("CheckInTemplatesCreated")
-  checkInAssignments     CheckInAssignment[]  @relation("CheckInAssignments")
-  checkInResponses       CheckInResponse[]    @relation("CheckInResponses")
-  bodyMetrics            BodyMetric[]         @relation("BodyMetrics")
-  progressPhotos         ProgressPhoto[]      @relation("ProgressPhotos")
-  habits                 HabitDefinition[]    @relation("Habits")
-  nutritionTarget        NutritionTarget?     @relation("NutritionTarget")
-  nutritionLogs          NutritionLog[]       @relation("NutritionLogs")
-  notifications          Notification[]       @relation("Notifications")
-  packages               CoachPackage[]       @relation("Packages")
-  subscriptions          ClientSubscription[] @relation("Subscriptions")
-  branding               CoachBranding?       @relation("Branding")
-  clinicalNotesAsClient  ClinicalNote[]       @relation("ClinicalNotesClient")
-  clinicalNotesAsTrainer ClinicalNote[]       @relation("ClinicalNotesTrainer")
-  trainerSubscription    TrainerSubscription? @relation("TrainerSubscription")
+  programsCreated           Program[]            @relation("ProgramsCreated")
+  programsAssigned          Program[]            @relation("ProgramsAssigned")
+  sessionsV2                WorkoutSessionV2[]   @relation("SessionsV2")
+  checkInTemplates          CheckInTemplate[]    @relation("CheckInTemplatesCreated")
+  checkInAssignments        CheckInAssignment[]  @relation("CheckInAssignments")
+  checkInResponses          CheckInResponse[]    @relation("CheckInResponses")
+  bodyMetrics               BodyMetric[]         @relation("BodyMetrics")
+  progressPhotos            ProgressPhoto[]      @relation("ProgressPhotos")
+  habits                    HabitDefinition[]    @relation("Habits")
+  nutritionTarget           NutritionTarget?     @relation("NutritionTarget")
+  nutritionLogs             NutritionLog[]       @relation("NutritionLogs")
+  nutritionWaterLogs        NutritionWaterLog[]  @relation("NutritionWaterLogs")
+  nutritionCommentsForMe    NutritionComment[]   @relation("NutritionCommentsForClient")
+  nutritionCommentsAuthored NutritionComment[]   @relation("NutritionCommentsAuthored")
+  nutritionAiSummaries      NutritionAiSummary[] @relation("NutritionAiSummaries")
+  notifications             Notification[]       @relation("Notifications")
+  packages                  CoachPackage[]       @relation("Packages")
+  subscriptions             ClientSubscription[] @relation("Subscriptions")
+  branding                  CoachBranding?       @relation("Branding")
+  clinicalNotesAsClient     ClinicalNote[]       @relation("ClinicalNotesClient")
+  clinicalNotesAsTrainer    ClinicalNote[]       @relation("ClinicalNotesTrainer")
+  trainerSubscription       TrainerSubscription? @relation("TrainerSubscription")
 }
 
 model AuditLog {
@@ -391,21 +395,21 @@ model Assessment {
 }
 
 model Message {
-  id             String        @id @default(auto()) @map("_id") @db.ObjectId
-  senderId       String        @db.ObjectId
-  recipientId    String        @db.ObjectId
-  sender         User          @relation("SentMessages", fields: [senderId], references: [id])
-  recipient      User          @relation("ReceivedMessages", fields: [recipientId], references: [id])
-  planId         String?       @db.ObjectId
-  planExerciseId String?       @db.ObjectId
-  plan           WorkoutPlan?  @relation(fields: [planId], references: [id])
-  planExercise   PlanExercise? @relation(fields: [planExerciseId], references: [id])
-  content        String
-  audioUrl       String?
+  id               String        @id @default(auto()) @map("_id") @db.ObjectId
+  senderId         String        @db.ObjectId
+  recipientId      String        @db.ObjectId
+  sender           User          @relation("SentMessages", fields: [senderId], references: [id])
+  recipient        User          @relation("ReceivedMessages", fields: [recipientId], references: [id])
+  planId           String?       @db.ObjectId
+  planExerciseId   String?       @db.ObjectId
+  plan             WorkoutPlan?  @relation(fields: [planId], references: [id])
+  planExercise     PlanExercise? @relation(fields: [planExerciseId], references: [id])
+  content          String
+  audioUrl         String?
   audioDurationSec Int?
-  isRead         Boolean       @default(false)
-  readAt         DateTime?
-  createdAt      DateTime      @default(now())
+  isRead           Boolean       @default(false)
+  readAt           DateTime?
+  createdAt        DateTime      @default(now())
 }
 
 // --- Phase 1 Models ---
@@ -689,33 +693,79 @@ model HabitLog {
 // --- Phase 4 Models ---
 
 model NutritionTarget {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  clientId  String   @unique @db.ObjectId
-  client    User     @relation("NutritionTarget", fields: [clientId], references: [id])
-  calories  Int?
-  proteinG  Int?
-  carbsG    Int?
-  fatG      Int?
-  fiberG    Int?
-  waterMl   Int?
-  updatedAt DateTime @updatedAt
+  id                   String   @id @default(auto()) @map("_id") @db.ObjectId
+  clientId             String   @unique @db.ObjectId
+  client               User     @relation("NutritionTarget", fields: [clientId], references: [id])
+  calories             Int?
+  proteinG             Int?
+  carbsG               Int?
+  fatG                 Int?
+  fiberG               Int?
+  waterMl              Int?
+  mealsPerDayTarget    Int?
+  // Names of fields (from: calories, proteinG, carbsG, fatG, fiberG, waterMl,
+  // mealsPerDayTarget) the client is permitted to edit. Empty = coach-only.
+  clientEditableFields String[] @default([])
+  updatedAt            DateTime @updatedAt
 }
 
 model NutritionLog {
-  id          String   @id @default(auto()) @map("_id") @db.ObjectId
-  clientId    String   @map("patientId") @db.ObjectId
-  client      User     @relation("NutritionLogs", fields: [clientId], references: [id])
+  id          String             @id @default(auto()) @map("_id") @db.ObjectId
+  clientId    String             @map("patientId") @db.ObjectId
+  client      User               @relation("NutritionLogs", fields: [clientId], references: [id])
   date        DateTime
   mealType    String
   description String
+  quantity    String?
+  loggedAt    DateTime           @default(now())
   calories    Int?
   proteinG    Float?
   carbsG      Float?
   fatG        Float?
   photoUrl    String?
-  createdAt   DateTime @default(now())
+  createdAt   DateTime           @default(now())
+  comments    NutritionComment[]
 
   @@index([clientId, date])
+}
+
+model NutritionWaterLog {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  clientId  String   @db.ObjectId
+  client    User     @relation("NutritionWaterLogs", fields: [clientId], references: [id])
+  date      DateTime
+  amountMl  Int
+  createdAt DateTime @default(now())
+
+  @@index([clientId, date])
+}
+
+model NutritionComment {
+  id        String        @id @default(auto()) @map("_id") @db.ObjectId
+  clientId  String        @db.ObjectId
+  client    User          @relation("NutritionCommentsForClient", fields: [clientId], references: [id])
+  authorId  String        @db.ObjectId
+  author    User          @relation("NutritionCommentsAuthored", fields: [authorId], references: [id])
+  date      DateTime
+  logId     String?       @db.ObjectId
+  log       NutritionLog? @relation(fields: [logId], references: [id], onDelete: Cascade)
+  body      String
+  createdAt DateTime      @default(now())
+
+  @@index([clientId, date])
+  @@index([logId])
+}
+
+model NutritionAiSummary {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  clientId    String   @db.ObjectId
+  client      User     @relation("NutritionAiSummaries", fields: [clientId], references: [id])
+  kind        String // "DAILY" | "WEEKLY"
+  periodStart DateTime // the day (DAILY) or week-start (WEEKLY) this summary covers
+  content     Json
+  createdAt   DateTime @default(now())
+
+  @@unique([clientId, kind, periodStart])
 }
 
 // --- Phase 5 Models ---
@@ -736,24 +786,24 @@ model Notification {
 }
 
 model CoachPackage {
-  id             String               @id @default(auto()) @map("_id") @db.ObjectId
-  trainerId      String               @map("clinicianId") @db.ObjectId
-  trainer        User                 @relation("Packages", fields: [trainerId], references: [id])
-  name           String
-  description    String?
-  priceInCents   Int
-  currency       String               @default("usd")
-  intervalMonths Int                  @default(1)
-  isActive       Boolean              @default(true)
-  stripePriceId  String?
+  id                String               @id @default(auto()) @map("_id") @db.ObjectId
+  trainerId         String               @map("clinicianId") @db.ObjectId
+  trainer           User                 @relation("Packages", fields: [trainerId], references: [id])
+  name              String
+  description       String?
+  priceInCents      Int
+  currency          String               @default("usd")
+  intervalMonths    Int                  @default(1)
+  isActive          Boolean              @default(true)
+  stripePriceId     String?
   // --- self-serve program sales ---
-  programTemplateId String? @db.ObjectId
-  slug              String? @unique
-  kind              String  @default("program") // "program" | "bundle"
-  upsellPackageId   String? @db.ObjectId
-  createdAt      DateTime             @default(now())
-  updatedAt      DateTime             @updatedAt
-  subscriptions  ClientSubscription[]
+  programTemplateId String?              @db.ObjectId
+  slug              String?              @unique
+  kind              String               @default("program") // "program" | "bundle"
+  upsellPackageId   String?              @db.ObjectId
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+  subscriptions     ClientSubscription[]
 }
 
 model ClientSubscription {
@@ -844,21 +894,21 @@ model TrainerSubscription {
 }
 
 model ProgramPurchase {
-  id                      String   @id @default(auto()) @map("_id") @db.ObjectId
-  stripeCheckoutSessionId String   @unique
+  id                      String    @id @default(auto()) @map("_id") @db.ObjectId
+  stripeCheckoutSessionId String    @unique
   buyerEmail              String
-  buyerUserId             String?  @db.ObjectId
+  buyerUserId             String?   @db.ObjectId
   buyerClerkId            String?
-  trainerId               String   @db.ObjectId
+  trainerId               String    @db.ObjectId
   orgId                   String
-  packageIds              String[] @db.ObjectId
-  assignedProgramIds      String[] @db.ObjectId
-  amountInCents           Int      @default(0)
-  currency                String   @default("usd")
-  status                  String   @default("PENDING") // PENDING | COMPLETED | REFUNDED
+  packageIds              String[]  @db.ObjectId
+  assignedProgramIds      String[]  @db.ObjectId
+  amountInCents           Int       @default(0)
+  currency                String    @default("usd")
+  status                  String    @default("PENDING") // PENDING | COMPLETED | REFUNDED
   accountClaimedAt        DateTime?
-  createdAt               DateTime @default(now())
-  updatedAt               DateTime @updatedAt
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
 
   @@index([trainerId, createdAt])
   @@index([buyerEmail])

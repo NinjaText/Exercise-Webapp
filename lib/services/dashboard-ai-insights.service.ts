@@ -1,5 +1,5 @@
 import { generateObject } from "ai";
-import { anthropic } from "@ai-sdk/anthropic";
+import { openai } from "@ai-sdk/openai";
 import { z } from "zod";
 import {
   getClientSnapshots,
@@ -22,7 +22,7 @@ const insightSchema = z.object({
 
 export type CoachingInsight = z.infer<typeof insightSchema>["insights"][number];
 
-const AI_MODEL = "claude-3-haiku-20240307";
+const AI_MODEL = "gpt-4o-mini";
 const MAX_CLIENTS_IN_CONTEXT = 12;
 const DAY_MS = 1000 * 60 * 60 * 24;
 
@@ -51,7 +51,7 @@ export async function generateCoachingInsights(
       .join("\n");
 
     const { object } = await generateObject({
-      model: anthropic(AI_MODEL),
+      model: openai(AI_MODEL),
       schema: insightSchema,
       prompt: `You are an assistant coach for a physical-therapy and senior-fitness trainer. Based on the per-client data below, write 2-4 short, specific, actionable coaching insights.
 

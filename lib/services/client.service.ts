@@ -28,6 +28,19 @@ export async function getClientIdsForTrainer(trainerId: string): Promise<string[
   return clients.map((p) => p.id);
 }
 
+/** Returns the trainer whose org the given client belongs to, if any. */
+export async function getTrainerForClient(clientId: string) {
+  const client = await prisma.user.findUnique({
+    where: { id: clientId },
+    select: { clerkOrgId: true },
+  });
+  if (!client?.clerkOrgId) return null;
+
+  return prisma.user.findFirst({
+    where: { clerkOrgId: client.clerkOrgId, role: "TRAINER" },
+  });
+}
+
 export async function getClientDetail(clientId: string) {
   return prisma.user.findUnique({
     where: { id: clientId },
