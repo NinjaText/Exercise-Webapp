@@ -1,5 +1,5 @@
 import { streamObject } from "ai";
-import { anthropic } from "@ai-sdk/anthropic";
+import { openai } from "@ai-sdk/openai";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
@@ -46,7 +46,7 @@ export async function POST(req: Request) {
     }));
 
     const result = await streamObject({
-      model: anthropic("claude-3-haiku-20240307"),
+      model: openai("gpt-4o"),
       schema: workoutPlanSchema,
       prompt: `You are an expert physical therapist and strength coach.
 Generate a structured workout plan. 

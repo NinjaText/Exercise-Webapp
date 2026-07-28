@@ -7,6 +7,10 @@
     {
       "path": "/api/cron/retry-program-purchases",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/nutrition-nudges",
+      "schedule": "0 22 * * *"
     }
   ]
 }
