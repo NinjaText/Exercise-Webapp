@@ -223,6 +223,88 @@ export async function deleteExerciseAction(exerciseId: string) {
   }
 }
 
+export async function bulkDeleteExercisesAction(exerciseIds: string[]) {
+  const { userId, orgId: sessionOrgId } = await auth();
+  if (!userId) return { success: false as const, error: "Unauthorized" };
+
+  const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
+  if (!dbUser) return { success: false as const, error: "User not found" };
+
+  const superAdmin = await isSuperAdmin();
+  const organizationOrgId = sessionOrgId ?? dbUser.clerkOrgId ?? null;
+
+  const ids = Array.from(new Set(exerciseIds)).filter(Boolean);
+  if (ids.length === 0) {
+    return { success: false as const, error: "No exercises selected" };
+  }
+
+  const exercises = await prisma.exercise.findMany({ where: { id: { in: ids } } });
+  const exerciseById = new Map(exercises.map((ex) => [ex.id, ex]));
+
+  const deleted: { id: string; name: string }[] = [];
+  const skipped: { id: string; name: string; reason: string }[] = [];
+
+  // Each id is authorized, checked for in-use references, and deleted independently so
+  // one blocked or failing id never aborts the rest of the batch.
+  for (const id of ids) {
+    const exercise = exerciseById.get(id);
+    if (!exercise) {
+      skipped.push({ id, name: id, reason: "Exercise not found" });
+      continue;
+    }
+
+    if (!superAdmin) {
+      if (dbUser.role !== "TRAINER") {
+        skipped.push({ id, name: exercise.name, reason: "Forbidden" });
+        continue;
+      }
+      if (exercise.source === "UNIVERSAL") {
+        skipped.push({ id, name: exercise.name, reason: "Universal exercises can only be deleted by admins" });
+        continue;
+      }
+      if (exercise.source === "ORGANIZATION" && exercise.organizationId !== organizationOrgId) {
+        skipped.push({ id, name: exercise.name, reason: "You can only delete your organization's exercises" });
+        continue;
+      }
+    }
+
+    const [planUsage, blockUsage, blockV2Usage] = await Promise.all([
+      prisma.planExercise.count({ where: { exerciseId: id } }),
+      prisma.blockExercise.count({ where: { exerciseId: id } }),
+      prisma.blockExerciseV2.count({ where: { exerciseId: id } }),
+    ]);
+    if (planUsage + blockUsage + blockV2Usage > 0) {
+      skipped.push({ id, name: exercise.name, reason: "In use by one or more trainer workouts/programs" });
+      continue;
+    }
+
+    try {
+      await exerciseService.deleteExercise(id);
+      await logAudit({
+        actorId: dbUser.id,
+        actorType: superAdmin ? "SUPER_ADMIN" : deriveActorType(dbUser),
+        actorName: `${dbUser.firstName} ${dbUser.lastName}`,
+        action: AUDIT_ACTIONS.EXERCISE_DELETED,
+        targetType: "Exercise",
+        targetId: id,
+        targetLabel: exercise.name,
+        orgId: exercise.organizationId ?? null,
+      });
+      deleted.push({ id, name: exercise.name });
+    } catch (error) {
+      console.error(`Failed to delete exercise ${id}:`, error);
+      skipped.push({ id, name: exercise.name, reason: "Failed to delete" });
+    }
+  }
+
+  if (deleted.length > 0) {
+    revalidatePath("/exercises");
+    revalidatePath("/admin/exercises");
+  }
+
+  return { success: true as const, deletedCount: deleted.length, skipped };
+}
+
 export async function createOrganizationExerciseAction(input: {
   name: string;
   description?: string;

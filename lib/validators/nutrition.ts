@@ -73,6 +73,11 @@ export const analyzeMealPhotoSchema = z.object({
   photoUrl: z.string().url(),
 })
 
+export const estimateMealMacrosSchema = z.object({
+  description: z.string().min(1).max(200),
+  quantity: z.string().max(100).optional(),
+})
+
 export const bulkCreateNutritionLogSchema = z.object({
   clientId: z.string().min(1),
   date: z.coerce.date(),

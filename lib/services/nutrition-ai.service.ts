@@ -57,6 +57,40 @@ export async function analyzeMealPhoto(photoUrl: string): Promise<MealPhotoFoodD
   return object.foods;
 }
 
+// ─── Text-Based Macro Estimation ─────────────────────────────────────────────
+
+const mealMacroEstimateSchema = z.object({
+  calories: z.number().int().min(0).describe("Estimated calories for this food/serving"),
+  proteinG: z.number().min(0).describe("Estimated grams of protein"),
+  carbsG: z.number().min(0).describe("Estimated grams of carbohydrates"),
+  fatG: z.number().min(0).describe("Estimated grams of fat"),
+});
+
+export type MealMacroEstimate = z.infer<typeof mealMacroEstimateSchema>;
+
+/**
+ * Estimates calories/protein/carbs/fat from a plain-text food description
+ * (e.g. "2 fried eggs with 2 slices of brown bread and tea") plus an
+ * optional serving size — the manual-entry counterpart to analyzeMealPhoto.
+ * Never writes to the database; the caller reviews/edits before saving.
+ */
+export async function estimateMealMacrosFromText(
+  description: string,
+  quantity?: string
+): Promise<MealMacroEstimate> {
+  const { object } = await generateObject({
+    model: openai("gpt-4o-mini"),
+    schema: mealMacroEstimateSchema,
+    prompt: `Estimate the nutritional content of this food description: "${description}"${
+      quantity ? ` (serving size: "${quantity}")` : ""
+    }.
+
+Be a reasonable, conservative estimator based on typical preparation and portion sizes — this is a draft value a person will review and can correct before saving.`,
+  });
+
+  return object;
+}
+
 // ─── Daily Summary ───────────────────────────────────────────────────────────
 
 const dailySummarySchema = z.object({

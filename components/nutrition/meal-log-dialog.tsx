@@ -6,6 +6,7 @@ import { Plus, Loader2, Camera, X, Sparkles, Trash2 } from "lucide-react";
 import {
   createNutritionLogAction,
   analyzeMealPhotoAction,
+  estimateMealMacrosAction,
   createNutritionLogsBulkAction,
 } from "@/actions/nutrition-actions";
 import { useMealPhotoUpload } from "@/hooks/use-meal-photo-upload";
@@ -171,6 +172,7 @@ function ManualMealForm({
   onCancel: () => void;
 }) {
   const [isPending, startTransition] = useTransition();
+  const [isEstimating, setIsEstimating] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { upload, uploadState } = useMealPhotoUpload();
 
@@ -184,13 +186,40 @@ function ManualMealForm({
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
 
   const isUploadingPhoto = uploadState === "uploading" || uploadState === "confirming";
-  const busy = isPending || isUploadingPhoto;
+  const busy = isPending || isUploadingPhoto || isEstimating;
 
   function handlePhotoSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
     setPhotoFile(file);
     setPhotoPreview(URL.createObjectURL(file));
+  }
+
+  async function handleEstimate() {
+    if (!description.trim()) {
+      toast.error("Enter what you ate first");
+      return;
+    }
+
+    setIsEstimating(true);
+    try {
+      const result = await estimateMealMacrosAction({
+        description: description.trim(),
+        quantity: quantity.trim() || undefined,
+      });
+
+      if (result.success) {
+        setCalories(String(result.data.calories));
+        setProteinG(String(result.data.proteinG));
+        setCarbsG(String(result.data.carbsG));
+        setFatG(String(result.data.fatG));
+        toast.success("Estimated — review and adjust if needed");
+      } else {
+        toast.error(result.error ?? "Failed to estimate macros");
+      }
+    } finally {
+      setIsEstimating(false);
+    }
   }
 
   function handleSubmit(e: React.FormEvent) {
@@ -259,6 +288,19 @@ function ManualMealForm({
             disabled={busy}
             maxLength={100}
           />
+        </div>
+
+        <div className="flex items-center justify-between">
+          <Label className="text-xs text-muted-foreground">Macros</Label>
+          <button
+            type="button"
+            onClick={handleEstimate}
+            disabled={busy || !description.trim()}
+            className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-semibold text-primary hover:bg-primary/10 disabled:opacity-50"
+          >
+            {isEstimating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+            Estimate with AI
+          </button>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
