@@ -560,7 +560,7 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
                       >
                         {/* Block header */}
                         <div
-                          className="flex items-center gap-3 mb-3 cursor-pointer"
+                          className="flex flex-wrap items-center gap-3 mb-3 cursor-pointer"
                           onClick={(e) => {
                             const target = e.target as HTMLElement;
                             if (target.closest("input, button, select")) return;
@@ -586,7 +586,7 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
                               updateBlockField(wi, bi, "name", e.target.value)
                             }
                             placeholder="Block name"
-                            className="max-w-[200px]"
+                            className="max-w-[200px] min-w-[120px] flex-1"
                           />
                           <Select
                             value={block.type}
@@ -594,7 +594,7 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
                               updateBlockField(wi, bi, "type", v)
                             }
                           >
-                            <SelectTrigger className="w-[130px]">
+                            <SelectTrigger className="w-[130px] shrink-0">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -620,7 +620,7 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
                                   parseInt(e.target.value) || 1
                                 )
                               }
-                              className="w-20"
+                              className="w-20 shrink-0"
                               min={1}
                               placeholder="Rounds"
                             />
@@ -639,11 +639,11 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
                                     : null
                                 )
                               }
-                              className="w-24"
+                              className="w-24 shrink-0"
                               placeholder="Time cap (s)"
                             />
                           )}
-                          <div className="ml-auto flex items-center gap-1">
+                          <div className="ml-auto flex shrink-0 items-center gap-1">
                             <Button
                               variant="ghost"
                               size="icon"

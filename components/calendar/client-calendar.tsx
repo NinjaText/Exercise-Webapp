@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo, createContext, useContext } from "react";
+import { useState, useEffect, useCallback, useMemo, createContext, useContext } from "react";
 import {
   Calendar,
   dateFnsLocalizer,
@@ -292,6 +292,8 @@ function CustomToolbar({
   const title =
     view === Views.WEEK
       ? `${format(startOfWeek(date), "MMM d")} – ${format(endOfWeek(date), "MMM d, yyyy")}`
+      : view === Views.DAY
+      ? format(date, "EEEE, MMM d, yyyy")
       : format(date, "MMMM yyyy");
 
   return (
@@ -325,7 +327,7 @@ function CustomToolbar({
 
       {/* View toggle */}
       <div className="flex items-center overflow-hidden rounded-lg border border-border bg-muted/40 p-0.5">
-        {([Views.MONTH, Views.WEEK] as View[]).map((v) => (
+        {([Views.MONTH, Views.WEEK, Views.DAY] as View[]).map((v) => (
           <button
             key={v}
             onClick={() => onView(v)}
@@ -336,7 +338,7 @@ function CustomToolbar({
                 : "text-muted-foreground hover:text-foreground"
             )}
           >
-            {v === Views.MONTH ? "Month" : "Week"}
+            {v === Views.MONTH ? "Month" : v === Views.WEEK ? "Week" : "Day"}
           </button>
         ))}
       </div>
@@ -382,6 +384,14 @@ export function ClientCalendar({
   const [date, setDate] = useState(new Date());
   const [panelState, setPanelState] = useState<PanelState>({ mode: "closed" });
   const [aiDialogDate, setAiDialogDate] = useState<Date | null>(null);
+
+  // Month/Week grids are unreadable at phone widths — default to Day view there.
+  // Runs once on mount so it doesn't fight a view the user picks afterward.
+  useEffect(() => {
+    if (window.matchMedia("(max-width: 640px)").matches) {
+      setView(Views.DAY);
+    }
+  }, []);
 
   // Build calendar events
   const events: SessionEvent[] = useMemo(
@@ -480,7 +490,8 @@ export function ClientCalendar({
       </div>
 
       {/* Calendar */}
-      <div className="min-h-160">
+      <div className="min-h-160 overflow-x-auto">
+        <div className={cn(view === Views.DAY ? "min-w-full" : "min-w-[640px]")}>
         <DnDCalendar
           localizer={localizer}
           events={events}
@@ -518,6 +529,7 @@ export function ClientCalendar({
             },
           })}
         />
+        </div>
       </div>
 
       {/* Workout editor side panel */}

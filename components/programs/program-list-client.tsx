@@ -427,7 +427,7 @@ export function ProgramListClient({
         </div>
 
         {role === "TRAINER" && (
-          <div className="flex shrink-0 items-center gap-2">
+          <div className="flex flex-wrap shrink-0 items-center gap-2">
             <Button variant="outline" className="gap-2" asChild>
               <Link href="/programs/upload">
                 <Upload className="h-4 w-4 text-emerald-600" />

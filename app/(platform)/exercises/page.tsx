@@ -73,12 +73,12 @@ export default async function ExercisesPage({ searchParams }: Props) {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-col items-start gap-4 sm:flex-row sm:justify-between">
         <div>
           <h2 className="text-2xl font-bold">Exercise Library</h2>
           <p className="text-muted-foreground">{exercises.length} exercises</p>
         </div>
-        <div className="flex gap-2 shrink-0">
+        <div className="flex flex-wrap gap-2 shrink-0">
           <Button variant="outline" size="sm" asChild>
             <Link href="/exercises/bulk-import">
               <Upload className="h-4 w-4 mr-1.5" />

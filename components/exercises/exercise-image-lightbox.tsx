@@ -49,7 +49,7 @@ export function ExerciseImageLightbox({
 
       {/* Full-size lightbox dialog */}
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-2xl p-2 overflow-hidden">
+        <DialogContent className="sm:max-w-2xl p-2 overflow-hidden">
           <DialogTitle className="sr-only">{alt}</DialogTitle>
           <div className="relative w-full rounded-lg overflow-hidden bg-foreground/90">
             {/* 16:9 aspect container */}

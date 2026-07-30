@@ -8,6 +8,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -158,7 +159,7 @@ export function BroadcastMessageDialog({ contacts }: BroadcastMessageDialogProps
             />
           </div>
 
-          <div className="flex justify-end gap-2">
+          <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>
               Cancel
             </Button>
@@ -169,7 +170,7 @@ export function BroadcastMessageDialog({ contacts }: BroadcastMessageDialogProps
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Send to {selectedIds.size || 0}
             </Button>
-          </div>
+          </DialogFooter>
         </div>
       </DialogContent>
     </Dialog>

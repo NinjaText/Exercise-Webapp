@@ -73,23 +73,23 @@ export default async function ClientDetailPage({ params }: Props) {
 
       {/* Client info */}
       <Card className="shadow-sm ring-1 ring-border/50">
-        <CardContent className="flex items-center gap-6 p-6">
-          <Avatar className="h-16 w-16">
+        <CardContent className="flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:gap-6">
+          <Avatar className="h-16 w-16 shrink-0">
             <AvatarImage src={client.imageUrl || undefined} />
             <AvatarFallback className="text-lg">
               {client.firstName[0]}{client.lastName[0]}
             </AvatarFallback>
           </Avatar>
-          <div>
+          <div className="min-w-0 flex-1">
             <h2 className="text-2xl font-bold tracking-tight">
               {client.firstName} {client.lastName}
             </h2>
-            <p className="text-muted-foreground">{client.email}</p>
+            <p className="text-muted-foreground truncate">{client.email}</p>
             {client.dateOfBirth && (
               <p className="text-sm text-muted-foreground/70">DOB: {client.dateOfBirth}</p>
             )}
           </div>
-          <div className="ml-auto flex gap-2">
+          <div className="flex flex-wrap gap-2 sm:ml-auto">
             <Button variant="outline" size="sm" asChild>
               <Link href={`/messages/${client.id}`}>
                 <MessageSquare className="mr-1 h-4 w-4" />
@@ -162,7 +162,7 @@ export default async function ClientDetailPage({ params }: Props) {
                 </div>
               </div>
             )}
-            <div className="grid grid-cols-2 gap-x-6 gap-y-2">
+            <div className="grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-2">
               {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
               {(client.clientProfile as any).activityLevel && (
                 <div>
@@ -303,7 +303,7 @@ export default async function ClientDetailPage({ params }: Props) {
 
         <TabsContent value="messages" className="mt-4">
           <Card className="overflow-hidden p-0 shadow-sm ring-1 ring-border/50">
-            <div className="h-[640px]">
+            <div className="h-[70dvh] max-h-[640px]">
               <MessageThread
                 messages={threadMessages}
                 currentUserId={user.id}
