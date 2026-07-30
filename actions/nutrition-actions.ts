@@ -25,12 +25,14 @@ import {
   mealPhotoPresignSchema,
   mealPhotoConfirmSchema,
   analyzeMealPhotoSchema,
+  estimateMealMacrosSchema,
   bulkCreateNutritionLogSchema,
   generateDailySummarySchema,
   generateWeeklyReviewSchema,
 } from "@/lib/validators/nutrition";
 import type {
   MealPhotoFoodDraft,
+  MealMacroEstimate,
   DailyNutritionSummary,
   WeeklyNutritionReview,
 } from "@/lib/services/nutrition-ai.service";
@@ -331,6 +333,28 @@ export async function analyzeMealPhotoAction(
   } catch (err) {
     console.error("[nutrition] analyzeMealPhoto error:", err);
     return { success: false, error: "Failed to analyze photo" };
+  }
+}
+
+export async function estimateMealMacrosAction(
+  input: unknown
+): Promise<ActionResult<MealMacroEstimate>> {
+  const parsed = estimateMealMacrosSchema.safeParse(input);
+  if (!parsed.success) return { success: false, error: "Invalid input" };
+
+  const user = await getAuthedUser();
+  if (!user) return { success: false, error: "Unauthorized" };
+  if (user.role !== "CLIENT") return { success: false, error: "Forbidden" };
+
+  try {
+    const estimate = await nutritionAiService.estimateMealMacrosFromText(
+      parsed.data.description,
+      parsed.data.quantity
+    );
+    return { success: true, data: estimate };
+  } catch (err) {
+    console.error("[nutrition] estimateMealMacros error:", err);
+    return { success: false, error: "Failed to estimate macros" };
   }
 }
 

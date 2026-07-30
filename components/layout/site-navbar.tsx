@@ -104,7 +104,7 @@ export function SiteNavbar({ alwaysSolid = false }: { alwaysSolid?: boolean } = 
                 </Link>
               ))}
               <div className="mt-4 flex flex-col gap-2 border-t border-white/10 pt-4">
-                <Button variant="outline" className="w-full border-white/20 text-slate-200 hover:bg-white/10" asChild>
+                <Button variant="ghost" className="w-full border border-white/20 text-white hover:bg-white/10 hover:text-white" asChild>
                   <Link href="/sign-in">Sign In</Link>
                 </Button>
                 <Button className="w-full bg-linear-to-r from-blue-500 to-indigo-500 border-0 text-white" asChild>
