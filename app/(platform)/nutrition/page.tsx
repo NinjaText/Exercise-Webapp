@@ -52,12 +52,12 @@ async function ClientNutritionView({ clientId }: { clientId: string }) {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-xl font-bold tracking-tight">Nutrition</h2>
           <p className="text-xs text-muted-foreground">{getTodayLabel()}</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex shrink-0 items-center gap-3">
           {summary.adherencePct !== null && (
             <div className="text-right leading-none">
               <p className="text-xl font-bold tabular-nums">{summary.adherencePct}%</p>

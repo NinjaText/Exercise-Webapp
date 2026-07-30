@@ -63,7 +63,7 @@ export default async function PlatformLayout({ children }: { children: React.Rea
 
   return (
     <SearchProvider>
-      <div className="flex h-screen overflow-hidden bg-[oklch(0.97_0.005_247)]">
+      <div className="flex h-dvh overflow-hidden bg-[oklch(0.97_0.005_247)]">
         <Sidebar
           role={user.role}
           currentPath=""
@@ -84,7 +84,7 @@ export default async function PlatformLayout({ children }: { children: React.Rea
             unreadVoiceCount={unreadVoiceCount}
             trainerClerkId={trainerClerkId}
           />
-          <main className="flex-1 overflow-y-auto p-6">
+          <main className="flex-1 overflow-y-auto p-4 sm:p-6">
             <div className="page-enter">{children}</div>
           </main>
         </div>

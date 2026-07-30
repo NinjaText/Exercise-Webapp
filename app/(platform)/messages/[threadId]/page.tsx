@@ -29,7 +29,7 @@ export default async function ThreadPage({ params }: Props) {
     .catch((err) => console.error("[pusher] messages-read trigger failed:", err));
 
   return (
-    <div className="flex h-[calc(100vh-10rem)] flex-col">
+    <div className="flex h-[calc(100dvh-10rem)] flex-col">
       <div className="shrink-0 pb-4">
         <Button variant="ghost" size="sm" asChild className="-ml-2">
           <Link href="/messages">

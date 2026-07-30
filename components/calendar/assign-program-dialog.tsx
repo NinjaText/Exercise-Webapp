@@ -229,7 +229,7 @@ export function AssignProgramDialog({
           </Tabs>
         </div>
         </div>
-        <div className="flex justify-end gap-2 px-5 py-4 border-t shrink-0">
+        <div className="flex flex-wrap justify-end gap-2 px-5 py-4 border-t shrink-0">
           <Button variant="outline" onClick={() => setOpen(false)}>
             Cancel
           </Button>

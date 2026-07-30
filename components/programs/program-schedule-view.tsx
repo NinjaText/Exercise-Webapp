@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo, useTransition, createContext, useContext } from "react";
+import { useState, useEffect, useCallback, useMemo, useTransition, createContext, useContext } from "react";
 import {
   Calendar,
   dateFnsLocalizer,
@@ -685,6 +685,8 @@ function CalToolbar({
   const sessionTitle =
     view === Views.WEEK
       ? `${format(weekStart, "MMM d")} – ${format(weekEnd, "MMM d, yyyy")}`
+      : view === Views.DAY
+      ? format(date, "EEEE, MMM d, yyyy")
       : format(date, "MMMM yyyy");
 
   // Cap pill count to keep toolbar usable; longer programs scroll horizontally
@@ -745,7 +747,7 @@ function CalToolbar({
       )}
 
       <div className="flex items-center overflow-hidden rounded-lg border border-border bg-muted/40 p-0.5">
-        {([Views.MONTH, Views.WEEK] as View[]).map((v) => (
+        {([Views.MONTH, Views.WEEK, Views.DAY] as View[]).map((v) => (
           <button
             key={v}
             onClick={() => onView(v)}
@@ -756,7 +758,7 @@ function CalToolbar({
                 : "text-muted-foreground hover:text-foreground"
             )}
           >
-            {v === Views.MONTH ? "Month" : "Week"}
+            {v === Views.MONTH ? "Month" : v === Views.WEEK ? "Week" : "Day"}
           </button>
         ))}
       </div>
@@ -1319,6 +1321,14 @@ export function ProgramScheduleView({
       : refMonday
   );
 
+  // Week/Month grids are unreadable at phone widths — default to Day view there.
+  // Runs once on mount so it doesn't fight a view the user picks afterward.
+  useEffect(() => {
+    if (window.matchMedia("(max-width: 640px)").matches) {
+      setView(Views.DAY);
+    }
+  }, []);
+
   // Optimistic overrides for drag-and-drop — applied instantly, reverted on error
   const [workoutPositionOverrides, setWorkoutPositionOverrides] = useState<
     Map<string, { dayIndex: number; weekIndex: number }>
@@ -1754,57 +1764,61 @@ export function ProgramScheduleView({
       )}
 
       {/* Calendar */}
-      <DnDCalendar
-        localizer={localizer}
-        events={events}
-        view={view}
-        date={calDate}
-        onView={setView}
-        onNavigate={setCalDate}
-        onSelectEvent={(event: ScheduleEvent) => handleSelectEvent(event)}
-        onEventDrop={isTrainer ? (handleEventDrop as never) : undefined}
-        draggableAccessor={() => isTrainer}
-        resizable={false}
-        popup
-        style={{ height: 580 }}
-        components={{
-          event: EventPill,
-          toolbar: (props) => (
-            <CalToolbar
-              date={props.date as Date}
-              view={props.view as View}
-              onNavigate={props.onNavigate}
-              onView={props.onView}
-              isStructural={!hasSessions}
-              currentProgramWeek={currentProgramWeek}
-              totalProgramWeeks={totalProgramWeeks}
-              onJumpToWeek={handleJumpToWeek}
-            />
-          ),
-        }}
-        eventPropGetter={() => ({
-          style: {
-            padding: 0,
-            backgroundColor: "transparent",
-            border: "none",
-            borderRadius: "5px",
-          },
-        })}
-        tooltipAccessor={(event: ScheduleEvent) => {
-          const count = event.workout.blocks.reduce(
-            (s, b) => s + b.exercises.length,
-            0
-          );
-          return `${event.title} · ${count} exercises`;
-        }}
-      />
+      <div className="overflow-x-auto">
+        <div className={cn(view === Views.DAY ? "min-w-full" : "min-w-[640px]")}>
+        <DnDCalendar
+          localizer={localizer}
+          events={events}
+          view={view}
+          date={calDate}
+          onView={setView}
+          onNavigate={setCalDate}
+          onSelectEvent={(event: ScheduleEvent) => handleSelectEvent(event)}
+          onEventDrop={isTrainer ? (handleEventDrop as never) : undefined}
+          draggableAccessor={() => isTrainer}
+          resizable={false}
+          popup
+          style={{ height: 580 }}
+          components={{
+            event: EventPill,
+            toolbar: (props) => (
+              <CalToolbar
+                date={props.date as Date}
+                view={props.view as View}
+                onNavigate={props.onNavigate}
+                onView={props.onView}
+                isStructural={!hasSessions}
+                currentProgramWeek={currentProgramWeek}
+                totalProgramWeeks={totalProgramWeeks}
+                onJumpToWeek={handleJumpToWeek}
+              />
+            ),
+          }}
+          eventPropGetter={() => ({
+            style: {
+              padding: 0,
+              backgroundColor: "transparent",
+              border: "none",
+              borderRadius: "5px",
+            },
+          })}
+          tooltipAccessor={(event: ScheduleEvent) => {
+            const count = event.workout.blocks.reduce(
+              (s, b) => s + b.exercises.length,
+              0
+            );
+            return `${event.title} · ${count} exercises`;
+          }}
+        />
+        </div>
+      </div>
 
       {/* Workout detail modal */}
       <Dialog
         open={selectedEvent !== null}
         onOpenChange={(open) => { if (!open) handleClose(); }}
       >
-        <DialogContent className="max-w-lg max-h-[85vh] p-0 flex flex-col overflow-hidden gap-0">
+        <DialogContent className="sm:max-w-lg max-h-[85dvh] p-0 flex flex-col overflow-hidden gap-0">
           {selectedEvent && isTrainer && (
             <EditPanel
               event={selectedEvent}

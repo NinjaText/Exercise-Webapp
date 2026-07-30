@@ -48,16 +48,16 @@ export default async function ClientNutritionDetailPage({
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <h2 className="text-xl font-bold tracking-tight">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="truncate text-xl font-bold tracking-tight">
             {client.firstName} {client.lastName} — Nutrition
           </h2>
           <p className="text-xs text-muted-foreground">
             {summary.mealsLogged} meal{summary.mealsLogged !== 1 ? "s" : ""} logged today
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex shrink-0 items-center gap-3">
           {summary.adherencePct !== null && (
             <div className="text-right leading-none">
               <p className="text-xl font-bold tabular-nums">{summary.adherencePct}%</p>
