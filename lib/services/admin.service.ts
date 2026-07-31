@@ -243,6 +243,7 @@ export async function getAllExercises(params: {
   const { page = 1, pageSize = 25, search, bodyRegion } = params;
 
   const where = {
+    isActive: { not: false },
     ...(bodyRegion && bodyRegion !== "ALL" && { bodyRegion: bodyRegion as never }),
     ...(search && {
       OR: [
