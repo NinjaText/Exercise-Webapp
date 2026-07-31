@@ -575,38 +575,58 @@ function AiPhotoMealForm({
                   className="h-7 text-xs"
                 />
                 <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
-                  <Input
-                    type="number"
-                    value={draft.calories}
-                    onChange={(e) => updateDraft(i, "calories", e.target.value)}
-                    disabled={busy}
-                    placeholder="kcal"
-                    className="h-7 text-xs"
-                  />
-                  <Input
-                    type="number"
-                    value={draft.proteinG}
-                    onChange={(e) => updateDraft(i, "proteinG", e.target.value)}
-                    disabled={busy}
-                    placeholder="protein"
-                    className="h-7 text-xs"
-                  />
-                  <Input
-                    type="number"
-                    value={draft.carbsG}
-                    onChange={(e) => updateDraft(i, "carbsG", e.target.value)}
-                    disabled={busy}
-                    placeholder="carbs"
-                    className="h-7 text-xs"
-                  />
-                  <Input
-                    type="number"
-                    value={draft.fatG}
-                    onChange={(e) => updateDraft(i, "fatG", e.target.value)}
-                    disabled={busy}
-                    placeholder="fat"
-                    className="h-7 text-xs"
-                  />
+                  <div className="space-y-0.5">
+                    <Label className="text-[10px] font-normal text-muted-foreground">
+                      Calories (kcal)
+                    </Label>
+                    <Input
+                      type="number"
+                      value={draft.calories}
+                      onChange={(e) => updateDraft(i, "calories", e.target.value)}
+                      disabled={busy}
+                      placeholder="kcal"
+                      className="h-7 text-xs"
+                    />
+                  </div>
+                  <div className="space-y-0.5">
+                    <Label className="text-[10px] font-normal text-muted-foreground">
+                      Protein (g)
+                    </Label>
+                    <Input
+                      type="number"
+                      value={draft.proteinG}
+                      onChange={(e) => updateDraft(i, "proteinG", e.target.value)}
+                      disabled={busy}
+                      placeholder="protein"
+                      className="h-7 text-xs"
+                    />
+                  </div>
+                  <div className="space-y-0.5">
+                    <Label className="text-[10px] font-normal text-muted-foreground">
+                      Carbs (g)
+                    </Label>
+                    <Input
+                      type="number"
+                      value={draft.carbsG}
+                      onChange={(e) => updateDraft(i, "carbsG", e.target.value)}
+                      disabled={busy}
+                      placeholder="carbs"
+                      className="h-7 text-xs"
+                    />
+                  </div>
+                  <div className="space-y-0.5">
+                    <Label className="text-[10px] font-normal text-muted-foreground">
+                      Fat (g)
+                    </Label>
+                    <Input
+                      type="number"
+                      value={draft.fatG}
+                      onChange={(e) => updateDraft(i, "fatG", e.target.value)}
+                      disabled={busy}
+                      placeholder="fat"
+                      className="h-7 text-xs"
+                    />
+                  </div>
                 </div>
               </div>
             ))}
