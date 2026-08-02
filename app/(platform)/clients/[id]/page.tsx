@@ -7,6 +7,7 @@ import * as sessionService from "@/lib/services/session.service";
 import * as programService from "@/lib/services/program.service";
 import * as messageService from "@/lib/services/message.service";
 import { getExercisesForPicker } from "@/lib/services/exercise.service";
+import { getOrganizationProfile } from "@/actions/organization-actions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -35,13 +36,14 @@ export default async function ClientDetailPage({ params }: Props) {
 
   // Fetch V2 sessions, programs, exercise library, adherence history, and the
   // trainer↔client message thread for the tabs on this page.
-  const [v2Sessions, assignedPrograms, exerciseLibrary, pastSessions, threadMessages] =
+  const [v2Sessions, assignedPrograms, exerciseLibrary, pastSessions, threadMessages, organizationProfile] =
     await Promise.all([
       sessionService.getSessionsForClient(client.id),
       programService.getProgramsForClient(client.id),
       getExercisesForPicker(organizationOrgId),
       sessionService.getClientPastSessions(client.id),
       messageService.getThread(user.id, client.id),
+      getOrganizationProfile().catch(() => null),
     ]);
 
   const adherence = sessionService.computeAdherenceStats(pastSessions);
@@ -257,6 +259,7 @@ export default async function ClientDetailPage({ params }: Props) {
             initialSessions={calendarSessions}
             exerciseLibrary={exerciseLibrary}
             organizationOrganizationId={organizationOrgId}
+            exerciseSourcePreference={organizationProfile?.exerciseSourcePreference}
           />
         </TabsContent>
 

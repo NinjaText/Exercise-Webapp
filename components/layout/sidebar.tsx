@@ -20,6 +20,7 @@ import {
   CreditCard,
   History,
   Apple,
+  Building2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -84,7 +85,7 @@ export function Sidebar({
   // Collect every href rendered in this sidebar so we can find the best match.
   const accountHrefs = [
     "/settings",
-    ...(role === "TRAINER" ? ["/settings/billing", "/settings/audit-log"] : []),
+    ...(role === "TRAINER" ? ["/settings/clinic", "/settings/billing", "/settings/audit-log"] : []),
   ];
   const allHrefs = [...links.map((l) => l.href), ...accountHrefs];
 
@@ -191,6 +192,7 @@ export function Sidebar({
         </div>
         {role === "TRAINER" && navItem("/settings/billing", "Billing", CreditCard)}
         {navItem("/settings", "Settings", Settings)}
+        {role === "TRAINER" && navItem("/settings/clinic", "Organization Settings", Building2)}
         {role === "TRAINER" && navItem("/settings/audit-log", "Audit Log", History)}
 
         {isAdmin && (

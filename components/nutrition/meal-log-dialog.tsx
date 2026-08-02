@@ -2,17 +2,15 @@
 
 import { useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
-import { Plus, Loader2, Camera, X, Sparkles, Trash2 } from "lucide-react";
+import { Plus, Loader2, Camera, X, Sparkles } from "lucide-react";
 import {
-  createNutritionLogAction,
   analyzeMealPhotoAction,
-  estimateMealMacrosAction,
+  estimateMealMacrosBatchAction,
   createNutritionLogsBulkAction,
 } from "@/actions/nutrition-actions";
 import { useMealPhotoUpload } from "@/hooks/use-meal-photo-upload";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Dialog,
@@ -23,6 +21,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { FoodItemRowList, emptyFoodItemDraft, type FoodItemDraft } from "./food-item-row-list";
 
 const MEAL_TYPES = [
   { value: "BREAKFAST", label: "Breakfast" },
@@ -32,15 +31,6 @@ const MEAL_TYPES = [
 ] as const;
 
 type MealType = (typeof MEAL_TYPES)[number]["value"];
-
-interface DraftFood {
-  description: string;
-  quantity: string;
-  calories: string;
-  proteinG: string;
-  carbsG: string;
-  fatG: string;
-}
 
 interface MealLogDialogProps {
   clientId: string;
@@ -102,7 +92,7 @@ export function MealLogDialog({ clientId, date, defaultMealType }: MealLogDialog
         Log Meal
       </DialogTrigger>
 
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Log a Meal</DialogTitle>
           <DialogDescription>Add food to your daily timeline, manually or from a photo.</DialogDescription>
@@ -176,17 +166,29 @@ function ManualMealForm({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { upload, uploadState } = useMealPhotoUpload();
 
-  const [description, setDescription] = useState("");
-  const [quantity, setQuantity] = useState("");
-  const [calories, setCalories] = useState("");
-  const [proteinG, setProteinG] = useState("");
-  const [carbsG, setCarbsG] = useState("");
-  const [fatG, setFatG] = useState("");
+  const [items, setItems] = useState<FoodItemDraft[]>([emptyFoodItemDraft()]);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
 
   const isUploadingPhoto = uploadState === "uploading" || uploadState === "confirming";
   const busy = isPending || isUploadingPhoto || isEstimating;
+  const validItems = items.filter((i) => i.description.trim().length > 0);
+
+  function updateItem(index: number, field: keyof FoodItemDraft, value: string) {
+    setItems((prev) => {
+      const next = [...prev];
+      next[index] = { ...next[index], [field]: value };
+      return next;
+    });
+  }
+
+  function removeItem(index: number) {
+    setItems((prev) => (prev.length > 1 ? prev.filter((_, i) => i !== index) : prev));
+  }
+
+  function addItem() {
+    setItems((prev) => [...prev, emptyFoodItemDraft()]);
+  }
 
   function handlePhotoSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -196,23 +198,39 @@ function ManualMealForm({
   }
 
   async function handleEstimate() {
-    if (!description.trim()) {
-      toast.error("Enter what you ate first");
+    if (validItems.length === 0) {
+      toast.error("Enter at least one food item first");
       return;
     }
 
     setIsEstimating(true);
     try {
-      const result = await estimateMealMacrosAction({
-        description: description.trim(),
-        quantity: quantity.trim() || undefined,
+      const result = await estimateMealMacrosBatchAction({
+        items: validItems.map((i) => ({
+          name: i.description.trim(),
+          quantity: i.quantity.trim() || undefined,
+        })),
       });
 
       if (result.success) {
-        setCalories(String(result.data.calories));
-        setProteinG(String(result.data.proteinG));
-        setCarbsG(String(result.data.carbsG));
-        setFatG(String(result.data.fatG));
+        setItems((prev) => {
+          const next = [...prev];
+          let estimateIndex = 0;
+          for (let i = 0; i < next.length; i++) {
+            if (next[i].description.trim().length === 0) continue;
+            const estimate = result.data.estimates[estimateIndex];
+            estimateIndex++;
+            if (!estimate) continue;
+            next[i] = {
+              ...next[i],
+              calories: String(estimate.calories),
+              proteinG: String(estimate.proteinG),
+              carbsG: String(estimate.carbsG),
+              fatG: String(estimate.fatG),
+            };
+          }
+          return next;
+        });
         toast.success("Estimated — review and adjust if needed");
       } else {
         toast.error(result.error ?? "Failed to estimate macros");
@@ -225,8 +243,8 @@ function ManualMealForm({
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
-    if (!description.trim()) {
-      toast.error("Please enter what you ate");
+    if (validItems.length === 0) {
+      toast.error("Please enter at least one food item");
       return;
     }
 
@@ -239,21 +257,23 @@ function ManualMealForm({
         }
       }
 
-      const result = await createNutritionLogAction({
+      const result = await createNutritionLogsBulkAction({
         clientId,
         date,
         mealType,
-        description: description.trim(),
-        quantity: quantity.trim() || undefined,
-        calories: calories ? parseInt(calories, 10) : undefined,
-        proteinG: proteinG ? parseFloat(proteinG) : undefined,
-        carbsG: carbsG ? parseFloat(carbsG) : undefined,
-        fatG: fatG ? parseFloat(fatG) : undefined,
-        photoUrl,
+        logs: validItems.map((i) => ({
+          description: i.description.trim(),
+          quantity: i.quantity.trim() || undefined,
+          calories: i.calories ? parseInt(i.calories, 10) : undefined,
+          proteinG: i.proteinG ? parseFloat(i.proteinG) : undefined,
+          carbsG: i.carbsG ? parseFloat(i.carbsG) : undefined,
+          fatG: i.fatG ? parseFloat(i.fatG) : undefined,
+          photoUrl,
+        })),
       });
 
       if (result.success) {
-        toast.success("Meal logged");
+        toast.success(`Logged ${validItems.length} item${validItems.length !== 1 ? "s" : ""}`);
         onSaved();
       } else {
         toast.error(result.error ?? "Failed to log meal");
@@ -264,38 +284,12 @@ function ManualMealForm({
   return (
     <form onSubmit={handleSubmit}>
       <div className="mt-4 space-y-4">
-        <div className="space-y-2">
-          <Label htmlFor="meal-description">Food</Label>
-          <Input
-            id="meal-description"
-            placeholder="e.g. Grilled chicken breast"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            required
-            autoFocus
-            disabled={busy}
-            maxLength={200}
-          />
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="meal-quantity">Serving size (optional)</Label>
-          <Input
-            id="meal-quantity"
-            placeholder="e.g. 6 oz, 1 cup"
-            value={quantity}
-            onChange={(e) => setQuantity(e.target.value)}
-            disabled={busy}
-            maxLength={100}
-          />
-        </div>
-
         <div className="flex items-center justify-between">
-          <Label className="text-xs text-muted-foreground">Macros</Label>
+          <Label className="text-xs text-muted-foreground">Food items</Label>
           <button
             type="button"
             onClick={handleEstimate}
-            disabled={busy || !description.trim()}
+            disabled={busy || validItems.length === 0}
             className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-semibold text-primary hover:bg-primary/10 disabled:opacity-50"
           >
             {isEstimating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
@@ -303,55 +297,17 @@ function ManualMealForm({
           </button>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-2">
-            <Label htmlFor="meal-calories">Calories</Label>
-            <Input
-              id="meal-calories"
-              type="number"
-              min={0}
-              value={calories}
-              onChange={(e) => setCalories(e.target.value)}
-              disabled={busy}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="meal-protein">Protein (g)</Label>
-            <Input
-              id="meal-protein"
-              type="number"
-              min={0}
-              step="any"
-              value={proteinG}
-              onChange={(e) => setProteinG(e.target.value)}
-              disabled={busy}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="meal-carbs">Carbs (g)</Label>
-            <Input
-              id="meal-carbs"
-              type="number"
-              min={0}
-              step="any"
-              value={carbsG}
-              onChange={(e) => setCarbsG(e.target.value)}
-              disabled={busy}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="meal-fat">Fat (g)</Label>
-            <Input
-              id="meal-fat"
-              type="number"
-              min={0}
-              step="any"
-              value={fatG}
-              onChange={(e) => setFatG(e.target.value)}
-              disabled={busy}
-            />
-          </div>
-        </div>
+        <FoodItemRowList items={items} onChange={updateItem} onRemove={removeItem} disabled={busy} />
+
+        <button
+          type="button"
+          onClick={addItem}
+          disabled={busy}
+          className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline disabled:opacity-50"
+        >
+          <Plus className="h-3.5 w-3.5" />
+          Add another item
+        </button>
 
         <div className="space-y-2">
           <Label>Photo (optional)</Label>
@@ -398,9 +354,9 @@ function ManualMealForm({
         <Button type="button" variant="outline" onClick={onCancel} disabled={busy}>
           Cancel
         </Button>
-        <Button type="submit" disabled={busy || !description.trim()}>
+        <Button type="submit" disabled={busy || validItems.length === 0}>
           {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          Save Meal
+          Save {validItems.length} Item{validItems.length !== 1 ? "s" : ""}
         </Button>
       </DialogFooter>
     </form>
@@ -427,7 +383,7 @@ function AiPhotoMealForm({
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isSaving, startSaving] = useTransition();
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
-  const [drafts, setDrafts] = useState<DraftFood[] | null>(null);
+  const [drafts, setDrafts] = useState<FoodItemDraft[] | null>(null);
 
   const busy = isAnalyzing || isSaving;
 
@@ -466,7 +422,7 @@ function AiPhotoMealForm({
     }
   }
 
-  function updateDraft(index: number, field: keyof DraftFood, value: string) {
+  function updateDraft(index: number, field: keyof FoodItemDraft, value: string) {
     setDrafts((prev) => {
       if (!prev) return prev;
       const next = [...prev];
@@ -547,90 +503,12 @@ function AiPhotoMealForm({
           <p className="text-xs text-muted-foreground">
             Review and edit the detected items before saving.
           </p>
-          <div className="max-h-64 space-y-3 overflow-y-auto pr-1">
-            {drafts.map((draft, i) => (
-              <div key={i} className="space-y-2 rounded-lg p-3 ring-1 ring-border/50">
-                <div className="flex items-center gap-2">
-                  <Input
-                    value={draft.description}
-                    onChange={(e) => updateDraft(i, "description", e.target.value)}
-                    disabled={busy}
-                    className="h-8 flex-1 text-sm"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => removeDraft(i)}
-                    disabled={busy}
-                    aria-label="Remove item"
-                    className="shrink-0 text-muted-foreground hover:text-destructive"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-                <Input
-                  value={draft.quantity}
-                  onChange={(e) => updateDraft(i, "quantity", e.target.value)}
-                  disabled={busy}
-                  placeholder="Serving size"
-                  className="h-7 text-xs"
-                />
-                <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
-                  <div className="space-y-0.5">
-                    <Label className="text-[10px] font-normal text-muted-foreground">
-                      Calories (kcal)
-                    </Label>
-                    <Input
-                      type="number"
-                      value={draft.calories}
-                      onChange={(e) => updateDraft(i, "calories", e.target.value)}
-                      disabled={busy}
-                      placeholder="kcal"
-                      className="h-7 text-xs"
-                    />
-                  </div>
-                  <div className="space-y-0.5">
-                    <Label className="text-[10px] font-normal text-muted-foreground">
-                      Protein (g)
-                    </Label>
-                    <Input
-                      type="number"
-                      value={draft.proteinG}
-                      onChange={(e) => updateDraft(i, "proteinG", e.target.value)}
-                      disabled={busy}
-                      placeholder="protein"
-                      className="h-7 text-xs"
-                    />
-                  </div>
-                  <div className="space-y-0.5">
-                    <Label className="text-[10px] font-normal text-muted-foreground">
-                      Carbs (g)
-                    </Label>
-                    <Input
-                      type="number"
-                      value={draft.carbsG}
-                      onChange={(e) => updateDraft(i, "carbsG", e.target.value)}
-                      disabled={busy}
-                      placeholder="carbs"
-                      className="h-7 text-xs"
-                    />
-                  </div>
-                  <div className="space-y-0.5">
-                    <Label className="text-[10px] font-normal text-muted-foreground">
-                      Fat (g)
-                    </Label>
-                    <Input
-                      type="number"
-                      value={draft.fatG}
-                      onChange={(e) => updateDraft(i, "fatG", e.target.value)}
-                      disabled={busy}
-                      placeholder="fat"
-                      className="h-7 text-xs"
-                    />
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
+          <FoodItemRowList
+            items={drafts}
+            onChange={(i, field, value) => updateDraft(i, field, value)}
+            onRemove={removeDraft}
+            disabled={busy}
+          />
         </div>
       )}
 

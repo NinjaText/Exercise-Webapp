@@ -1,6 +1,7 @@
 "use server";
 
 import { auth } from "@clerk/nextjs/server";
+import { z } from "zod";
 import { randomUUID } from "crypto";
 import {
   PutObjectCommand,
@@ -18,17 +19,17 @@ import * as nutritionService from "@/lib/services/nutrition.service";
 import * as nutritionAiService from "@/lib/services/nutrition-ai.service";
 import {
   upsertNutritionTargetSchema,
-  createNutritionLogSchema,
-  updateNutritionLogSchema,
   addWaterLogSchema,
   createNutritionCommentSchema,
   mealPhotoPresignSchema,
   mealPhotoConfirmSchema,
   analyzeMealPhotoSchema,
-  estimateMealMacrosSchema,
+  estimateMealMacrosBatchSchema,
   bulkCreateNutritionLogSchema,
+  updateMealGroupSchema,
   generateDailySummarySchema,
   generateWeeklyReviewSchema,
+  MEAL_TYPES,
 } from "@/lib/validators/nutrition";
 import type {
   MealPhotoFoodDraft,
@@ -89,54 +90,6 @@ export async function upsertNutritionTargetAction(
 
 // ─── Meal Logs (client-only — clients log their own meals) ─────────────────
 
-export async function createNutritionLogAction(
-  input: unknown
-): Promise<ActionResult<{ id: string }>> {
-  const parsed = createNutritionLogSchema.safeParse(input);
-  if (!parsed.success) return { success: false, error: "Invalid input" };
-
-  const user = await getAuthedUser();
-  if (!user) return { success: false, error: "Unauthorized" };
-  if (user.role !== "CLIENT" || user.id !== parsed.data.clientId) {
-    return { success: false, error: "Forbidden" };
-  }
-
-  try {
-    const log = await nutritionService.createNutritionLog(parsed.data);
-    revalidatePath("/nutrition");
-    return { success: true, data: { id: log.id } };
-  } catch (err) {
-    console.error("[nutrition] createLog error:", err);
-    return { success: false, error: "Failed to log meal" };
-  }
-}
-
-export async function updateNutritionLogAction(
-  logId: string,
-  input: unknown
-): Promise<ActionResult> {
-  const parsed = updateNutritionLogSchema.safeParse(input);
-  if (!parsed.success) return { success: false, error: "Invalid input" };
-
-  const user = await getAuthedUser();
-  if (!user) return { success: false, error: "Unauthorized" };
-
-  const log = await prisma.nutritionLog.findUnique({ where: { id: logId } });
-  if (!log) return { success: false, error: "Not found" };
-  if (user.role !== "CLIENT" || log.clientId !== user.id) {
-    return { success: false, error: "Forbidden" };
-  }
-
-  try {
-    await nutritionService.updateNutritionLog(logId, parsed.data);
-    revalidatePath("/nutrition");
-    return { success: true, data: undefined };
-  } catch (err) {
-    console.error("[nutrition] updateLog error:", err);
-    return { success: false, error: "Failed to update meal" };
-  }
-}
-
 export async function deleteNutritionLogAction(logId: string): Promise<ActionResult> {
   const user = await getAuthedUser();
   if (!user) return { success: false, error: "Unauthorized" };
@@ -154,6 +107,45 @@ export async function deleteNutritionLogAction(logId: string): Promise<ActionRes
   } catch (err) {
     console.error("[nutrition] deleteLog error:", err);
     return { success: false, error: "Failed to delete meal" };
+  }
+}
+
+export async function updateMealGroupAction(
+  clientId: string,
+  date: Date,
+  mealType: string,
+  input: unknown
+): Promise<ActionResult<{ ids: string[] }>> {
+  const parsed = updateMealGroupSchema.safeParse(input);
+  if (!parsed.success) return { success: false, error: "Invalid input" };
+
+  if (!MEAL_TYPES.includes(mealType as (typeof MEAL_TYPES)[number])) {
+    return { success: false, error: "Invalid input" };
+  }
+  const parsedDate = z.coerce.date().safeParse(date);
+  if (!parsedDate.success) return { success: false, error: "Invalid input" };
+
+  const user = await getAuthedUser();
+  if (!user) return { success: false, error: "Unauthorized" };
+  if (user.role === "CLIENT") {
+    if (user.id !== clientId) return { success: false, error: "Forbidden" };
+  } else if (user.role === "TRAINER") {
+    if (!(await canTrainerAccessClient(user.id, clientId))) {
+      return { success: false, error: "Forbidden" };
+    }
+  } else {
+    return { success: false, error: "Forbidden" };
+  }
+
+  try {
+    const { ids } = await nutritionService.updateMealGroup(clientId, parsedDate.data, mealType, parsed.data.items);
+    revalidatePath("/nutrition");
+    revalidatePath(`/nutrition/${clientId}`);
+    return { success: true, data: { ids } };
+  } catch (err) {
+    console.error("[nutrition] updateMealGroup error:", err);
+    const message = err instanceof Error ? err.message : "Failed to update meal";
+    return { success: false, error: message };
   }
 }
 
@@ -336,24 +328,23 @@ export async function analyzeMealPhotoAction(
   }
 }
 
-export async function estimateMealMacrosAction(
+export async function estimateMealMacrosBatchAction(
   input: unknown
-): Promise<ActionResult<MealMacroEstimate>> {
-  const parsed = estimateMealMacrosSchema.safeParse(input);
+): Promise<ActionResult<{ estimates: MealMacroEstimate[] }>> {
+  const parsed = estimateMealMacrosBatchSchema.safeParse(input);
   if (!parsed.success) return { success: false, error: "Invalid input" };
 
   const user = await getAuthedUser();
   if (!user) return { success: false, error: "Unauthorized" };
-  if (user.role !== "CLIENT") return { success: false, error: "Forbidden" };
+  if (user.role !== "CLIENT" && user.role !== "TRAINER") {
+    return { success: false, error: "Forbidden" };
+  }
 
   try {
-    const estimate = await nutritionAiService.estimateMealMacrosFromText(
-      parsed.data.description,
-      parsed.data.quantity
-    );
-    return { success: true, data: estimate };
+    const estimates = await nutritionAiService.estimateMealMacrosBatch(parsed.data.items);
+    return { success: true, data: { estimates } };
   } catch (err) {
-    console.error("[nutrition] estimateMealMacros error:", err);
+    console.error("[nutrition] estimateMealMacrosBatch error:", err);
     return { success: false, error: "Failed to estimate macros" };
   }
 }

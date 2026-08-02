@@ -9,18 +9,29 @@ import { MacroProgressBars } from "@/components/nutrition/macro-progress-bars";
 import { WaterTracker } from "@/components/nutrition/water-tracker";
 import { NutritionGoalsDialog } from "@/components/nutrition/nutrition-goals-dialog";
 import { MealsTable } from "@/components/nutrition/meals-table";
+import { MealsRangeFilter } from "@/components/nutrition/meals-range-filter";
+import { formatUtcDate } from "@/components/nutrition/nutrition-date-utils";
 import { DayNotesCard } from "@/components/nutrition/day-notes-card";
 import { TrendRangeToggle } from "@/components/nutrition/trend-range-toggle";
 import { AccountabilityScoreCard } from "@/components/nutrition/accountability-score-card";
 import { WeeklyReviewCard } from "@/components/nutrition/weekly-review-card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
+function describeEmptyRange(preset: nutritionService.NutritionRangePreset, start: Date, end: Date): string {
+  if (preset === "TODAY") return "No meals logged today.";
+  if (start.getTime() === end.getTime()) return `No meals logged for ${formatUtcDate(start)}.`;
+  return `No meals logged between ${formatUtcDate(start)} and ${formatUtcDate(end)}.`;
+}
+
 export default async function ClientNutritionDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ clientId: string }>;
+  searchParams: Promise<{ range?: string; start?: string; end?: string }>;
 }) {
   const { clientId } = await params;
+  const rangeParams = await searchParams;
   const user = await getCurrentUser();
 
   if (user.role !== "TRAINER") notFound();
@@ -35,10 +46,12 @@ export default async function ClientNutritionDetailPage({
   if (!client) notFound();
 
   const today = new Date();
-  const [summary, logs, comments, history7, history30, weekly] = await Promise.all([
+  const { preset, start, end } = nutritionService.parseNutritionRangeParams(rangeParams);
+  const isSingleDay = start.getTime() === end.getTime();
+  const [summary, mealsLogs, mealsComments, history7, history30, weekly] = await Promise.all([
     nutritionService.getDailySummary(clientId, today),
-    nutritionService.getNutritionLogsForDate(clientId, today),
-    nutritionService.getNutritionCommentsForDate(clientId, today),
+    nutritionService.getNutritionLogsForRange(clientId, start, end),
+    nutritionService.getNutritionCommentsForRange(clientId, start, end),
     nutritionService.getNutritionHistory(clientId, 7),
     nutritionService.getNutritionHistory(clientId, 30),
     accountabilityService.computeWeeklyAccountabilityScore(clientId, today),
@@ -99,15 +112,21 @@ export default async function ClientNutritionDetailPage({
         </TabsList>
 
         <TabsContent value="today" className="space-y-5 pt-1">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold">Meals</h3>
+            <MealsRangeFilter preset={preset} start={start} end={end} />
+          </div>
+
           <MealsTable
             clientId={clientId}
-            date={today}
-            logs={logs}
-            comments={comments}
+            logs={mealsLogs}
+            comments={mealsComments}
             canDelete={false}
+            canEdit
+            emptyMessage={describeEmptyRange(preset, start, end)}
           />
 
-          <DayNotesCard clientId={clientId} date={today} comments={comments} />
+          {isSingleDay && <DayNotesCard clientId={clientId} date={start} comments={mealsComments} />}
         </TabsContent>
 
         <TabsContent value="insights" className="space-y-5 pt-1">

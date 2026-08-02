@@ -38,6 +38,7 @@ import {
 } from "@/actions/program-actions";
 import { ProgramBuilder } from "./program-builder";
 import { ClinicVisibilitySelector } from "./clinic-visibility-selector";
+import { type ExerciseSourcePreference } from "@/lib/utils/exercise-picker";
 
 interface Props {
   program?: Record<string, unknown>;
@@ -58,6 +59,7 @@ interface Props {
   redirectTo?: string;
   organizationOrganizationId?: string;
   clinics?: { id: string; name: string }[];
+  exerciseSourcePreference?: ExerciseSourcePreference;
 }
 
 // Helper to map DB workout to input type
@@ -113,7 +115,7 @@ function mapWorkoutToInput(w: Record<string, unknown>): WorkoutInput {
   };
 }
 
-export function ProgramEditor({ program, exercises, onSave, redirectTo, organizationOrganizationId, clinics }: Props) {
+export function ProgramEditor({ program, exercises, onSave, redirectTo, organizationOrganizationId, clinics, exerciseSourcePreference }: Props) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
   const [workouts, setWorkouts] = useState<WorkoutInput[]>(
@@ -437,6 +439,7 @@ export function ProgramEditor({ program, exercises, onSave, redirectTo, organiza
           onChange={setWorkouts}
           exerciseLibrary={exercises}
           organizationOrganizationId={organizationOrganizationId}
+          exerciseSourcePreference={exerciseSourcePreference}
         />
 
         {/* Submit */}

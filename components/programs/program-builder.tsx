@@ -44,6 +44,7 @@ import { cn } from "@/lib/utils";
 import { useClipboard, stripIds } from "@/lib/clipboard-context";
 import { useBuilderKeyboard } from "@/hooks/use-builder-keyboard";
 import { toast } from "sonner";
+import { type ExerciseSourcePreference } from "@/lib/utils/exercise-picker";
 
 interface Props {
   workouts: WorkoutInput[];
@@ -61,6 +62,7 @@ interface Props {
     videoProvider?: string | null;
   }[];
   organizationOrganizationId?: string;
+  exerciseSourcePreference?: ExerciseSourcePreference;
 }
 
 interface SelectionState {
@@ -121,7 +123,7 @@ function SortableExercise({
   );
 }
 
-export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizationOrganizationId }: Props) {
+export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizationOrganizationId, exerciseSourcePreference }: Props) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [videoPreview, setVideoPreview] = useState<{ url: string; provider?: string | null; name: string } | null>(null);
   const [pickerTarget, setPickerTarget] = useState<{
@@ -836,6 +838,7 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
         exercises={exerciseLibrary}
         onSelect={addExerciseToBlock}
         organizationOrganizationId={organizationOrganizationId}
+        exerciseSourcePreference={exerciseSourcePreference}
       />
 
       {/* Video preview modal */}

@@ -7,6 +7,8 @@ import { WaterTracker } from "@/components/nutrition/water-tracker";
 import { NutritionGoalsDialog } from "@/components/nutrition/nutrition-goals-dialog";
 import { MealLogDialog } from "@/components/nutrition/meal-log-dialog";
 import { MealsTable } from "@/components/nutrition/meals-table";
+import { MealsRangeFilter } from "@/components/nutrition/meals-range-filter";
+import { formatUtcDate } from "@/components/nutrition/nutrition-date-utils";
 import { DayNotesCard } from "@/components/nutrition/day-notes-card";
 import { ClientRosterAdherence } from "@/components/nutrition/client-roster-adherence";
 import { TrendRangeToggle } from "@/components/nutrition/trend-range-toggle";
@@ -23,28 +25,47 @@ function getTodayLabel(): string {
   });
 }
 
-export default async function NutritionPage() {
+export default async function NutritionPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ range?: string; start?: string; end?: string }>;
+}) {
+  const rangeParams = await searchParams;
   const user = await getCurrentUser();
 
   if (user.role === "TRAINER") {
     return <TrainerNutritionView trainerId={user.id} />;
   }
 
-  return <ClientNutritionView clientId={user.id} />;
+  return <ClientNutritionView clientId={user.id} rangeParams={rangeParams} />;
+}
+
+function describeEmptyRange(preset: nutritionService.NutritionRangePreset, start: Date, end: Date): string {
+  if (preset === "TODAY") return "No meals logged today.";
+  if (start.getTime() === end.getTime()) return `No meals logged for ${formatUtcDate(start)}.`;
+  return `No meals logged between ${formatUtcDate(start)} and ${formatUtcDate(end)}.`;
 }
 
 // ─── Client View ─────────────────────────────────────────────────────────────
 
-async function ClientNutritionView({ clientId }: { clientId: string }) {
+async function ClientNutritionView({
+  clientId,
+  rangeParams,
+}: {
+  clientId: string;
+  rangeParams: { range?: string; start?: string; end?: string };
+}) {
   const today = new Date();
+  const { preset, start, end } = nutritionService.parseNutritionRangeParams(rangeParams);
+  const isSingleDay = start.getTime() === end.getTime();
 
-  const [summary, logs, comments, history7, history30, weekly] = await Promise.all([
+  const [summary, history7, history30, weekly, mealsLogs, mealsComments] = await Promise.all([
     nutritionService.getDailySummary(clientId, today),
-    nutritionService.getNutritionLogsForDate(clientId, today),
-    nutritionService.getNutritionCommentsForDate(clientId, today),
     nutritionService.getNutritionHistory(clientId, 7),
     nutritionService.getNutritionHistory(clientId, 30),
     accountabilityService.computeWeeklyAccountabilityScore(clientId, today),
+    nutritionService.getNutritionLogsForRange(clientId, start, end),
+    nutritionService.getNutritionCommentsForRange(clientId, start, end),
   ]);
 
   const daily = weekly.days[weekly.days.length - 1];
@@ -98,14 +119,24 @@ async function ClientNutritionView({ clientId }: { clientId: string }) {
         </TabsList>
 
         <TabsContent value="today" className="space-y-5 pt-1">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <h3 className="text-sm font-semibold">Meals</h3>
-            <MealLogDialog clientId={clientId} date={today} />
+            <div className="flex items-center gap-2">
+              <MealsRangeFilter preset={preset} start={start} end={end} />
+              <MealLogDialog clientId={clientId} date={today} />
+            </div>
           </div>
 
-          <MealsTable clientId={clientId} date={today} logs={logs} comments={comments} canDelete />
+          <MealsTable
+            clientId={clientId}
+            logs={mealsLogs}
+            comments={mealsComments}
+            canDelete
+            canEdit
+            emptyMessage={describeEmptyRange(preset, start, end)}
+          />
 
-          <DayNotesCard clientId={clientId} date={today} comments={comments} />
+          {isSingleDay && <DayNotesCard clientId={clientId} date={start} comments={mealsComments} />}
 
           <div className="rounded-xl p-4 ring-1 ring-border/50 shadow-sm">
             <DailySummaryCard clientId={clientId} date={today} />
