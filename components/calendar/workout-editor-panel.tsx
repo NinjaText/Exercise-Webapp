@@ -31,7 +31,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ExercisePickerDialog } from "@/components/programs/exercise-picker-dialog";
-import type { SessionWithFullWorkout } from "@/actions/calendar-workout-actions";                                                                               
+import type { ExerciseSourcePreference } from "@/lib/utils/exercise-picker";
+import type { SessionWithFullWorkout } from "@/actions/calendar-workout-actions";
 import {
   getSessionWithWorkout,
   updateWorkoutName,
@@ -116,6 +117,7 @@ interface WorkoutEditorPanelProps {
   onClose: () => void;
   exerciseLibrary: ExerciseSummary[];
   organizationOrganizationId?: string;
+  exerciseSourcePreference?: ExerciseSourcePreference;
   clientId: string;
   onWorkoutCreated: () => void;
   onWorkoutDeleted: () => void;
@@ -625,6 +627,7 @@ export function WorkoutEditorPanel({
   onClose,
   exerciseLibrary,
   organizationOrganizationId,
+  exerciseSourcePreference,
   clientId,
   onWorkoutCreated,
   onWorkoutDeleted,
@@ -1630,6 +1633,7 @@ export function WorkoutEditorPanel({
         onOpenChange={setPickerOpen}
         exercises={exerciseLibrary}
         organizationOrganizationId={organizationOrganizationId}
+        exerciseSourcePreference={exerciseSourcePreference}
         onSelect={handleExerciseSelected}
       />
     </>

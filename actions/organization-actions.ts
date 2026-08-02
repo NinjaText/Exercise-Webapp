@@ -4,6 +4,7 @@ import { auth, clerkClient } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { logAudit, diffFields, deriveActorType, AUDIT_ACTIONS } from "@/lib/services/audit-log.service";
+import { EXERCISE_SOURCE_PREFERENCES, type ExerciseSourcePreference } from "@/lib/utils/exercise-picker";
 
 export interface OrganizationMetadata {
   organizationName: string;
@@ -13,6 +14,7 @@ export interface OrganizationMetadata {
   email?: string;
   website?: string;
   address?: string;
+  exerciseSourcePreference?: ExerciseSourcePreference;
 }
 
 export async function getOrganizationProfile(): Promise<OrganizationMetadata | null> {
@@ -26,6 +28,12 @@ export async function getOrganizationProfile(): Promise<OrganizationMetadata | n
   const org = await client.organizations.getOrganization({ organizationId: dbUser.clerkOrgId });
 
   const meta = (org.publicMetadata ?? {}) as Record<string, string>;
+  const exerciseSourcePreference: ExerciseSourcePreference = EXERCISE_SOURCE_PREFERENCES.includes(
+    meta.exerciseSourcePreference as ExerciseSourcePreference
+  )
+    ? (meta.exerciseSourcePreference as ExerciseSourcePreference)
+    : "BOTH";
+
   return {
     organizationName: org.name,
     tagline: meta.tagline ?? "",
@@ -34,6 +42,7 @@ export async function getOrganizationProfile(): Promise<OrganizationMetadata | n
     email: meta.email ?? "",
     website: meta.website ?? "",
     address: meta.address ?? "",
+    exerciseSourcePreference,
   };
 }
 
@@ -69,6 +78,11 @@ export async function saveOrganizationProfile(input: OrganizationMetadata) {
       email: input.email ?? "",
       website: input.website ?? "",
       address: input.address ?? "",
+      exerciseSourcePreference: EXERCISE_SOURCE_PREFERENCES.includes(
+        input.exerciseSourcePreference as ExerciseSourcePreference
+      )
+        ? (input.exerciseSourcePreference as ExerciseSourcePreference)
+        : "BOTH",
     };
 
     await client.organizations.updateOrganization(dbUser.clerkOrgId, {
@@ -80,6 +94,7 @@ export async function saveOrganizationProfile(input: OrganizationMetadata) {
         email: normalizedAfter.email,
         website: normalizedAfter.website,
         address: normalizedAfter.address,
+        exerciseSourcePreference: normalizedAfter.exerciseSourcePreference,
       },
     });
 
@@ -89,7 +104,7 @@ export async function saveOrganizationProfile(input: OrganizationMetadata) {
       ? diffFields(
           before as unknown as Record<string, unknown>,
           normalizedAfter as unknown as Record<string, unknown>,
-          ["organizationName", "tagline", "logoUrl", "phone", "email", "website", "address"]
+          ["organizationName", "tagline", "logoUrl", "phone", "email", "website", "address", "exerciseSourcePreference"]
         )
       : undefined;
 

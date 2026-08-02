@@ -26,6 +26,7 @@ import { UniversalVideoPlayer } from "@/components/exercises/universal-video-pla
 import { createOrganizationExerciseAction, toggleExercisePublicAction } from "@/actions/exercise-actions";
 import { isYouTubeUrl } from "@/lib/utils/video";
 import { toast } from "sonner";
+import { resolvePickerTabs, type ExerciseSourcePreference } from "@/lib/utils/exercise-picker";
 
 interface Exercise {
   id: string;
@@ -49,6 +50,7 @@ interface Props {
   exercises: Exercise[];
   onSelect: (exercise: Exercise) => void;
   organizationOrganizationId?: string | null;
+  exerciseSourcePreference?: ExerciseSourcePreference;
 }
 
 const PHASES = [
@@ -366,6 +368,7 @@ export function ExercisePickerDialog({
   exercises,
   onSelect,
   organizationOrganizationId,
+  exerciseSourcePreference,
 }: Props) {
   const [search, setSearch]     = useState("");
   const [phase, setPhase]       = useState<string>("all");
@@ -420,6 +423,11 @@ export function ExercisePickerDialog({
 
   const filteredUniversal = useMemo(() => applyFilters(universalExercises), [universalExercises, search, phase, bodyRegion]);
   const filteredMyOrganization  = useMemo(() => applyFilters(myOrganizationExercises),  [myOrganizationExercises,  search, phase, bodyRegion]);
+
+  const { showUniversal, showOrganization } = resolvePickerTabs(
+    exerciseSourcePreference,
+    !!organizationOrganizationId
+  );
 
   async function handleGenerateWithAi() {
     setAiStatus("loading");
@@ -629,7 +637,7 @@ export function ExercisePickerDialog({
                 bodyRegion={bodyRegion}
                 setRegion={setRegion}
               />
-              {organizationOrganizationId ? (
+              {showUniversal && showOrganization ? (
                 <Tabs defaultValue="universal" className="flex flex-col flex-1 overflow-hidden">
                   <TabsList className="shrink-0 mx-4 mt-2 mb-1 h-8 text-xs">
                     <TabsTrigger value="universal" className="flex-1 text-xs h-6">Universal</TabsTrigger>
@@ -661,6 +669,18 @@ export function ExercisePickerDialog({
                     />
                   </TabsContent>
                 </Tabs>
+              ) : showOrganization ? (
+                <ExerciseList
+                  list={filteredMyOrganization}
+                  showOrganizationControls
+                  phase={phase}
+                  setPhase={setPhase}
+                  setRegion={setRegion}
+                  onSelect={onSelect}
+                  onClose={handleClose}
+                  onPreview={setVideoPreview}
+                  onTogglePublic={handleTogglePublic}
+                />
               ) : (
                 <ExerciseList
                   list={filteredUniversal}

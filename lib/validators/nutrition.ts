@@ -28,24 +28,6 @@ export const upsertNutritionTargetSchema = z.object({
   clientEditableFields: z.array(z.enum(NUTRITION_TARGET_FIELDS)).optional(),
 })
 
-export const createNutritionLogSchema = z.object({
-  clientId: z.string().min(1),
-  date: z.coerce.date(),
-  mealType: z.enum(MEAL_TYPES),
-  description: z.string().min(1).max(200),
-  quantity: z.string().max(100).optional(),
-  loggedAt: z.coerce.date().optional(),
-  calories: z.number().int().min(0).max(10000).nullable().optional(),
-  proteinG: z.number().min(0).max(2000).nullable().optional(),
-  carbsG: z.number().min(0).max(2000).nullable().optional(),
-  fatG: z.number().min(0).max(2000).nullable().optional(),
-  photoUrl: z.string().url().nullable().optional(),
-})
-
-export const updateNutritionLogSchema = createNutritionLogSchema
-  .omit({ clientId: true, date: true })
-  .partial()
-
 export const addWaterLogSchema = z.object({
   clientId: z.string().min(1),
   date: z.coerce.date(),
@@ -73,9 +55,16 @@ export const analyzeMealPhotoSchema = z.object({
   photoUrl: z.string().url(),
 })
 
-export const estimateMealMacrosSchema = z.object({
-  description: z.string().min(1).max(200),
-  quantity: z.string().max(100).optional(),
+export const estimateMealMacrosBatchSchema = z.object({
+  items: z
+    .array(
+      z.object({
+        name: z.string().min(1).max(200),
+        quantity: z.string().max(100).optional(),
+      })
+    )
+    .min(1)
+    .max(20),
 })
 
 export const bulkCreateNutritionLogSchema = z.object({
@@ -95,6 +84,23 @@ export const bulkCreateNutritionLogSchema = z.object({
       })
     )
     .min(1)
+    .max(20),
+})
+
+export const updateMealGroupSchema = z.object({
+  items: z
+    .array(
+      z.object({
+        id: z.string().min(1).optional(),
+        description: z.string().min(1).max(200),
+        quantity: z.string().max(100).nullable().optional(),
+        calories: z.number().int().min(0).max(10000).nullable().optional(),
+        proteinG: z.number().min(0).max(2000).nullable().optional(),
+        carbsG: z.number().min(0).max(2000).nullable().optional(),
+        fatG: z.number().min(0).max(2000).nullable().optional(),
+        photoUrl: z.string().url().nullable().optional(),
+      })
+    )
     .max(20),
 })
 

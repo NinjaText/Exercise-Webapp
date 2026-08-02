@@ -58,6 +58,7 @@ export async function analyzeMealPhoto(photoUrl: string): Promise<MealPhotoFoodD
 }
 
 // ─── Text-Based Macro Estimation ─────────────────────────────────────────────
+// (shared estimate schema/type, consumed by the batch estimator below)
 
 const mealMacroEstimateSchema = z.object({
   calories: z.number().int().min(0).describe("Estimated calories for this food/serving"),
@@ -68,27 +69,45 @@ const mealMacroEstimateSchema = z.object({
 
 export type MealMacroEstimate = z.infer<typeof mealMacroEstimateSchema>;
 
+const mealMacroBatchItemSchema = z.object({
+  name: z.string(),
+  quantity: z.string().optional(),
+});
+
+export type MealMacroBatchInput = z.infer<typeof mealMacroBatchItemSchema>;
+
+const mealMacroBatchSchema = z.object({
+  items: z
+    .array(mealMacroEstimateSchema)
+    .describe("One estimate per input item, in the same order as the input list"),
+});
+
 /**
- * Estimates calories/protein/carbs/fat from a plain-text food description
- * (e.g. "2 fried eggs with 2 slices of brown bread and tea") plus an
- * optional serving size — the manual-entry counterpart to analyzeMealPhoto.
- * Never writes to the database; the caller reviews/edits before saving.
+ * Estimates macros for several food items in a single model call (e.g. "1 cup
+ * coffee", "2 slices bread", "6 oz roasted chicken" logged together as one
+ * meal), so each item gets its own distinct estimate. Never writes to the
+ * database; the caller reviews/edits before saving.
  */
-export async function estimateMealMacrosFromText(
-  description: string,
-  quantity?: string
-): Promise<MealMacroEstimate> {
+export async function estimateMealMacrosBatch(
+  items: MealMacroBatchInput[]
+): Promise<MealMacroEstimate[]> {
+  if (items.length === 0) return [];
+
+  const itemLines = items
+    .map((item, i) => `${i + 1}. ${item.name}${item.quantity ? ` (serving size: "${item.quantity}")` : ""}`)
+    .join("\n");
+
   const { object } = await generateObject({
     model: openai("gpt-4o-mini"),
-    schema: mealMacroEstimateSchema,
-    prompt: `Estimate the nutritional content of this food description: "${description}"${
-      quantity ? ` (serving size: "${quantity}")` : ""
-    }.
-
-Be a reasonable, conservative estimator based on typical preparation and portion sizes — this is a draft value a person will review and can correct before saving.`,
+    schema: mealMacroBatchSchema,
+    prompt: `Estimate the nutritional content of each of these food items, logged together as one meal:\n\n${itemLines}\n\nBe a reasonable, conservative estimator based on typical preparation and portion sizes — these are draft values a person will review and can correct before saving. Return exactly ${items.length} estimate(s), in the same order as the input list.`,
   });
 
-  return object;
+  if (object.items.length !== items.length) {
+    throw new Error(`Expected ${items.length} macro estimates but received ${object.items.length}`);
+  }
+
+  return object.items;
 }
 
 // ─── Daily Summary ───────────────────────────────────────────────────────────

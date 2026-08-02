@@ -39,7 +39,7 @@ vi.mock('@/lib/services/audit-log.service', () => ({
 }))
 
 import { logAudit } from '@/lib/services/audit-log.service'
-import { saveOrganizationProfile } from '../organization-actions'
+import { getOrganizationProfile, saveOrganizationProfile } from '../organization-actions'
 
 const mockLogAudit = vi.mocked(logAudit)
 
@@ -71,5 +71,66 @@ it('still saves successfully and logs with no diff metadata when the "before" fe
     action: 'CLINIC_SETTINGS_UPDATED',
     orgId: 'org_1',
     metadata: undefined,
+  }))
+})
+
+it('defaults exerciseSourcePreference to BOTH when not set in publicMetadata', async () => {
+  mockGetOrganization.mockResolvedValue({ name: 'Old Name', publicMetadata: {} })
+  const profile = await getOrganizationProfile()
+  expect(profile?.exerciseSourcePreference).toBe('BOTH')
+})
+
+it('returns a stored valid exerciseSourcePreference as-is', async () => {
+  mockGetOrganization.mockResolvedValue({
+    name: 'Old Name',
+    publicMetadata: { exerciseSourcePreference: 'UNIVERSAL' },
+  })
+  const profile = await getOrganizationProfile()
+  expect(profile?.exerciseSourcePreference).toBe('UNIVERSAL')
+})
+
+it('falls back to BOTH for a corrupted or unrecognized stored value', async () => {
+  mockGetOrganization.mockResolvedValue({
+    name: 'Old Name',
+    publicMetadata: { exerciseSourcePreference: 'GARBAGE' },
+  })
+  const profile = await getOrganizationProfile()
+  expect(profile?.exerciseSourcePreference).toBe('BOTH')
+})
+
+it('saves exerciseSourcePreference and includes it in the audit diff', async () => {
+  mockGetOrganization.mockResolvedValue({
+    name: 'Old Name',
+    publicMetadata: { tagline: 'Old tagline', exerciseSourcePreference: 'BOTH' },
+  })
+  const result = await saveOrganizationProfile({
+    organizationName: 'New Name',
+    tagline: 'Old tagline',
+    exerciseSourcePreference: 'ORGANIZATION',
+  })
+  expect(result.success).toBe(true)
+  expect(mockUpdateOrganization).toHaveBeenCalledWith('org_1', expect.objectContaining({
+    publicMetadata: expect.objectContaining({ exerciseSourcePreference: 'ORGANIZATION' }),
+  }))
+  expect(mockLogAudit).toHaveBeenCalledWith(expect.objectContaining({
+    metadata: expect.objectContaining({
+      after: expect.objectContaining({ exerciseSourcePreference: 'ORGANIZATION' }),
+    }),
+  }))
+})
+
+it('rejects an invalid exerciseSourcePreference by falling back to BOTH rather than storing garbage', async () => {
+  mockGetOrganization.mockResolvedValue({
+    name: 'Old Name',
+    publicMetadata: { tagline: 'Old tagline', exerciseSourcePreference: 'BOTH' },
+  })
+  const result = await saveOrganizationProfile({
+    organizationName: 'New Name',
+    tagline: 'Old tagline',
+    exerciseSourcePreference: 'NOT_REAL' as never,
+  })
+  expect(result.success).toBe(true)
+  expect(mockUpdateOrganization).toHaveBeenCalledWith('org_1', expect.objectContaining({
+    publicMetadata: expect.objectContaining({ exerciseSourcePreference: 'BOTH' }),
   }))
 })

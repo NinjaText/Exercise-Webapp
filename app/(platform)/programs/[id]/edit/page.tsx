@@ -3,6 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import { requireRole } from "@/lib/current-user";
 import * as programService from "@/lib/services/program.service";
 import { getExercises } from "@/lib/services/exercise.service";
+import { getOrganizationProfile } from "@/actions/organization-actions";
 import { ProgramEditor } from "@/components/programs/program-editor";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
@@ -16,11 +17,12 @@ interface Props {
 export default async function EditProgramPage({ params }: Props) {
   const { id } = await params;
 
-  const [user, { orgId: sessionOrgId }, program, exercises] = await Promise.all([
+  const [user, { orgId: sessionOrgId }, program, exercises, organizationProfile] = await Promise.all([
     requireRole("TRAINER"),
     auth(),
     programService.getProgramById(id),
     getExercises(),
+    getOrganizationProfile().catch(() => null),
   ]);
   const organizationOrgId = sessionOrgId ?? user.clerkOrgId ?? undefined;
 
@@ -39,6 +41,7 @@ export default async function EditProgramPage({ params }: Props) {
         program={program as unknown as Record<string, unknown>}
         exercises={exercises}
         organizationOrganizationId={organizationOrgId}
+        exerciseSourcePreference={organizationProfile?.exerciseSourcePreference}
       />
     </div>
   );

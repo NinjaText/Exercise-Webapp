@@ -43,6 +43,7 @@ import {
   duplicateWorkoutToDateAction,
 } from "@/actions/calendar-workout-actions";
 import { WorkoutEditorPanel } from "@/components/calendar/workout-editor-panel";
+import type { ExerciseSourcePreference } from "@/lib/utils/exercise-picker";
 import { AssignProgramDialog } from "@/components/calendar/assign-program-dialog";
 import { AiGenerateProgramDialog } from "@/components/calendar/ai-generate-program-dialog";
 import { useRouter } from "next/navigation";
@@ -117,6 +118,7 @@ interface ClientCalendarProps {
   initialSessions: SessionSummary[];
   exerciseLibrary: ExerciseSummary[];
   organizationOrganizationId?: string;
+  exerciseSourcePreference?: ExerciseSourcePreference;
 }
 
 // ---------------------------------------------------------------------------
@@ -377,6 +379,7 @@ export function ClientCalendar({
   initialSessions,
   exerciseLibrary,
   organizationOrganizationId,
+  exerciseSourcePreference,
 }: ClientCalendarProps) {
   const router = useRouter();
   const { clipboard } = useClipboard();
@@ -538,6 +541,7 @@ export function ClientCalendar({
         onClose={handlePanelClose}
         exerciseLibrary={exerciseLibrary}
         organizationOrganizationId={organizationOrganizationId}
+        exerciseSourcePreference={exerciseSourcePreference}
         clientId={clientId}
         onWorkoutCreated={handleRefresh}
         onWorkoutDeleted={handleRefresh}
