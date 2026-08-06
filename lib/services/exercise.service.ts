@@ -22,7 +22,7 @@ export async function getExercises(filters: ExerciseFilters = {}) {
   return prisma.exercise.findMany({
     where: {
       isActive: true,
-      ...(filters.bodyRegions?.length && { bodyRegion: { in: filters.bodyRegions } }),
+      ...(filters.bodyRegions?.length && { bodyRegion: { hasSome: filters.bodyRegions } }),
       ...(filters.difficultyLevel && { difficultyLevel: filters.difficultyLevel }),
       ...(filters.exercisePhases?.length && { exercisePhases: { hasSome: filters.exercisePhases } }),
       ...(filters.muscleGroups?.length && { musclesTargeted: { hasSome: filters.muscleGroups } }),
@@ -112,7 +112,7 @@ export async function getExerciseById(id: string) {
 export async function createExercise(data: {
   name: string;
   description?: string;
-  bodyRegion: BodyRegion;
+  bodyRegion: BodyRegion[];
   equipmentRequired: string[];
   difficultyLevel: DifficultyLevel;
   contraindications: string[];
@@ -168,7 +168,7 @@ export async function cloneExerciseToOrganization(
   source: {
     name: string;
     description: string | null;
-    bodyRegion: BodyRegion;
+    bodyRegion: BodyRegion[];
     equipmentRequired: string[];
     difficultyLevel: DifficultyLevel;
     contraindications: string[];
@@ -232,7 +232,7 @@ export async function updateExercise(
   data: Partial<{
     name: string;
     description: string;
-    bodyRegion: BodyRegion;
+    bodyRegion: BodyRegion[];
     equipmentRequired: string[];
     difficultyLevel: DifficultyLevel;
     contraindications: string[];

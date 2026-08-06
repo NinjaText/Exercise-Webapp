@@ -4,7 +4,7 @@ export function buildSystemPrompt(candidateExercises: Exercise[]): string {
   const exerciseList = candidateExercises
     .map(
       (e) =>
-        `- ID: ${e.id} | Name: ${e.name} | Region: ${e.bodyRegion} | Difficulty: ${e.difficultyLevel} | Equipment: ${(e.equipmentRequired ?? []).join(", ") || "bodyweight"} | Contraindications: ${(e.contraindications ?? []).join(", ") || "none"}`
+        `- ID: ${e.id} | Name: ${e.name} | Region: ${e.bodyRegion.join("/")} | Difficulty: ${e.difficultyLevel} | Equipment: ${(e.equipmentRequired ?? []).join(", ") || "bodyweight"} | Contraindications: ${(e.contraindications ?? []).join(", ") || "none"}`
     )
     .join("\n");
 

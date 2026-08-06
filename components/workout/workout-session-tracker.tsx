@@ -39,7 +39,7 @@ type MediaItem = { id: string; url: string; type: string };
 type BaseExercise = {
   id: string; name: string;
   imageUrl?: string | null; videoUrl?: string | null;
-  bodyRegion?: string | null; instructions?: string | null;
+  bodyRegion?: string[] | null; instructions?: string | null;
   media: MediaItem[];
 };
 type SetLog = { id: string; setIndex: number; actualReps?: number | null; actualWeight?: number | null; actualDuration?: number | null; actualRPE?: number | null };
@@ -658,7 +658,7 @@ export function WorkoutSessionTracker({
                 <ExerciseImageLightbox
                   src={blockExercise.exercise.imageUrl ?? undefined}
                   alt={blockExercise.exercise.name}
-                  bodyRegion={blockExercise.exercise.bodyRegion ?? ""}
+                  bodyRegion={blockExercise.exercise.bodyRegion?.[0] ?? ""}
                   label={blockExercise.exercise.name.split(" ").slice(0, 2).join(" ")}
                   thumbnailClassName="relative h-40 w-full overflow-hidden rounded-xl"
                 />

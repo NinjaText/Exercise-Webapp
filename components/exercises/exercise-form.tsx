@@ -74,7 +74,7 @@ export function ExerciseForm() {
     const result = await createExerciseAction({
       name: formData.get("name") as string,
       description: (formData.get("description") as string) || undefined,
-      bodyRegion: selectedRegions[0],
+      bodyRegion: selectedRegions,
       difficultyLevel: selectedDifficulty,
       equipmentRequired: selectedEquipment,
       contraindications:
@@ -153,11 +153,6 @@ export function ExerciseForm() {
                 );
               })}
             </div>
-            {selectedRegions.length > 1 && (
-              <p className="text-xs text-muted-foreground">
-                Primary region: <span className="font-medium">{BODY_REGIONS.find(r => r.value === selectedRegions[0])?.label}</span> (first selected)
-              </p>
-            )}
           </div>
 
           {/* Difficulty — chip buttons */}

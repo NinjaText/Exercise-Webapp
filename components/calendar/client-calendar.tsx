@@ -74,7 +74,7 @@ const localizer = dateFnsLocalizer({
 type ExerciseSummary = {
   id: string;
   name: string;
-  bodyRegion: string;
+  bodyRegion: string[];
   difficultyLevel: string;
   defaultReps?: number | null;
   musclesTargeted?: string[];

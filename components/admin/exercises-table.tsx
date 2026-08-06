@@ -55,10 +55,10 @@ interface AdminExercisesTableProps {
   totalPages: number;
   page: number;
   search: string;
-  bodyRegion: string;
+  bodyRegions: string[];
 }
 
-export function AdminExercisesTable({ exercises, total, totalPages, page, search, bodyRegion }: AdminExercisesTableProps) {
+export function AdminExercisesTable({ exercises, total, totalPages, page, search, bodyRegions }: AdminExercisesTableProps) {
   const router = useRouter();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -170,9 +170,13 @@ export function AdminExercisesTable({ exercises, total, totalPages, page, search
                     )}
                   </td>
                   <td className="px-5 py-3">
-                    <Badge variant="outline" className={`text-[10px] ${bodyRegionColors[ex.bodyRegion] ?? "border-border text-muted-foreground"}`}>
-                      {bodyRegionLabel[ex.bodyRegion] ?? ex.bodyRegion}
-                    </Badge>
+                    <div className="flex flex-wrap gap-1">
+                      {ex.bodyRegion.map((region: string) => (
+                        <Badge key={region} variant="outline" className={`text-[10px] ${bodyRegionColors[region] ?? "border-border text-muted-foreground"}`}>
+                          {bodyRegionLabel[region] ?? region}
+                        </Badge>
+                      ))}
+                    </div>
                   </td>
                   <td className="px-5 py-3 hidden md:table-cell">
                     {ex.exercisePhases?.length
@@ -233,10 +237,10 @@ export function AdminExercisesTable({ exercises, total, totalPages, page, search
             <p className="text-xs text-muted-foreground">Page {page} of {totalPages} · {total.toLocaleString()} exercises</p>
             <div className="flex gap-2">
               {page > 1 && (
-                <a href={`?search=${search}&bodyRegion=${bodyRegion}&page=${page - 1}`} className="rounded-lg bg-muted px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted/80 transition-colors">← Prev</a>
+                <a href={`?search=${search}&bodyRegion=${bodyRegions.join(",")}&page=${page - 1}`} className="rounded-lg bg-muted px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted/80 transition-colors">← Prev</a>
               )}
               {page < totalPages && (
-                <a href={`?search=${search}&bodyRegion=${bodyRegion}&page=${page + 1}`} className="rounded-lg bg-muted px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted/80 transition-colors">Next →</a>
+                <a href={`?search=${search}&bodyRegion=${bodyRegions.join(",")}&page=${page + 1}`} className="rounded-lg bg-muted px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted/80 transition-colors">Next →</a>
               )}
             </div>
           </div>

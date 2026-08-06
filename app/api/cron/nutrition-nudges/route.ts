@@ -13,8 +13,11 @@ const MIN_EXPECTED_MEALS = 2;
  *
  * Runs once daily in the evening (see vercel.json) and checks every active
  * client's day-so-far nutrition, creating a notification for under-logged
- * meals, a protein shortfall, or a water shortfall. Dedups against same-day
- * notifications of the same type so retries/backfills don't double-send.
+ * meals, a protein shortfall, or a water shortfall. Dedups against any
+ * still-unread nudge of the same type (not just same-day) so a client who
+ * never reads/dismisses a nudge doesn't get a fresh near-duplicate every
+ * night it recurs — the notification list would otherwise fill up with
+ * copies of the same reminder.
  *
  * Note: this runs on a single fixed UTC schedule for all clients — it does
  * not account for per-client timezone, so "evening" is approximate.
@@ -33,14 +36,13 @@ export async function GET(request: Request) {
   try {
     const now = new Date();
     const todayKey = now.toISOString().slice(0, 10);
-    const dayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
 
     const clients = await prisma.user.findMany({
       where: { role: "CLIENT", isActive: true },
       select: { id: true },
     });
 
-    const existingTodayNotifications = await prisma.notification.findMany({
+    const outstandingNudges = await prisma.notification.findMany({
       where: {
         userId: { in: clients.map((c) => c.id) },
         type: {
@@ -50,11 +52,11 @@ export async function GET(request: Request) {
             NOTIFICATION_TYPES.NUTRITION_NUDGE_WATER,
           ],
         },
-        createdAt: { gte: dayStart },
+        isRead: false,
       },
       select: { userId: true, type: true },
     });
-    const alreadyNudged = new Set(existingTodayNotifications.map((n) => `${n.userId}:${n.type}`));
+    const alreadyNudged = new Set(outstandingNudges.map((n) => `${n.userId}:${n.type}`));
 
     const results = await Promise.all(
       clients.map(async (client) => {

@@ -131,13 +131,13 @@ describe('getExercises', () => {
 })
 
 describe('getExercises body region filtering', () => {
-  it('matches exercises with any of the requested body regions (in)', async () => {
+  it('matches exercises with any of the requested body regions (hasSome)', async () => {
     mockFindMany.mockResolvedValue([] as any)
     await getExercises({ bodyRegions: ['UPPER_BODY', 'CORE'] as any })
     expect(mockFindMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
-          bodyRegion: { in: ['UPPER_BODY', 'CORE'] },
+          bodyRegion: { hasSome: ['UPPER_BODY', 'CORE'] },
         }),
       })
     )
@@ -204,7 +204,7 @@ describe('cloneExerciseToOrganization', () => {
   const universalSource = {
     name: 'Squat',
     description: 'A squat',
-    bodyRegion: 'LOWER_BODY',
+    bodyRegion: ['LOWER_BODY'],
     equipmentRequired: ['None'],
     difficultyLevel: 'BEGINNER',
     contraindications: ['knee pain'],
@@ -233,7 +233,7 @@ describe('cloneExerciseToOrganization', () => {
       data: expect.objectContaining({
         name: 'Squat',
         description: 'A squat',
-        bodyRegion: 'LOWER_BODY',
+        bodyRegion: ['LOWER_BODY'],
         equipmentRequired: ['None'],
         difficultyLevel: 'BEGINNER',
         contraindications: ['knee pain'],

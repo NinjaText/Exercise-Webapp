@@ -178,7 +178,7 @@ interface ScheduleEvent {
 interface LibraryExercise {
   id: string;
   name: string;
-  bodyRegion: string;
+  bodyRegion: string[];
   difficultyLevel: string;
   exercisePhases: string[];
   defaultReps: number | null;

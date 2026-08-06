@@ -156,9 +156,9 @@ export function CommandPalette({ role }: { role: "TRAINER" | "CLIENT" }) {
                       <Dumbbell className="h-4 w-4 text-muted-foreground" />
                       <div className="flex flex-col">
                         <span className="text-sm font-medium">{e.name}</span>
-                        {e.bodyRegion && (
+                        {e.bodyRegion && e.bodyRegion.length > 0 && (
                           <span className="text-xs text-muted-foreground capitalize">
-                            {e.bodyRegion.replace(/_/g, " ").toLowerCase()}
+                            {e.bodyRegion.map((r: string) => r.replace(/_/g, " ").toLowerCase()).join(", ")}
                           </span>
                         )}
                       </div>

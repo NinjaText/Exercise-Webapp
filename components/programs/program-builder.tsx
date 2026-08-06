@@ -52,7 +52,7 @@ interface Props {
   exerciseLibrary: {
     id: string;
     name: string;
-    bodyRegion: string;
+    bodyRegion: string[];
     difficultyLevel: string;
     defaultReps?: number | null;
     musclesTargeted?: string[];
@@ -254,7 +254,7 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
         _exerciseBodyRegion: exercise.bodyRegion,
       } as WorkoutInput["blocks"][number]["exercises"][number] & {
         _exerciseName: string;
-        _exerciseBodyRegion: string;
+        _exerciseBodyRegion: string[];
       },
     ];
     onChange(next);

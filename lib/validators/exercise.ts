@@ -3,7 +3,7 @@ import { z } from "zod";
 export const createExerciseSchema = z.object({
   name: z.string().min(1, "Name is required").max(200),
   description: z.string().max(2000).optional(),
-  bodyRegion: z.enum(["LOWER_BODY", "UPPER_BODY", "CORE", "FULL_BODY", "BALANCE", "FLEXIBILITY"]),
+  bodyRegion: z.array(z.enum(["LOWER_BODY", "UPPER_BODY", "CORE", "FULL_BODY", "BALANCE", "FLEXIBILITY"])).min(1, "Select at least one body region"),
   equipmentRequired: z.array(z.string()).default([]),
   difficultyLevel: z.enum(["BEGINNER", "INTERMEDIATE", "ADVANCED"]),
   contraindications: z.array(z.string()).default([]),
@@ -20,7 +20,7 @@ export const updateExerciseSchema = createExerciseSchema.partial().extend({
 
 export const exerciseFilterSchema = z.object({
   search: z.string().optional(),
-  bodyRegion: z.enum(["LOWER_BODY", "UPPER_BODY", "CORE", "FULL_BODY", "BALANCE", "FLEXIBILITY"]).optional(),
+  bodyRegion: z.array(z.enum(["LOWER_BODY", "UPPER_BODY", "CORE", "FULL_BODY", "BALANCE", "FLEXIBILITY"])).optional(),
   difficultyLevel: z.enum(["BEGINNER", "INTERMEDIATE", "ADVANCED"]).optional(),
   equipment: z.string().optional(),
 });

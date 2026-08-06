@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,8 +10,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BODY_REGIONS, DIFFICULTY_LEVELS, COMMON_EQUIPMENT } from "@/lib/utils/constants";
 import { updateExerciseAction, addExerciseMediaAction, deleteExerciseMediaAction } from "@/actions/exercise-actions";
 import { toast } from "sonner";
-import { CheckCircle2, Loader2, Play, Trash2, X } from "lucide-react";
+import { CheckCircle2, Loader2, Play, Trash2, X, Plus } from "lucide-react";
 import { ExerciseVideoPlayer } from "@/components/exercises/exercise-video-player";
+import { cn } from "@/lib/utils";
 
 interface MediaItem {
   id: string;
@@ -25,7 +26,7 @@ interface Exercise {
   id: string;
   name: string;
   description: string | null;
-  bodyRegion: string;
+  bodyRegion: string[];
   difficultyLevel: string;
   equipmentRequired: string[];
   contraindications: string[];
@@ -47,7 +48,7 @@ export function ExerciseEditForm({ exercise }: Props) {
   // All fields controlled — eliminates the uncontrolled warning
   const [name, setName] = useState(exercise.name);
   const [description, setDescription] = useState(exercise.description ?? "");
-  const [bodyRegion, setBodyRegion] = useState(exercise.bodyRegion);
+  const [selectedRegions, setSelectedRegions] = useState<string[]>(exercise.bodyRegion);
   const [difficultyLevel, setDifficultyLevel] = useState(exercise.difficultyLevel);
   const [isActive, setIsActive] = useState(String(exercise.isActive));
   const [instructions, setInstructions] = useState(exercise.instructions ?? "");
@@ -57,18 +58,26 @@ export function ExerciseEditForm({ exercise }: Props) {
   const [selectedEquipment, setSelectedEquipment] = useState<string[]>(
     exercise.equipmentRequired
   );
+  const [customEquipmentInput, setCustomEquipmentInput] = useState("");
+  const equipmentInputRef = useRef<HTMLInputElement>(null);
   const [videoUrl, setVideoUrl] = useState(exercise.videoUrl ?? "");
   const [imageUrl, setImageUrl] = useState(exercise.imageUrl ?? "");
   const [mediaItems, setMediaItems] = useState<MediaItem[]>(exercise.media);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+
+    if (selectedRegions.length === 0) {
+      toast.error("Please select at least one body region");
+      return;
+    }
+
     setLoading(true);
 
     const result = await updateExerciseAction(exercise.id, {
       name: name.trim(),
       description: description.trim() || undefined,
-      bodyRegion,
+      bodyRegion: selectedRegions,
       difficultyLevel,
       equipmentRequired: selectedEquipment,
       contraindications: contraindications
@@ -98,6 +107,26 @@ export function ExerciseEditForm({ exercise }: Props) {
     );
   }
 
+  function toggleRegion(value: string) {
+    setSelectedRegions((prev) =>
+      prev.includes(value) ? prev.filter((r) => r !== value) : [...prev, value]
+    );
+  }
+
+  function addCustomEquipment() {
+    const val = customEquipmentInput.trim();
+    if (!val) return;
+    if (!selectedEquipment.includes(val)) {
+      setSelectedEquipment((prev) => [...prev, val]);
+    }
+    setCustomEquipmentInput("");
+    equipmentInputRef.current?.focus();
+  }
+
+  function removeEquipment(item: string) {
+    setSelectedEquipment((prev) => prev.filter((e) => e !== item));
+  }
+
   return (
     <form onSubmit={handleSubmit}>
       <Card>
@@ -106,31 +135,47 @@ export function ExerciseEditForm({ exercise }: Props) {
         </CardHeader>
         <CardContent className="space-y-6">
 
-          {/* Name + Body Region */}
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="name">Exercise Name *</Label>
-              <Input
-                id="name"
-                required
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="bodyRegion">Body Region *</Label>
-              <select
-                id="bodyRegion"
-                required
-                value={bodyRegion}
-                onChange={(e) => setBodyRegion(e.target.value)}
-                className="flex h-9 w-full rounded-lg border border-input bg-background px-3 py-1.5 text-sm"
-              >
-                <option value="">Select region</option>
-                {BODY_REGIONS.map((r) => (
-                  <option key={r.value} value={r.value}>{r.label}</option>
-                ))}
-              </select>
+          {/* Name */}
+          <div className="space-y-2">
+            <Label htmlFor="name">Exercise Name *</Label>
+            <Input
+              id="name"
+              required
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
+          </div>
+
+          {/* Body Region — multi-select chips */}
+          <div className="space-y-2">
+            <Label>
+              Body Region *
+              {selectedRegions.length > 0 && (
+                <span className="ml-2 text-xs font-normal text-muted-foreground">
+                  {selectedRegions.length} selected
+                </span>
+              )}
+            </Label>
+            <div className="flex flex-wrap gap-2">
+              {BODY_REGIONS.map((r) => {
+                const selected = selectedRegions.includes(r.value);
+                return (
+                  <button
+                    key={r.value}
+                    type="button"
+                    onClick={() => toggleRegion(r.value)}
+                    className={cn(
+                      "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm font-medium transition-colors",
+                      selected
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-background text-muted-foreground border-border hover:border-primary/60 hover:text-foreground"
+                    )}
+                  >
+                    {selected && <CheckCircle2 className="h-3.5 w-3.5" />}
+                    {r.label}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
@@ -178,8 +223,9 @@ export function ExerciseEditForm({ exercise }: Props) {
           </div>
 
           {/* Equipment */}
-          <div className="space-y-2">
+          <div className="space-y-3">
             <Label>Equipment Required</Label>
+
             <div className="flex flex-wrap gap-2">
               {COMMON_EQUIPMENT.map((eq) => (
                 <Button
@@ -193,6 +239,47 @@ export function ExerciseEditForm({ exercise }: Props) {
                 </Button>
               ))}
             </div>
+
+            <div className="flex gap-2">
+              <Input
+                ref={equipmentInputRef}
+                value={customEquipmentInput}
+                onChange={(e) => setCustomEquipmentInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") { e.preventDefault(); addCustomEquipment(); }
+                }}
+                placeholder="Add custom equipment..."
+                className="h-8 text-sm"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={addCustomEquipment}
+                className="h-8 gap-1 shrink-0"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Add
+              </Button>
+            </div>
+
+            {selectedEquipment.filter(eq => !COMMON_EQUIPMENT.includes(eq as typeof COMMON_EQUIPMENT[number])).length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {selectedEquipment
+                  .filter(eq => !COMMON_EQUIPMENT.includes(eq as typeof COMMON_EQUIPMENT[number]))
+                  .map((eq) => (
+                    <span
+                      key={eq}
+                      className="inline-flex items-center gap-1 rounded-full bg-primary/10 text-primary border border-primary/20 px-2.5 py-0.5 text-sm font-medium"
+                    >
+                      {eq}
+                      <button type="button" onClick={() => removeEquipment(eq)} className="hover:text-primary/70">
+                        <X className="h-3 w-3" />
+                      </button>
+                    </span>
+                  ))}
+              </div>
+            )}
           </div>
 
           {/* Instructions */}

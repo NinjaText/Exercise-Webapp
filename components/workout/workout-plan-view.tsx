@@ -60,9 +60,11 @@ export function WorkoutPlanView({ plan }: WorkoutPlanViewProps) {
                   <div className="flex-1">
                     <p className="font-medium">{pe.exercise.name}</p>
                     <div className="flex flex-wrap gap-2 mt-1">
-                      <Badge variant="outline" className="text-xs">
-                        {formatBodyRegion(pe.exercise.bodyRegion)}
-                      </Badge>
+                      {pe.exercise.bodyRegion.map((region) => (
+                        <Badge key={region} variant="outline" className="text-xs">
+                          {formatBodyRegion(region)}
+                        </Badge>
+                      ))}
                       <span className="text-muted-foreground text-xs">
                         {pe.sets} sets
                       </span>
