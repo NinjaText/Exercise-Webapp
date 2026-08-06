@@ -20,7 +20,7 @@ function exercise(overrides: Record<string, unknown> = {}) {
   return {
     id: 'ex1',
     name: 'Squat',
-    bodyRegion: 'LOWER_BODY',
+    bodyRegion: ['LOWER_BODY'],
     difficultyLevel: 'BEGINNER',
     equipmentRequired: [],
     contraindications: [],

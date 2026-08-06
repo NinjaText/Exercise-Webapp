@@ -6,9 +6,16 @@ vi.mock('@clerk/nextjs/server', () => ({
     organizations: { getOrganizationList: mockGetOrganizationList },
   })),
 }))
-vi.mock('@/lib/prisma', () => ({ prisma: {} }))
+vi.mock('@/lib/prisma', () => ({
+  prisma: {
+    exercise: { findMany: vi.fn().mockResolvedValue([]), count: vi.fn().mockResolvedValue(0) },
+  },
+}))
 
-import { listClerkOrganizations } from '../admin.service'
+import { prisma } from '@/lib/prisma'
+import { listClerkOrganizations, getAllExercises } from '../admin.service'
+
+const mockFindMany = vi.mocked(prisma.exercise.findMany)
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -31,5 +38,24 @@ describe('listClerkOrganizations', () => {
       { id: 'org_1', name: 'Riverside Clinic' },
       { id: 'org_2', name: 'Downtown PT' },
     ])
+  })
+})
+
+describe('getAllExercises body region filtering', () => {
+  it('matches exercises with any of the requested body regions (hasSome)', async () => {
+    await getAllExercises({ bodyRegions: ['UPPER_BODY', 'CORE'] })
+    expect(mockFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          bodyRegion: { hasSome: ['UPPER_BODY', 'CORE'] },
+        }),
+      })
+    )
+  })
+
+  it('omits the body region clause when no regions are requested', async () => {
+    await getAllExercises({})
+    const call = mockFindMany.mock.calls[0][0] as any
+    expect(call.where).not.toHaveProperty('bodyRegion')
   })
 })

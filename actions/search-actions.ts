@@ -7,7 +7,7 @@ import { auth } from "@clerk/nextjs/server"
 export type SearchResults = {
   clients: { id: string; firstName: string; lastName: string; email: string }[]
   programs: { id: string; name: string; status: string }[]
-  exercises: { id: string; name: string; bodyRegion: string | null; difficultyLevel: string }[]
+  exercises: { id: string; name: string; bodyRegion: string[] | null; difficultyLevel: string }[]
 }
 
 export async function globalSearch(query: string): Promise<SearchResults> {

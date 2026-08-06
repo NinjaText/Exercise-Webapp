@@ -15,7 +15,6 @@ import {
 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Separator } from "@/components/ui/separator";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   markNotificationReadAction,
   markAllNotificationsReadAction,
@@ -124,8 +123,12 @@ export function NotificationPanel({
 
         <Separator />
 
-        {/* Notification list */}
-        <ScrollArea className="max-h-105">
+        {/* Notification list — plain overflow scroll, not the ScrollArea
+            primitive: its Viewport relies on height:100% resolving against
+            an ancestor sized only by max-height, which browsers don't treat
+            as a definite reference, so content silently overflowed past the
+            popover instead of scrolling inside it. */}
+        <div className="max-h-105 overflow-x-hidden overflow-y-auto">
           {notifications.length === 0 ? (
             <EmptyState />
           ) : (
@@ -143,7 +146,7 @@ export function NotificationPanel({
               ))}
             </ul>
           )}
-        </ScrollArea>
+        </div>
       </PopoverContent>
     </Popover>
   );

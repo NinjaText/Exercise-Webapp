@@ -80,6 +80,32 @@ describe('diffFields', () => {
   })
 })
 
+describe('diffFields with array values', () => {
+  it('does not report a change when an array is reordered but has the same members', () => {
+    const before = { bodyRegion: ['CORE', 'UPPER_BODY'] }
+    const after = { bodyRegion: ['UPPER_BODY', 'CORE'] }
+    expect(diffFields(before, after, ['bodyRegion'])).toBeUndefined()
+  })
+
+  it('reports a change when array members actually differ', () => {
+    const before = { bodyRegion: ['CORE'] }
+    const after = { bodyRegion: ['CORE', 'UPPER_BODY'] }
+    expect(diffFields(before, after, ['bodyRegion'])).toEqual({
+      before: { bodyRegion: ['CORE'] },
+      after: { bodyRegion: ['CORE', 'UPPER_BODY'] },
+    })
+  })
+
+  it('still reports scalar changes as before', () => {
+    const before = { name: 'Squat' }
+    const after = { name: 'Squat Updated' }
+    expect(diffFields(before, after, ['name'])).toEqual({
+      before: { name: 'Squat' },
+      after: { name: 'Squat Updated' },
+    })
+  })
+})
+
 describe('deriveActorType', () => {
   const originalEnv = process.env.SUPER_ADMIN_EMAILS
   afterEach(() => { process.env.SUPER_ADMIN_EMAILS = originalEnv })

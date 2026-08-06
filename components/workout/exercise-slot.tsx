@@ -47,9 +47,11 @@ export function ExerciseSlot({
           <div>
             <p className="font-medium">{exercise.name}</p>
             <div className="flex flex-wrap gap-1.5 mt-1">
-              <Badge variant="outline" className="text-xs">
-                {formatBodyRegion(exercise.bodyRegion)}
-              </Badge>
+              {exercise.bodyRegion.map((region) => (
+                <Badge key={region} variant="outline" className="text-xs">
+                  {formatBodyRegion(region)}
+                </Badge>
+              ))}
               <span className="text-muted-foreground text-xs">
                 {mode === "edit" ? (
                   <span className="flex items-center gap-1">

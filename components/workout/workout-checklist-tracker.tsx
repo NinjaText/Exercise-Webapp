@@ -27,6 +27,7 @@ import {
 import { cn } from "@/lib/utils";
 import type { SetLogEntry, SetLogCache } from "./types";
 import { instructionsToBullets } from "./format-instructions";
+import { formatBodyRegion } from "@/lib/utils/formatting";
 import { VoiceMemoRecorder } from "@/components/voice-memo/VoiceMemoRecorder";
 import { getWorkoutVoiceMemos } from "@/actions/voice-memo-actions";
 import type { VoiceMemoData } from "@/actions/voice-memo-actions";
@@ -38,7 +39,7 @@ type BaseExercise = {
   name: string;
   imageUrl?: string | null;
   videoUrl?: string | null;
-  bodyRegion?: string | null;
+  bodyRegion?: string[] | null;
   instructions?: string | null;
   media: MediaItem[];
 };
@@ -651,9 +652,9 @@ export function WorkoutChecklistTracker({
                                 .filter(Boolean)
                                 .join(" · ")}
                             </p>
-                            {ex.exercise.bodyRegion && (
+                            {ex.exercise.bodyRegion && ex.exercise.bodyRegion.length > 0 && (
                               <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
-                                {ex.exercise.bodyRegion}
+                                {ex.exercise.bodyRegion.map(formatBodyRegion).join(", ")}
                               </span>
                             )}
                           </div>

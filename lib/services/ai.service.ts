@@ -11,7 +11,7 @@ const openai = new OpenAI({
 type ExercisePoolItem = {
   id: string
   name: string
-  bodyRegion: string
+  bodyRegion: string[]
   difficultyLevel: string
   equipmentRequired: string[]
   contraindications: string[]
@@ -198,7 +198,7 @@ async function buildExercisePoolForWeek(
 
   const baseWhere = {
     isActive: true,
-    bodyRegion: { in: regionsForQuery },
+    bodyRegion: { hasSome: regionsForQuery },
     ...(usedIds.size > 0 ? { id: { notIn: [...usedIds] } } : {}),
   }
 
@@ -450,7 +450,7 @@ Respond with valid JSON only.`
         const poolStr = pool
           .map(
             e =>
-              `ID: ${e.id} | ${e.name} | Phase: ${e.exercisePhases.length ? e.exercisePhases.join('/') : 'STRENGTHENING'} | Region: ${e.bodyRegion} | Difficulty: ${e.difficultyLevel} | Muscles: ${e.musclesTargeted.join(', ')} | Equipment: ${e.equipmentRequired.join(', ') || 'None'} | Default Rx: ${e.defaultSets ?? 3}x${e.defaultReps ? e.defaultReps : e.defaultHoldSeconds ? e.defaultHoldSeconds + 's hold' : '10'}`
+              `ID: ${e.id} | ${e.name} | Phase: ${e.exercisePhases.length ? e.exercisePhases.join('/') : 'STRENGTHENING'} | Region: ${e.bodyRegion.join('/')} | Difficulty: ${e.difficultyLevel} | Muscles: ${e.musclesTargeted.join(', ')} | Equipment: ${e.equipmentRequired.join(', ') || 'None'} | Default Rx: ${e.defaultSets ?? 3}x${e.defaultReps ? e.defaultReps : e.defaultHoldSeconds ? e.defaultHoldSeconds + 's hold' : '10'}`
           )
           .join('\n')
 
@@ -683,7 +683,7 @@ ${jsonFormat}`
   const allExercises = (await (prisma.exercise.findMany as any)({
     where: {
       isActive: true,
-      bodyRegion: { in: targetRegions },
+      bodyRegion: { hasSome: targetRegions },
     },
     select: {
       id: true,
@@ -705,7 +705,7 @@ ${jsonFormat}`
   })) as Array<{
     id: string;
     name: string;
-    bodyRegion: string;
+    bodyRegion: string[];
     difficultyLevel: string;
     equipmentRequired: string[];
     contraindications: string[];
@@ -762,7 +762,7 @@ Respond with valid JSON only. No markdown, no explanation.`;
   const exerciseListStr = exercises
     .map(
       (e) =>
-        `ID: ${e.id} | ${e.name} | Phase: ${e.exercisePhases.length ? e.exercisePhases.join("/") : "STRENGTHENING"} | Region: ${e.bodyRegion} | Difficulty: ${e.difficultyLevel} | Muscles: ${e.musclesTargeted.join(", ")} | Equipment: ${e.equipmentRequired.join(", ") || "None"} | Video: ${e.videoUrl ? "Yes" : "No"} | Default Rx: ${e.defaultSets ?? 3}x${e.defaultReps ? e.defaultReps : e.defaultHoldSeconds ? e.defaultHoldSeconds + "s hold" : "10"} | Mistakes: ${e.commonMistakes || "N/A"} | Cues: ${e.cuesThumbnail || "N/A"}`
+        `ID: ${e.id} | ${e.name} | Phase: ${e.exercisePhases.length ? e.exercisePhases.join("/") : "STRENGTHENING"} | Region: ${e.bodyRegion.join("/")} | Difficulty: ${e.difficultyLevel} | Muscles: ${e.musclesTargeted.join(", ")} | Equipment: ${e.equipmentRequired.join(", ") || "None"} | Video: ${e.videoUrl ? "Yes" : "No"} | Default Rx: ${e.defaultSets ?? 3}x${e.defaultReps ? e.defaultReps : e.defaultHoldSeconds ? e.defaultHoldSeconds + "s hold" : "10"} | Mistakes: ${e.commonMistakes || "N/A"} | Cues: ${e.cuesThumbnail || "N/A"}`
     )
     .join("\n");
 

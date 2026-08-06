@@ -12,6 +12,7 @@
     "db:push": "prisma db push",
     "db:studio": "prisma studio",
     "db:seed": "npx tsx lib/db/seed/seed.ts",
+    "db:migrate-body-region": "npx tsx lib/db/seed/migrate-body-region-to-array.ts",
     "db:coach-plan": "npx tsx lib/db/seed/import-athletic-program.ts",
     "db:coach-plan:remove": "npx tsx lib/db/seed/remove-athletic-program.ts",
     "db:media:backfill": "npx tsx lib/db/seed/backfill-exercise-media.ts",

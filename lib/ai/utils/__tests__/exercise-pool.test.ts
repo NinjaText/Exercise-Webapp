@@ -42,7 +42,7 @@ describe('buildWeekPoolWhereClause', () => {
     const clause = buildWeekPoolWhereClause(weekPlan, usedIds)
 
     expect(clause.rehabStage).toBe('EARLY_REHAB')
-    expect(clause.bodyRegion).toEqual({ in: ['LOWER_BODY'] })
+    expect(clause.bodyRegion).toEqual({ hasSome: ['LOWER_BODY'] })
     expect(clause.indicationTags).toEqual({ hasSome: ['ACL', 'knee'] })
     expect(clause.id).toEqual({ notIn: ['abc', 'def'] })
     expect(clause.isActive).toBe(true)

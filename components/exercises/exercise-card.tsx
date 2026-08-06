@@ -17,7 +17,7 @@ import { cn } from "@/lib/utils";
 interface ExerciseCardProps {
   id: string;
   name: string;
-  bodyRegion: string;
+  bodyRegion: string[];
   difficultyLevel: string;
   exercisePhases?: string[];
   equipmentRequired: string[];
@@ -119,7 +119,7 @@ export function ExerciseCard({
         </div>
       )}
       <Link href={`/exercises/${id}`} className="relative block h-44 overflow-hidden bg-muted">
-        <ExerciseImage src={null} alt={name} bodyRegion={bodyRegion} videoUrl={videoUrl} label={name.split(" ").slice(0, 3).join(" ")} />
+        <ExerciseImage src={null} alt={name} bodyRegion={bodyRegion[0]} videoUrl={videoUrl} label={name.split(" ").slice(0, 3).join(" ")} />
         <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
           <div className="flex items-center gap-1.5 rounded-full bg-white/90 px-4 py-1.5 text-sm font-semibold text-foreground shadow-lg backdrop-blur-sm">
             <ArrowRight className="h-3.5 w-3.5" />
@@ -161,7 +161,7 @@ export function ExerciseCard({
           </Badge>
         </div>
 
-        <p className="mt-1 text-xs font-medium text-muted-foreground/70">{formatBodyRegion(bodyRegion)}</p>
+        <p className="mt-1 text-xs font-medium text-muted-foreground/70">{bodyRegion.map(formatBodyRegion).join(", ")}</p>
 
         {description && (
           <p className="mt-2 line-clamp-2 flex-1 text-xs leading-relaxed text-muted-foreground">{description}</p>

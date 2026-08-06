@@ -34,7 +34,7 @@ export function buildWeekPoolWhereClause(
   const clause: Record<string, unknown> = {
     isActive: true,
     rehabStage: weekPlan.rehabStage,
-    bodyRegion: { in: weekPlan.focusAreas },
+    bodyRegion: { hasSome: weekPlan.focusAreas },
   }
 
   if (weekPlan.derivedIndicationTags.length > 0) {

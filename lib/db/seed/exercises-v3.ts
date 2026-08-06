@@ -9,7 +9,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "Pendulum Shoulder Circles",
     description: "Gravity-assisted passive shoulder mobilization for post-surgical or acutely painful shoulders.",
-    bodyRegion: "UPPER_BODY" as BodyRegion,
+    bodyRegion: ["UPPER_BODY"] as BodyRegion[],
     difficultyLevel: "BEGINNER" as DifficultyLevel,
     exercisePhases: ["WARMUP"] as ExercisePhase[],
     musclesTargeted: ["glenohumeral joint capsule", "deltoid", "rotator cuff"],
@@ -28,7 +28,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "Shoulder Flexion (Supine Active-Assisted)",
     description: "Progressive shoulder flexion range of motion using the uninvolved arm or a stick for assistance.",
-    bodyRegion: "UPPER_BODY" as BodyRegion,
+    bodyRegion: ["UPPER_BODY"] as BodyRegion[],
     difficultyLevel: "BEGINNER" as DifficultyLevel,
     exercisePhases: ["WARMUP"] as ExercisePhase[],
     musclesTargeted: ["anterior deltoid", "biceps brachii", "pectoralis major"],
@@ -47,7 +47,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "Shoulder External Rotation with Resistance Band",
     description: "Rotator cuff strengthening targeting infraspinatus and teres minor — essential for shoulder stability.",
-    bodyRegion: "UPPER_BODY" as BodyRegion,
+    bodyRegion: ["UPPER_BODY"] as BodyRegion[],
     difficultyLevel: "INTERMEDIATE" as DifficultyLevel,
     exercisePhases: ["STRENGTHENING"] as ExercisePhase[],
     musclesTargeted: ["infraspinatus", "teres minor", "posterior deltoid"],
@@ -66,7 +66,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "Shoulder Internal Rotation with Resistance Band",
     description: "Strengthens subscapularis for rotator cuff balance and shoulder stability.",
-    bodyRegion: "UPPER_BODY" as BodyRegion,
+    bodyRegion: ["UPPER_BODY"] as BodyRegion[],
     difficultyLevel: "INTERMEDIATE" as DifficultyLevel,
     exercisePhases: ["STRENGTHENING"] as ExercisePhase[],
     musclesTargeted: ["subscapularis", "pectoralis major", "latissimus dorsi"],
@@ -85,7 +85,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "Wall Slides",
     description: "Scapular upward rotation and serratus anterior activation for shoulder impingement rehabilitation.",
-    bodyRegion: "UPPER_BODY" as BodyRegion,
+    bodyRegion: ["UPPER_BODY"] as BodyRegion[],
     difficultyLevel: "BEGINNER" as DifficultyLevel,
     exercisePhases: ["ACTIVATION"] as ExercisePhase[],
     musclesTargeted: ["serratus anterior", "lower trapezius", "rotator cuff"],
@@ -104,7 +104,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "Prone Y-T-W Exercise",
     description: "Lower trapezius and mid-trapezius activation for scapular stabilization and posture correction.",
-    bodyRegion: "UPPER_BODY" as BodyRegion,
+    bodyRegion: ["UPPER_BODY"] as BodyRegion[],
     difficultyLevel: "INTERMEDIATE" as DifficultyLevel,
     exercisePhases: ["ACTIVATION"] as ExercisePhase[],
     musclesTargeted: ["lower trapezius", "middle trapezius", "rhomboids", "posterior deltoid"],
@@ -123,7 +123,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "Scapular Retraction",
     description: "Rhomboid and mid-trapezius activation to correct forward head posture and shoulder rounding.",
-    bodyRegion: "UPPER_BODY" as BodyRegion,
+    bodyRegion: ["UPPER_BODY"] as BodyRegion[],
     difficultyLevel: "BEGINNER" as DifficultyLevel,
     exercisePhases: ["ACTIVATION"] as ExercisePhase[],
     musclesTargeted: ["rhomboids", "middle trapezius", "rear deltoid"],
@@ -142,7 +142,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "Chin Tucks (Cervical Retraction)",
     description: "Deep cervical flexor activation to correct forward head posture and reduce neck pain.",
-    bodyRegion: "UPPER_BODY" as BodyRegion,
+    bodyRegion: ["UPPER_BODY"] as BodyRegion[],
     difficultyLevel: "BEGINNER" as DifficultyLevel,
     exercisePhases: ["ACTIVATION"] as ExercisePhase[],
     musclesTargeted: ["deep cervical flexors", "longus colli", "longus capitis"],
@@ -161,7 +161,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "Cervical Rotation Stretch",
     description: "Gentle active cervical rotation to restore neck mobility and reduce stiffness.",
-    bodyRegion: "UPPER_BODY" as BodyRegion,
+    bodyRegion: ["UPPER_BODY"] as BodyRegion[],
     difficultyLevel: "BEGINNER" as DifficultyLevel,
     exercisePhases: ["MOBILITY"] as ExercisePhase[],
     musclesTargeted: ["sternocleidomastoid", "upper trapezius", "cervical rotators"],
@@ -180,7 +180,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "Upper Trapezius Stretch",
     description: "Lengthens the upper trapezius to reduce neck tension, headaches, and shoulder elevation.",
-    bodyRegion: "UPPER_BODY" as BodyRegion,
+    bodyRegion: ["UPPER_BODY"] as BodyRegion[],
     difficultyLevel: "BEGINNER" as DifficultyLevel,
     exercisePhases: ["COOLDOWN"] as ExercisePhase[],
     musclesTargeted: ["upper trapezius", "levator scapulae"],
@@ -199,7 +199,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "Doorway Chest Stretch",
     description: "Pectoralis major and minor stretch to open the anterior chest and counter rounded shoulders.",
-    bodyRegion: "UPPER_BODY" as BodyRegion,
+    bodyRegion: ["UPPER_BODY"] as BodyRegion[],
     difficultyLevel: "BEGINNER" as DifficultyLevel,
     exercisePhases: ["COOLDOWN"] as ExercisePhase[],
     musclesTargeted: ["pectoralis major", "pectoralis minor", "anterior deltoid"],
@@ -218,7 +218,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "Sleeper Stretch",
     description: "Posterior glenohumeral capsule stretch to improve internal rotation range of motion.",
-    bodyRegion: "UPPER_BODY" as BodyRegion,
+    bodyRegion: ["UPPER_BODY"] as BodyRegion[],
     difficultyLevel: "INTERMEDIATE" as DifficultyLevel,
     exercisePhases: ["MOBILITY"] as ExercisePhase[],
     musclesTargeted: ["posterior glenohumeral capsule", "infraspinatus", "posterior deltoid"],
@@ -237,7 +237,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "Wrist Flexion and Extension Stretch",
     description: "Forearm and wrist mobility stretch for tennis elbow, carpal tunnel, and wrist injuries.",
-    bodyRegion: "UPPER_BODY" as BodyRegion,
+    bodyRegion: ["UPPER_BODY"] as BodyRegion[],
     difficultyLevel: "BEGINNER" as DifficultyLevel,
     exercisePhases: ["MOBILITY"] as ExercisePhase[],
     musclesTargeted: ["wrist flexors", "wrist extensors", "forearm muscles"],
@@ -256,7 +256,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "Elbow Flexion with Resistance Band",
     description: "Biceps and brachialis strengthening for elbow rehabilitation post-fracture or tendon repair.",
-    bodyRegion: "UPPER_BODY" as BodyRegion,
+    bodyRegion: ["UPPER_BODY"] as BodyRegion[],
     difficultyLevel: "BEGINNER" as DifficultyLevel,
     exercisePhases: ["STRENGTHENING"] as ExercisePhase[],
     musclesTargeted: ["biceps brachii", "brachialis", "brachioradialis"],
@@ -275,7 +275,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "Shoulder Isometric Abduction",
     description: "Pain-free isometric shoulder strengthening during the acute phase of shoulder injuries.",
-    bodyRegion: "UPPER_BODY" as BodyRegion,
+    bodyRegion: ["UPPER_BODY"] as BodyRegion[],
     difficultyLevel: "BEGINNER" as DifficultyLevel,
     exercisePhases: ["STRENGTHENING"] as ExercisePhase[],
     musclesTargeted: ["deltoid", "supraspinatus", "rotator cuff"],
@@ -294,7 +294,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "Thoracic Extension over Foam Roll",
     description: "Thoracic spine mobility exercise to counteract kyphosis and relieve upper back stiffness.",
-    bodyRegion: "UPPER_BODY" as BodyRegion,
+    bodyRegion: ["UPPER_BODY"] as BodyRegion[],
     difficultyLevel: "BEGINNER" as DifficultyLevel,
     exercisePhases: ["MOBILITY"] as ExercisePhase[],
     musclesTargeted: ["thoracic extensors", "rhomboids", "pectoralis major"],
@@ -313,7 +313,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "Serratus Anterior Push-Up Plus",
     description: "Serratus anterior activation to prevent scapular winging and improve shoulder mechanics.",
-    bodyRegion: "UPPER_BODY" as BodyRegion,
+    bodyRegion: ["UPPER_BODY"] as BodyRegion[],
     difficultyLevel: "INTERMEDIATE" as DifficultyLevel,
     exercisePhases: ["STRENGTHENING"] as ExercisePhase[],
     musclesTargeted: ["serratus anterior", "pectoralis minor"],
@@ -332,7 +332,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "Cross-Body Shoulder Stretch",
     description: "Posterior shoulder and scapular mobility stretch targeting the posterior capsule and deltoid.",
-    bodyRegion: "UPPER_BODY" as BodyRegion,
+    bodyRegion: ["UPPER_BODY"] as BodyRegion[],
     difficultyLevel: "BEGINNER" as DifficultyLevel,
     exercisePhases: ["COOLDOWN"] as ExercisePhase[],
     musclesTargeted: ["posterior deltoid", "infraspinatus", "posterior capsule"],
@@ -351,7 +351,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "Finger Tendon Glides",
     description: "Maintains finger tendon excursion after hand surgery, fractures, or Dupuytren's treatment.",
-    bodyRegion: "UPPER_BODY" as BodyRegion,
+    bodyRegion: ["UPPER_BODY"] as BodyRegion[],
     difficultyLevel: "BEGINNER" as DifficultyLevel,
     exercisePhases: ["WARMUP"] as ExercisePhase[],
     musclesTargeted: ["flexor digitorum superficialis", "flexor digitorum profundus", "intrinsic hand muscles"],
@@ -370,7 +370,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "Resisted Wrist Extension",
     description: "Wrist extensor strengthening for lateral epicondylitis (tennis elbow) rehabilitation.",
-    bodyRegion: "UPPER_BODY" as BodyRegion,
+    bodyRegion: ["UPPER_BODY"] as BodyRegion[],
     difficultyLevel: "BEGINNER" as DifficultyLevel,
     exercisePhases: ["STRENGTHENING"] as ExercisePhase[],
     musclesTargeted: ["extensor carpi radialis brevis", "extensor carpi radialis longus", "extensor digitorum"],
@@ -389,7 +389,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "Shoulder Shrug and Retract",
     description: "Trapezius and levator scapulae mobilization to reduce upper back tension and improve posture.",
-    bodyRegion: "UPPER_BODY" as BodyRegion,
+    bodyRegion: ["UPPER_BODY"] as BodyRegion[],
     difficultyLevel: "BEGINNER" as DifficultyLevel,
     exercisePhases: ["WARMUP"] as ExercisePhase[],
     musclesTargeted: ["upper trapezius", "levator scapulae", "rhomboids"],
@@ -408,7 +408,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "Pec Minor Stretch (Corner Stretch)",
     description: "Targets pectoralis minor tightness which anteriorly tilts the scapula and contributes to impingement.",
-    bodyRegion: "UPPER_BODY" as BodyRegion,
+    bodyRegion: ["UPPER_BODY"] as BodyRegion[],
     difficultyLevel: "BEGINNER" as DifficultyLevel,
     exercisePhases: ["COOLDOWN"] as ExercisePhase[],
     musclesTargeted: ["pectoralis minor", "anterior deltoid", "coracobrachialis"],
@@ -427,7 +427,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "Rotator Cuff Side-Lying ER",
     description: "Isolated external rotation in gravity-eliminated position for early rotator cuff rehabilitation.",
-    bodyRegion: "UPPER_BODY" as BodyRegion,
+    bodyRegion: ["UPPER_BODY"] as BodyRegion[],
     difficultyLevel: "BEGINNER" as DifficultyLevel,
     exercisePhases: ["STRENGTHENING"] as ExercisePhase[],
     musclesTargeted: ["infraspinatus", "teres minor"],
@@ -446,7 +446,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "Levator Scapula Stretch",
     description: "Targeted stretch for levator scapulae to relieve neck-to-shoulder tension and stiffness.",
-    bodyRegion: "UPPER_BODY" as BodyRegion,
+    bodyRegion: ["UPPER_BODY"] as BodyRegion[],
     difficultyLevel: "BEGINNER" as DifficultyLevel,
     exercisePhases: ["COOLDOWN"] as ExercisePhase[],
     musclesTargeted: ["levator scapulae", "upper trapezius", "cervical rotators"],
@@ -465,7 +465,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "Prone Horizontal Abduction (T-Position)",
     description: "Mid-trapezius and posterior deltoid strengthening for scapular stability and posture.",
-    bodyRegion: "UPPER_BODY" as BodyRegion,
+    bodyRegion: ["UPPER_BODY"] as BodyRegion[],
     difficultyLevel: "INTERMEDIATE" as DifficultyLevel,
     exercisePhases: ["STRENGTHENING"] as ExercisePhase[],
     musclesTargeted: ["middle trapezius", "posterior deltoid", "rhomboids"],
@@ -484,7 +484,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "Cervical Side Bend Stretch",
     description: "Lateral cervical flexion stretch to restore neck side-bending range and reduce stiffness.",
-    bodyRegion: "UPPER_BODY" as BodyRegion,
+    bodyRegion: ["UPPER_BODY"] as BodyRegion[],
     difficultyLevel: "BEGINNER" as DifficultyLevel,
     exercisePhases: ["COOLDOWN"] as ExercisePhase[],
     musclesTargeted: ["scalenes", "sternocleidomastoid", "upper trapezius"],
@@ -503,7 +503,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "Shoulder Circles (Active)",
     description: "Active shoulder mobility warm-up to increase synovial fluid circulation before strengthening.",
-    bodyRegion: "UPPER_BODY" as BodyRegion,
+    bodyRegion: ["UPPER_BODY"] as BodyRegion[],
     difficultyLevel: "BEGINNER" as DifficultyLevel,
     exercisePhases: ["WARMUP"] as ExercisePhase[],
     musclesTargeted: ["deltoid", "rotator cuff", "periscapular muscles"],
@@ -522,7 +522,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "Eccentric Wrist Flexion (Golfer's Elbow)",
     description: "Targeted eccentric loading of wrist flexors for medial epicondylitis (golfer's elbow) rehabilitation.",
-    bodyRegion: "UPPER_BODY" as BodyRegion,
+    bodyRegion: ["UPPER_BODY"] as BodyRegion[],
     difficultyLevel: "INTERMEDIATE" as DifficultyLevel,
     exercisePhases: ["STRENGTHENING"] as ExercisePhase[],
     musclesTargeted: ["flexor carpi radialis", "flexor carpi ulnaris", "pronator teres"],
@@ -541,7 +541,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "Thoracic Rotation in Sitting",
     description: "Active thoracic rotation mobility for upper back stiffness, golf swing, and shoulder overhead reach.",
-    bodyRegion: "UPPER_BODY" as BodyRegion,
+    bodyRegion: ["UPPER_BODY"] as BodyRegion[],
     difficultyLevel: "BEGINNER" as DifficultyLevel,
     exercisePhases: ["MOBILITY"] as ExercisePhase[],
     musclesTargeted: ["thoracic rotators", "obliques", "latissimus dorsi"],
@@ -560,7 +560,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "Wrist Pronation and Supination",
     description: "Forearm rotational mobility and strength for tennis elbow, forearm fractures, and wrist conditions.",
-    bodyRegion: "UPPER_BODY" as BodyRegion,
+    bodyRegion: ["UPPER_BODY"] as BodyRegion[],
     difficultyLevel: "BEGINNER" as DifficultyLevel,
     exercisePhases: ["WARMUP"] as ExercisePhase[],
     musclesTargeted: ["pronator teres", "pronator quadratus", "supinator", "biceps brachii"],
@@ -584,7 +584,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "Dead Bug",
     description: "Core stabilization exercise targeting transversus abdominis while challenging limb dissociation.",
-    bodyRegion: "CORE" as BodyRegion,
+    bodyRegion: ["CORE"] as BodyRegion[],
     difficultyLevel: "INTERMEDIATE" as DifficultyLevel,
     exercisePhases: ["STRENGTHENING"] as ExercisePhase[],
     musclesTargeted: ["transversus abdominis", "rectus abdominis", "hip flexors", "contralateral obliques"],
@@ -603,7 +603,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "Bird Dog",
     description: "Multifidus and gluteal activation in quadruped for lumbar stabilization and balance coordination.",
-    bodyRegion: "CORE" as BodyRegion,
+    bodyRegion: ["CORE"] as BodyRegion[],
     difficultyLevel: "BEGINNER" as DifficultyLevel,
     exercisePhases: ["ACTIVATION"] as ExercisePhase[],
     musclesTargeted: ["multifidus", "erector spinae", "gluteus maximus", "transversus abdominis"],
@@ -622,7 +622,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "McGill Curl-Up",
     description: "Spine-safe abdominal strengthening that avoids the hip flexor loading of traditional sit-ups.",
-    bodyRegion: "CORE" as BodyRegion,
+    bodyRegion: ["CORE"] as BodyRegion[],
     difficultyLevel: "BEGINNER" as DifficultyLevel,
     exercisePhases: ["STRENGTHENING"] as ExercisePhase[],
     musclesTargeted: ["rectus abdominis", "transversus abdominis"],
@@ -641,7 +641,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "Side Plank",
     description: "Lateral core and hip abductor strengthening for spinal stability and scoliosis management.",
-    bodyRegion: "CORE" as BodyRegion,
+    bodyRegion: ["CORE"] as BodyRegion[],
     difficultyLevel: "INTERMEDIATE" as DifficultyLevel,
     exercisePhases: ["STRENGTHENING"] as ExercisePhase[],
     musclesTargeted: ["quadratus lumborum", "obliques", "gluteus medius", "hip abductors"],
@@ -660,7 +660,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "Pelvic Tilts",
     description: "Lumbar flexion mobility and transversus abdominis activation — foundational for low back rehabilitation.",
-    bodyRegion: "CORE" as BodyRegion,
+    bodyRegion: ["CORE"] as BodyRegion[],
     difficultyLevel: "BEGINNER" as DifficultyLevel,
     exercisePhases: ["WARMUP"] as ExercisePhase[],
     musclesTargeted: ["transversus abdominis", "gluteals", "lumbar erectors"],
@@ -679,7 +679,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "Knee-to-Chest Stretch",
     description: "Lumbar flexion and piriformis stretch for low back pain and lumbar facet joint stiffness.",
-    bodyRegion: "CORE" as BodyRegion,
+    bodyRegion: ["CORE"] as BodyRegion[],
     difficultyLevel: "BEGINNER" as DifficultyLevel,
     exercisePhases: ["COOLDOWN"] as ExercisePhase[],
     musclesTargeted: ["lumbar extensors", "gluteus maximus", "piriformis"],
@@ -698,7 +698,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "Cat-Cow Stretch",
     description: "Lumbar and thoracic spine flexion-extension mobility for morning stiffness and low back pain.",
-    bodyRegion: "CORE" as BodyRegion,
+    bodyRegion: ["CORE"] as BodyRegion[],
     difficultyLevel: "BEGINNER" as DifficultyLevel,
     exercisePhases: ["WARMUP"] as ExercisePhase[],
     musclesTargeted: ["lumbar extensors", "multifidus", "rectus abdominis", "thoracic spine"],
@@ -717,7 +717,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "McKenzie Press-Up",
     description: "Lumbar extension exercise for disc herniation and extension-biased low back pain (McKenzie Method).",
-    bodyRegion: "CORE" as BodyRegion,
+    bodyRegion: ["CORE"] as BodyRegion[],
     difficultyLevel: "BEGINNER" as DifficultyLevel,
     exercisePhases: ["MOBILITY"] as ExercisePhase[],
     musclesTargeted: ["lumbar extensors", "erector spinae", "lumbar multifidus"],
@@ -736,7 +736,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "Transversus Abdominis Activation (Drawing-In)",
     description: "Isolated deep core activation — the foundation for all lumbar stabilization exercises.",
-    bodyRegion: "CORE" as BodyRegion,
+    bodyRegion: ["CORE"] as BodyRegion[],
     difficultyLevel: "BEGINNER" as DifficultyLevel,
     exercisePhases: ["ACTIVATION"] as ExercisePhase[],
     musclesTargeted: ["transversus abdominis", "pelvic floor", "multifidus"],
@@ -755,7 +755,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "Quadruped Hip Extension",
     description: "Gluteal and lumbar multifidus activation in quadruped for hip extension pattern retraining.",
-    bodyRegion: "CORE" as BodyRegion,
+    bodyRegion: ["CORE"] as BodyRegion[],
     difficultyLevel: "BEGINNER" as DifficultyLevel,
     exercisePhases: ["ACTIVATION"] as ExercisePhase[],
     musclesTargeted: ["gluteus maximus", "multifidus", "hamstrings"],
@@ -774,7 +774,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "Lumbar Rotation Stretch",
     description: "Supine lumbar rotation for facet joint mobility, morning stiffness, and lumbar pain relief.",
-    bodyRegion: "CORE" as BodyRegion,
+    bodyRegion: ["CORE"] as BodyRegion[],
     difficultyLevel: "BEGINNER" as DifficultyLevel,
     exercisePhases: ["COOLDOWN"] as ExercisePhase[],
     musclesTargeted: ["lumbar rotators", "obliques", "piriformis", "gluteus medius"],
@@ -793,7 +793,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "Pallof Press (Anti-Rotation)",
     description: "Core anti-rotation stability exercise using a resistance band for functional spinal protection.",
-    bodyRegion: "CORE" as BodyRegion,
+    bodyRegion: ["CORE"] as BodyRegion[],
     difficultyLevel: "INTERMEDIATE" as DifficultyLevel,
     exercisePhases: ["STRENGTHENING"] as ExercisePhase[],
     musclesTargeted: ["transversus abdominis", "obliques", "multifidus", "glutes"],
@@ -812,7 +812,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "Forearm Plank",
     description: "Global core endurance for spine stability, addressing the three planes of core function.",
-    bodyRegion: "CORE" as BodyRegion,
+    bodyRegion: ["CORE"] as BodyRegion[],
     difficultyLevel: "INTERMEDIATE" as DifficultyLevel,
     exercisePhases: ["STRENGTHENING"] as ExercisePhase[],
     musclesTargeted: ["transversus abdominis", "rectus abdominis", "obliques", "gluteals", "hip flexors"],
@@ -831,7 +831,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "Superman Hold",
     description: "Lumbar and thoracic extensor strengthening for low back weakness and deconditioning.",
-    bodyRegion: "CORE" as BodyRegion,
+    bodyRegion: ["CORE"] as BodyRegion[],
     difficultyLevel: "BEGINNER" as DifficultyLevel,
     exercisePhases: ["STRENGTHENING"] as ExercisePhase[],
     musclesTargeted: ["erector spinae", "multifidus", "gluteus maximus", "posterior deltoid"],
@@ -850,7 +850,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "Hip Hinge Pattern",
     description: "Fundamental movement re-education for safe bending, reducing low back injury risk.",
-    bodyRegion: "CORE" as BodyRegion,
+    bodyRegion: ["CORE"] as BodyRegion[],
     difficultyLevel: "BEGINNER" as DifficultyLevel,
     exercisePhases: ["ACTIVATION"] as ExercisePhase[],
     musclesTargeted: ["gluteus maximus", "hamstrings", "lumbar extensors", "transversus abdominis"],
@@ -869,7 +869,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "Segmental Lumbar Roll",
     description: "Gentle lumbar mobility for post-surgical and acute low back pain clients needing movement.",
-    bodyRegion: "CORE" as BodyRegion,
+    bodyRegion: ["CORE"] as BodyRegion[],
     difficultyLevel: "BEGINNER" as DifficultyLevel,
     exercisePhases: ["WARMUP"] as ExercisePhase[],
     musclesTargeted: ["lumbar extensors", "multifidus", "facet joints"],
@@ -888,7 +888,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "Single Knee-to-Chest Stretch",
     description: "Unilateral lumbar and hip flexor stretch for asymmetric low back pain and hip tightness.",
-    bodyRegion: "CORE" as BodyRegion,
+    bodyRegion: ["CORE"] as BodyRegion[],
     difficultyLevel: "BEGINNER" as DifficultyLevel,
     exercisePhases: ["COOLDOWN"] as ExercisePhase[],
     musclesTargeted: ["lumbar extensors", "gluteus maximus", "iliopsoas"],
@@ -907,7 +907,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "Trunk Rotation with Band",
     description: "Rotational core strengthening for return-to-sport and functional ADL activities.",
-    bodyRegion: "CORE" as BodyRegion,
+    bodyRegion: ["CORE"] as BodyRegion[],
     difficultyLevel: "INTERMEDIATE" as DifficultyLevel,
     exercisePhases: ["STRENGTHENING"] as ExercisePhase[],
     musclesTargeted: ["obliques", "transversus abdominis", "multifidus"],
@@ -926,7 +926,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "Standing Core Stabilization with Reach",
     description: "Functional standing core stability challenging balance and core control simultaneously.",
-    bodyRegion: "CORE" as BodyRegion,
+    bodyRegion: ["CORE"] as BodyRegion[],
     difficultyLevel: "INTERMEDIATE" as DifficultyLevel,
     exercisePhases: ["STRENGTHENING"] as ExercisePhase[],
     musclesTargeted: ["transversus abdominis", "obliques", "gluteus medius", "hip stabilizers"],
@@ -945,7 +945,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "Half-Kneeling Chop",
     description: "Diagonal core pattern in half-kneeling to address rotational stability and hip stability simultaneously.",
-    bodyRegion: "CORE" as BodyRegion,
+    bodyRegion: ["CORE"] as BodyRegion[],
     difficultyLevel: "ADVANCED" as DifficultyLevel,
     exercisePhases: ["STRENGTHENING"] as ExercisePhase[],
     musclesTargeted: ["obliques", "transversus abdominis", "hip stabilizers", "latissimus dorsi"],
@@ -964,7 +964,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "Side-Lying Hip Abduction",
     description: "Gluteus medius isolation in side-lying for hip stability and knee valgus correction.",
-    bodyRegion: "CORE" as BodyRegion,
+    bodyRegion: ["CORE"] as BodyRegion[],
     difficultyLevel: "BEGINNER" as DifficultyLevel,
     exercisePhases: ["ACTIVATION"] as ExercisePhase[],
     musclesTargeted: ["gluteus medius", "tensor fasciae latae", "obliques"],
@@ -983,7 +983,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "Back Extension (Prone)",
     description: "Lumbar extensor endurance for preventing low back pain recurrence.",
-    bodyRegion: "CORE" as BodyRegion,
+    bodyRegion: ["CORE"] as BodyRegion[],
     difficultyLevel: "BEGINNER" as DifficultyLevel,
     exercisePhases: ["STRENGTHENING"] as ExercisePhase[],
     musclesTargeted: ["erector spinae", "multifidus", "quadratus lumborum"],
@@ -1002,7 +1002,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "Hip Flexor Stretch (Kneeling Lunge)",
     description: "Iliopsoas and rectus femoris stretch for anterior pelvic tilt, low back pain, and hip flexor tightness.",
-    bodyRegion: "CORE" as BodyRegion,
+    bodyRegion: ["CORE"] as BodyRegion[],
     difficultyLevel: "BEGINNER" as DifficultyLevel,
     exercisePhases: ["COOLDOWN"] as ExercisePhase[],
     musclesTargeted: ["iliopsoas", "rectus femoris", "iliacus"],
@@ -1021,7 +1021,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "Seated Trunk Rotation",
     description: "Thoracolumbar rotation mobility for ADL tasks (getting in/out of car, looking behind).",
-    bodyRegion: "CORE" as BodyRegion,
+    bodyRegion: ["CORE"] as BodyRegion[],
     difficultyLevel: "BEGINNER" as DifficultyLevel,
     exercisePhases: ["MOBILITY"] as ExercisePhase[],
     musclesTargeted: ["thoracic rotators", "lumbar rotators", "obliques"],
@@ -1045,7 +1045,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "Single Leg Stand (Eyes Open)",
     description: "Foundational proprioceptive training for ankle, knee, and hip stability rehabilitation.",
-    bodyRegion: "BALANCE" as BodyRegion,
+    bodyRegion: ["BALANCE"] as BodyRegion[],
     difficultyLevel: "BEGINNER" as DifficultyLevel,
     exercisePhases: ["ACTIVATION"] as ExercisePhase[],
     musclesTargeted: ["tibialis anterior", "peroneals", "gluteus medius", "deep hip stabilizers"],
@@ -1064,7 +1064,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "Single Leg Stand (Eyes Closed)",
     description: "Progressive balance challenge removing visual input to increase proprioceptive demand.",
-    bodyRegion: "BALANCE" as BodyRegion,
+    bodyRegion: ["BALANCE"] as BodyRegion[],
     difficultyLevel: "INTERMEDIATE" as DifficultyLevel,
     exercisePhases: ["ACTIVATION"] as ExercisePhase[],
     musclesTargeted: ["ankle proprioceptors", "hip stabilizers", "vestibular system"],
@@ -1083,7 +1083,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "Tandem Stance (Heel-to-Toe)",
     description: "Narrow base balance challenge for fall prevention and vestibular rehabilitation.",
-    bodyRegion: "BALANCE" as BodyRegion,
+    bodyRegion: ["BALANCE"] as BodyRegion[],
     difficultyLevel: "BEGINNER" as DifficultyLevel,
     exercisePhases: ["ACTIVATION"] as ExercisePhase[],
     musclesTargeted: ["ankle stabilizers", "tibialis anterior", "peroneals", "core stabilizers"],
@@ -1102,7 +1102,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "Foam Pad Single Leg Stand",
     description: "Unstable surface balance training to maximize ankle and knee proprioceptive retraining.",
-    bodyRegion: "BALANCE" as BodyRegion,
+    bodyRegion: ["BALANCE"] as BodyRegion[],
     difficultyLevel: "INTERMEDIATE" as DifficultyLevel,
     exercisePhases: ["STRENGTHENING"] as ExercisePhase[],
     musclesTargeted: ["ankle proprioceptors", "peroneals", "tibialis anterior", "gluteus medius"],
@@ -1121,7 +1121,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "Step-Up Balance Hold",
     description: "Functional balance and gluteal strengthening combining step training with single-leg hold.",
-    bodyRegion: "BALANCE" as BodyRegion,
+    bodyRegion: ["BALANCE"] as BodyRegion[],
     difficultyLevel: "INTERMEDIATE" as DifficultyLevel,
     exercisePhases: ["STRENGTHENING"] as ExercisePhase[],
     musclesTargeted: ["gluteus medius", "gluteus maximus", "quadriceps", "ankle stabilizers"],
@@ -1140,7 +1140,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "Lateral Step-Over",
     description: "Dynamic lateral balance and hip abductor strength for functional mobility and fall prevention.",
-    bodyRegion: "BALANCE" as BodyRegion,
+    bodyRegion: ["BALANCE"] as BodyRegion[],
     difficultyLevel: "INTERMEDIATE" as DifficultyLevel,
     exercisePhases: ["STRENGTHENING"] as ExercisePhase[],
     musclesTargeted: ["gluteus medius", "hip abductors", "ankle stabilizers"],
@@ -1159,7 +1159,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "Heel-to-Toe Walking",
     description: "Gait and balance retraining exercise for fall prevention and vestibular rehabilitation.",
-    bodyRegion: "BALANCE" as BodyRegion,
+    bodyRegion: ["BALANCE"] as BodyRegion[],
     difficultyLevel: "BEGINNER" as DifficultyLevel,
     exercisePhases: ["ACTIVATION"] as ExercisePhase[],
     musclesTargeted: ["ankle stabilizers", "gluteals", "core stabilizers"],
@@ -1178,7 +1178,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "Balance Reach Test (Y-Balance)",
     description: "Dynamic balance assessment and training using anterior, posteromedial, and posterolateral reaches.",
-    bodyRegion: "BALANCE" as BodyRegion,
+    bodyRegion: ["BALANCE"] as BodyRegion[],
     difficultyLevel: "ADVANCED" as DifficultyLevel,
     exercisePhases: ["STRENGTHENING"] as ExercisePhase[],
     musclesTargeted: ["gluteus maximus", "gluteus medius", "ankle stabilizers", "core"],
@@ -1197,7 +1197,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "Unilateral Calf Raise",
     description: "Soleus and gastrocnemius strengthening and balance training for ankle rehabilitation.",
-    bodyRegion: "BALANCE" as BodyRegion,
+    bodyRegion: ["BALANCE"] as BodyRegion[],
     difficultyLevel: "INTERMEDIATE" as DifficultyLevel,
     exercisePhases: ["STRENGTHENING"] as ExercisePhase[],
     musclesTargeted: ["gastrocnemius", "soleus", "peroneals", "ankle stabilizers"],
@@ -1216,7 +1216,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "Double Leg Squat to Balance",
     description: "Transitional balance training from double to single-leg stance for post-surgical return to activity.",
-    bodyRegion: "BALANCE" as BodyRegion,
+    bodyRegion: ["BALANCE"] as BodyRegion[],
     difficultyLevel: "INTERMEDIATE" as DifficultyLevel,
     exercisePhases: ["STRENGTHENING"] as ExercisePhase[],
     musclesTargeted: ["quadriceps", "gluteus maximus", "gluteus medius", "ankle stabilizers"],
@@ -1235,7 +1235,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "Balance with Head Turns",
     description: "Vestibulo-ocular reflex challenge for concussion, dizziness, and vestibular rehabilitation.",
-    bodyRegion: "BALANCE" as BodyRegion,
+    bodyRegion: ["BALANCE"] as BodyRegion[],
     difficultyLevel: "INTERMEDIATE" as DifficultyLevel,
     exercisePhases: ["ACTIVATION"] as ExercisePhase[],
     musclesTargeted: ["vestibular system", "ankle stabilizers", "core stabilizers"],
@@ -1254,7 +1254,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "Perturbation Training",
     description: "Reactive neuromuscular training to improve automatic protective responses for injury prevention.",
-    bodyRegion: "BALANCE" as BodyRegion,
+    bodyRegion: ["BALANCE"] as BodyRegion[],
     difficultyLevel: "ADVANCED" as DifficultyLevel,
     exercisePhases: ["STRENGTHENING"] as ExercisePhase[],
     musclesTargeted: ["ankle stabilizers", "peroneals", "hip stabilizers", "core"],
@@ -1278,7 +1278,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "Hip 90/90 Stretch",
     description: "Hip internal and external rotation mobility addressing multiple hip muscles simultaneously.",
-    bodyRegion: "FLEXIBILITY" as BodyRegion,
+    bodyRegion: ["FLEXIBILITY"] as BodyRegion[],
     difficultyLevel: "INTERMEDIATE" as DifficultyLevel,
     exercisePhases: ["MOBILITY"] as ExercisePhase[],
     musclesTargeted: ["piriformis", "hip external rotators", "hip internal rotators", "groin"],
@@ -1297,7 +1297,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "Piriformis Stretch (Figure-4)",
     description: "Piriformis and deep hip external rotator stretch for sciatica, hip bursitis, and piriformis syndrome.",
-    bodyRegion: "FLEXIBILITY" as BodyRegion,
+    bodyRegion: ["FLEXIBILITY"] as BodyRegion[],
     difficultyLevel: "BEGINNER" as DifficultyLevel,
     exercisePhases: ["COOLDOWN"] as ExercisePhase[],
     musclesTargeted: ["piriformis", "obturator internus", "gemellus muscles"],
@@ -1316,7 +1316,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "Hamstring Stretch (Supine)",
     description: "Controlled supine hamstring stretch for low back pain, sciatica, and post-surgical hamstring recovery.",
-    bodyRegion: "FLEXIBILITY" as BodyRegion,
+    bodyRegion: ["FLEXIBILITY"] as BodyRegion[],
     difficultyLevel: "BEGINNER" as DifficultyLevel,
     exercisePhases: ["COOLDOWN"] as ExercisePhase[],
     musclesTargeted: ["biceps femoris", "semimembranosus", "semitendinosus"],
@@ -1335,7 +1335,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "Standing Quadriceps Stretch",
     description: "Rectus femoris and quadriceps stretch for knee rehabilitation and patellar tendinopathy.",
-    bodyRegion: "FLEXIBILITY" as BodyRegion,
+    bodyRegion: ["FLEXIBILITY"] as BodyRegion[],
     difficultyLevel: "BEGINNER" as DifficultyLevel,
     exercisePhases: ["COOLDOWN"] as ExercisePhase[],
     musclesTargeted: ["rectus femoris", "vastus muscles", "iliopsoas"],
@@ -1354,7 +1354,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "Calf Stretch (Gastrocnemius)",
     description: "Gastrocnemius stretch for Achilles tendinopathy, plantar fasciitis, and ankle dorsiflexion restriction.",
-    bodyRegion: "FLEXIBILITY" as BodyRegion,
+    bodyRegion: ["FLEXIBILITY"] as BodyRegion[],
     difficultyLevel: "BEGINNER" as DifficultyLevel,
     exercisePhases: ["COOLDOWN"] as ExercisePhase[],
     musclesTargeted: ["gastrocnemius", "soleus"],
@@ -1373,7 +1373,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "Soleus Stretch",
     description: "Soleus stretch for Achilles tendinopathy and restricted ankle dorsiflexion below the gastrocnemius.",
-    bodyRegion: "FLEXIBILITY" as BodyRegion,
+    bodyRegion: ["FLEXIBILITY"] as BodyRegion[],
     difficultyLevel: "BEGINNER" as DifficultyLevel,
     exercisePhases: ["COOLDOWN"] as ExercisePhase[],
     musclesTargeted: ["soleus", "posterior ankle capsule"],
@@ -1392,7 +1392,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "IT Band Stretch",
     description: "Iliotibial band and TFL stretch for IT band syndrome, lateral knee pain, and hip mobility.",
-    bodyRegion: "FLEXIBILITY" as BodyRegion,
+    bodyRegion: ["FLEXIBILITY"] as BodyRegion[],
     difficultyLevel: "BEGINNER" as DifficultyLevel,
     exercisePhases: ["COOLDOWN"] as ExercisePhase[],
     musclesTargeted: ["iliotibial band", "tensor fasciae latae", "gluteus maximus"],
@@ -1411,7 +1411,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "Butterfly Groin Stretch",
     description: "Hip adductor and groin stretch for hip range of motion, groin strains, and hip osteoarthritis.",
-    bodyRegion: "FLEXIBILITY" as BodyRegion,
+    bodyRegion: ["FLEXIBILITY"] as BodyRegion[],
     difficultyLevel: "BEGINNER" as DifficultyLevel,
     exercisePhases: ["COOLDOWN"] as ExercisePhase[],
     musclesTargeted: ["adductor magnus", "adductor longus", "gracilis", "pectineus"],
@@ -1430,7 +1430,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "Seated Pigeon Stretch",
     description: "Seated version of pigeon pose for external hip rotation and piriformis mobility (office-friendly).",
-    bodyRegion: "FLEXIBILITY" as BodyRegion,
+    bodyRegion: ["FLEXIBILITY"] as BodyRegion[],
     difficultyLevel: "BEGINNER" as DifficultyLevel,
     exercisePhases: ["COOLDOWN"] as ExercisePhase[],
     musclesTargeted: ["piriformis", "hip external rotators", "gluteus maximus"],
@@ -1449,7 +1449,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "Child's Pose with Rotation",
     description: "Thoracolumbar flexion and lateral rib cage opening stretch for back stiffness and rib mobility.",
-    bodyRegion: "FLEXIBILITY" as BodyRegion,
+    bodyRegion: ["FLEXIBILITY"] as BodyRegion[],
     difficultyLevel: "BEGINNER" as DifficultyLevel,
     exercisePhases: ["COOLDOWN"] as ExercisePhase[],
     musclesTargeted: ["lumbar extensors", "latissimus dorsi", "thoracic rotators", "hip flexors"],
@@ -1468,7 +1468,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "Thoracic Foam Roll Mobilization",
     description: "Thoracic spine extension mobility using foam roller for kyphosis, upper back pain, and shoulder overhead reach.",
-    bodyRegion: "FLEXIBILITY" as BodyRegion,
+    bodyRegion: ["FLEXIBILITY"] as BodyRegion[],
     difficultyLevel: "BEGINNER" as DifficultyLevel,
     exercisePhases: ["WARMUP"] as ExercisePhase[],
     musclesTargeted: ["thoracic extensors", "thoracic facet joints", "pectoral muscles"],
@@ -1487,7 +1487,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "Plantar Fascia Stretch",
     description: "Intrinsic foot and plantar fascia stretch for plantar fasciitis — most effective first thing in the morning.",
-    bodyRegion: "FLEXIBILITY" as BodyRegion,
+    bodyRegion: ["FLEXIBILITY"] as BodyRegion[],
     difficultyLevel: "BEGINNER" as DifficultyLevel,
     exercisePhases: ["WARMUP"] as ExercisePhase[],
     musclesTargeted: ["plantar fascia", "intrinsic foot muscles", "flexor digitorum brevis"],
@@ -1506,7 +1506,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "Lateral Trunk Stretch",
     description: "Quadratus lumborum and intercostal stretch for lateral trunk tightness and respiratory issues.",
-    bodyRegion: "FLEXIBILITY" as BodyRegion,
+    bodyRegion: ["FLEXIBILITY"] as BodyRegion[],
     difficultyLevel: "BEGINNER" as DifficultyLevel,
     exercisePhases: ["COOLDOWN"] as ExercisePhase[],
     musclesTargeted: ["quadratus lumborum", "intercostals", "latissimus dorsi", "obliques"],
@@ -1525,7 +1525,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "Lying Spinal Twist",
     description: "Thoracolumbar rotation and piriformis stretch for spine mobility and overnight stiffness.",
-    bodyRegion: "FLEXIBILITY" as BodyRegion,
+    bodyRegion: ["FLEXIBILITY"] as BodyRegion[],
     difficultyLevel: "BEGINNER" as DifficultyLevel,
     exercisePhases: ["COOLDOWN"] as ExercisePhase[],
     musclesTargeted: ["thoracic rotators", "lumbar rotators", "piriformis", "IT band"],
@@ -1544,7 +1544,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "Overhead Reach Stretch",
     description: "Shoulder, latissimus dorsi, and side-body stretch for overhead mobility and thoracic opening.",
-    bodyRegion: "FLEXIBILITY" as BodyRegion,
+    bodyRegion: ["FLEXIBILITY"] as BodyRegion[],
     difficultyLevel: "BEGINNER" as DifficultyLevel,
     exercisePhases: ["COOLDOWN"] as ExercisePhase[],
     musclesTargeted: ["latissimus dorsi", "teres major", "triceps", "thoracic spine"],
@@ -1568,7 +1568,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "Sit-to-Stand (Chair Squat)",
     description: "Foundational functional movement for lower extremity strength, fall prevention, and ADL retraining.",
-    bodyRegion: "FULL_BODY" as BodyRegion,
+    bodyRegion: ["FULL_BODY"] as BodyRegion[],
     difficultyLevel: "BEGINNER" as DifficultyLevel,
     exercisePhases: ["STRENGTHENING"] as ExercisePhase[],
     musclesTargeted: ["quadriceps", "gluteus maximus", "hamstrings", "core stabilizers"],
@@ -1587,7 +1587,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "Supported Squat (Wall Squat)",
     description: "Closed-chain lower body strengthening with spinal support for knee rehabilitation and early strengthening.",
-    bodyRegion: "FULL_BODY" as BodyRegion,
+    bodyRegion: ["FULL_BODY"] as BodyRegion[],
     difficultyLevel: "BEGINNER" as DifficultyLevel,
     exercisePhases: ["STRENGTHENING"] as ExercisePhase[],
     musclesTargeted: ["quadriceps", "gluteus maximus", "hamstrings", "core"],
@@ -1606,7 +1606,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "Step Training (Forward Step-Up)",
     description: "Functional stair training for lower body strength, balance, and return to community ambulation.",
-    bodyRegion: "FULL_BODY" as BodyRegion,
+    bodyRegion: ["FULL_BODY"] as BodyRegion[],
     difficultyLevel: "INTERMEDIATE" as DifficultyLevel,
     exercisePhases: ["STRENGTHENING"] as ExercisePhase[],
     musclesTargeted: ["quadriceps", "gluteus maximus", "gluteus medius", "ankle stabilizers"],
@@ -1625,7 +1625,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "Bodyweight Squat",
     description: "Fundamental lower extremity strengthening and mobility exercise for all rehabilitation stages.",
-    bodyRegion: "FULL_BODY" as BodyRegion,
+    bodyRegion: ["FULL_BODY"] as BodyRegion[],
     difficultyLevel: "BEGINNER" as DifficultyLevel,
     exercisePhases: ["STRENGTHENING"] as ExercisePhase[],
     musclesTargeted: ["quadriceps", "gluteus maximus", "hamstrings", "calves", "core"],
@@ -1644,7 +1644,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "Functional Reaching Pattern",
     description: "Multi-direction reaching for ADL training — simulates shelf reach, object retrieval, and overhead tasks.",
-    bodyRegion: "FULL_BODY" as BodyRegion,
+    bodyRegion: ["FULL_BODY"] as BodyRegion[],
     difficultyLevel: "BEGINNER" as DifficultyLevel,
     exercisePhases: ["ACTIVATION"] as ExercisePhase[],
     musclesTargeted: ["anterior deltoid", "upper trapezius", "core stabilizers", "hip stabilizers"],
@@ -1663,7 +1663,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "Controlled Breathing with Core",
     description: "Diaphragmatic breathing with core activation — reduces pain sensitization and improves function.",
-    bodyRegion: "FULL_BODY" as BodyRegion,
+    bodyRegion: ["FULL_BODY"] as BodyRegion[],
     difficultyLevel: "BEGINNER" as DifficultyLevel,
     exercisePhases: ["COOLDOWN"] as ExercisePhase[],
     musclesTargeted: ["diaphragm", "transversus abdominis", "pelvic floor", "respiratory muscles"],
@@ -1682,7 +1682,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "Dynamic Warm-Up March",
     description: "Full-body dynamic warm-up activating multiple systems before exercise or physical activity.",
-    bodyRegion: "FULL_BODY" as BodyRegion,
+    bodyRegion: ["FULL_BODY"] as BodyRegion[],
     difficultyLevel: "BEGINNER" as DifficultyLevel,
     exercisePhases: ["WARMUP"] as ExercisePhase[],
     musclesTargeted: ["hip flexors", "quadriceps", "gluteals", "core", "shoulder girdle"],
@@ -1701,7 +1701,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "Lunge (Stationary)",
     description: "Unilateral lower extremity strengthening for hip extension, knee stability, and balance.",
-    bodyRegion: "FULL_BODY" as BodyRegion,
+    bodyRegion: ["FULL_BODY"] as BodyRegion[],
     difficultyLevel: "INTERMEDIATE" as DifficultyLevel,
     exercisePhases: ["STRENGTHENING"] as ExercisePhase[],
     musclesTargeted: ["quadriceps", "gluteus maximus", "gluteus medius", "hamstrings"],
@@ -1725,7 +1725,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "Terminal Knee Extension",
     description: "VMO (vastus medialis oblique) activation for patellofemoral pain and post-ACL reconstruction.",
-    bodyRegion: "LOWER_BODY" as BodyRegion,
+    bodyRegion: ["LOWER_BODY"] as BodyRegion[],
     difficultyLevel: "BEGINNER" as DifficultyLevel,
     exercisePhases: ["ACTIVATION"] as ExercisePhase[],
     musclesTargeted: ["vastus medialis oblique", "quadriceps", "popliteus"],
@@ -1744,7 +1744,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "Eccentric Hamstring Curl (Nordic)",
     description: "Eccentric hamstring strengthening for hamstring strain prevention and return to running.",
-    bodyRegion: "LOWER_BODY" as BodyRegion,
+    bodyRegion: ["LOWER_BODY"] as BodyRegion[],
     difficultyLevel: "ADVANCED" as DifficultyLevel,
     exercisePhases: ["STRENGTHENING"] as ExercisePhase[],
     musclesTargeted: ["biceps femoris", "semimembranosus", "semitendinosus"],
@@ -1763,7 +1763,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "Short Arc Quadriceps",
     description: "Limited-range quadriceps activation for early post-surgical knee rehabilitation.",
-    bodyRegion: "LOWER_BODY" as BodyRegion,
+    bodyRegion: ["LOWER_BODY"] as BodyRegion[],
     difficultyLevel: "BEGINNER" as DifficultyLevel,
     exercisePhases: ["ACTIVATION"] as ExercisePhase[],
     musclesTargeted: ["quadriceps", "vastus medialis oblique"],
@@ -1782,7 +1782,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "Standing Hip Abduction",
     description: "Standing gluteus medius strengthening for hip stability, knee valgus, and IT band syndrome.",
-    bodyRegion: "LOWER_BODY" as BodyRegion,
+    bodyRegion: ["LOWER_BODY"] as BodyRegion[],
     difficultyLevel: "BEGINNER" as DifficultyLevel,
     exercisePhases: ["STRENGTHENING"] as ExercisePhase[],
     musclesTargeted: ["gluteus medius", "gluteus minimus", "tensor fasciae latae"],
@@ -1801,7 +1801,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "Straight Leg Raise",
     description: "Quadriceps and hip flexor strengthening in non-weight-bearing for early knee rehabilitation.",
-    bodyRegion: "LOWER_BODY" as BodyRegion,
+    bodyRegion: ["LOWER_BODY"] as BodyRegion[],
     difficultyLevel: "BEGINNER" as DifficultyLevel,
     exercisePhases: ["STRENGTHENING"] as ExercisePhase[],
     musclesTargeted: ["rectus femoris", "iliopsoas", "vastus muscles"],
@@ -1820,7 +1820,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "Standing Hip Extension",
     description: "Gluteus maximus strengthening in standing for hip rehabilitation and functional strength.",
-    bodyRegion: "LOWER_BODY" as BodyRegion,
+    bodyRegion: ["LOWER_BODY"] as BodyRegion[],
     difficultyLevel: "BEGINNER" as DifficultyLevel,
     exercisePhases: ["STRENGTHENING"] as ExercisePhase[],
     musclesTargeted: ["gluteus maximus", "hamstrings"],
@@ -1839,7 +1839,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "Knee Flexion (Prone Hamstring Curl)",
     description: "Hamstring isolation in prone for knee ROM, post-operative rehabilitation, and hamstring strengthening.",
-    bodyRegion: "LOWER_BODY" as BodyRegion,
+    bodyRegion: ["LOWER_BODY"] as BodyRegion[],
     difficultyLevel: "BEGINNER" as DifficultyLevel,
     exercisePhases: ["STRENGTHENING"] as ExercisePhase[],
     musclesTargeted: ["biceps femoris", "semimembranosus", "semitendinosus"],
@@ -1858,7 +1858,7 @@ export const exercisesV3: SeedExercise[] = [
   {
     name: "Calf Raises (Bilateral)",
     description: "Gastrocnemius and soleus strengthening for ankle rehabilitation, Achilles recovery, and fall prevention.",
-    bodyRegion: "LOWER_BODY" as BodyRegion,
+    bodyRegion: ["LOWER_BODY"] as BodyRegion[],
     difficultyLevel: "BEGINNER" as DifficultyLevel,
     exercisePhases: ["STRENGTHENING"] as ExercisePhase[],
     musclesTargeted: ["gastrocnemius", "soleus", "tibialis posterior"],

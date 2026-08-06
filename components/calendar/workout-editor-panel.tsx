@@ -77,7 +77,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 type ExerciseSummary = {
   id: string;
   name: string;
-  bodyRegion: string;
+  bodyRegion: string[];
   difficultyLevel: string;
   defaultReps?: number | null;
   targetRPE?: number | null;

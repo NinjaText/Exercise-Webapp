@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import type { BodyRegion } from "@prisma/client";
 import { clerkClient } from "@clerk/nextjs/server";
 import { subMonths, startOfMonth, endOfMonth, format } from "date-fns";
 
@@ -238,13 +239,13 @@ export async function getAllExercises(params: {
   page?: number;
   pageSize?: number;
   search?: string;
-  bodyRegion?: string;
+  bodyRegions?: string[];
 }) {
-  const { page = 1, pageSize = 25, search, bodyRegion } = params;
+  const { page = 1, pageSize = 25, search, bodyRegions } = params;
 
   const where = {
     isActive: { not: false },
-    ...(bodyRegion && bodyRegion !== "ALL" && { bodyRegion: bodyRegion as never }),
+    ...(bodyRegions?.length && { bodyRegion: { hasSome: bodyRegions as BodyRegion[] } }),
     ...(search && {
       OR: [
         { name: { contains: search, mode: "insensitive" as const } },

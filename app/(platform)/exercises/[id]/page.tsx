@@ -41,7 +41,9 @@ export default async function ExerciseDetailPage({ params }: Props) {
             <div>
               <CardTitle className="text-2xl">{exercise.name}</CardTitle>
               <div className="mt-2 flex flex-wrap gap-2">
-                <Badge variant="secondary">{formatBodyRegion(exercise.bodyRegion)}</Badge>
+                {exercise.bodyRegion.map((region) => (
+                  <Badge key={region} variant="secondary">{formatBodyRegion(region)}</Badge>
+                ))}
                 <Badge variant="secondary">{formatDifficulty(exercise.difficultyLevel)}</Badge>
                 {exercise.exercisePhases?.map((phase) => (
                   <Badge key={phase} className="bg-indigo-100 text-indigo-700 border-0">

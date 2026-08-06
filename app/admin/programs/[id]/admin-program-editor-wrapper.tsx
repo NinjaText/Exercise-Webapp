@@ -9,7 +9,7 @@ interface Props {
   exercises: {
     id: string;
     name: string;
-    bodyRegion: string;
+    bodyRegion: string[];
     difficultyLevel: string;
     defaultReps?: number | null;
     musclesTargeted?: string[];

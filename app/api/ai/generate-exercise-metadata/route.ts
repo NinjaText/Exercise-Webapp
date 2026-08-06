@@ -11,7 +11,9 @@ import { isSuperAdmin } from "@/lib/current-user";
 const metadataFields = {
   description: z.string().describe("2-3 sentence clinical description of the exercise and its purpose in a rehabilitation or senior fitness context"),
   instructions: z.string().describe("Clear step-by-step instructions for the client, numbered list format, safety-first"),
-  bodyRegion: z.enum(["LOWER_BODY", "UPPER_BODY", "CORE", "FULL_BODY", "BALANCE", "FLEXIBILITY"]).describe("Primary body region targeted"),
+  bodyRegion: z.array(z.enum(["LOWER_BODY", "UPPER_BODY", "CORE", "FULL_BODY", "BALANCE", "FLEXIBILITY"]))
+    .min(1)
+    .describe("Body region(s) targeted — an exercise can target more than one, e.g. a lunge is both LOWER_BODY and BALANCE. Return every region that genuinely applies."),
   difficultyLevel: z.enum(["BEGINNER", "INTERMEDIATE", "ADVANCED"]).describe("Appropriate difficulty level for a senior/rehab population — default to BEGINNER unless clearly advanced"),
   exercisePhases: z.array(z.enum(["WARMUP", "ACTIVATION", "STRENGTHENING", "MOBILITY", "COOLDOWN"]))
     .min(1)

@@ -5,7 +5,7 @@ const prisma = new PrismaClient();
 type ExerciseSeed = {
   name: string;
   description: string;
-  bodyRegion: "LOWER_BODY" | "UPPER_BODY" | "CORE" | "FULL_BODY" | "BALANCE" | "FLEXIBILITY";
+  bodyRegion: ("LOWER_BODY" | "UPPER_BODY" | "CORE" | "FULL_BODY" | "BALANCE" | "FLEXIBILITY")[];
   difficultyLevel: "BEGINNER" | "INTERMEDIATE" | "ADVANCED";
   exercisePhases: ("WARMUP" | "ACTIVATION" | "STRENGTHENING" | "MOBILITY" | "COOLDOWN")[];
   musclesTargeted: string[];
@@ -61,7 +61,7 @@ const exerciseSeeds: ExerciseSeed[] = [
   seedExercise({
     name: "Heel Elevated Squat",
     description: "Heel-elevated squat that biases the quads and keeps the torso upright.",
-    bodyRegion: "LOWER_BODY",
+    bodyRegion: ["LOWER_BODY"],
     difficultyLevel: "INTERMEDIATE",
     exercisePhases: ["STRENGTHENING"],
     musclesTargeted: ["quadriceps", "gluteus maximus"],
@@ -78,7 +78,7 @@ const exerciseSeeds: ExerciseSeed[] = [
   seedExercise({
     name: "Depth Jump",
     description: "Reactive drop-and-rebound jump for lower-body power.",
-    bodyRegion: "LOWER_BODY",
+    bodyRegion: ["LOWER_BODY"],
     difficultyLevel: "ADVANCED",
     exercisePhases: ["ACTIVATION"],
     musclesTargeted: ["quadriceps", "glutes", "calves"],
@@ -95,7 +95,7 @@ const exerciseSeeds: ExerciseSeed[] = [
   seedExercise({
     name: "Full Range Split Squat",
     description: "Unilateral split squat through full hip and knee range.",
-    bodyRegion: "LOWER_BODY",
+    bodyRegion: ["LOWER_BODY"],
     difficultyLevel: "INTERMEDIATE",
     exercisePhases: ["STRENGTHENING"],
     musclesTargeted: ["quadriceps", "gluteus maximus", "adductors"],
@@ -112,7 +112,7 @@ const exerciseSeeds: ExerciseSeed[] = [
   seedExercise({
     name: "Skiers",
     description: "Lateral power and deceleration drill.",
-    bodyRegion: "LOWER_BODY",
+    bodyRegion: ["LOWER_BODY"],
     difficultyLevel: "ADVANCED",
     exercisePhases: ["ACTIVATION"],
     musclesTargeted: ["gluteus medius", "quadriceps", "calves"],
@@ -129,7 +129,7 @@ const exerciseSeeds: ExerciseSeed[] = [
   seedExercise({
     name: "Hanging Knee Raise",
     description: "Core drill for hip flexion and trunk control.",
-    bodyRegion: "CORE",
+    bodyRegion: ["CORE"],
     difficultyLevel: "INTERMEDIATE",
     exercisePhases: ["STRENGTHENING"],
     musclesTargeted: ["rectus abdominis", "hip flexors"],
@@ -146,7 +146,7 @@ const exerciseSeeds: ExerciseSeed[] = [
   seedExercise({
     name: "Copenhagen Plank",
     description: "Adductor and side-core hold.",
-    bodyRegion: "CORE",
+    bodyRegion: ["CORE"],
     difficultyLevel: "ADVANCED",
     exercisePhases: ["STRENGTHENING"],
     musclesTargeted: ["adductors", "obliques", "gluteus medius"],
@@ -163,7 +163,7 @@ const exerciseSeeds: ExerciseSeed[] = [
   seedExercise({
     name: "Couch Stretch",
     description: "Hip flexor and quad stretch used in cooldowns.",
-    bodyRegion: "FLEXIBILITY",
+    bodyRegion: ["FLEXIBILITY"],
     difficultyLevel: "BEGINNER",
     exercisePhases: ["COOLDOWN"],
     musclesTargeted: ["hip flexors", "quadriceps"],
@@ -180,7 +180,7 @@ const exerciseSeeds: ExerciseSeed[] = [
   seedExercise({
     name: "Hamstring Stretch (Supine)",
     description: "Supine hamstring stretch with band support.",
-    bodyRegion: "FLEXIBILITY",
+    bodyRegion: ["FLEXIBILITY"],
     difficultyLevel: "BEGINNER",
     exercisePhases: ["COOLDOWN"],
     musclesTargeted: ["hamstrings"],
@@ -197,7 +197,7 @@ const exerciseSeeds: ExerciseSeed[] = [
   seedExercise({
     name: "Calf Stretch with Toes Up",
     description: "Dorsiflexion-biased calf stretch.",
-    bodyRegion: "LOWER_BODY",
+    bodyRegion: ["LOWER_BODY"],
     difficultyLevel: "BEGINNER",
     exercisePhases: ["COOLDOWN"],
     musclesTargeted: ["gastrocnemius", "soleus"],
@@ -214,7 +214,7 @@ const exerciseSeeds: ExerciseSeed[] = [
   seedExercise({
     name: "Single-Leg Pogo Hops",
     description: "Single-leg ankle stiffness drill.",
-    bodyRegion: "LOWER_BODY",
+    bodyRegion: ["LOWER_BODY"],
     difficultyLevel: "ADVANCED",
     exercisePhases: ["ACTIVATION"],
     musclesTargeted: ["calves", "foot intrinsics"],
@@ -231,7 +231,7 @@ const exerciseSeeds: ExerciseSeed[] = [
   seedExercise({
     name: "Double-Leg Pogo Hops",
     description: "Two-leg ankle stiffness drill.",
-    bodyRegion: "LOWER_BODY",
+    bodyRegion: ["LOWER_BODY"],
     difficultyLevel: "INTERMEDIATE",
     exercisePhases: ["ACTIVATION"],
     musclesTargeted: ["calves", "foot intrinsics"],
@@ -248,7 +248,7 @@ const exerciseSeeds: ExerciseSeed[] = [
   seedExercise({
     name: "Double-Leg Small Pogo Hops",
     description: "Short-amplitude pogo prep drill.",
-    bodyRegion: "LOWER_BODY",
+    bodyRegion: ["LOWER_BODY"],
     difficultyLevel: "BEGINNER",
     exercisePhases: ["WARMUP"],
     musclesTargeted: ["calves", "foot intrinsics"],
@@ -265,7 +265,7 @@ const exerciseSeeds: ExerciseSeed[] = [
   seedExercise({
     name: "Double-Leg Pogo for Height",
     description: "Pogo variation emphasizing a slightly higher rebound.",
-    bodyRegion: "LOWER_BODY",
+    bodyRegion: ["LOWER_BODY"],
     difficultyLevel: "INTERMEDIATE",
     exercisePhases: ["ACTIVATION"],
     musclesTargeted: ["calves", "quads"],
@@ -282,7 +282,7 @@ const exerciseSeeds: ExerciseSeed[] = [
   seedExercise({
     name: "Split-Stance Slalom Hops",
     description: "Split-stance lateral hop drill for control and rhythm.",
-    bodyRegion: "LOWER_BODY",
+    bodyRegion: ["LOWER_BODY"],
     difficultyLevel: "ADVANCED",
     exercisePhases: ["ACTIVATION"],
     musclesTargeted: ["gluteus medius", "adductors", "calves"],
@@ -299,7 +299,7 @@ const exerciseSeeds: ExerciseSeed[] = [
   seedExercise({
     name: "Skips for Height",
     description: "High-knee skipping drill with vertical intent.",
-    bodyRegion: "FULL_BODY",
+    bodyRegion: ["FULL_BODY"],
     difficultyLevel: "INTERMEDIATE",
     exercisePhases: ["WARMUP"],
     musclesTargeted: ["hip flexors", "calves", "glutes"],
@@ -316,7 +316,7 @@ const exerciseSeeds: ExerciseSeed[] = [
   seedExercise({
     name: "Mario's for Height",
     description: "Power skip drill with strong knee drive.",
-    bodyRegion: "FULL_BODY",
+    bodyRegion: ["FULL_BODY"],
     difficultyLevel: "INTERMEDIATE",
     exercisePhases: ["WARMUP"],
     musclesTargeted: ["hip flexors", "calves", "hamstrings"],
@@ -333,7 +333,7 @@ const exerciseSeeds: ExerciseSeed[] = [
   seedExercise({
     name: "Broad Jump",
     description: "Horizontal power jump from a standing start.",
-    bodyRegion: "FULL_BODY",
+    bodyRegion: ["FULL_BODY"],
     difficultyLevel: "INTERMEDIATE",
     exercisePhases: ["ACTIVATION"],
     musclesTargeted: ["glutes", "hamstrings", "quads"],
@@ -350,7 +350,7 @@ const exerciseSeeds: ExerciseSeed[] = [
   seedExercise({
     name: "Consecutive Broad Jumps",
     description: "Repeated broad jumps for horizontal elasticity.",
-    bodyRegion: "FULL_BODY",
+    bodyRegion: ["FULL_BODY"],
     difficultyLevel: "ADVANCED",
     exercisePhases: ["ACTIVATION"],
     musclesTargeted: ["glutes", "hamstrings", "calves"],
@@ -367,7 +367,7 @@ const exerciseSeeds: ExerciseSeed[] = [
   seedExercise({
     name: "Lateral Broad Jump",
     description: "Side-to-side horizontal jump.",
-    bodyRegion: "FULL_BODY",
+    bodyRegion: ["FULL_BODY"],
     difficultyLevel: "ADVANCED",
     exercisePhases: ["ACTIVATION"],
     musclesTargeted: ["gluteus medius", "quads", "calves"],
@@ -384,7 +384,7 @@ const exerciseSeeds: ExerciseSeed[] = [
   seedExercise({
     name: "Bounds",
     description: "Alternating power bounds used to build sprint mechanics and elastic strength.",
-    bodyRegion: "FULL_BODY",
+    bodyRegion: ["FULL_BODY"],
     difficultyLevel: "ADVANCED",
     exercisePhases: ["ACTIVATION"],
     musclesTargeted: ["glutes", "hamstrings", "calves"],
@@ -401,7 +401,7 @@ const exerciseSeeds: ExerciseSeed[] = [
   seedExercise({
     name: "Standing Triple Jump",
     description: "Three-jump horizontal power series.",
-    bodyRegion: "FULL_BODY",
+    bodyRegion: ["FULL_BODY"],
     difficultyLevel: "ADVANCED",
     exercisePhases: ["ACTIVATION"],
     musclesTargeted: ["glutes", "hamstrings", "quads"],
@@ -418,7 +418,7 @@ const exerciseSeeds: ExerciseSeed[] = [
   seedExercise({
     name: "Barbell RDL",
     description: "Romanian deadlift with a barbell.",
-    bodyRegion: "LOWER_BODY",
+    bodyRegion: ["LOWER_BODY"],
     difficultyLevel: "INTERMEDIATE",
     exercisePhases: ["STRENGTHENING"],
     musclesTargeted: ["hamstrings", "gluteus maximus", "erector spinae"],
@@ -435,7 +435,7 @@ const exerciseSeeds: ExerciseSeed[] = [
   seedExercise({
     name: "Dumbbell Seated Good Morning",
     description: "Seated hinge drill for hamstrings and posterior chain.",
-    bodyRegion: "LOWER_BODY",
+    bodyRegion: ["LOWER_BODY"],
     difficultyLevel: "INTERMEDIATE",
     exercisePhases: ["STRENGTHENING"],
     musclesTargeted: ["hamstrings", "glutes", "erector spinae"],
@@ -452,7 +452,7 @@ const exerciseSeeds: ExerciseSeed[] = [
   seedExercise({
     name: "Contralateral Bulgarian Split Squat",
     description: "Rear-foot-elevated split squat loaded on the opposite side.",
-    bodyRegion: "LOWER_BODY",
+    bodyRegion: ["LOWER_BODY"],
     difficultyLevel: "ADVANCED",
     exercisePhases: ["STRENGTHENING"],
     musclesTargeted: ["quadriceps", "glutes", "adductors"],
@@ -469,7 +469,7 @@ const exerciseSeeds: ExerciseSeed[] = [
   seedExercise({
     name: "Single-Leg Slider Hamstring Curl",
     description: "Hamstring curl performed with one heel on a slider or towel.",
-    bodyRegion: "LOWER_BODY",
+    bodyRegion: ["LOWER_BODY"],
     difficultyLevel: "ADVANCED",
     exercisePhases: ["STRENGTHENING"],
     musclesTargeted: ["hamstrings", "gluteus maximus"],
@@ -486,7 +486,7 @@ const exerciseSeeds: ExerciseSeed[] = [
   seedExercise({
     name: "Kneeling Overhead Rotational Slam",
     description: "Med ball rotational slam from kneeling.",
-    bodyRegion: "FULL_BODY",
+    bodyRegion: ["FULL_BODY"],
     difficultyLevel: "INTERMEDIATE",
     exercisePhases: ["ACTIVATION"],
     musclesTargeted: ["obliques", "shoulders", "lats"],
@@ -503,7 +503,7 @@ const exerciseSeeds: ExerciseSeed[] = [
   seedExercise({
     name: "Half-Kneeling Overhead Rotational Slam",
     description: "Half-kneeling rotational slam for trunk control and power.",
-    bodyRegion: "FULL_BODY",
+    bodyRegion: ["FULL_BODY"],
     difficultyLevel: "INTERMEDIATE",
     exercisePhases: ["ACTIVATION"],
     musclesTargeted: ["obliques", "shoulders", "glutes"],
@@ -520,7 +520,7 @@ const exerciseSeeds: ExerciseSeed[] = [
   seedExercise({
     name: "Split-Stance Overhead Rotational Slam",
     description: "Split-stance rotational slam for power and coordination.",
-    bodyRegion: "FULL_BODY",
+    bodyRegion: ["FULL_BODY"],
     difficultyLevel: "INTERMEDIATE",
     exercisePhases: ["ACTIVATION"],
     musclesTargeted: ["obliques", "glutes", "shoulders"],
@@ -537,7 +537,7 @@ const exerciseSeeds: ExerciseSeed[] = [
   seedExercise({
     name: "Kneeling Scoop Toss",
     description: "Kneeling med ball scoop toss.",
-    bodyRegion: "FULL_BODY",
+    bodyRegion: ["FULL_BODY"],
     difficultyLevel: "BEGINNER",
     exercisePhases: ["ACTIVATION"],
     musclesTargeted: ["shoulders", "trunk", "triceps"],
@@ -554,7 +554,7 @@ const exerciseSeeds: ExerciseSeed[] = [
   seedExercise({
     name: "Half-Kneeling Scoop Toss",
     description: "Half-kneeling scoop toss for anti-rotation control.",
-    bodyRegion: "FULL_BODY",
+    bodyRegion: ["FULL_BODY"],
     difficultyLevel: "BEGINNER",
     exercisePhases: ["ACTIVATION"],
     musclesTargeted: ["obliques", "glutes", "shoulders"],
@@ -571,7 +571,7 @@ const exerciseSeeds: ExerciseSeed[] = [
   seedExercise({
     name: "Split-Stance Scoop Toss",
     description: "Split-stance scoop toss for total-body power.",
-    bodyRegion: "FULL_BODY",
+    bodyRegion: ["FULL_BODY"],
     difficultyLevel: "INTERMEDIATE",
     exercisePhases: ["ACTIVATION"],
     musclesTargeted: ["glutes", "core", "shoulders"],
@@ -588,7 +588,7 @@ const exerciseSeeds: ExerciseSeed[] = [
   seedExercise({
     name: "Step Back Scoop Toss",
     description: "Backward step-and-load scoop toss.",
-    bodyRegion: "FULL_BODY",
+    bodyRegion: ["FULL_BODY"],
     difficultyLevel: "INTERMEDIATE",
     exercisePhases: ["ACTIVATION"],
     musclesTargeted: ["glutes", "hamstrings", "core"],
@@ -605,7 +605,7 @@ const exerciseSeeds: ExerciseSeed[] = [
   seedExercise({
     name: "Shuffle Scoop Toss",
     description: "Lateral shuffle into a scoop toss.",
-    bodyRegion: "FULL_BODY",
+    bodyRegion: ["FULL_BODY"],
     difficultyLevel: "INTERMEDIATE",
     exercisePhases: ["ACTIVATION"],
     musclesTargeted: ["glutes", "core", "shoulders"],
@@ -622,7 +622,7 @@ const exerciseSeeds: ExerciseSeed[] = [
   seedExercise({
     name: "Chin-Up Iso",
     description: "Isometric chin-up hold.",
-    bodyRegion: "UPPER_BODY",
+    bodyRegion: ["UPPER_BODY"],
     difficultyLevel: "ADVANCED",
     exercisePhases: ["STRENGTHENING"],
     musclesTargeted: ["lats", "biceps", "mid back"],
@@ -639,7 +639,7 @@ const exerciseSeeds: ExerciseSeed[] = [
   seedExercise({
     name: "Half-Kneeling Woodchopper",
     description: "Half-kneeling rotational core drill.",
-    bodyRegion: "CORE",
+    bodyRegion: ["CORE"],
     difficultyLevel: "INTERMEDIATE",
     exercisePhases: ["ACTIVATION"],
     musclesTargeted: ["obliques", "glutes", "serratus anterior"],
@@ -656,7 +656,7 @@ const exerciseSeeds: ExerciseSeed[] = [
   seedExercise({
     name: "Dead Hang",
     description: "Passive hanging hold for grip and shoulder decompression.",
-    bodyRegion: "UPPER_BODY",
+    bodyRegion: ["UPPER_BODY"],
     difficultyLevel: "BEGINNER",
     exercisePhases: ["COOLDOWN"],
     musclesTargeted: ["grip", "latissimus dorsi"],
@@ -673,7 +673,7 @@ const exerciseSeeds: ExerciseSeed[] = [
   seedExercise({
     name: "Side Plank",
     description: "Lateral core endurance hold.",
-    bodyRegion: "CORE",
+    bodyRegion: ["CORE"],
     difficultyLevel: "BEGINNER",
     exercisePhases: ["STRENGTHENING"],
     musclesTargeted: ["obliques", "gluteus medius"],
@@ -690,7 +690,7 @@ const exerciseSeeds: ExerciseSeed[] = [
   seedExercise({
     name: "Single-Arm Dumbbell Bench Press",
     description: "Single-arm horizontal press for unilateral chest and trunk control.",
-    bodyRegion: "UPPER_BODY",
+    bodyRegion: ["UPPER_BODY"],
     difficultyLevel: "INTERMEDIATE",
     exercisePhases: ["STRENGTHENING"],
     musclesTargeted: ["pectoralis major", "triceps", "anterior deltoid"],
@@ -707,7 +707,7 @@ const exerciseSeeds: ExerciseSeed[] = [
   seedExercise({
     name: "Shuffle Single-Arm Chest Pass",
     description: "Lateral shuffle into a single-arm chest pass.",
-    bodyRegion: "FULL_BODY",
+    bodyRegion: ["FULL_BODY"],
     difficultyLevel: "INTERMEDIATE",
     exercisePhases: ["ACTIVATION"],
     musclesTargeted: ["pectorals", "core", "triceps"],
@@ -724,7 +724,7 @@ const exerciseSeeds: ExerciseSeed[] = [
   seedExercise({
     name: "Dumbbell Shoulder Press",
     description: "Vertical press for shoulder strength.",
-    bodyRegion: "UPPER_BODY",
+    bodyRegion: ["UPPER_BODY"],
     difficultyLevel: "INTERMEDIATE",
     exercisePhases: ["STRENGTHENING"],
     musclesTargeted: ["deltoids", "triceps"],
@@ -741,7 +741,7 @@ const exerciseSeeds: ExerciseSeed[] = [
   seedExercise({
     name: "Step-In Overhead Throw",
     description: "Medicine ball throw with a step-in load.",
-    bodyRegion: "FULL_BODY",
+    bodyRegion: ["FULL_BODY"],
     difficultyLevel: "INTERMEDIATE",
     exercisePhases: ["ACTIVATION"],
     musclesTargeted: ["glutes", "core", "shoulders"],
@@ -758,7 +758,7 @@ const exerciseSeeds: ExerciseSeed[] = [
   seedExercise({
     name: "Wrist Stretch Circuit",
     description: "Wrist mobility circuit for pressing and hanging volume.",
-    bodyRegion: "UPPER_BODY",
+    bodyRegion: ["UPPER_BODY"],
     difficultyLevel: "BEGINNER",
     exercisePhases: ["COOLDOWN"],
     musclesTargeted: ["wrist flexors", "wrist extensors"],
@@ -775,7 +775,7 @@ const exerciseSeeds: ExerciseSeed[] = [
   seedExercise({
     name: "Face Pull",
     description: "Rear-delt and scapular control pull.",
-    bodyRegion: "UPPER_BODY",
+    bodyRegion: ["UPPER_BODY"],
     difficultyLevel: "BEGINNER",
     exercisePhases: ["STRENGTHENING"],
     musclesTargeted: ["rear deltoid", "rhomboids", "lower trapezius"],
@@ -792,7 +792,7 @@ const exerciseSeeds: ExerciseSeed[] = [
   seedExercise({
     name: "Dumbbell Halo",
     description: "Shoulder mobility drill that circles the weight around the head.",
-    bodyRegion: "UPPER_BODY",
+    bodyRegion: ["UPPER_BODY"],
     difficultyLevel: "BEGINNER",
     exercisePhases: ["WARMUP"],
     musclesTargeted: ["shoulders", "upper back"],
@@ -809,7 +809,7 @@ const exerciseSeeds: ExerciseSeed[] = [
   seedExercise({
     name: "Child's Pose",
     description: "Resting stretch for the back and lats.",
-    bodyRegion: "FULL_BODY",
+    bodyRegion: ["FULL_BODY"],
     difficultyLevel: "BEGINNER",
     exercisePhases: ["COOLDOWN"],
     musclesTargeted: ["latissimus dorsi", "spinal extensors"],
@@ -826,7 +826,7 @@ const exerciseSeeds: ExerciseSeed[] = [
   seedExercise({
     name: "Full Range of Motion Push-Up",
     description: "Standard full-range push-up.",
-    bodyRegion: "UPPER_BODY",
+    bodyRegion: ["UPPER_BODY"],
     difficultyLevel: "INTERMEDIATE",
     exercisePhases: ["STRENGTHENING"],
     musclesTargeted: ["pectorals", "triceps", "serratus anterior"],
@@ -843,7 +843,7 @@ const exerciseSeeds: ExerciseSeed[] = [
   seedExercise({
     name: "Bent Over Dumbbell Row",
     description: "Horizontal row with dumbbells.",
-    bodyRegion: "UPPER_BODY",
+    bodyRegion: ["UPPER_BODY"],
     difficultyLevel: "INTERMEDIATE",
     exercisePhases: ["STRENGTHENING"],
     musclesTargeted: ["lats", "rhomboids", "mid traps"],
@@ -860,7 +860,7 @@ const exerciseSeeds: ExerciseSeed[] = [
   seedExercise({
     name: "Dumbbell External Rotation",
     description: "Rotator cuff drill for shoulder stability.",
-    bodyRegion: "UPPER_BODY",
+    bodyRegion: ["UPPER_BODY"],
     difficultyLevel: "BEGINNER",
     exercisePhases: ["ACTIVATION"],
     musclesTargeted: ["infraspinatus", "teres minor"],
@@ -877,7 +877,7 @@ const exerciseSeeds: ExerciseSeed[] = [
   seedExercise({
     name: "Dead Bug",
     description: "Anti-extension core drill.",
-    bodyRegion: "CORE",
+    bodyRegion: ["CORE"],
     difficultyLevel: "BEGINNER",
     exercisePhases: ["STRENGTHENING"],
     musclesTargeted: ["rectus abdominis", "transverse abdominis"],
@@ -894,7 +894,7 @@ const exerciseSeeds: ExerciseSeed[] = [
   seedExercise({
     name: "Kettlebell Lying Pullover Crunch",
     description: "Core and lat integration drill.",
-    bodyRegion: "CORE",
+    bodyRegion: ["CORE"],
     difficultyLevel: "INTERMEDIATE",
     exercisePhases: ["STRENGTHENING"],
     musclesTargeted: ["rectus abdominis", "lats", "serratus anterior"],
@@ -911,7 +911,7 @@ const exerciseSeeds: ExerciseSeed[] = [
   seedExercise({
     name: "Resisted Sprint",
     description: "Acceleration sprint with external resistance.",
-    bodyRegion: "FULL_BODY",
+    bodyRegion: ["FULL_BODY"],
     difficultyLevel: "ADVANCED",
     exercisePhases: ["ACTIVATION"],
     musclesTargeted: ["glutes", "hamstrings", "calves"],
@@ -928,7 +928,7 @@ const exerciseSeeds: ExerciseSeed[] = [
   seedExercise({
     name: "Assisted Sprint",
     description: "Overspeed sprint drill with gentle assistance.",
-    bodyRegion: "FULL_BODY",
+    bodyRegion: ["FULL_BODY"],
     difficultyLevel: "ADVANCED",
     exercisePhases: ["ACTIVATION"],
     musclesTargeted: ["glutes", "hamstrings", "calves"],
@@ -945,7 +945,7 @@ const exerciseSeeds: ExerciseSeed[] = [
   seedExercise({
     name: "Normal Sprint",
     description: "Unresisted sprint for speed transfer.",
-    bodyRegion: "FULL_BODY",
+    bodyRegion: ["FULL_BODY"],
     difficultyLevel: "ADVANCED",
     exercisePhases: ["ACTIVATION"],
     musclesTargeted: ["glutes", "hamstrings", "calves"],
@@ -962,7 +962,7 @@ const exerciseSeeds: ExerciseSeed[] = [
   seedExercise({
     name: "Ankle Dribbler",
     description: "Rapid low-amplitude running drill.",
-    bodyRegion: "FULL_BODY",
+    bodyRegion: ["FULL_BODY"],
     difficultyLevel: "INTERMEDIATE",
     exercisePhases: ["WARMUP"],
     musclesTargeted: ["calves", "hip flexors"],
@@ -979,7 +979,7 @@ const exerciseSeeds: ExerciseSeed[] = [
   seedExercise({
     name: "A Skip",
     description: "Fundamental running drill for rhythm and knee drive.",
-    bodyRegion: "FULL_BODY",
+    bodyRegion: ["FULL_BODY"],
     difficultyLevel: "BEGINNER",
     exercisePhases: ["WARMUP"],
     musclesTargeted: ["hip flexors", "calves", "glutes"],
@@ -996,7 +996,7 @@ const exerciseSeeds: ExerciseSeed[] = [
   seedExercise({
     name: "B Skip",
     description: "Advanced running drill with snap-down extension.",
-    bodyRegion: "FULL_BODY",
+    bodyRegion: ["FULL_BODY"],
     difficultyLevel: "INTERMEDIATE",
     exercisePhases: ["WARMUP"],
     musclesTargeted: ["hip flexors", "hamstrings", "calves"],
@@ -1013,7 +1013,7 @@ const exerciseSeeds: ExerciseSeed[] = [
   seedExercise({
     name: "Skips for Distance",
     description: "Skip variation emphasizing horizontal travel.",
-    bodyRegion: "FULL_BODY",
+    bodyRegion: ["FULL_BODY"],
     difficultyLevel: "INTERMEDIATE",
     exercisePhases: ["WARMUP"],
     musclesTargeted: ["hip flexors", "glutes", "calves"],
@@ -1030,7 +1030,7 @@ const exerciseSeeds: ExerciseSeed[] = [
   seedExercise({
     name: "Overhead Rotational Slam",
     description: "Medicine ball power drill combining rotation and overhead force.",
-    bodyRegion: "FULL_BODY",
+    bodyRegion: ["FULL_BODY"],
     difficultyLevel: "INTERMEDIATE",
     exercisePhases: ["ACTIVATION"],
     musclesTargeted: ["obliques", "lats", "shoulders"],
@@ -1047,7 +1047,7 @@ const exerciseSeeds: ExerciseSeed[] = [
   seedExercise({
     name: "Split-Stance Rotational Slam",
     description: "Rotational slam from a split stance.",
-    bodyRegion: "FULL_BODY",
+    bodyRegion: ["FULL_BODY"],
     difficultyLevel: "INTERMEDIATE",
     exercisePhases: ["ACTIVATION"],
     musclesTargeted: ["obliques", "glutes", "shoulders"],
@@ -1064,7 +1064,7 @@ const exerciseSeeds: ExerciseSeed[] = [
   seedExercise({
     name: "Kneeling Chest Pass",
     description: "Kneeling medicine ball chest pass.",
-    bodyRegion: "FULL_BODY",
+    bodyRegion: ["FULL_BODY"],
     difficultyLevel: "BEGINNER",
     exercisePhases: ["ACTIVATION"],
     musclesTargeted: ["pectorals", "triceps", "serratus anterior"],
@@ -1081,7 +1081,7 @@ const exerciseSeeds: ExerciseSeed[] = [
   seedExercise({
     name: "Split-Stance Single-Arm Chest Pass",
     description: "Single-arm chest pass from a split stance.",
-    bodyRegion: "FULL_BODY",
+    bodyRegion: ["FULL_BODY"],
     difficultyLevel: "INTERMEDIATE",
     exercisePhases: ["ACTIVATION"],
     musclesTargeted: ["pectorals", "core", "triceps"],
@@ -1098,7 +1098,7 @@ const exerciseSeeds: ExerciseSeed[] = [
   seedExercise({
     name: "Standing Chest Pass",
     description: "Standing medicine ball chest pass.",
-    bodyRegion: "FULL_BODY",
+    bodyRegion: ["FULL_BODY"],
     difficultyLevel: "BEGINNER",
     exercisePhases: ["ACTIVATION"],
     musclesTargeted: ["pectorals", "triceps", "serratus anterior"],
@@ -1115,7 +1115,7 @@ const exerciseSeeds: ExerciseSeed[] = [
   seedExercise({
     name: "Scoop Toss",
     description: "Hip-driven medicine ball toss.",
-    bodyRegion: "FULL_BODY",
+    bodyRegion: ["FULL_BODY"],
     difficultyLevel: "INTERMEDIATE",
     exercisePhases: ["ACTIVATION"],
     musclesTargeted: ["glutes", "hamstrings", "shoulders"],
@@ -1132,7 +1132,7 @@ const exerciseSeeds: ExerciseSeed[] = [
   seedExercise({
     name: "Deep Push-Up Hold",
     description: "Isometric bottom push-up hold.",
-    bodyRegion: "UPPER_BODY",
+    bodyRegion: ["UPPER_BODY"],
     difficultyLevel: "INTERMEDIATE",
     exercisePhases: ["STRENGTHENING"],
     musclesTargeted: ["pectorals", "triceps", "serratus anterior"],
@@ -1149,7 +1149,7 @@ const exerciseSeeds: ExerciseSeed[] = [
   seedExercise({
     name: "90/90 Hip Switches",
     description: "Hip rotation mobility drill.",
-    bodyRegion: "LOWER_BODY",
+    bodyRegion: ["LOWER_BODY"],
     difficultyLevel: "BEGINNER",
     exercisePhases: ["MOBILITY"],
     musclesTargeted: ["hips", "glutes"],
@@ -1166,7 +1166,7 @@ const exerciseSeeds: ExerciseSeed[] = [
   seedExercise({
     name: "Half-Kneeling Hamstring Stretch",
     description: "Hamstring mobility drill from half-kneeling.",
-    bodyRegion: "LOWER_BODY",
+    bodyRegion: ["LOWER_BODY"],
     difficultyLevel: "BEGINNER",
     exercisePhases: ["MOBILITY"],
     musclesTargeted: ["hamstrings"],
@@ -1183,7 +1183,7 @@ const exerciseSeeds: ExerciseSeed[] = [
   seedExercise({
     name: "Butterfly Stretch",
     description: "Adductor and groin mobility stretch.",
-    bodyRegion: "LOWER_BODY",
+    bodyRegion: ["LOWER_BODY"],
     difficultyLevel: "BEGINNER",
     exercisePhases: ["MOBILITY"],
     musclesTargeted: ["adductors", "groin"],
@@ -1200,7 +1200,7 @@ const exerciseSeeds: ExerciseSeed[] = [
   seedExercise({
     name: "Open the Gate",
     description: "Dynamic hip mobility drill.",
-    bodyRegion: "LOWER_BODY",
+    bodyRegion: ["LOWER_BODY"],
     difficultyLevel: "BEGINNER",
     exercisePhases: ["WARMUP"],
     musclesTargeted: ["hip flexors", "glutes"],
@@ -1217,7 +1217,7 @@ const exerciseSeeds: ExerciseSeed[] = [
   seedExercise({
     name: "T-Spine Rotation",
     description: "Thoracic rotation drill.",
-    bodyRegion: "UPPER_BODY",
+    bodyRegion: ["UPPER_BODY"],
     difficultyLevel: "BEGINNER",
     exercisePhases: ["MOBILITY"],
     musclesTargeted: ["thoracic spine", "obliques"],
@@ -1234,7 +1234,7 @@ const exerciseSeeds: ExerciseSeed[] = [
   seedExercise({
     name: "Elephant Walk",
     description: "Dynamic hamstring mobility movement.",
-    bodyRegion: "FULL_BODY",
+    bodyRegion: ["FULL_BODY"],
     difficultyLevel: "BEGINNER",
     exercisePhases: ["COOLDOWN"],
     musclesTargeted: ["hamstrings", "calves", "spine"],
@@ -1251,7 +1251,7 @@ const exerciseSeeds: ExerciseSeed[] = [
   seedExercise({
     name: "Neck Stretch Circuit",
     description: "Gentle neck mobility circuit.",
-    bodyRegion: "UPPER_BODY",
+    bodyRegion: ["UPPER_BODY"],
     difficultyLevel: "BEGINNER",
     exercisePhases: ["COOLDOWN"],
     musclesTargeted: ["upper trapezius", "levator scapulae", "cervical extensors"],

@@ -31,7 +31,7 @@ import { resolvePickerTabs, type ExerciseSourcePreference } from "@/lib/utils/ex
 interface Exercise {
   id: string;
   name: string;
-  bodyRegion: string;
+  bodyRegion: string[];
   difficultyLevel: string;
   defaultReps?: number | null;
   musclesTargeted?: string[];
@@ -63,7 +63,6 @@ const PHASES = [
 ] as const;
 
 const REGIONS = [
-  { value: "all",         label: "All"         },
   { value: "UPPER_BODY",  label: "Upper"       },
   { value: "LOWER_BODY",  label: "Lower"       },
   { value: "CORE",        label: "Core"        },
@@ -83,11 +82,14 @@ interface FilterBarProps {
   setSearch: (v: string) => void;
   phase: string;
   setPhase: (v: string) => void;
-  bodyRegion: string;
-  setRegion: (v: string) => void;
+  bodyRegions: string[];
+  setRegions: (v: string[]) => void;
 }
 
-function FilterBar({ search, setSearch, phase, setPhase, bodyRegion, setRegion }: FilterBarProps) {
+function FilterBar({ search, setSearch, phase, setPhase, bodyRegions, setRegions }: FilterBarProps) {
+  function toggleRegion(value: string) {
+    setRegions(bodyRegions.includes(value) ? bodyRegions.filter((r) => r !== value) : [...bodyRegions, value]);
+  }
   return (
     <div className="px-4 pt-3 pb-2 space-y-2.5 shrink-0 border-b">
       <div className="relative">
@@ -116,9 +118,9 @@ function FilterBar({ search, setSearch, phase, setPhase, bodyRegion, setRegion }
         <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">Body Region</p>
         <div className="flex flex-wrap gap-1">
           {REGIONS.map((r) => (
-            <button key={r.value} type="button" onClick={() => setRegion(r.value)}
+            <button key={r.value} type="button" onClick={() => toggleRegion(r.value)}
               className={cn("px-2.5 py-0.5 rounded-full text-xs font-medium border transition-colors",
-                bodyRegion === r.value ? "bg-secondary text-secondary-foreground border-secondary" : "bg-background text-muted-foreground border-border hover:border-muted-foreground/50 hover:text-foreground"
+                bodyRegions.includes(r.value) ? "bg-secondary text-secondary-foreground border-secondary" : "bg-background text-muted-foreground border-border hover:border-muted-foreground/50 hover:text-foreground"
               )}>
               {r.label}
             </button>
@@ -134,7 +136,8 @@ interface ExerciseListProps {
   showOrganizationControls?: boolean;
   phase: string;
   setPhase: (v: string) => void;
-  setRegion: (v: string) => void;
+  bodyRegions: string[];
+  setRegions: (v: string[]) => void;
   onSelect: (ex: Exercise) => void;
   onClose: () => void;
   onPreview: (ex: Exercise) => void;
@@ -146,7 +149,8 @@ function ExerciseList({
   showOrganizationControls,
   phase,
   setPhase,
-  setRegion,
+  bodyRegions,
+  setRegions,
   onSelect,
   onClose,
   onPreview,
@@ -193,9 +197,11 @@ function ExerciseList({
                   <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{ex.description}</p>
                 )}
                 <div className="flex flex-wrap gap-1 mt-1">
-                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                    {ex.bodyRegion.replace(/_/g, " ")}
-                  </Badge>
+                  {ex.bodyRegion.map((region) => (
+                    <Badge key={region} variant="secondary" className="text-[10px] px-1.5 py-0">
+                      {region.replace(/_/g, " ")}
+                    </Badge>
+                  ))}
                   <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0", DIFFICULTY_COLORS[ex.difficultyLevel])}>
                     {ex.difficultyLevel}
                   </Badge>
@@ -213,9 +219,9 @@ function ExerciseList({
         {list.length === 0 && (
           <div className="text-center py-10">
             <p className="text-sm text-muted-foreground">No exercises found.</p>
-            {phase !== "all" && (
+            {(phase !== "all" || bodyRegions.length > 0) && (
               <Button variant="ghost" size="sm" className="mt-2 text-xs"
-                onClick={() => { setPhase("all"); setRegion("all"); }}>
+                onClick={() => { setPhase("all"); setRegions([]); }}>
                 Clear filters
               </Button>
             )}
@@ -262,7 +268,7 @@ function emptyFormShape() {
   return {
     name: "",
     description: "",
-    bodyRegion: "",
+    bodyRegion: [] as string[],
     difficultyLevel: "",
     exercisePhases: [] as string[],
     videoUrl: "",
@@ -290,32 +296,43 @@ function CreateExerciseFields({
         />
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-1.5">
-          <Label className="text-xs font-semibold">Body Region *</Label>
-          <Select value={form.bodyRegion} onValueChange={(v) => setForm((f) => ({ ...f, bodyRegion: v ?? f.bodyRegion }))}>
-            <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Select..." /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="LOWER_BODY">Lower Body</SelectItem>
-              <SelectItem value="UPPER_BODY">Upper Body</SelectItem>
-              <SelectItem value="CORE">Core</SelectItem>
-              <SelectItem value="FULL_BODY">Full Body</SelectItem>
-              <SelectItem value="BALANCE">Balance</SelectItem>
-              <SelectItem value="FLEXIBILITY">Flexibility</SelectItem>
-            </SelectContent>
-          </Select>
+      <div className="space-y-1.5">
+        <Label className="text-xs font-semibold">Body Region *</Label>
+        <div className="flex flex-wrap gap-1.5">
+          {REGIONS.map((r) => {
+            const active = form.bodyRegion.includes(r.value);
+            return (
+              <button
+                key={r.value}
+                type="button"
+                onClick={() => setForm((f) => ({
+                  ...f,
+                  bodyRegion: active ? f.bodyRegion.filter((v) => v !== r.value) : [...f.bodyRegion, r.value],
+                }))}
+                className={cn(
+                  "px-2.5 py-1 rounded-full text-xs font-medium border transition-colors",
+                  active
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-background text-muted-foreground border-border hover:border-primary/60 hover:text-foreground"
+                )}
+              >
+                {r.label}
+              </button>
+            );
+          })}
         </div>
-        <div className="space-y-1.5">
-          <Label className="text-xs font-semibold">Difficulty *</Label>
-          <Select value={form.difficultyLevel} onValueChange={(v) => setForm((f) => ({ ...f, difficultyLevel: v ?? f.difficultyLevel }))}>
-            <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Select..." /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="BEGINNER">Beginner</SelectItem>
-              <SelectItem value="INTERMEDIATE">Intermediate</SelectItem>
-              <SelectItem value="ADVANCED">Advanced</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+      </div>
+
+      <div className="space-y-1.5">
+        <Label className="text-xs font-semibold">Difficulty *</Label>
+        <Select value={form.difficultyLevel} onValueChange={(v) => setForm((f) => ({ ...f, difficultyLevel: v ?? f.difficultyLevel }))}>
+          <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Select..." /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="BEGINNER">Beginner</SelectItem>
+            <SelectItem value="INTERMEDIATE">Intermediate</SelectItem>
+            <SelectItem value="ADVANCED">Advanced</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       <div className="space-y-1.5">
@@ -372,7 +389,7 @@ export function ExercisePickerDialog({
 }: Props) {
   const [search, setSearch]     = useState("");
   const [phase, setPhase]       = useState<string>("all");
-  const [bodyRegion, setRegion] = useState<string>("all");
+  const [bodyRegions, setRegions] = useState<string[]>([]);
   const [videoPreview, setVideoPreview] = useState<Exercise | null>(null);
   const [view, setView] = useState<"list" | "create">("list");
   const [localExercises, setLocalExercises] = useState<Exercise[]>([]);
@@ -416,13 +433,13 @@ export function ExercisePickerDialog({
         const phases = ex.exercisePhases?.length ? ex.exercisePhases : ["STRENGTHENING"];
         if (!phases.includes(phase)) return false;
       }
-      if (bodyRegion !== "all" && ex.bodyRegion !== bodyRegion) return false;
+      if (bodyRegions.length > 0 && !ex.bodyRegion.some((r) => bodyRegions.includes(r))) return false;
       return true;
     });
   }
 
-  const filteredUniversal = useMemo(() => applyFilters(universalExercises), [universalExercises, search, phase, bodyRegion]);
-  const filteredMyOrganization  = useMemo(() => applyFilters(myOrganizationExercises),  [myOrganizationExercises,  search, phase, bodyRegion]);
+  const filteredUniversal = useMemo(() => applyFilters(universalExercises), [universalExercises, search, phase, bodyRegions]);
+  const filteredMyOrganization  = useMemo(() => applyFilters(myOrganizationExercises),  [myOrganizationExercises,  search, phase, bodyRegions]);
 
   const { showUniversal, showOrganization } = resolvePickerTabs(
     exerciseSourcePreference,
@@ -446,7 +463,7 @@ export function ExercisePickerDialog({
       setAiForm({
         name: d.exerciseName ?? "",
         description: d.description ?? "",
-        bodyRegion: d.bodyRegion ?? "",
+        bodyRegion: d.bodyRegion ?? [],
         difficultyLevel: d.difficultyLevel ?? "",
         exercisePhases: d.exercisePhases ?? [],
         videoUrl: d.videoUrl ?? aiVideoUrl,
@@ -488,7 +505,7 @@ export function ExercisePickerDialog({
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     const form = createTab === "ai" ? aiForm : manualForm;
-    if (!form.name || !form.bodyRegion || !form.difficultyLevel) {
+    if (!form.name || form.bodyRegion.length === 0 || !form.difficultyLevel) {
       toast.error("Name, body region, and difficulty are required");
       return;
     }
@@ -634,8 +651,8 @@ export function ExercisePickerDialog({
                 setSearch={setSearch}
                 phase={phase}
                 setPhase={setPhase}
-                bodyRegion={bodyRegion}
-                setRegion={setRegion}
+                bodyRegions={bodyRegions}
+                setRegions={setRegions}
               />
               {showUniversal && showOrganization ? (
                 <Tabs defaultValue="universal" className="flex flex-col flex-1 overflow-hidden">
@@ -648,7 +665,8 @@ export function ExercisePickerDialog({
                       list={filteredUniversal}
                       phase={phase}
                       setPhase={setPhase}
-                      setRegion={setRegion}
+                      bodyRegions={bodyRegions}
+                      setRegions={setRegions}
                       onSelect={onSelect}
                       onClose={handleClose}
                       onPreview={setVideoPreview}
@@ -661,7 +679,8 @@ export function ExercisePickerDialog({
                       showOrganizationControls
                       phase={phase}
                       setPhase={setPhase}
-                      setRegion={setRegion}
+                      bodyRegions={bodyRegions}
+                      setRegions={setRegions}
                       onSelect={onSelect}
                       onClose={handleClose}
                       onPreview={setVideoPreview}
@@ -675,7 +694,8 @@ export function ExercisePickerDialog({
                   showOrganizationControls
                   phase={phase}
                   setPhase={setPhase}
-                  setRegion={setRegion}
+                  bodyRegions={bodyRegions}
+                  setRegions={setRegions}
                   onSelect={onSelect}
                   onClose={handleClose}
                   onPreview={setVideoPreview}
@@ -686,7 +706,8 @@ export function ExercisePickerDialog({
                   list={filteredUniversal}
                   phase={phase}
                   setPhase={setPhase}
-                  setRegion={setRegion}
+                  bodyRegions={bodyRegions}
+                  setRegions={setRegions}
                   onSelect={onSelect}
                   onClose={handleClose}
                   onPreview={setVideoPreview}

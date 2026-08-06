@@ -57,6 +57,13 @@ export async function logAudit(params: LogAuditParams): Promise<void> {
   }
 }
 
+function fieldValuesEqual(a: unknown, b: unknown): boolean {
+  if (Array.isArray(a) && Array.isArray(b)) {
+    return JSON.stringify([...a].sort()) === JSON.stringify([...b].sort());
+  }
+  return a === b;
+}
+
 export function diffFields<T extends Record<string, unknown>>(
   before: T,
   after: Partial<T>,
@@ -67,7 +74,7 @@ export function diffFields<T extends Record<string, unknown>>(
   let hasChanges = false;
 
   for (const key of keys) {
-    if (key in after && after[key] !== before[key]) {
+    if (key in after && !fieldValuesEqual(after[key], before[key])) {
       changedBefore[key] = before[key];
       changedAfter[key] = after[key];
       hasChanges = true;

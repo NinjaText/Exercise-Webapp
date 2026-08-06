@@ -209,7 +209,7 @@ model Exercise {
   id                 String          @id @default(auto()) @map("_id") @db.ObjectId
   name               String
   description        String?
-  bodyRegion         BodyRegion
+  bodyRegion         BodyRegion[]
   equipmentRequired  String[]
   difficultyLevel    DifficultyLevel
   contraindications  String[]

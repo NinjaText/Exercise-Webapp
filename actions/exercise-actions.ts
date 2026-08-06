@@ -12,7 +12,7 @@ import type { BodyRegion, DifficultyLevel, ExercisePhase } from "@prisma/client"
 export async function createExerciseAction(input: {
   name: string;
   description?: string;
-  bodyRegion: string;
+  bodyRegion: string[];
   equipmentRequired: string[];
   difficultyLevel: string;
   contraindications: string[];
@@ -40,7 +40,7 @@ export async function createExerciseAction(input: {
     try {
       const exercise = await exerciseService.createExercise({
         ...parsed.data,
-        bodyRegion: parsed.data.bodyRegion as BodyRegion,
+        bodyRegion: parsed.data.bodyRegion as BodyRegion[],
         difficultyLevel: parsed.data.difficultyLevel as DifficultyLevel,
         videoUrl: parsed.data.videoUrl || undefined,
         videoProvider: parsed.data.videoProvider || undefined,
@@ -308,7 +308,7 @@ export async function bulkDeleteExercisesAction(exerciseIds: string[]) {
 export async function createOrganizationExerciseAction(input: {
   name: string;
   description?: string;
-  bodyRegion: string;
+  bodyRegion: string[];
   difficultyLevel: string;
   videoUrl?: string;
   isPublic: boolean;
@@ -327,7 +327,7 @@ export async function createOrganizationExerciseAction(input: {
     const exercise = await exerciseService.createExercise({
       name: input.name.trim(),
       description: input.description?.trim() || undefined,
-      bodyRegion: input.bodyRegion as BodyRegion,
+      bodyRegion: input.bodyRegion as BodyRegion[],
       difficultyLevel: input.difficultyLevel as DifficultyLevel,
       equipmentRequired: [],
       contraindications: [],

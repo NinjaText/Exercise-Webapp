@@ -45,7 +45,7 @@ interface Props {
   exercises: {
     id: string;
     name: string;
-    bodyRegion: string;
+    bodyRegion: string[];
     difficultyLevel: string;
     defaultReps?: number | null;
     musclesTargeted?: string[];
@@ -95,7 +95,7 @@ function mapWorkoutToInput(w: Record<string, unknown>): WorkoutInput {
             | string
             | undefined,
           _exerciseBodyRegion: (e.exercise as Record<string, unknown>)
-            ?.bodyRegion as string | undefined,
+            ?.bodyRegion as string[] | undefined,
           sets: ((e.sets as Record<string, unknown>[]) || []).map(
             (s: Record<string, unknown>, si: number) => ({
               id: s.id as string,
