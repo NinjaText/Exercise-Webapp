@@ -53,15 +53,6 @@ interface GenerateWorkoutParams {
   trainerPrompt?: string;
   programTitle?: string;
   preferredWeekdays?: string[];
-  sessionBlueprint?: {
-    dayIndex: number;
-    weekIndex?: number;
-    title: string;
-    blocks: {
-      name: string;
-      exercises: { name: string; sets?: number; reps?: number; durationSeconds?: number; notes?: string }[];
-    }[];
-  }[];
   weekPlan?: WeekPlan[]
   durationWeeks?: number
 }
@@ -358,57 +349,6 @@ async function buildExercisePoolForWeek(
   return filterByEquipment(afterContraFilter, availableEquipment ?? [])
 }
 
-async function pickClosestExerciseNameAI(
-  target: string,
-  candidates: string[]
-) {
-  const response = await openai.chat.completions.create({
-    model: "gpt-4o",
-    max_tokens: 400,
-    response_format: { type: "json_object" },
-    messages: [
-      {
-        role: "system",
-        content:
-          "Select the single closest exercise name from the candidate list. Return JSON: { \"bestName\": string }. No extra text.",
-      },
-      {
-        role: "user",
-        content: `Target: ${target}\nCandidates:\n${candidates.join("\n")}`,
-      },
-    ],
-  });
-
-  const payload = response.choices[0].message.content ?? "{}";
-  const parsed = JSON.parse(payload) as { bestName?: string };
-  return parsed.bestName || "";
-}
-
-export async function resolveExerciseByName(
-  name: string,
-  candidates: Exercise[]
-): Promise<{ exercise: Exercise | null; matchType: "exact" | "fuzzy" | "none" }> {
-  const normalizedTarget = normalizeExerciseName(name);
-  const exact = candidates.find(
-    (e) => normalizeExerciseName(e.name) === normalizedTarget
-  );
-  if (exact) return { exercise: exact, matchType: "exact" };
-
-  const ranked = candidates
-    .map((e) => ({
-      exercise: e,
-      score: scoreNameSimilarity(normalizeExerciseName(e.name), normalizedTarget),
-    }))
-    .sort((a, b) => b.score - a.score);
-
-  if (!ranked.length) return { exercise: null, matchType: "none" };
-
-  const top = ranked.slice(0, 20).map((r) => r.exercise.name);
-  const aiPick = await pickClosestExerciseNameAI(name, top);
-  const best = candidates.find((e) => e.name === aiPick) ?? ranked[0].exercise;
-  return { exercise: best, matchType: "fuzzy" };
-}
-
 export async function generateWorkoutPlan(
   params: GenerateWorkoutParams
 ): Promise<GeneratedPlan> {
@@ -684,114 +624,6 @@ ${jsonFormat}`
     }
   }
   // === END multi-week path ===
-
-  if (params.sessionBlueprint?.length) {
-    const circuits = params.circuits || [];
-    const circuitNameMap = new Map(
-      circuits.map((c, idx) => [normalizeExerciseName(c.name), idx])
-    );
-
-    const allBriefExercises = await prisma.exercise.findMany({
-      where: { isActive: true },
-    });
-
-    const warnings: string[] = [];
-
-    // Map per-week dayIndex (0,1,2) → actual weekday index using preferredWeekdays
-    // e.g. ["Monday","Wednesday","Friday"] → [0,2,4], so dayIndex 1 → Wednesday (2) not Tuesday (1)
-    const preferredDayIndices = (params.preferredWeekdays ?? [])
-      .map((d) => weekdayToIndex[d.toLowerCase().trim()])
-      .filter((d): d is number => Number.isInteger(d));
-
-    function toActualDayOfWeek(dayIndex: number): number {
-      if (preferredDayIndices.length === 0) return dayIndex;
-      return preferredDayIndices[dayIndex % preferredDayIndices.length];
-    }
-
-    const sessions = params.sessionBlueprint.map((s) => ({
-      dayOfWeek: toActualDayOfWeek(s.dayIndex),
-      weekIndex: s.weekIndex ?? 0,
-      name: s.title,
-    }));
-
-    const exercisesOutput: GeneratedExercise[] = [];
-
-    for (const session of params.sessionBlueprint) {
-      let orderIndex = 0;
-      for (let blockIdx = 0; blockIdx < session.blocks.length; blockIdx += 1) {
-        const block = session.blocks[blockIdx];
-        const blockKey = normalizeExerciseName(block.name);
-        const circuitIndex =
-          circuitNameMap.get(blockKey) ?? Math.min(blockIdx, Math.max(0, circuits.length - 1));
-
-        for (const exerciseBp of block.exercises) {
-          // Only flag exercises with NO library match at all — a document with
-          // any real amount of content produces a fuzzy match for nearly every
-          // exercise (different naming conventions are the norm, not the
-          // exception), so confirming each one would bury the trainer in noise.
-          const { exercise } = await resolveExerciseByName(exerciseBp.name, allBriefExercises);
-          if (!exercise) {
-            warnings.push(
-              `"${exerciseBp.name}" has no matching exercise in the library and was skipped from "${session.title}".`
-            );
-            continue;
-          }
-
-          // Prefer sets/reps from the brief; fall back to library defaults
-          const sets = exerciseBp.sets ?? exercise.defaultSets ?? 3;
-          const hasDuration =
-            exerciseBp.durationSeconds != null ||
-            (exerciseBp.reps == null && exercise.defaultHoldSeconds != null);
-          const reps = hasDuration ? undefined : (exerciseBp.reps ?? exercise.defaultReps ?? 10);
-          const durationSeconds =
-            exerciseBp.durationSeconds ??
-            (hasDuration ? (exercise.defaultHoldSeconds ?? undefined) : undefined);
-
-          const focusType = circuits[circuitIndex]?.focusType?.toUpperCase();
-          const phase =
-            focusType === "WARMUP"
-              ? "WARMUP"
-              : focusType === "COOLDOWN"
-                ? "COOLDOWN"
-                : focusType === "FLEXIBILITY"
-                  ? "MOBILITY"
-                  : focusType === "CARDIO"
-                    ? "ACTIVATION"
-                    : focusType === "BALANCE"
-                      ? "ACTIVATION"
-                      : "STRENGTHENING";
-
-          exercisesOutput.push({
-            exerciseId: exercise.id,
-            exerciseName: exercise.name,
-            phase,
-            circuitIndex,
-            sets,
-            reps,
-            durationSeconds,
-            restSeconds: undefined,
-            weekIndex: session.weekIndex ?? 0,
-            dayOfWeek: toActualDayOfWeek(session.dayIndex),
-            orderIndex: orderIndex++,
-            notes: exerciseBp.notes ?? undefined,
-          });
-        }
-      }
-    }
-
-    const programTitle =
-      params.programTitle ||
-      params.trainerPrompt?.split("\n")?.[0]?.replace(/^Program title:\s*/i, "").trim() ||
-      "Athletic Program";
-
-    return {
-      title: programTitle,
-      description: "Generated from uploaded brief",
-      sessions,
-      exercises: exercisesOutput,
-      warnings,
-    };
-  }
 
   // Fetch exercises with enriched fields
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
