@@ -157,17 +157,6 @@ export function normalizeExerciseName(name: string) {
     .trim();
 }
 
-function scoreNameSimilarity(a: string, b: string) {
-  if (!a || !b) return 0;
-  if (a === b) return 1;
-  if (a.includes(b) || b.includes(a)) return 0.9;
-  const aTokens = new Set(a.split(" "));
-  const bTokens = new Set(b.split(" "));
-  let overlap = 0;
-  for (const t of aTokens) if (bTokens.has(t)) overlap += 1;
-  return overlap / Math.max(1, Math.max(aTokens.size, bTokens.size));
-}
-
 export type ExerciseMatchFlag = "needs_review" | "not_in_library" | "not_in_document";
 
 export type ExerciseMatchCandidate = {

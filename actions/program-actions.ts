@@ -435,7 +435,11 @@ export async function generateProgramAction(
     return { success: true as const, data: program.id };
   } catch (error) {
     console.error("Failed to generate program:", error);
-    return { success: false as const, error: "Failed to generate program" };
+    const message =
+      error instanceof Error && error.message.startsWith("Invalid generated program:")
+        ? error.message
+        : "Failed to generate program";
+    return { success: false as const, error: message };
   }
 }
 
@@ -482,7 +486,7 @@ export async function generateProgramBriefUploadUrlAction(
 // not after, since editing it afterward wouldn't move anything. The caller
 // checks `metadata.inferredFields` for "estimatedDaysPerWeek" /
 // "preferredWeekdays" to decide whether to show a confirmation step before
-// calling generateProgramPreviewFromBriefAction.
+// calling extractProgramChunksAction/matchProgramExercisesAction.
 const REQUIRED_BRIEF_METADATA_FIELDS = ["programTitle", "estimatedDaysPerWeek", "preferredWeekdays"] as const;
 
 export async function extractProgramMetadataFromBriefAction(input: {
@@ -607,9 +611,13 @@ export async function saveGeneratedProgramAction(input: {
     return { success: true as const, data: program.id };
   } catch (error) {
     console.error("Failed to save generated program:", error);
+    const message =
+      error instanceof Error && error.message.startsWith("Invalid generated program:")
+        ? error.message
+        : "Failed to save program";
     return {
       success: false as const,
-      error: error instanceof Error ? error.message : "Failed to save program",
+      error: message,
     };
   }
 }

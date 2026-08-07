@@ -24,8 +24,9 @@ import {
   saveGeneratedProgramAction,
 } from "@/actions/program-actions";
 import type { BriefMetadata, ProgramBriefParsed } from "@/lib/services/program-brief.service";
+import type { PreviewWorkout, PreviewExercise } from "@/lib/services/ai.service";
 import { MissingFieldsDialog, type MissingFieldsValues } from "@/components/programs/missing-fields-dialog";
-import { FlaggedExerciseRow, type ExerciseMatchFlag } from "@/components/programs/flagged-exercise-row";
+import { FlaggedExerciseRow } from "@/components/programs/flagged-exercise-row";
 import { ExercisePickerDialog } from "@/components/programs/exercise-picker-dialog";
 import type { ExerciseSourcePreference } from "@/lib/utils/exercise-picker";
 import { toast } from "sonner";
@@ -60,30 +61,6 @@ interface Props {
   organizationOrganizationId?: string | null;
   exerciseSourcePreference?: ExerciseSourcePreference;
 }
-
-type PreviewExercise = {
-  exerciseId: string | null;
-  exerciseName?: string;
-  orderIndex: number;
-  sets: number;
-  reps: string;
-  flags?: ExerciseMatchFlag[];
-  matchCandidates?: { exerciseId: string; exerciseName: string; score: number }[];
-};
-
-type PreviewBlock = {
-  name?: string;
-  type: string;
-  orderIndex: number;
-  exercises: PreviewExercise[];
-};
-
-type PreviewWorkout = {
-  name: string;
-  dayIndex: number;
-  weekIndex: number;
-  blocks: PreviewBlock[];
-};
 
 type PreviewState = {
   aiPlan: { name: string; description?: string; workouts: PreviewWorkout[] };
@@ -382,7 +359,10 @@ export function ProgramBriefUpload({
           .map((b, bi) => ({
             name: b.name,
             type: b.type,
+            circuitIndex: b.circuitIndex,
             orderIndex: b.orderIndex,
+            rounds: b.rounds,
+            restBetweenRounds: b.restBetweenRounds,
             exercises: b.exercises
               .map((e, ei) => {
                 const key = flagKey(wi, bi, ei);
@@ -397,6 +377,8 @@ export function ProgramBriefUpload({
                   orderIndex: e.orderIndex,
                   sets: e.sets,
                   reps: e.reps,
+                  notes: e.notes,
+                  restSeconds: e.restSeconds,
                 };
               })
               .filter((e): e is NonNullable<typeof e> => e !== null),
