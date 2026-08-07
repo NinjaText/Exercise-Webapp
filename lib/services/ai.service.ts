@@ -158,7 +158,7 @@ const PHASE_ORDER: Record<string, number> = {
   COOLDOWN: 4,
 };
 
-function normalizeExerciseName(name: string) {
+export function normalizeExerciseName(name: string) {
   return name
     .toLowerCase()
     .replace(/https?:\/\/\S+/g, "")
@@ -169,12 +169,75 @@ function normalizeExerciseName(name: string) {
 function scoreNameSimilarity(a: string, b: string) {
   if (!a || !b) return 0;
   if (a === b) return 1;
-  if (a.includes(b) || b.includes(a)) return 0.9;
+  if ((a.includes(b) && b.includes(" ")) || (b.includes(a) && a.includes(" "))) return 0.9;
   const aTokens = new Set(a.split(" "));
   const bTokens = new Set(b.split(" "));
   let overlap = 0;
   for (const t of aTokens) if (bTokens.has(t)) overlap += 1;
-  return overlap / Math.max(1, Math.max(aTokens.size, bTokens.size));
+  return (2 * overlap) / Math.max(1, aTokens.size + bTokens.size);
+}
+
+export type ExerciseMatchFlag = "needs_review" | "not_in_library" | "not_in_document";
+
+export type ExerciseMatchCandidate = {
+  exerciseId: string;
+  exerciseName: string;
+  score: number;
+};
+
+export type ExerciseMatchResult = {
+  exerciseId: string | null;
+  matchType: "exact" | "needs_review" | "not_in_library";
+  candidates: ExerciseMatchCandidate[];
+};
+
+const AUTO_ACCEPT_SCORE = 0.9;
+const NEEDS_REVIEW_SCORE = 0.5;
+
+/**
+ * Deterministic, LLM-free exercise-name matching against the library.
+ * Exact/near-exact matches (score >= AUTO_ACCEPT_SCORE) auto-accept silently.
+ * Everything below that is left for the trainer to resolve in the review
+ * screen instead of a silent AI best-guess substitution.
+ */
+export function resolveExerciseMatch(
+  name: string,
+  candidates: Exercise[]
+): ExerciseMatchResult {
+  const normalizedTarget = normalizeExerciseName(name);
+
+  const exact = candidates.find(
+    (e) => normalizeExerciseName(e.name) === normalizedTarget
+  );
+  if (exact) {
+    return { exerciseId: exact.id, matchType: "exact", candidates: [] };
+  }
+
+  const ranked = candidates
+    .map((e) => ({
+      exercise: e,
+      score: scoreNameSimilarity(normalizeExerciseName(e.name), normalizedTarget),
+    }))
+    .sort((a, b) => b.score - a.score);
+
+  if (!ranked.length) {
+    return { exerciseId: null, matchType: "not_in_library", candidates: [] };
+  }
+
+  const top = ranked.slice(0, 5).map((r) => ({
+    exerciseId: r.exercise.id,
+    exerciseName: r.exercise.name,
+    score: r.score,
+  }));
+
+  const best = ranked[0];
+  if (best.score >= AUTO_ACCEPT_SCORE) {
+    return { exerciseId: best.exercise.id, matchType: "exact", candidates: [] };
+  }
+  if (best.score >= NEEDS_REVIEW_SCORE) {
+    return { exerciseId: best.exercise.id, matchType: "needs_review", candidates: top };
+  }
+  return { exerciseId: null, matchType: "not_in_library", candidates: top };
 }
 
 const EXERCISE_POOL_SELECT = {
