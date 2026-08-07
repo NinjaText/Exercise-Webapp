@@ -2,6 +2,7 @@ import "server-only";
 import OpenAI from "openai";
 import mammoth from "mammoth";
 import pdfParse from "pdf-parse";
+import { normalizeExerciseName } from "./ai.service";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -44,6 +45,7 @@ export type ExerciseBlueprint = {
   reps?: number;
   durationSeconds?: number;
   notes?: string;
+  traceableInDocument?: boolean;
 };
 
 export type BlockBlueprint = {
@@ -57,6 +59,7 @@ export type SessionBlueprint = {
   weekIndex?: number;
   title: string;
   blocks: BlockBlueprint[];
+  sourceChunkIndex?: number;
 };
 
 export type RawSession = {
@@ -64,6 +67,7 @@ export type RawSession = {
   dayLabel: string | null;
   title: string;
   blocks: BlockBlueprint[];
+  sourceChunkIndex?: number;
 };
 
 export type ChunkExtractionResult = {
@@ -206,7 +210,7 @@ export function mergeChunkSessions(
         dayIndex = 0;
         seenFirst = true;
       }
-      sessionBlueprint.push({ dayIndex, weekIndex, title: s.title, blocks: s.blocks });
+      sessionBlueprint.push({ dayIndex, weekIndex, title: s.title, blocks: s.blocks, sourceChunkIndex: s.sourceChunkIndex });
       dayIndex += 1;
     } else {
       sessionBlueprint.push({
@@ -214,6 +218,7 @@ export function mergeChunkSessions(
         weekIndex: Math.floor(i / perWeek),
         title: s.title,
         blocks: s.blocks,
+        sourceChunkIndex: s.sourceChunkIndex,
       });
     }
   });
@@ -247,6 +252,53 @@ export function deriveCircuitsFromSessions(sessions: SessionBlueprint[]): Circui
     exerciseCount,
     rounds: focusType === 'WARMUP' || focusType === 'COOLDOWN' ? 1 : 3,
   }));
+}
+
+/**
+ * Checks whether an extracted exercise name is actually traceable back to the
+ * chunk of source text it was extracted from — a guard against the extraction
+ * LLM inventing an exercise the document never mentioned.
+ */
+export function isExerciseTraceableInDocument(exerciseName: string, sourceText: string): boolean {
+  const normalizedName = normalizeExerciseName(exerciseName);
+  if (!normalizedName) return true;
+
+  const normalizedSource = normalizeExerciseName(sourceText);
+  if (normalizedSource.includes(normalizedName)) return true;
+
+  // Fall back to token overlap for names the model paraphrased slightly
+  // (e.g. "DB" expanded to "Dumbbell") — require most of the exercise name's
+  // distinctive (length > 2) tokens to appear somewhere in the source chunk.
+  const nameTokens = normalizedName.split(" ").filter((t) => t.length > 2);
+  if (!nameTokens.length) return true;
+
+  const sourceTokens = new Set(normalizedSource.split(" "));
+  const matched = nameTokens.filter((t) => sourceTokens.has(t)).length;
+  return matched / nameTokens.length >= 0.6;
+}
+
+/**
+ * Sets `traceableInDocument` on every exercise in the blueprint by checking it
+ * against the raw text of the chunk it was extracted from.
+ */
+export function flagUntraceableExercises(
+  sessionBlueprint: SessionBlueprint[],
+  chunks: string[]
+): SessionBlueprint[] {
+  return sessionBlueprint.map((session) => {
+    const sourceText =
+      session.sourceChunkIndex != null ? (chunks[session.sourceChunkIndex] ?? "") : "";
+    return {
+      ...session,
+      blocks: session.blocks.map((block) => ({
+        ...block,
+        exercises: block.exercises.map((exercise) => ({
+          ...exercise,
+          traceableInDocument: sourceText ? isExerciseTraceableInDocument(exercise.name, sourceText) : true,
+        })),
+      })),
+    };
+  });
 }
 
 export type BriefMetadata = {
@@ -513,15 +565,19 @@ export async function parseProgramBrief(
     const continuityNote = lastSessionNote
       ? `The previous chunk's last session was: ${lastSessionNote}.`
       : null;
+    const tagWithChunk = (result: ChunkExtractionResult): ChunkExtractionResult => ({
+      ...result,
+      sessions: result.sessions.map((s) => ({ ...s, sourceChunkIndex: index })),
+    });
     try {
       const result = await extractChunkSessions(chunk, index, chunks.length, continuityNote);
       if (result.sessions.length) {
         lastSessionNote = sessionSummary(result.sessions[result.sessions.length - 1]);
       }
-      return result;
+      return tagWithChunk(result);
     } catch {
       try {
-        return await extractChunkSessions(chunk, index, chunks.length, continuityNote);
+        return tagWithChunk(await extractChunkSessions(chunk, index, chunks.length, continuityNote));
       } catch {
         return {
           sessions: [],
@@ -537,6 +593,8 @@ export async function parseProgramBrief(
     chunkResults,
     metadata.estimatedDaysPerWeek
   );
+
+  const flaggedSessionBlueprint = flagUntraceableExercises(sessionBlueprint, chunks);
 
   if (!sessionBlueprint.length) {
     return { ok: false, errors: ['No training sessions could be found in this document.'] };
@@ -563,14 +621,14 @@ export async function parseProgramBrief(
   return {
     ok: true,
     data: {
-      programTitle: metadata.programTitle || sessionBlueprint[0].title,
+      programTitle: metadata.programTitle || flaggedSessionBlueprint[0].title,
       focusAreas: metadata.focusAreas,
       difficultyLevel: metadata.difficultyLevel,
       durationMinutes: metadata.durationMinutes,
       daysPerWeek,
       preferredWeekdays,
       circuits,
-      sessionBlueprint,
+      sessionBlueprint: flaggedSessionBlueprint,
       warnings: chunkWarnings,
       inferredFields: metadata.inferredFields,
     },
