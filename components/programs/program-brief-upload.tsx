@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { format } from "date-fns";
@@ -19,46 +19,74 @@ import { Badge } from "@/components/ui/badge";
 import {
   generateProgramBriefUploadUrlAction,
   extractProgramMetadataFromBriefAction,
-  generateProgramPreviewFromBriefAction,
+  extractProgramChunksAction,
+  matchProgramExercisesAction,
   saveGeneratedProgramAction,
 } from "@/actions/program-actions";
-import type { BriefMetadata } from "@/lib/services/program-brief.service";
+import type { BriefMetadata, ProgramBriefParsed } from "@/lib/services/program-brief.service";
+import { MissingFieldsDialog, type MissingFieldsValues } from "@/components/programs/missing-fields-dialog";
+import { FlaggedExerciseRow, type ExerciseMatchFlag } from "@/components/programs/flagged-exercise-row";
+import { ExercisePickerDialog } from "@/components/programs/exercise-picker-dialog";
+import type { ExerciseSourcePreference } from "@/lib/utils/exercise-picker";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 import {
   AlertTriangle,
-  CalendarClock,
   CheckCircle2,
   FileText,
   Loader2,
   Sparkles,
 } from "lucide-react";
 
-interface Props {
-  clients: { id: string; firstName: string; lastName: string }[];
+interface PickerExercise {
+  id: string;
+  name: string;
+  bodyRegion: string[];
+  difficultyLevel: string;
+  defaultReps: number | null;
+  musclesTargeted: string[];
+  description: string | null;
+  videoUrl: string | null;
+  videoProvider: string | null;
+  exercisePhases: string[];
+  source: string;
+  organizationId: string | null;
+  isPublic: boolean;
 }
 
+interface Props {
+  clients: { id: string; firstName: string; lastName: string }[];
+  exercises: PickerExercise[];
+  organizationOrganizationId?: string | null;
+  exerciseSourcePreference?: ExerciseSourcePreference;
+}
+
+type PreviewExercise = {
+  exerciseId: string | null;
+  exerciseName?: string;
+  orderIndex: number;
+  sets: number;
+  reps: string;
+  flags?: ExerciseMatchFlag[];
+  matchCandidates?: { exerciseId: string; exerciseName: string; score: number }[];
+};
+
+type PreviewBlock = {
+  name?: string;
+  type: string;
+  orderIndex: number;
+  exercises: PreviewExercise[];
+};
+
+type PreviewWorkout = {
+  name: string;
+  dayIndex: number;
+  weekIndex: number;
+  blocks: PreviewBlock[];
+};
+
 type PreviewState = {
-  aiPlan: {
-    name: string;
-    description?: string;
-    workouts: {
-      name: string;
-      dayIndex: number;
-      weekIndex: number;
-      blocks: {
-        name?: string;
-        type: string;
-        orderIndex: number;
-        exercises: {
-          exerciseId: string;
-          exerciseName?: string;
-          orderIndex: number;
-          sets: number;
-          reps: string;
-        }[];
-      }[];
-    }[];
-  };
+  aiPlan: { name: string; description?: string; workouts: PreviewWorkout[] };
   params: Record<string, unknown>;
   parsed: {
     programTitle: string;
@@ -73,11 +101,22 @@ type PreviewState = {
   warnings: string[];
 };
 
+type Resolution = { exerciseId: string; exerciseName: string } | { skip: true };
+
+type Stage = "idle" | "reading" | "extracting" | "matching" | "ready";
+
+const STAGE_ORDER: Stage[] = ["reading", "extracting", "matching"];
+const STAGE_LABELS: Record<string, string> = {
+  reading: "Reading document",
+  extracting: "Extracting weeks & sessions",
+  matching: "Matching exercises",
+};
+
 const DIFFICULTY_OPTIONS = ["BEGINNER", "INTERMEDIATE", "ADVANCED"];
 
 // Schedule is deliberately NOT in here — it gets baked into the generated
 // program's day assignments during generation, so it must be confirmed
-// BEFORE generation (see PendingSchedule below), not edited after the fact.
+// BEFORE generation (see the missing-fields dialog), not edited after the fact.
 type EditableFields = {
   programTitle: string;
   difficultyLevel: string;
@@ -94,9 +133,10 @@ function toEditableFields(parsed: PreviewState["parsed"]): EditableFields {
   };
 }
 
-type PendingSchedule = {
+type PendingMetadata = {
   rawText: string;
   metadata: BriefMetadata;
+  missingRequiredFields: string[];
 };
 
 const ACCEPTED_EXTENSIONS = [".pdf", ".docx", ".txt", ".md"];
@@ -110,21 +150,88 @@ function isAllowedFile(file: File) {
   return ACCEPTED_EXTENSIONS.some((ext) => lower.endsWith(ext));
 }
 
-export function ProgramBriefUpload({ clients }: Props) {
+function flagKey(workoutIdx: number, blockIdx: number, exIdx: number) {
+  return `${workoutIdx}-${blockIdx}-${exIdx}`;
+}
+
+function ProgressStepper({ stage }: { stage: Stage }) {
+  const currentIndex = STAGE_ORDER.indexOf(stage);
+  if (currentIndex === -1) return null;
+  return (
+    <div className="flex flex-wrap items-center gap-2 text-sm">
+      {STAGE_ORDER.map((s, i) => (
+        <div key={s} className="flex items-center gap-2">
+          <div
+            className={cn(
+              "flex items-center gap-1.5",
+              i < currentIndex ? "text-emerald-600" : i === currentIndex ? "font-medium text-blue-600" : "text-muted-foreground"
+            )}
+          >
+            {i < currentIndex ? (
+              <CheckCircle2 className="h-4 w-4" />
+            ) : i === currentIndex ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <span className="h-4 w-4 rounded-full border" />
+            )}
+            {STAGE_LABELS[s]}
+          </div>
+          {i < STAGE_ORDER.length - 1 && <div className="h-px w-6 bg-border" />}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export function ProgramBriefUpload({
+  clients,
+  exercises,
+  organizationOrganizationId,
+  exerciseSourcePreference,
+}: Props) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
+  const [stage, setStage] = useState<Stage>("idle");
   const [preview, setPreview] = useState<PreviewState | null>(null);
   const [editableFields, setEditableFields] = useState<EditableFields | null>(null);
-  const [pendingSchedule, setPendingSchedule] = useState<PendingSchedule | null>(null);
-  const [scheduleInput, setScheduleInput] = useState("");
-  const [processing, setProcessing] = useState(false);
-  const [confirmingSchedule, setConfirmingSchedule] = useState(false);
+  const [pendingMetadata, setPendingMetadata] = useState<PendingMetadata | null>(null);
+  const [resolutions, setResolutions] = useState<Map<string, Resolution>>(new Map());
+  const [resolverKey, setResolverKey] = useState<string | null>(null);
   const [assignClientId, setAssignClientId] = useState("");
-  const [assignStartDate, setAssignStartDate] = useState(
-    format(new Date(), "yyyy-MM-dd")
-  );
+  const [assignStartDate, setAssignStartDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [saving, setSaving] = useState<"template" | "assign" | null>(null);
+
+  const flaggedSlots = useMemo(() => {
+    if (!preview) return [];
+    const slots: { key: string; exercise: PreviewExercise }[] = [];
+    preview.aiPlan.workouts.forEach((w, wi) =>
+      w.blocks.forEach((b, bi) =>
+        b.exercises.forEach((e, ei) => {
+          if (e.flags && e.flags.length > 0) {
+            slots.push({ key: flagKey(wi, bi, ei), exercise: e });
+          }
+        })
+      )
+    );
+    return slots;
+  }, [preview]);
+
+  const unresolvedCount = flaggedSlots.filter((s) => !resolutions.has(s.key)).length;
+
+  // MissingFieldsDialog resets its local state whenever `initialValues`
+  // changes identity while open — memoizing here (keyed on pendingMetadata,
+  // which only changes once per upload cycle) keeps that identity stable
+  // across unrelated re-renders so the trainer's in-progress edits in the
+  // dialog are never silently discarded.
+  const missingFieldsInitialValues = useMemo(() => {
+    if (!pendingMetadata) return null;
+    return {
+      programTitle: pendingMetadata.metadata.programTitle,
+      daysPerWeek: pendingMetadata.metadata.estimatedDaysPerWeek,
+      preferredWeekdays: pendingMetadata.metadata.preferredWeekdays,
+    };
+  }, [pendingMetadata]);
 
   function handleFileChange(files: FileList | null) {
     if (!files || !files.length) return;
@@ -135,29 +242,49 @@ export function ProgramBriefUpload({ clients }: Props) {
     }
     setFile(next);
     setPreview(null);
-    setPendingSchedule(null);
+    setPendingMetadata(null);
+    setResolutions(new Map());
   }
 
-  async function runGeneration(rawText: string, metadata: BriefMetadata) {
-    const result = await generateProgramPreviewFromBriefAction({ rawText, metadata });
-    if (!result.success || !result.data) {
-      toast.error(result.error ?? "Failed to generate program from brief");
+  async function runExtractionAndMatching(rawText: string, metadata: BriefMetadata) {
+    setStage("extracting");
+    const chunksResult = await extractProgramChunksAction({ rawText, metadata });
+    if (!chunksResult.success || !chunksResult.data) {
+      toast.error(chunksResult.error ?? "Failed to extract program structure");
+      setStage("idle");
       return;
     }
-    setPreview(result.data);
-    setEditableFields(toEditableFields(result.data.parsed));
+
+    setStage("matching");
+    const matchResult = await matchProgramExercisesAction({ brief: chunksResult.data as ProgramBriefParsed });
+    if (!matchResult.success || !matchResult.data) {
+      toast.error(matchResult.error ?? "Failed to match exercises");
+      setStage("idle");
+      return;
+    }
+
+    setPreview({
+      aiPlan: matchResult.data.preview,
+      params: matchResult.data.params,
+      parsed: matchResult.data.parsed,
+      warnings: matchResult.data.warnings,
+    });
+    setEditableFields(toEditableFields(matchResult.data.parsed));
+    setResolutions(new Map());
+    setStage("ready");
     toast.success("Preview generated");
   }
 
   async function handleUploadAndGenerate() {
     if (!file) return;
 
-    setProcessing(true);
+    setStage("reading");
     try {
       const extension = file.name.toLowerCase().split(".").pop() ?? "";
       const presignResult = await generateProgramBriefUploadUrlAction(extension);
       if (!presignResult.success || !presignResult.data) {
         toast.error(presignResult.error ?? "Failed to get upload URL");
+        setStage("idle");
         return;
       }
       const { presignedUrl, fileUrl, contentType } = presignResult.data;
@@ -169,6 +296,7 @@ export function ProgramBriefUpload({ clients }: Props) {
       });
       if (!uploadResp.ok) {
         toast.error("Upload to storage failed. Please try again.");
+        setStage("idle");
         return;
       }
 
@@ -178,64 +306,115 @@ export function ProgramBriefUpload({ clients }: Props) {
       });
       if (!metaResult.success || !metaResult.data) {
         toast.error(metaResult.error ?? "Failed to read this document");
+        setStage("idle");
         return;
       }
 
-      const { metadata, rawText } = metaResult.data;
-      const scheduleIsInferred =
-        metadata.inferredFields.includes("preferredWeekdays") ||
-        metadata.inferredFields.includes("estimatedDaysPerWeek");
+      const { metadata, rawText, missingRequiredFields } = metaResult.data;
 
-      if (scheduleIsInferred) {
-        // Schedule gets baked into the generated program's day assignments
-        // during generation, so it has to be confirmed now, before the
-        // (slower) generation step runs — not edited afterward.
-        setPendingSchedule({ rawText, metadata });
-        setScheduleInput(metadata.preferredWeekdays.join(", "));
+      if (missingRequiredFields.length > 0) {
+        setPendingMetadata({ rawText, metadata, missingRequiredFields });
+        setStage("idle");
         return;
       }
 
-      await runGeneration(rawText, metadata);
+      await runExtractionAndMatching(rawText, metadata);
     } catch (err) {
       console.error("[program-brief-upload]", err);
       toast.error("Upload failed. Please try again.");
-    } finally {
-      setProcessing(false);
+      setStage("idle");
     }
   }
 
-  async function handleConfirmSchedule() {
-    if (!pendingSchedule) return;
-    const weekdays = scheduleInput
-      .split(",")
-      .map((d) => d.trim())
-      .filter(Boolean);
-    if (!weekdays.length) {
-      toast.error("Enter at least one training day");
-      return;
-    }
+  async function handleMissingFieldsConfirm(values: MissingFieldsValues) {
+    if (!pendingMetadata) return;
+    const confirmedMetadata: BriefMetadata = {
+      ...pendingMetadata.metadata,
+      programTitle: values.programTitle || pendingMetadata.metadata.programTitle,
+      preferredWeekdays: values.preferredWeekdays,
+      estimatedDaysPerWeek: values.daysPerWeek,
+      inferredFields: pendingMetadata.metadata.inferredFields.filter(
+        (f) => !["programTitle", "preferredWeekdays", "estimatedDaysPerWeek"].includes(f)
+      ),
+    };
+    setPendingMetadata(null);
+    await runExtractionAndMatching(pendingMetadata.rawText, confirmedMetadata);
+  }
 
-    setConfirmingSchedule(true);
-    try {
-      const confirmedMetadata: BriefMetadata = {
-        ...pendingSchedule.metadata,
-        preferredWeekdays: weekdays,
-        estimatedDaysPerWeek: weekdays.length,
-        inferredFields: pendingSchedule.metadata.inferredFields.filter(
-          (f) => f !== "preferredWeekdays" && f !== "estimatedDaysPerWeek"
-        ),
-      };
-      await runGeneration(pendingSchedule.rawText, confirmedMetadata);
-      setPendingSchedule(null);
-    } finally {
-      setConfirmingSchedule(false);
-    }
+  function confirmSuggestion(key: string, exercise: PreviewExercise) {
+    if (!exercise.exerciseId) return;
+    setResolutions((prev) =>
+      new Map(prev).set(key, { exerciseId: exercise.exerciseId!, exerciseName: exercise.exerciseName ?? "" })
+    );
+  }
+
+  function skipSlot(key: string) {
+    setResolutions((prev) => new Map(prev).set(key, { skip: true }));
+  }
+
+  function handlePickerSelect(exercise: { id: string; name: string }) {
+    if (!resolverKey) return;
+    setResolutions((prev) => new Map(prev).set(resolverKey, { exerciseId: exercise.id, exerciseName: exercise.name }));
+    setResolverKey(null);
+  }
+
+  function resolutionLabel(resolution: Resolution | undefined) {
+    if (!resolution) return undefined;
+    if ("skip" in resolution) return "Skipped";
+    return resolution.exerciseName;
+  }
+
+  function buildResolvedPlan() {
+    if (!preview) return null;
+    const workouts = preview.aiPlan.workouts
+      .map((w, wi) => ({
+        name: w.name,
+        dayIndex: w.dayIndex,
+        weekIndex: w.weekIndex,
+        blocks: w.blocks
+          .map((b, bi) => ({
+            name: b.name,
+            type: b.type,
+            orderIndex: b.orderIndex,
+            exercises: b.exercises
+              .map((e, ei) => {
+                const key = flagKey(wi, bi, ei);
+                const resolution = resolutions.get(key);
+                if (resolution && "skip" in resolution) return null;
+                const exerciseId = resolution && "exerciseId" in resolution ? resolution.exerciseId : e.exerciseId;
+                const exerciseName = resolution && "exerciseName" in resolution ? resolution.exerciseName : e.exerciseName;
+                if (!exerciseId) return null;
+                return {
+                  exerciseId,
+                  exerciseName,
+                  orderIndex: e.orderIndex,
+                  sets: e.sets,
+                  reps: e.reps,
+                };
+              })
+              .filter((e): e is NonNullable<typeof e> => e !== null),
+          }))
+          .filter((b) => b.exercises.length > 0),
+      }))
+      .filter((w) => w.blocks.length > 0);
+
+    return { name: preview.aiPlan.name, description: preview.aiPlan.description, workouts };
   }
 
   async function handleSave(isTemplate: boolean) {
     if (!preview || !editableFields) return;
+    if (unresolvedCount > 0) {
+      toast.error(`Resolve ${unresolvedCount} flagged exercise${unresolvedCount === 1 ? "" : "s"} before saving`);
+      return;
+    }
     if (!isTemplate && !assignClientId) {
       toast.error("Select a client to assign");
+      return;
+    }
+
+    const resolvedPlan = buildResolvedPlan();
+    if (!resolvedPlan || resolvedPlan.workouts.length === 0) {
+      toast.error("No exercises remain in this program — nothing to save");
       return;
     }
 
@@ -249,7 +428,7 @@ export function ProgramBriefUpload({ clients }: Props) {
       const editedDuration = Number.parseInt(editableFields.durationMinutes, 10);
 
       const result = await saveGeneratedProgramAction({
-        aiPlan: { ...preview.aiPlan, name: editedTitle },
+        aiPlan: { ...resolvedPlan, name: editedTitle },
         params: {
           ...preview.params,
           programTitle: editedTitle,
@@ -272,6 +451,8 @@ export function ProgramBriefUpload({ clients }: Props) {
       setSaving(null);
     }
   }
+
+  const processing = stage !== "idle" && stage !== "ready";
 
   return (
     <div className="space-y-6">
@@ -318,58 +499,30 @@ export function ProgramBriefUpload({ clients }: Props) {
               )}
             </div>
             <div className="flex flex-wrap justify-center gap-2">
-              <Button
-                variant="outline"
-                onClick={() => inputRef.current?.click()}
-                disabled={processing}
-              >
+              <Button variant="outline" onClick={() => inputRef.current?.click()} disabled={processing}>
                 Select File
               </Button>
-              <Button
-                onClick={handleUploadAndGenerate}
-                disabled={!file || processing}
-                className="gap-2"
-              >
-                {processing ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Sparkles className="h-4 w-4" />
-                )}
+              <Button onClick={handleUploadAndGenerate} disabled={!file || processing} className="gap-2">
+                {processing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
                 Generate Preview
               </Button>
             </div>
+            {processing && (
+              <div className="pt-2">
+                <ProgressStepper stage={stage} />
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
 
-      {pendingSchedule && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <CalendarClock className="h-5 w-5 text-amber-600" />
-              Confirm Schedule
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              This document doesn&apos;t state which days of the week training happens on. This
-              determines which day each session lands on, so please confirm it before the program
-              is generated.
-            </p>
-            <div className="space-y-2">
-              <Label>Training days (comma separated)</Label>
-              <Input
-                value={scheduleInput}
-                onChange={(e) => setScheduleInput(e.target.value)}
-                placeholder="Monday, Wednesday, Friday"
-              />
-            </div>
-            <Button onClick={handleConfirmSchedule} disabled={confirmingSchedule} className="gap-2">
-              {confirmingSchedule ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-              {confirmingSchedule ? "Generating..." : "Continue"}
-            </Button>
-          </CardContent>
-        </Card>
+      {pendingMetadata && (
+        <MissingFieldsDialog
+          open
+          missingFields={pendingMetadata.missingRequiredFields}
+          initialValues={missingFieldsInitialValues!}
+          onConfirm={handleMissingFieldsConfirm}
+        />
       )}
 
       {preview && editableFields && (
@@ -471,27 +624,54 @@ export function ProgramBriefUpload({ clients }: Props) {
               );
             })()}
 
+            {unresolvedCount > 0 && (
+              <div className="rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-200">
+                {unresolvedCount} exercise{unresolvedCount === 1 ? "" : "s"} need{unresolvedCount === 1 ? "s" : ""}{" "}
+                your review before this program can be saved.
+              </div>
+            )}
+
             <div className="space-y-2">
               <Label>Generated Sessions</Label>
               <div className="space-y-3">
-                {preview.aiPlan.workouts.map((workout, idx) => (
-                  <div key={`${workout.name}-${idx}`} className="border rounded-lg p-4">
+                {preview.aiPlan.workouts.map((workout, wIdx) => (
+                  <div key={`${workout.name}-${wIdx}`} className="border rounded-lg p-4">
                     <div className="font-medium">{workout.name}</div>
                     <div className="mt-3 space-y-3">
                       {workout.blocks.map((block, bIdx) => (
                         <div key={`${block.name || block.type}-${bIdx}`}>
                           <div className="text-sm font-semibold flex items-center gap-2">
                             <span>{block.name || "Block"}</span>
-                            {block.type !== "NORMAL" && (
-                              <Badge variant="outline">{block.type}</Badge>
-                            )}
+                            {block.type !== "NORMAL" && <Badge variant="outline">{block.type}</Badge>}
                           </div>
-                          <div className="mt-2 grid gap-1 text-sm text-muted-foreground">
-                            {block.exercises.map((ex, eIdx) => (
-                              <div key={`${ex.exerciseId}-${eIdx}`}>
-                                {ex.exerciseName || ex.exerciseId} — {ex.sets} x {ex.reps}
-                              </div>
-                            ))}
+                          <div className="mt-2 space-y-1.5">
+                            {block.exercises.map((ex, eIdx) => {
+                              const key = flagKey(wIdx, bIdx, eIdx);
+                              const flags = ex.flags ?? [];
+                              if (flags.length === 0) {
+                                return (
+                                  <div key={key} className="text-sm text-muted-foreground">
+                                    {ex.exerciseName || ex.exerciseId} — {ex.sets} x {ex.reps}
+                                  </div>
+                                );
+                              }
+                              const resolution = resolutions.get(key);
+                              return (
+                                <FlaggedExerciseRow
+                                  key={key}
+                                  exerciseName={ex.exerciseName}
+                                  sets={ex.sets}
+                                  reps={ex.reps}
+                                  flags={flags}
+                                  hasSuggestion={!!ex.exerciseId}
+                                  resolved={!!resolution}
+                                  resolvedLabel={resolutionLabel(resolution)}
+                                  onConfirm={() => confirmSuggestion(key, ex)}
+                                  onPickAlternative={() => setResolverKey(key)}
+                                  onSkip={() => skipSlot(key)}
+                                />
+                              );
+                            })}
                           </div>
                         </div>
                       ))}
@@ -505,10 +685,7 @@ export function ProgramBriefUpload({ clients }: Props) {
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
                   <Label>Assign to Client (optional)</Label>
-                  <Select
-                    value={assignClientId}
-                    onValueChange={(v) => setAssignClientId(v ?? "")}
-                  >
+                  <Select value={assignClientId} onValueChange={(v) => setAssignClientId(v ?? "")}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select a client" />
                     </SelectTrigger>
@@ -523,33 +700,38 @@ export function ProgramBriefUpload({ clients }: Props) {
                 </div>
                 <div className="space-y-2">
                   <Label>Start Date</Label>
-                  <Input
-                    type="date"
-                    value={assignStartDate}
-                    onChange={(e) => setAssignStartDate(e.target.value)}
-                  />
+                  <Input type="date" value={assignStartDate} onChange={(e) => setAssignStartDate(e.target.value)} />
                 </div>
               </div>
 
-              <div className="mt-4 flex flex-wrap gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => handleSave(true)}
-                  disabled={saving !== null}
-                >
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+                <Button variant="outline" onClick={() => handleSave(true)} disabled={saving !== null || unresolvedCount > 0}>
                   {saving === "template" ? "Saving..." : "Save as Template"}
                 </Button>
-                <Button
-                  onClick={() => handleSave(false)}
-                  disabled={saving !== null}
-                >
+                <Button onClick={() => handleSave(false)} disabled={saving !== null || unresolvedCount > 0}>
                   {saving === "assign" ? "Assigning..." : "Save & Assign"}
                 </Button>
+                {unresolvedCount > 0 && (
+                  <span className="text-xs text-muted-foreground">
+                    {unresolvedCount} unresolved exercise{unresolvedCount === 1 ? "" : "s"}
+                  </span>
+                )}
               </div>
             </div>
           </CardContent>
         </Card>
       )}
+
+      <ExercisePickerDialog
+        open={!!resolverKey}
+        onOpenChange={(open) => {
+          if (!open) setResolverKey(null);
+        }}
+        exercises={exercises}
+        onSelect={handlePickerSelect}
+        organizationOrganizationId={organizationOrganizationId}
+        exerciseSourcePreference={exerciseSourcePreference}
+      />
     </div>
   );
 }
