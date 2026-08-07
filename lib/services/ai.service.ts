@@ -257,6 +257,41 @@ export function resolveExerciseMatch(
   return { exerciseId: null, matchType: "not_in_library", candidates: top };
 }
 
+export type PreviewExercise = {
+  exerciseId: string | null;
+  exerciseName?: string;
+  orderIndex: number;
+  sets: number;
+  reps: string;
+  notes?: string;
+  restSeconds?: number;
+  flags: ExerciseMatchFlag[];
+  matchCandidates: ExerciseMatchCandidate[];
+};
+
+export type PreviewBlock = {
+  type: string;
+  name?: string;
+  circuitIndex?: number;
+  orderIndex: number;
+  rounds?: number;
+  restBetweenRounds?: number | null;
+  exercises: PreviewExercise[];
+};
+
+export type PreviewWorkout = {
+  name: string;
+  dayIndex: number;
+  weekIndex: number;
+  blocks: PreviewBlock[];
+};
+
+export type PreviewGeneratedProgram = {
+  name: string;
+  description?: string;
+  workouts: PreviewWorkout[];
+};
+
 const EXERCISE_POOL_SELECT = {
   id: true, name: true, bodyRegion: true, difficultyLevel: true,
   equipmentRequired: true, contraindications: true, description: true,
@@ -1162,6 +1197,209 @@ export async function generateProgram(
     workouts,
     warnings: generatedPlan.warnings,
   };
+}
+
+type BlueprintExercise = {
+  name: string;
+  sets?: number;
+  reps?: number;
+  durationSeconds?: number;
+  notes?: string;
+  traceableInDocument?: boolean;
+};
+type BlueprintBlock = { name: string; exercises: BlueprintExercise[] };
+type BlueprintSession = { dayIndex: number; weekIndex?: number; title: string; blocks: BlueprintBlock[] };
+
+function assemblePreviewWorkouts(
+  sessions: { dayOfWeek: number; weekIndex: number; name: string }[],
+  exercises: (PreviewExercise & { dayOfWeek: number; weekIndex: number; circuitIndex: number; phase: string })[],
+  circuits: CircuitConfig[]
+): PreviewWorkout[] {
+  const hasCircuits = circuits.length > 0;
+  const sessionNameMap = new Map<string, string>(sessions.map((s) => [`${s.weekIndex}_${s.dayOfWeek}`, s.name]));
+  const workoutsMap = new Map<string, PreviewWorkout>();
+
+  exercises.forEach((ex) => {
+    const key = `${ex.weekIndex}_${ex.dayOfWeek}`;
+    if (!workoutsMap.has(key)) {
+      const sessionNum = workoutsMap.size;
+      workoutsMap.set(key, {
+        name: sessionNameMap.get(key) ?? `Session ${sessionNum + 1}`,
+        dayIndex: ex.dayOfWeek,
+        weekIndex: ex.weekIndex,
+        blocks: [],
+      });
+    }
+    const workout = workoutsMap.get(key)!;
+
+    if (hasCircuits) {
+      const circuitIdx = Math.max(0, Math.min(ex.circuitIndex, circuits.length - 1));
+      const circuitConfig = circuits[circuitIdx];
+
+      let block = workout.blocks.find((b) => b.circuitIndex === circuitIdx);
+      if (!block) {
+        block = {
+          type: circuitFocusToBlockType(circuitConfig.focusType),
+          name: circuitConfig.name,
+          circuitIndex: circuitIdx,
+          orderIndex: circuitIdx,
+          rounds: circuitConfig.rounds ?? defaultRoundsForFocusType(circuitConfig.focusType),
+          restBetweenRounds: circuitConfig.restBetweenRounds ?? null,
+          exercises: [],
+        };
+        workout.blocks.push(block);
+      }
+
+      block.exercises.push({
+        exerciseId: ex.exerciseId,
+        exerciseName: ex.exerciseName,
+        orderIndex: block.exercises.length,
+        sets: 1,
+        reps: ex.reps,
+        notes: ex.notes,
+        restSeconds: ex.restSeconds,
+        flags: ex.flags,
+        matchCandidates: ex.matchCandidates,
+      });
+    } else {
+      let targetType = ex.phase.toUpperCase();
+      if (["ACTIVATION", "STRENGTHENING", "MOBILITY"].includes(targetType)) targetType = "NORMAL";
+
+      let block = workout.blocks.find((b) => b.type === targetType && b.circuitIndex === undefined);
+      if (!block) {
+        block = {
+          type: ["WARMUP", "COOLDOWN", "SUPERSET", "CIRCUIT", "AMRAP", "EMOM"].includes(targetType) ? targetType : "NORMAL",
+          orderIndex: workout.blocks.length,
+          exercises: [],
+        };
+        workout.blocks.push(block);
+      }
+
+      block.exercises.push({
+        exerciseId: ex.exerciseId,
+        exerciseName: ex.exerciseName,
+        orderIndex: block.exercises.length,
+        sets: ex.sets,
+        reps: ex.reps,
+        notes: ex.notes,
+        restSeconds: ex.restSeconds,
+        flags: ex.flags,
+        matchCandidates: ex.matchCandidates,
+      });
+    }
+  });
+
+  for (const workout of workoutsMap.values()) {
+    workout.blocks.sort((a, b) => a.orderIndex - b.orderIndex);
+  }
+  return Array.from(workoutsMap.values()).sort((a, b) =>
+    a.weekIndex !== b.weekIndex ? a.weekIndex - b.weekIndex : a.dayIndex - b.dayIndex
+  );
+}
+
+/**
+ * Builds a program preview directly from a parsed brief's session blueprint,
+ * using deterministic exercise matching (no LLM calls). Unmatched or
+ * low-confidence exercises are kept in the output with `flags` set instead of
+ * being silently substituted or dropped — the trainer resolves them in the
+ * review screen before the program can be saved. Returns `PreviewGeneratedProgram`
+ * (nullable `exerciseId`, always-present `flags`), a deliberately separate type
+ * from `GeneratedProgram` (non-null `exerciseId`, the "ready to save" contract) —
+ * a later task (client-side, after the trainer resolves every flag) converts a
+ * resolved preview into a plain `GeneratedProgram` before calling the save action.
+ */
+export async function buildProgramPreviewFromBlueprint(params: {
+  sessionBlueprint: BlueprintSession[];
+  circuits?: CircuitConfig[];
+  preferredWeekdays?: string[];
+  programTitle?: string;
+}): Promise<PreviewGeneratedProgram> {
+  const weekdayToIndex: Record<string, number> = {
+    monday: 0, tuesday: 1, wednesday: 2, thursday: 3, friday: 4, saturday: 5, sunday: 6,
+  };
+
+  const circuits = params.circuits || [];
+  const circuitNameMap = new Map(circuits.map((c, idx) => [normalizeExerciseName(c.name), idx]));
+
+  const allBriefExercises = await prisma.exercise.findMany({ where: { isActive: true } });
+
+  const preferredDayIndices = (params.preferredWeekdays ?? [])
+    .map((d) => weekdayToIndex[d.toLowerCase().trim()])
+    .filter((d): d is number => Number.isInteger(d));
+
+  function toActualDayOfWeek(dayIndex: number): number {
+    if (preferredDayIndices.length === 0) return dayIndex;
+    return preferredDayIndices[dayIndex % preferredDayIndices.length];
+  }
+
+  const sessions = params.sessionBlueprint.map((s) => ({
+    dayOfWeek: toActualDayOfWeek(s.dayIndex),
+    weekIndex: s.weekIndex ?? 0,
+    name: s.title,
+  }));
+
+  const exercisesOutput: (PreviewExercise & { dayOfWeek: number; weekIndex: number; circuitIndex: number; phase: string })[] = [];
+
+  for (const session of params.sessionBlueprint) {
+    let orderIndex = 0;
+    for (let blockIdx = 0; blockIdx < session.blocks.length; blockIdx += 1) {
+      const block = session.blocks[blockIdx];
+      const blockKey = normalizeExerciseName(block.name);
+      const circuitIndex = circuitNameMap.get(blockKey) ?? Math.min(blockIdx, Math.max(0, circuits.length - 1));
+
+      for (const exerciseBp of block.exercises) {
+        const match = resolveExerciseMatch(exerciseBp.name, allBriefExercises);
+        const flags: ExerciseMatchFlag[] = [];
+        if (match.matchType === "needs_review") flags.push("needs_review");
+        if (match.matchType === "not_in_library") flags.push("not_in_library");
+        if (exerciseBp.traceableInDocument === false) flags.push("not_in_document");
+
+        const matchedExercise = match.exerciseId
+          ? (allBriefExercises.find((e) => e.id === match.exerciseId) ?? null)
+          : null;
+
+        const sets = exerciseBp.sets ?? matchedExercise?.defaultSets ?? 3;
+        const hasDuration =
+          exerciseBp.durationSeconds != null ||
+          (exerciseBp.reps == null && matchedExercise?.defaultHoldSeconds != null);
+        const repsValue = hasDuration ? undefined : (exerciseBp.reps ?? matchedExercise?.defaultReps ?? 10);
+        const durationSeconds =
+          exerciseBp.durationSeconds ??
+          (hasDuration ? (matchedExercise?.defaultHoldSeconds ?? undefined) : undefined);
+        const reps = repsValue != null ? repsValue.toString() : durationSeconds != null ? `${durationSeconds}s` : "10";
+
+        const focusType = circuits[circuitIndex]?.focusType?.toUpperCase();
+        const phase =
+          focusType === "WARMUP" ? "WARMUP" :
+          focusType === "COOLDOWN" ? "COOLDOWN" :
+          focusType === "FLEXIBILITY" ? "MOBILITY" :
+          focusType === "CARDIO" ? "ACTIVATION" :
+          focusType === "BALANCE" ? "ACTIVATION" : "STRENGTHENING";
+
+        exercisesOutput.push({
+          exerciseId: match.exerciseId,
+          exerciseName: matchedExercise?.name ?? exerciseBp.name,
+          phase,
+          circuitIndex,
+          sets,
+          reps,
+          restSeconds: undefined,
+          weekIndex: session.weekIndex ?? 0,
+          dayOfWeek: toActualDayOfWeek(session.dayIndex),
+          orderIndex: orderIndex++,
+          notes: exerciseBp.notes ?? undefined,
+          flags,
+          matchCandidates: match.candidates,
+        });
+      }
+    }
+  }
+
+  const programTitle = params.programTitle || "Athletic Program";
+  const description = "Generated from uploaded brief";
+  const workouts = assemblePreviewWorkouts(sessions, exercisesOutput, circuits);
+
+  return { name: programTitle, description, workouts };
 }
 
 export async function generateClinicalPlan(
