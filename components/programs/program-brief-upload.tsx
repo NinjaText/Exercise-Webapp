@@ -337,8 +337,15 @@ export function ProgramBriefUpload({
         (f) => !["programTitle", "preferredWeekdays", "estimatedDaysPerWeek"].includes(f)
       ),
     };
+    const rawText = pendingMetadata.rawText;
     setPendingMetadata(null);
-    await runExtractionAndMatching(pendingMetadata.rawText, confirmedMetadata);
+    try {
+      await runExtractionAndMatching(rawText, confirmedMetadata);
+    } catch (err) {
+      console.error("[program-brief-upload]", err);
+      toast.error("Failed to process document. Please try again.");
+      setStage("idle");
+    }
   }
 
   function confirmSuggestion(key: string, exercise: PreviewExercise) {
