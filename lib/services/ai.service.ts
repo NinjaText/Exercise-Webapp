@@ -169,12 +169,12 @@ export function normalizeExerciseName(name: string) {
 function scoreNameSimilarity(a: string, b: string) {
   if (!a || !b) return 0;
   if (a === b) return 1;
-  if ((a.includes(b) && b.includes(" ")) || (b.includes(a) && a.includes(" "))) return 0.9;
+  if (a.includes(b) || b.includes(a)) return 0.9;
   const aTokens = new Set(a.split(" "));
   const bTokens = new Set(b.split(" "));
   let overlap = 0;
   for (const t of aTokens) if (bTokens.has(t)) overlap += 1;
-  return (2 * overlap) / Math.max(1, aTokens.size + bTokens.size);
+  return overlap / Math.max(1, Math.max(aTokens.size, bTokens.size));
 }
 
 export type ExerciseMatchFlag = "needs_review" | "not_in_library" | "not_in_document";
@@ -193,6 +193,23 @@ export type ExerciseMatchResult = {
 
 const AUTO_ACCEPT_SCORE = 0.9;
 const NEEDS_REVIEW_SCORE = 0.5;
+
+/**
+ * Private scoring function for resolveExerciseMatch.
+ * Uses space-gated substring matching (multi-word substrings only) and
+ * harmonic-mean-style token overlap to distinguish single-word overlaps
+ * from true substring matches.
+ */
+function scoreExerciseMatchSimilarity(a: string, b: string): number {
+  if (!a || !b) return 0;
+  if (a === b) return 1;
+  if ((a.includes(b) && b.includes(" ")) || (b.includes(a) && a.includes(" "))) return 0.9;
+  const aTokens = new Set(a.split(" "));
+  const bTokens = new Set(b.split(" "));
+  let overlap = 0;
+  for (const t of aTokens) if (bTokens.has(t)) overlap += 1;
+  return (2 * overlap) / Math.max(1, aTokens.size + bTokens.size);
+}
 
 /**
  * Deterministic, LLM-free exercise-name matching against the library.
@@ -216,7 +233,7 @@ export function resolveExerciseMatch(
   const ranked = candidates
     .map((e) => ({
       exercise: e,
-      score: scoreNameSimilarity(normalizeExerciseName(e.name), normalizedTarget),
+      score: scoreExerciseMatchSimilarity(normalizeExerciseName(e.name), normalizedTarget),
     }))
     .sort((a, b) => b.score - a.score);
 
