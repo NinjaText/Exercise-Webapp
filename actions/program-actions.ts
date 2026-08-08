@@ -50,13 +50,6 @@ async function getTrainerUser() {
   return dbUser;
 }
 
-export function computeDurationWeeksFromWorkouts(
-  workouts: { weekIndex: number }[]
-): number | null {
-  if (!workouts.length) return null;
-  return Math.max(...workouts.map((w) => w.weekIndex)) + 1;
-}
-
 async function createProgramFromGeneratedPlan(params: {
   aiPlan: GeneratedProgram;
   trainerId: string | null;
@@ -77,7 +70,7 @@ async function createProgramFromGeneratedPlan(params: {
     ? (() => { const [y, m, d] = startDate.split("-").map(Number); return new Date(y, m - 1, d); })()
     : null;
 
-  const durationWeeks = computeDurationWeeksFromWorkouts(aiPlan.workouts);
+  const durationWeeks = programService.computeDurationWeeksFromWorkouts(aiPlan.workouts);
   const daysPerWeek =
     typeof aiGenerationParams.daysPerWeek === "number" ? aiGenerationParams.daysPerWeek : null;
 
