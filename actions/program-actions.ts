@@ -4,13 +4,19 @@ import React from "react";
 import { randomUUID } from "crypto";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { generateProgram, type GeneratedProgram } from "@/lib/services/ai.service";
+import {
+  generateProgram,
+  buildProgramPreviewFromBlueprint,
+  type GeneratedProgram,
+} from "@/lib/services/ai.service";
 import {
   extractProgramBriefText,
   extractBriefMetadata,
   parseProgramBrief,
   type BriefMetadata,
+  type ProgramBriefParsed,
 } from "@/lib/services/program-brief.service";
+import { generatedProgramSchema } from "@/lib/validators/generated-program";
 
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
@@ -55,9 +61,18 @@ async function createProgramFromGeneratedPlan(params: {
 }) {
   const { aiPlan, trainerId, isTemplate, aiGenerationParams, clientId, startDate } = params;
 
+  const validation = generatedProgramSchema.safeParse(aiPlan);
+  if (!validation.success) {
+    throw new Error(`Invalid generated program: ${validation.error.issues[0].message}`);
+  }
+
   const sDate = startDate
     ? (() => { const [y, m, d] = startDate.split("-").map(Number); return new Date(y, m - 1, d); })()
     : null;
+
+  const durationWeeks = programService.computeDurationWeeksFromWorkouts(aiPlan.workouts);
+  const daysPerWeek =
+    typeof aiGenerationParams.daysPerWeek === "number" ? aiGenerationParams.daysPerWeek : null;
 
   // Round 1: program shell only — no nested creates
   const program = await prisma.program.create({
@@ -69,6 +84,8 @@ async function createProgramFromGeneratedPlan(params: {
       trainerId,
       clientId: clientId ?? null,
       status: clientId ? "ACTIVE" : "DRAFT",
+      durationWeeks,
+      daysPerWeek,
       startDate: sDate ?? undefined,
       aiGenerationParams: aiGenerationParams as import("@prisma/client").Prisma.InputJsonValue,
     },
@@ -411,7 +428,11 @@ export async function generateProgramAction(
     return { success: true as const, data: program.id };
   } catch (error) {
     console.error("Failed to generate program:", error);
-    return { success: false as const, error: "Failed to generate program" };
+    const message =
+      error instanceof Error && error.message.startsWith("Invalid generated program:")
+        ? error.message
+        : "Failed to generate program";
+    return { success: false as const, error: message };
   }
 }
 
@@ -458,7 +479,9 @@ export async function generateProgramBriefUploadUrlAction(
 // not after, since editing it afterward wouldn't move anything. The caller
 // checks `metadata.inferredFields` for "estimatedDaysPerWeek" /
 // "preferredWeekdays" to decide whether to show a confirmation step before
-// calling generateProgramPreviewFromBriefAction.
+// calling extractProgramChunksAction/matchProgramExercisesAction.
+const REQUIRED_BRIEF_METADATA_FIELDS = ["programTitle", "estimatedDaysPerWeek", "preferredWeekdays"] as const;
+
 export async function extractProgramMetadataFromBriefAction(input: {
   fileUrl: string;
   fileName: string;
@@ -472,19 +495,22 @@ export async function extractProgramMetadataFromBriefAction(input: {
       return { success: false as const, error: "The document appears to be empty or unreadable." };
     }
     const metadata = await extractBriefMetadata(rawText);
-    return { success: true as const, data: { metadata, rawText } };
+    const missingRequiredFields = REQUIRED_BRIEF_METADATA_FIELDS.filter((f) =>
+      metadata.inferredFields.includes(f)
+    );
+    return { success: true as const, data: { metadata, rawText, missingRequiredFields } };
   } catch (error) {
     console.error("Failed to extract program metadata from brief:", error);
     return { success: false as const, error: "Failed to read this document" };
   }
 }
 
-export async function generateProgramPreviewFromBriefAction(input: {
+// Stage 2 of the brief-upload flow: chunk + extract every session/exercise
+// from the full document. No exercise-library matching happens here — that's
+// stage 3 (matchProgramExercisesAction) — so this stays fast and its result
+// can be shown as its own progress step.
+export async function extractProgramChunksAction(input: {
   rawText: string;
-  // The trainer's confirmed metadata from extractProgramMetadataFromBriefAction
-  // (with schedule fields edited if they needed correcting). Passing it in
-  // skips re-guessing metadata and, critically, means generation uses the
-  // trainer-confirmed schedule instead of the AI's original guess.
   metadata: BriefMetadata;
 }) {
   const user = await getTrainerUser();
@@ -495,8 +521,28 @@ export async function generateProgramPreviewFromBriefAction(input: {
     if (!parsed.ok) {
       return { success: false as const, error: parsed.errors.join("\n") };
     }
+    return { success: true as const, data: parsed.data };
+  } catch (error) {
+    console.error("Failed to extract program chunks from brief:", error);
+    return { success: false as const, error: "Failed to extract program structure from this document" };
+  }
+}
 
-    const brief = parsed.data;
+// Stage 3: deterministically match every extracted exercise against the
+// exercise library (no LLM calls) and return a preview where unmatched or
+// low-confidence exercises carry `flags` instead of being silently
+// substituted or dropped.
+export async function matchProgramExercisesAction(input: {
+  brief: ProgramBriefParsed;
+}) {
+  const user = await getTrainerUser();
+  if (!user) return { success: false as const, error: "Unauthorized" };
+
+  try {
+    const brief = input.brief;
+    if (!brief.sessionBlueprint?.length) {
+      return { success: false as const, error: "No training sessions were found to match exercises for" };
+    }
 
     const params = {
       programTitle: brief.programTitle,
@@ -514,26 +560,20 @@ export async function generateProgramPreviewFromBriefAction(input: {
       sessionBlueprint: brief.sessionBlueprint,
     };
 
-    const aiPlan = await generateProgram(params);
+    const preview = await buildProgramPreviewFromBlueprint(params);
 
     return {
       success: true as const,
       data: {
-        aiPlan,
+        preview,
         params,
         parsed: brief,
-        // The same exercise/inferred-field warning can repeat once per week for a
-        // multi-week program (identical sessions recur) — de-dupe before showing
-        // the trainer, so a 4-week program doesn't show the same line 4 times.
-        warnings: Array.from(new Set([...(brief.warnings ?? []), ...(aiPlan.warnings ?? [])])),
+        warnings: Array.from(new Set(brief.warnings ?? [])),
       },
     };
   } catch (error) {
-    console.error("Failed to generate program from brief:", error);
-    return {
-      success: false as const,
-      error: "Failed to generate program from brief",
-    };
+    console.error("Failed to match exercises for brief:", error);
+    return { success: false as const, error: "Failed to match exercises against your exercise library" };
   }
 }
 
@@ -564,7 +604,14 @@ export async function saveGeneratedProgramAction(input: {
     return { success: true as const, data: program.id };
   } catch (error) {
     console.error("Failed to save generated program:", error);
-    return { success: false as const, error: "Failed to save program" };
+    const message =
+      error instanceof Error && error.message.startsWith("Invalid generated program:")
+        ? error.message
+        : "Failed to save program";
+    return {
+      success: false as const,
+      error: message,
+    };
   }
 }
 

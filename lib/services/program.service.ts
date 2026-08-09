@@ -2,6 +2,13 @@ import { randomBytes } from "crypto";
 import { prisma } from "@/lib/prisma";
 import type { PlanStatus, Prisma } from "@prisma/client";
 
+export function computeDurationWeeksFromWorkouts(
+  workouts: { weekIndex: number }[]
+): number | null {
+  if (!workouts.length) return null;
+  return Math.max(...workouts.map((w) => w.weekIndex)) + 1;
+}
+
 // A valid 12-byte ObjectId as a 24-char hex string, generated client-side so we
 // can bulk-insert child rows referencing their parents without a round-trip to
 // read back generated ids.

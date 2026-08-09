@@ -20,7 +20,7 @@ beforeEach(() => {
   vi.clearAllMocks()
 })
 
-import { splitIntoChunks, mergeChunkSessions, deriveCircuitsFromSessions, extractBriefMetadata, extractChunkSessions, parseProgramBrief } from '../program-brief.service'
+import { splitIntoChunks, mergeChunkSessions, deriveCircuitsFromSessions, extractBriefMetadata, extractChunkSessions, parseProgramBrief, isExerciseTraceableInDocument, flagUntraceableExercises } from '../program-brief.service'
 
 function block(name: string, focusType: string, exerciseCount: number) {
   return {
@@ -29,6 +29,54 @@ function block(name: string, focusType: string, exerciseCount: number) {
     exercises: Array.from({ length: exerciseCount }, (_, i) => ({ name: `${name} exercise ${i}` })),
   }
 }
+
+describe('isExerciseTraceableInDocument', () => {
+  it('returns true when the exercise name appears verbatim in the source text', () => {
+    expect(isExerciseTraceableInDocument('Barbell Back Squat', 'Day 1\nBarbell Back Squat 4x8\nBench Press 4x8')).toBe(true)
+  })
+
+  it('returns true for case/punctuation-insensitive matches', () => {
+    expect(isExerciseTraceableInDocument('back-squat', 'Barbell Back Squat: 4 sets of 8')).toBe(true)
+  })
+
+  it('returns true when most distinctive tokens overlap even if not a verbatim substring', () => {
+    expect(isExerciseTraceableInDocument('Dumbbell Bench Press', 'DB Bench Press 3x10')).toBe(true)
+  })
+
+  it('returns false when the exercise name has no meaningful overlap with the source text', () => {
+    expect(isExerciseTraceableInDocument('Nordic Hamstring Curl', 'Day 1\nSquat 4x8\nBench Press 4x8')).toBe(false)
+  })
+})
+
+describe('flagUntraceableExercises', () => {
+  it('sets traceableInDocument per exercise based on its originating chunk text', () => {
+    const blueprint = [
+      {
+        dayIndex: 0,
+        weekIndex: 0,
+        title: 'Day 1',
+        sourceChunkIndex: 0,
+        blocks: [
+          { name: 'Main', focusType: 'FULL_BODY', exercises: [{ name: 'Squat' }, { name: 'Nordic Hamstring Curl' }] },
+        ],
+      },
+    ]
+    const chunks = ['Day 1\nSquat 4x8']
+
+    const flagged = flagUntraceableExercises(blueprint as any, chunks)
+
+    expect(flagged[0].blocks[0].exercises[0].traceableInDocument).toBe(true)
+    expect(flagged[0].blocks[0].exercises[1].traceableInDocument).toBe(false)
+  })
+
+  it('defaults to traceable when a session has no resolvable chunk index', () => {
+    const blueprint = [
+      { dayIndex: 0, weekIndex: 0, title: 'Day 1', blocks: [{ name: 'Main', focusType: 'FULL_BODY', exercises: [{ name: 'Squat' }] }] },
+    ]
+    const flagged = flagUntraceableExercises(blueprint as any, [])
+    expect(flagged[0].blocks[0].exercises[0].traceableInDocument).toBe(true)
+  })
+})
 
 describe('splitIntoChunks', () => {
   it('returns an empty array for empty text', () => {

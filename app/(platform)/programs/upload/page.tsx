@@ -2,6 +2,8 @@ import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getClientsForTrainer } from "@/lib/services/client.service";
+import { getExercisesForPicker } from "@/lib/services/exercise.service";
+import { getOrganizationProfile } from "@/actions/organization-actions";
 import { ProgramBriefUpload } from "@/components/programs/program-brief-upload";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
@@ -14,7 +16,7 @@ export const metadata = {
 };
 
 export default async function ProgramBriefUploadPage() {
-  const { userId } = await auth();
+  const { userId, orgId: sessionOrgId } = await auth();
 
   if (!userId) {
     redirect("/sign-in");
@@ -22,14 +24,20 @@ export default async function ProgramBriefUploadPage() {
 
   const user = await prisma.user.findUnique({
     where: { clerkId: userId },
-    select: { id: true, role: true },
+    select: { id: true, role: true, clerkOrgId: true },
   });
 
   if (!user || user.role !== "TRAINER") {
     redirect("/dashboard");
   }
 
-  const clients = await getClientsForTrainer(user.id);
+  const organizationOrgId = sessionOrgId ?? user.clerkOrgId ?? undefined;
+
+  const [clients, exercises, organizationProfile] = await Promise.all([
+    getClientsForTrainer(user.id),
+    getExercisesForPicker(organizationOrgId),
+    getOrganizationProfile().catch(() => null),
+  ]);
 
   return (
     <div>
@@ -44,7 +52,12 @@ export default async function ProgramBriefUploadPage() {
         description="Upload a structured brief and let AI generate a full program for review."
       />
       <div className="max-w-3xl mx-auto">
-        <ProgramBriefUpload clients={clients} />
+        <ProgramBriefUpload
+          clients={clients}
+          exercises={exercises}
+          organizationOrganizationId={organizationOrgId}
+          exerciseSourcePreference={organizationProfile?.exerciseSourcePreference}
+        />
       </div>
     </div>
   );

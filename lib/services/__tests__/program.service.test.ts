@@ -21,6 +21,7 @@ import {
   assignGlobalProgramOrganizations,
   createProgram,
   createGlobalProgram,
+  computeDurationWeeksFromWorkouts,
 } from '../program.service'
 
 const mockFindMany = vi.mocked(prisma.program.findMany)
@@ -120,5 +121,21 @@ describe('createGlobalProgram', () => {
         }),
       })
     )
+  })
+})
+
+describe('computeDurationWeeksFromWorkouts', () => {
+  it('returns max weekIndex + 1 across all workouts', () => {
+    const workouts = [{ weekIndex: 0 }, { weekIndex: 2 }, { weekIndex: 1 }] as any
+    expect(computeDurationWeeksFromWorkouts(workouts)).toBe(3)
+  })
+
+  it('returns 1 for a single-week program', () => {
+    const workouts = [{ weekIndex: 0 }, { weekIndex: 0 }] as any
+    expect(computeDurationWeeksFromWorkouts(workouts)).toBe(1)
+  })
+
+  it('returns null for an empty workouts array', () => {
+    expect(computeDurationWeeksFromWorkouts([])).toBeNull()
   })
 })
