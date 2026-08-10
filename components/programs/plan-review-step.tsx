@@ -12,6 +12,11 @@ const REHAB_STAGE_LABELS: Record<string, { label: string; color: string }> = {
   MID_REHAB: { label: 'Mid Rehab', color: 'bg-yellow-100 text-yellow-800' },
   LATE_REHAB: { label: 'Late Rehab', color: 'bg-green-100 text-green-800' },
   MAINTENANCE: { label: 'Maintenance', color: 'bg-purple-100 text-purple-800' },
+  BASE_BUILD: { label: 'Base Build', color: 'bg-blue-100 text-blue-800' },
+  BUILD: { label: 'Build', color: 'bg-yellow-100 text-yellow-800' },
+  PEAK: { label: 'Peak', color: 'bg-green-100 text-green-800' },
+  TAPER: { label: 'Taper', color: 'bg-orange-100 text-orange-800' },
+  GENERAL_FITNESS: { label: 'General Fitness', color: 'bg-purple-100 text-purple-800' },
 }
 
 interface PlanReviewStepProps {
@@ -45,7 +50,7 @@ export function PlanReviewStep({ plan, onConfirm, onBack, isGenerating }: PlanRe
   return (
     <div className="space-y-4">
       <div>
-        <h3 className="text-base font-semibold">Clinical Program Plan</h3>
+        <h3 className="text-base font-semibold">{plan.programMode === 'PERFORMANCE' ? 'Training Program Plan' : 'Clinical Program Plan'}</h3>
         <p className="text-sm text-muted-foreground mt-1">{plan.clinicalAssessment}</p>
       </div>
 
@@ -89,7 +94,7 @@ export function PlanReviewStep({ plan, onConfirm, onBack, isGenerating }: PlanRe
 
                     {week.contraindicationsThisWeek.length > 0 && (
                       <p className="text-xs text-red-600 mt-1">
-                        <span className="font-medium">Avoid:</span> {week.contraindicationsThisWeek.join(', ')}
+                        <span className="font-medium">{week.programMode === 'PERFORMANCE' ? 'Watch:' : 'Avoid:'}</span> {week.contraindicationsThisWeek.join(', ')}
                       </p>
                     )}
                   </div>

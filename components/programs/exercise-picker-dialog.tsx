@@ -399,6 +399,7 @@ export function ExercisePickerDialog({
 
   const [aiForm, setAiForm] = useState(emptyFormShape());
   const [aiVideoUrl, setAiVideoUrl] = useState("");
+  const [aiContext, setAiContext] = useState<"CLINICAL" | "PERFORMANCE">("CLINICAL");
   const [aiStatus, setAiStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [aiError, setAiError] = useState<string | null>(null);
 
@@ -453,7 +454,7 @@ export function ExercisePickerDialog({
       const res = await fetch("/api/ai/generate-exercise-metadata", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ youtubeUrl: aiVideoUrl }),
+        body: JSON.stringify({ youtubeUrl: aiVideoUrl, context: aiContext }),
       });
       const json = await res.json();
       if (!res.ok) {
@@ -481,6 +482,7 @@ export function ExercisePickerDialog({
     setCreateTab("ai");
     setAiForm(emptyFormShape());
     setAiVideoUrl("");
+    setAiContext("CLINICAL");
     setAiStatus("idle");
     setAiError(null);
     setManualForm(emptyFormShape());
@@ -582,6 +584,31 @@ export function ExercisePickerDialog({
 
                 <TabsContent value="ai" className="mt-0">
                   <form onSubmit={handleCreate} className="space-y-4">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-semibold">Exercise Context</Label>
+                      <div className="flex gap-1 rounded-md border bg-muted/40 p-1 w-fit">
+                        <button
+                          type="button"
+                          onClick={() => setAiContext("CLINICAL")}
+                          className={[
+                            "rounded px-2.5 py-1 text-xs font-medium transition-colors",
+                            aiContext === "CLINICAL" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground",
+                          ].join(" ")}
+                        >
+                          Rehab / Clinical
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setAiContext("PERFORMANCE")}
+                          className={[
+                            "rounded px-2.5 py-1 text-xs font-medium transition-colors",
+                            aiContext === "PERFORMANCE" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground",
+                          ].join(" ")}
+                        >
+                          Athletic / Performance
+                        </button>
+                      </div>
+                    </div>
                     <div className="space-y-1.5">
                       <Label htmlFor="ai-video" className="text-xs font-semibold">YouTube Video URL</Label>
                       <div className="flex gap-2">
