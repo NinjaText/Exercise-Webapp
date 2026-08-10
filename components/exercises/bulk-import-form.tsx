@@ -158,6 +158,7 @@ interface ExerciseRow {
   commonMistakes: string;
   defaultSets: string;
   defaultReps: string;
+  isAssessment: boolean;
   aiStatus: AiStatus;
   expanded: boolean;
 }
@@ -180,6 +181,7 @@ function makeRow(videoUrl: string, videoFileName: string, imageUrl = ""): Exerci
     commonMistakes: "",
     defaultSets: "3",
     defaultReps: "10",
+    isAssessment: false,
     aiStatus: "idle",
     expanded: true,
   };
@@ -254,6 +256,7 @@ export function BulkImportForm() {
         newRow.commonMistakes = d.commonMistakes ?? "";
         newRow.defaultSets = String(d.defaultSets ?? 3);
         newRow.defaultReps = String(d.defaultReps ?? 10);
+        newRow.isAssessment = d.isAssessment ?? false;
         newRow.aiStatus = "done";
 
         setRows((prev) => [...prev, newRow]);
@@ -487,6 +490,7 @@ export function BulkImportForm() {
       bodyRegion: r.bodyRegion,
       difficultyLevel: r.difficultyLevel,
       exercisePhases: r.exercisePhases,
+      isAssessment: r.isAssessment,
       musclesTargeted: r.musclesTargeted.split(",").map((s) => s.trim()).filter(Boolean),
       equipmentRequired: r.equipmentRequired,
       contraindications: r.contraindications.split(",").map((s) => s.trim()).filter(Boolean),
@@ -987,6 +991,14 @@ function ExerciseRowCard({ row, index, onUpdate, onRemove, onGenerate, onToggleE
                 <option value="">Select…</option>
                 {DIFFICULTY_LEVELS.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
               </select>
+              <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                <input
+                  type="checkbox"
+                  checked={row.isAssessment}
+                  onChange={(e) => onUpdate({ isAssessment: e.target.checked })}
+                />
+                Assessment exercise
+              </label>
             </div>
             <div className="space-y-1.5 sm:col-span-3">
               <Label className="text-xs font-medium">Phase(s)</Label>

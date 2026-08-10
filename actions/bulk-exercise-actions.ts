@@ -23,6 +23,7 @@ export interface BulkExerciseInput {
   defaultReps?: number;
   videoUrl?: string;
   imageUrl?: string;
+  isAssessment?: boolean;
 }
 
 export async function bulkCreateExercisesAction(exercises: BulkExerciseInput[]) {
@@ -62,6 +63,7 @@ export async function bulkCreateExercisesAction(exercises: BulkExerciseInput[]) 
             videoProvider: ex.videoUrl ? "youtube" : null,
             createdById: dbUser.id,
             isActive: true,
+            isAssessment: ex.isAssessment ?? false,
             ...orgData,
           },
         })

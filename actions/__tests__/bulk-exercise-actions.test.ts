@@ -87,3 +87,31 @@ describe('bulkCreateExercisesAction — org routing', () => {
     )
   })
 })
+
+describe('bulkCreateExercisesAction — isAssessment', () => {
+  it('persists isAssessment: true when a row is flagged', async () => {
+    mockUserFindUnique.mockResolvedValue(TRAINER_NO_ORG as any)
+    vi.mocked(prisma.exercise.create).mockImplementation((args: any) => args as any)
+
+    await bulkCreateExercisesAction([{ ...EXERCISE, isAssessment: true }])
+
+    expect(prisma.exercise.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ isAssessment: true }),
+      })
+    )
+  })
+
+  it('defaults isAssessment to false when a row omits it', async () => {
+    mockUserFindUnique.mockResolvedValue(TRAINER_NO_ORG as any)
+    vi.mocked(prisma.exercise.create).mockImplementation((args: any) => args as any)
+
+    await bulkCreateExercisesAction([EXERCISE])
+
+    expect(prisma.exercise.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ isAssessment: false }),
+      })
+    )
+  })
+})
