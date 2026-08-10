@@ -37,6 +37,7 @@ export async function POST(req: Request) {
       select: { id: true, name: true },
       where: {
         isActive: true,
+        isAssessment: false,
       }
     });
 
