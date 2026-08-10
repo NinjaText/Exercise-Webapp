@@ -40,6 +40,9 @@ function buildMetadataFields(context: ExerciseContext) {
     commonMistakes: z.string().describe("2-3 common form errors clients make and concise corrections"),
     defaultSets: z.number().int().min(1).max(10).describe("Recommended sets"),
     defaultReps: z.number().int().min(1).max(60).describe("Recommended reps per set"),
+    isAssessment: z.boolean().describe(
+      "True if this is a clinical/functional assessment or outcome-measure test used to evaluate a client (e.g. a movement screen, a timed or rep-max test, a balance/ROM test) rather than an exercise used to train them. False for ordinary strengthening, mobility, warmup, or cooldown exercises."
+    ),
   };
 }
 
@@ -58,11 +61,13 @@ function buildSchemas(context: ExerciseContext) {
 
 const CLINICAL_SYSTEM_PROMPT = `You are an expert physical therapist specializing in senior rehabilitation and geriatric fitness.
 Clients are typically older adults (60+) recovering from injury or surgery, or managing chronic conditions.
-All metadata must be conservative, evidence-based, and safe for this population.`;
+All metadata must be conservative, evidence-based, and safe for this population.
+Distinguish assessment/screening exercises (e.g. movement tests, timed tests, ROM checks used to evaluate a client) from ordinary training exercises when setting isAssessment.`;
 
 const PERFORMANCE_SYSTEM_PROMPT = `You are an expert strength & conditioning coach specializing in athletic performance and general fitness.
 Clients are typically healthy athletes or general-fitness trainees training toward a performance or fitness goal — not rehabilitation.
-Do not use clinical/rehab framing or geriatric language. All metadata must be practical, evidence-based coaching guidance appropriate for this population.`;
+Do not use clinical/rehab framing or geriatric language. All metadata must be practical, evidence-based coaching guidance appropriate for this population.
+Distinguish assessment/screening exercises (e.g. movement tests, timed tests, performance benchmarks used to evaluate a client) from ordinary training exercises when setting isAssessment.`;
 
 function systemPromptFor(context: ExerciseContext): string {
   return context === "CLINICAL" ? CLINICAL_SYSTEM_PROMPT : PERFORMANCE_SYSTEM_PROMPT;
