@@ -21,6 +21,7 @@ export async function createExerciseAction(input: {
   videoProvider?: string;
   imageUrl?: string;
   isPublic?: boolean;
+  isAssessment?: boolean;
 }) {
     // Use live session orgId first — more reliable than the DB field when user's org was added after onboarding
     const { userId, orgId: sessionOrgId } = await auth();
