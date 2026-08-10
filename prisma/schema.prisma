@@ -226,6 +226,7 @@ model Exercise {
   cuesThumbnail      String?
   indicationTags     String[]
   rehabStage         String?
+  isAssessment       Boolean         @default(false)
   isActive           Boolean         @default(true)
   source             ExerciseSource  @default(UNIVERSAL)
   organizationId     String?
