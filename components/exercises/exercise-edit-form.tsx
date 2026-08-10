@@ -3,6 +3,7 @@
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -34,6 +35,7 @@ interface Exercise {
   videoUrl: string | null;
   imageUrl: string | null;
   isActive: boolean;
+  isAssessment: boolean;
   media: MediaItem[];
 }
 
@@ -51,6 +53,7 @@ export function ExerciseEditForm({ exercise }: Props) {
   const [selectedRegions, setSelectedRegions] = useState<string[]>(exercise.bodyRegion);
   const [difficultyLevel, setDifficultyLevel] = useState(exercise.difficultyLevel);
   const [isActive, setIsActive] = useState(String(exercise.isActive));
+  const [isAssessment, setIsAssessment] = useState(exercise.isAssessment);
   const [instructions, setInstructions] = useState(exercise.instructions ?? "");
   const [contraindications, setContraindications] = useState(
     exercise.contraindications.join(", ")
@@ -88,6 +91,7 @@ export function ExerciseEditForm({ exercise }: Props) {
       videoUrl: videoUrl.trim() || undefined,
       imageUrl: imageUrl.trim() || undefined,
       isActive: isActive === "true",
+      isAssessment,
     });
 
     setLoading(false);
@@ -219,6 +223,25 @@ export function ExerciseEditForm({ exercise }: Props) {
                 <option value="true">Active — visible to AI</option>
                 <option value="false">Inactive — hidden from AI</option>
               </select>
+            </div>
+          </div>
+
+          {/* Assessment exercise toggle */}
+          <div className="flex items-start gap-3 rounded-lg border border-border p-4">
+            <Checkbox
+              id="isAssessment"
+              checked={isAssessment}
+              onCheckedChange={(checked) => setIsAssessment(checked === true)}
+            />
+            <div className="space-y-1">
+              <Label htmlFor="isAssessment" className="font-medium">
+                Assessment exercise
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                Used to evaluate a client (e.g. a movement screen or timed test) rather than to train
+                them. Assessment exercises are excluded from AI-generated programs and the
+                add-exercise picker.
+              </p>
             </div>
           </div>
 
