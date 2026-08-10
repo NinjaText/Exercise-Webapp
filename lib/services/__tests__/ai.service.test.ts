@@ -163,4 +163,28 @@ describe('buildProgramPreviewFromBlueprint', () => {
     const ex = result.workouts[0].blocks[0].exercises[0]
     expect(ex.flags).toContain('not_in_document')
   })
+
+  it('excludes assessment exercises from the exercise lookup query', async () => {
+    const squat = exercise({ id: 'sq1', name: 'Back Squat' })
+    vi.mocked(prisma.exercise.findMany).mockResolvedValue([squat])
+
+    await buildProgramPreviewFromBlueprint({
+      circuits: [{ name: 'Strength Block A', focusType: 'LOWER_BODY', exerciseCount: 1 }],
+      preferredWeekdays: ['Monday'],
+      sessionBlueprint: [
+        {
+          dayIndex: 0,
+          weekIndex: 0,
+          title: 'Lower Body A',
+          blocks: [{ name: 'Strength Block A', exercises: [{ name: 'Back Squat' }] }],
+        },
+      ],
+    })
+
+    expect(prisma.exercise.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ isActive: true, isAssessment: false }),
+      })
+    )
+  })
 })
