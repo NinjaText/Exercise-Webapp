@@ -467,6 +467,7 @@ export function BulkImportForm() {
         commonMistakes: d.commonMistakes ?? "",
         defaultSets: String(d.defaultSets ?? 3),
         defaultReps: String(d.defaultReps ?? 10),
+        isAssessment: d.isAssessment ?? false,
       });
       toast.success(`Metadata generated for "${row.name}"`);
     } catch {
