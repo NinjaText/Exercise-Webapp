@@ -87,6 +87,7 @@ export default async function AdminExercisesPage({ searchParams }: PageProps) {
         page={page}
         search={search}
         bodyRegions={bodyRegions}
+        kind={activeKind}
       />
     </div>
   );
