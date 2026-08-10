@@ -294,6 +294,7 @@ describe('cloneExerciseToOrganization', () => {
     defaultHoldSeconds: null,
     indicationTags: ['knee'],
     rehabStage: 'LATE_REHAB',
+    isAssessment: false,
   } as any
 
   it('creates an ORGANIZATION-scoped private copy carrying over descriptive fields', async () => {
@@ -332,5 +333,16 @@ describe('cloneExerciseToOrganization', () => {
     const call = mockCreate.mock.calls[0][0] as any
     expect(call.data).not.toHaveProperty('id')
     expect(call.data.source).toBe('ORGANIZATION')
+  })
+
+  it('carries the isAssessment flag over from the source exercise', async () => {
+    mockCreate.mockResolvedValue({ id: 'new', name: 'Squat' } as any)
+    await cloneExerciseToOrganization(
+      { ...universalSource, isAssessment: true },
+      { organizationId: 'org_mine', createdById: 'user_1' }
+    )
+    expect(mockCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({ isAssessment: true }),
+    })
   })
 })

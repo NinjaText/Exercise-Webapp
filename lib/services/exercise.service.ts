@@ -189,6 +189,7 @@ export async function cloneExerciseToOrganization(
     defaultHoldSeconds: number | null;
     indicationTags: string[];
     rehabStage: string | null;
+    isAssessment: boolean;
   },
   target: { organizationId: string; createdById: string }
 ) {
@@ -212,6 +213,7 @@ export async function cloneExerciseToOrganization(
       defaultHoldSeconds: source.defaultHoldSeconds,
       indicationTags: source.indicationTags,
       rehabStage: source.rehabStage,
+      isAssessment: source.isAssessment,
       source: "ORGANIZATION",
       organizationId: target.organizationId,
       isPublic: false,
