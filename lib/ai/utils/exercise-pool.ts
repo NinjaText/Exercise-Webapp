@@ -21,24 +21,56 @@ export function filterByContraindications<T extends ExerciseWithContraindication
   })
 }
 
-interface WeekPoolInput {
+interface PhasePoolPrimaryInput {
   rehabStage: string
   focusAreas: string[]
   derivedIndicationTags: string[]
 }
 
-export function buildWeekPoolWhereClause(
-  weekPlan: WeekPoolInput,
+/**
+ * Primary (most specific) exercise-pool query for a phase: exact-matches
+ * rehabStage/indicationTags. Only valid when the phase's label is actually
+ * a stage stored on Exercise.rehabStage (i.e. one of the clinical stages) —
+ * callers must skip straight to buildPhasePoolFallbackWhereClause otherwise.
+ */
+export function buildPhasePoolPrimaryWhereClause(
+  input: PhasePoolPrimaryInput,
   usedIds: Set<string>
 ): Record<string, unknown> {
   const clause: Record<string, unknown> = {
     isActive: true,
-    rehabStage: weekPlan.rehabStage,
-    bodyRegion: { hasSome: weekPlan.focusAreas },
+    rehabStage: input.rehabStage,
+    bodyRegion: { hasSome: input.focusAreas },
   }
 
-  if (weekPlan.derivedIndicationTags.length > 0) {
-    clause.indicationTags = { hasSome: weekPlan.derivedIndicationTags }
+  if (input.derivedIndicationTags.length > 0) {
+    clause.indicationTags = { hasSome: input.derivedIndicationTags }
+  }
+
+  if (usedIds.size > 0) {
+    clause.id = { notIn: [...usedIds] }
+  }
+
+  return clause
+}
+
+/**
+ * Region-only fallback query, used when the primary query returns too few
+ * results (or is skipped entirely for phase labels with no matching
+ * Exercise.rehabStage data). Optionally narrows by difficultyLevel.
+ */
+export function buildPhasePoolFallbackWhereClause(
+  focusAreas: string[],
+  usedIds: Set<string>,
+  difficultyLevel?: string
+): Record<string, unknown> {
+  const clause: Record<string, unknown> = {
+    isActive: true,
+    bodyRegion: { hasSome: focusAreas },
+  }
+
+  if (difficultyLevel) {
+    clause.difficultyLevel = difficultyLevel
   }
 
   if (usedIds.size > 0) {

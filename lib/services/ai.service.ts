@@ -1,8 +1,18 @@
 import OpenAI from "openai";
 import { prisma } from "@/lib/prisma";
 import type { BodyRegion, Exercise } from "@prisma/client";
-import type { ClinicalPlan, ClinicalPlanParams, WeekPlan } from '@/lib/ai/types/program-generation'
-import { filterByEquipment } from '@/lib/ai/utils/exercise-pool'
+import type { ClinicalPlan, ClinicalPlanParams, ProgramPhaseGroup, WeekPlan } from '@/lib/ai/types/program-generation'
+import type { ProgramMode } from '@/lib/ai/utils/clinical-context'
+import {
+  filterByContraindications,
+  filterByEquipment,
+  buildPhasePoolPrimaryWhereClause,
+  buildPhasePoolFallbackWhereClause,
+} from '@/lib/ai/utils/exercise-pool'
+import { determineProgramMode, buildClientContextBlock } from '@/lib/ai/utils/clinical-context'
+import { groupWeeksIntoPhases } from '@/lib/ai/utils/program-phasing'
+import { computeProgressedRx, isDeloadWeek, type PhaseTemplateExercise } from '@/lib/ai/utils/progression-rules'
+import { dedupeAcrossDays } from '@/lib/ai/utils/exercise-dedup'
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -55,6 +65,8 @@ interface GenerateWorkoutParams {
   preferredWeekdays?: string[];
   weekPlan?: WeekPlan[]
   durationWeeks?: number
+  /** Step 1's clinical/performance assessment text — carried through purely for the program description. */
+  clinicalAssessment?: string
 }
 
 interface GeneratedExercise {
@@ -282,59 +294,47 @@ const EXERCISE_POOL_SELECT = {
 
 const VALID_BODY_REGIONS = new Set(['LOWER_BODY', 'UPPER_BODY', 'CORE', 'FULL_BODY', 'BALANCE', 'FLEXIBILITY'])
 
-async function buildExercisePoolForWeek(
-  weekPlan: WeekPlan,
+// Phase labels with no corresponding Exercise.rehabStage data — querying on
+// them would always miss and fall straight back to the region-only query, so
+// skip the wasted attempt and filter by difficultyLevel instead.
+const NON_EXACT_MATCHABLE_STAGES = new Set(['MAINTENANCE', 'BASE_BUILD', 'BUILD', 'PEAK', 'TAPER', 'GENERAL_FITNESS'])
+
+async function buildExercisePoolForPhase(
+  phase: ProgramPhaseGroup,
   usedIds: Set<string>,
   clientLimitations: string[],
   availableEquipment?: string[]
 ): Promise<ExercisePoolItem[]> {
-  const validRegions = weekPlan.focusAreas.filter(r => VALID_BODY_REGIONS.has(r))
+  const allFocusAreas = [...new Set(phase.weeks.flatMap(w => w.focusAreas))]
+  const validRegions = allFocusAreas.filter(r => VALID_BODY_REGIONS.has(r))
   const regionsForQuery = validRegions.length > 0 ? validRegions : [...VALID_BODY_REGIONS]
+  const allTags = [...new Set(phase.weeks.flatMap(w => w.derivedIndicationTags))]
 
-  const baseWhere = {
-    isActive: true,
-    bodyRegion: { hasSome: regionsForQuery },
-    ...(usedIds.size > 0 ? { id: { notIn: [...usedIds] } } : {}),
-  }
+  let pool: ExercisePoolItem[] = []
 
-  // Primary query: indication tags + rehab stage filtered
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let pool = (await (prisma.exercise.findMany as any)({
-    where: {
-      ...baseWhere,
-      rehabStage: weekPlan.rehabStage,
-      ...(weekPlan.derivedIndicationTags.length > 0
-        ? { indicationTags: { hasSome: weekPlan.derivedIndicationTags } }
-        : {}),
-    },
-    select: EXERCISE_POOL_SELECT,
-    take: 60,
-  })) as ExercisePoolItem[]
-
-  // Fallback: if primary pool too small, use body-region-only filter
-  if (pool.length < 20) {
+  if (!NON_EXACT_MATCHABLE_STAGES.has(phase.label)) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     pool = (await (prisma.exercise.findMany as any)({
-      where: baseWhere,
+      where: buildPhasePoolPrimaryWhereClause(
+        { rehabStage: phase.label, focusAreas: regionsForQuery, derivedIndicationTags: allTags },
+        usedIds
+      ),
       select: EXERCISE_POOL_SELECT,
-      take: 60,
+      take: 80,
     })) as ExercisePoolItem[]
   }
 
-  // Apply client contraindication filter
-  const afterContraFilter = clientLimitations.length === 0
-    ? pool
-    : pool.filter(exercise => {
-        const contraLower = exercise.contraindications.map((c: string) => c.toLowerCase())
-        return !clientLimitations.some((limitation: string) =>
-          contraLower.some(
-            (contra: string) =>
-              contra.includes(limitation.toLowerCase()) ||
-              limitation.toLowerCase().includes(contra)
-          )
-        )
-      })
+  if (pool.length < 20) {
+    const difficultyLevel = phase.weeks[0]?.difficultyLevel
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    pool = (await (prisma.exercise.findMany as any)({
+      where: buildPhasePoolFallbackWhereClause(regionsForQuery, usedIds, difficultyLevel),
+      select: EXERCISE_POOL_SELECT,
+      take: 80,
+    })) as ExercisePoolItem[]
+  }
 
-  // Apply equipment filter
+  const afterContraFilter = filterByContraindications(pool, clientLimitations)
   return filterByEquipment(afterContraFilter, availableEquipment ?? [])
 }
 
@@ -403,46 +403,23 @@ export async function generateWorkoutPlan(
         .filter(Boolean)
     : [];
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const profileExtended = profile as any;
-
-  function calculateWeeksSince(date: Date): number {
-    return Math.round((Date.now() - date.getTime()) / (1000 * 60 * 60 * 24 * 7));
-  }
-
-  const clientContext = client
-    ? `CLIENT PROFILE:
-Name: ${client.firstName} ${client.lastName}
-Primary Diagnosis / Goal: ${profileExtended?.primaryDiagnosis ?? "Not specified"}
-Secondary Conditions: ${profileExtended?.secondaryDiagnoses?.length ? profileExtended.secondaryDiagnoses.join(", ") : "None"}
-Current Pain Score: ${profileExtended?.painScore != null ? `${profileExtended.painScore}/10` : "Not assessed"}
-Activity Level: ${profileExtended?.activityLevel ?? "Not assessed"}
-Physical Limitations: ${profile?.limitations ?? "None documented"}
-Comorbidities: ${profile?.comorbidities ?? "None"}
-Functional Challenges: ${profile?.functionalChallenges ?? "None"}
-History: ${profileExtended?.surgeryHistory ?? "None documented"}
-Occupation: ${profileExtended?.occupation ?? "Not specified"}
-Time Since Injury/Surgery: ${profileExtended?.injuryDate ? calculateWeeksSince(new Date(profileExtended.injuryDate)) + " weeks ago" : "Not specified"}
-Prior Injuries: ${profileExtended?.priorInjuries?.length ? profileExtended.priorInjuries.join(", ") : "None"}
-Available Equipment: ${profile?.availableEquipment?.length ? profile.availableEquipment.join(", ") : "Bodyweight only"}
-Goals: ${profile?.fitnessGoals?.length ? profile.fitnessGoals.join(", ") : "General fitness"}`
-    : "No specific client assigned. Create a general program suitable for the parameters below.";
+  const clientContext = buildClientContextBlock(client, profile);
+  const programMode: ProgramMode = params.weekPlan?.[0]?.programMode ?? determineProgramMode(profile);
 
   // === Multi-week clinical path (Step 1 plan provided) ===
   if (params.weekPlan && params.weekPlan.length > 0) {
     const weekPlans = params.weekPlan
-    const globalUsedIds = new Set<string>()
+    const phases = groupWeeksIntoPhases(weekPlans)
 
-    // Build per-week exercise pools (parallel DB queries)
-    const weekPools: ExercisePoolItem[][] = await Promise.all(
-      weekPlans.map(wPlan =>
-        buildExercisePoolForWeek(wPlan, globalUsedIds, clientLimitations, params.availableEquipment)
+    // Build per-phase exercise pools (parallel DB queries — phases don't
+    // exclude each other's exercise IDs since pools are fetched concurrently,
+    // but each phase's pool is already narrowed by its own stage/tags, so
+    // cross-phase overlap is naturally low).
+    const phasePools: ExercisePoolItem[][] = await Promise.all(
+      phases.map(phase =>
+        buildExercisePoolForPhase(phase, new Set<string>(), clientLimitations, params.availableEquipment)
       )
     )
-
-    // Track used IDs globally — exercises used in earlier weeks are excluded from later week queries
-    // Note: pools are built in parallel so global dedup happens at prompt level (AI instructed not to repeat)
-    // Post-generation validation enforces cross-week uniqueness
 
     const hasCircuits = params.circuits && params.circuits.length > 0
     const circuits = params.circuits ?? []
@@ -470,27 +447,21 @@ Goals: ${profile?.fitnessGoals?.length ? profile.fitnessGoals.join(", ") : "Gene
           .join('\n')
       : null
 
-    // Generate one week at a time to stay within the LLM output token limit.
-    // A single call for all weeks would require ~500 tokens per exercise × daysPerWeek × weeks × exercisesPerSession,
-    // which easily exceeds GPT-4o's 16,384-token output cap for programs with 3+ days and 10+ exercises per session.
-    const perWeekSystemPrompt = `You are an expert DPT and strength & conditioning coach. Generate exercises for ONE week of a rehabilitation program following the provided clinical guidance. Use ONLY exercise IDs from the provided pool. Never invent IDs.
+    const personaLine = programMode === 'CLINICAL'
+      ? 'You are an expert DPT and strength & conditioning coach. Design the exercise selection for ONE PHASE of a multi-week rehabilitation program — this phase spans one or more weeks that share the same clinical stage.'
+      : 'You are an expert strength & conditioning coach. Design the exercise selection for ONE PHASE of a periodized training program spanning one or more weeks. This is not a rehabilitation program — do not use clinical/DPT language.'
+    const guidanceLabel = programMode === 'CLINICAL' ? 'clinical guidance' : 'coaching guidance'
 
-RULES:
-1. Use ONLY exercise IDs from the provided pool.
-2. Every training day must have EXACTLY ${totalExercisesPerSession} exercises.
-3. Follow the clinical guidance and contraindications strictly.
-4. Write 1-2 specific technique cues per exercise relevant to this week's clinical goals.
-5. Distribute sessions using ONLY these weekday indexes: ${uniqueDayIndices.join(', ')}.
-6. Session names must reflect the actual week focus — not generic labels.
-${hasCircuits ? `7. Each exercise MUST include circuitIndex (0-based). Circuit structure per session:\n${circuitStructureStr}` : ''}
-
-Respond with valid JSON only.`
-
-    // Fire all week calls in parallel — wall-clock time = slowest single week (~15s) not sum of all weeks.
-    // Each week uses its own rehab-stage-filtered pool so cross-week exercise overlap is naturally low.
-    const weekResults = await Promise.all(
-      weekPlans.map(async (wPlan, weekIdx) => {
-        const pool = weekPools[weekIdx]
+    // One call per PHASE (a contiguous run of weeks sharing a stage/label),
+    // not per week — fewer, larger calls than before, still fired in
+    // parallel so wall-clock time doesn't increase. Each call fixes the
+    // "same exercises every day" bug via an explicit variety rule (4) and
+    // hands back WEEK-1-of-phase baseline Rx only; computeProgressedRx below
+    // deterministically ramps sets/reps/duration for the phase's later weeks
+    // instead of relying on the LLM to do that arithmetic.
+    const phaseResults = await Promise.all(
+      phases.map(async (phase, phaseIdx) => {
+        const pool = phasePools[phaseIdx]
         const poolStr = pool
           .map(
             e =>
@@ -498,69 +469,132 @@ Respond with valid JSON only.`
           )
           .join('\n')
 
-        const totalExercisesThisWeek = params.daysPerWeek * totalExercisesPerSession
+        const phaseSystemPrompt = `${personaLine} Use ONLY exercise IDs from the provided pool. Never invent IDs.
 
-        const jsonFormat = weekIdx === 0
-          ? `{
-  "title": "Program title",
-  "description": "2-3 sentence clinical program description",
-  "sessions": [{ "dayOfWeek": 0, "weekIndex": ${weekIdx}, "name": "Clinical session name" }],
-  "exercises": [{
-    "exerciseId": "id from pool", "exerciseName": "name", "phase": "ACTIVATION",
-    ${hasCircuits ? '"circuitIndex": 0,' : ''}
-    "sets": 3, "reps": 15, "durationSeconds": null, "restSeconds": 30,
-    "dayOfWeek": 0, "weekIndex": ${weekIdx}, "orderIndex": 0, "notes": "1-2 technique cues"
-  }]
-}`
-          : `{
-  "sessions": [{ "dayOfWeek": 0, "weekIndex": ${weekIdx}, "name": "Clinical session name" }],
-  "exercises": [{
-    "exerciseId": "id from pool", "exerciseName": "name", "phase": "ACTIVATION",
-    ${hasCircuits ? '"circuitIndex": 0,' : ''}
-    "sets": 3, "reps": 15, "durationSeconds": null, "restSeconds": 30,
-    "dayOfWeek": 0, "weekIndex": ${weekIdx}, "orderIndex": 0, "notes": "1-2 technique cues"
-  }]
-}`
+RULES:
+1. Produce EXACTLY one dayTemplate per weekday index in: ${uniqueDayIndices.join(', ')}.
+2. Each day template must have EXACTLY ${totalExercisesPerSession} exercises.
+3. VARIETY (CRITICAL): No exerciseId may appear in more than one day template. Every day template must use a COMPLETELY DIFFERENT set of exercises from every other day template — treat each day as a fully independent workout.
+4. Follow the ${guidanceLabel} and cautions for this phase strictly.
+5. baseSets/baseReps/baseDurationSeconds represent WEEK 1 of THIS PHASE ONLY — realistic, conservative starting values. The calling system progresses them automatically in this phase's later weeks; do not try to encode week-over-week progression yourself.
+6. Write 1-2 specific technique cues per exercise relevant to this phase's goals.
+${hasCircuits ? `7. Each exercise MUST include circuitIndex (0-based). Circuit structure per session:\n${circuitStructureStr}` : ''}
 
-        const weekUserPrompt = `${clientContext}
+Respond with valid JSON only.`
 
-Week ${wPlan.week} of ${totalWeeks}: ${wPlan.title} (${wPlan.rehabStage})
-Clinical Guidance: ${wPlan.clinicalGuidance}
-Progression Goal: ${wPlan.progressionGoal}
-Contraindicated This Week: ${wPlan.contraindicationsThisWeek.join(', ') || 'None'}
+        const guidanceLines = phase.weeks
+          .map(w => `  Week ${w.week}: ${w.clinicalGuidance} (Goal: ${w.progressionGoal})`)
+          .join('\n')
+        const cautions = [...new Set(phase.weeks.flatMap(w => w.contraindicationsThisWeek))].join(', ') || 'None'
+        const isFirstPhase = phaseIdx === 0
+        const titleDescriptionFields = isFirstPhase
+          ? `"title": "Program title",\n  "description": "2-3 sentence program description",\n  `
+          : ''
 
-Program: ${params.daysPerWeek} sessions this week, ~${params.durationMinutes} min/session, weekIndex=${weekIdx}
-Total exercises in output: EXACTLY ${totalExercisesThisWeek} (${totalExercisesPerSession} per session × ${params.daysPerWeek} days)
+        const phaseUserPrompt = `${clientContext}
+
+Phase ${phase.phaseIndex + 1}: ${phase.label} (Weeks ${phase.startWeek}-${phase.endWeek} of ${totalWeeks})
+Guidance across this phase's weeks:
+${guidanceLines}
+Cautions this phase: ${cautions}
+
+Program: ${params.daysPerWeek} sessions/week, ~${params.durationMinutes} min/session
+Total exercises per day template: EXACTLY ${totalExercisesPerSession}
 ${params.subjective ? `Trainer Subjective: ${params.subjective}` : ''}
 ${params.trainerPrompt ? `Trainer Instructions: ${params.trainerPrompt}` : ''}
 
 Available Exercises (use ONLY these IDs):
-${poolStr || 'No tagged exercises found — use general bodyweight exercises appropriate for this rehab stage.'}
+${poolStr || 'No tagged exercises found — use general bodyweight exercises appropriate for this phase.'}
 
 Respond with this exact JSON:
-${jsonFormat}`
+{
+  ${titleDescriptionFields}"phaseTitle": "Short phase title",
+  "dayTemplates": [
+    { "dayOfWeek": 0, "sessionName": "Session name", "exercises": [
+      { "exerciseId": "id from pool", "exerciseName": "name", "phase": "ACTIVATION",
+        ${hasCircuits ? '"circuitIndex": 0,' : ''}
+        "baseSets": 3, "baseReps": 12, "baseDurationSeconds": null, "restSeconds": 30,
+        "notes": "1-2 technique cues" } ] }
+  ]
+}
+Produce exactly one dayTemplates entry per weekday index in [${uniqueDayIndices.join(', ')}].`
 
-        const weekResponse = await openai.chat.completions.create({
+        const phaseResponse = await openai.chat.completions.create({
           model: 'gpt-4o',
           max_tokens: 8000,
           response_format: { type: 'json_object' },
           messages: [
-            { role: 'system', content: perWeekSystemPrompt },
-            { role: 'user', content: weekUserPrompt },
+            { role: 'system', content: phaseSystemPrompt },
+            { role: 'user', content: phaseUserPrompt },
           ],
         })
 
-        const weekParsed = JSON.parse(weekResponse.choices[0].message.content ?? '{}') as Partial<GeneratedPlan>
-        const weekPoolIds = new Set(pool.map(e => e.id))
-        const validExercises = (weekParsed.exercises ?? []).filter(e => weekPoolIds.has(e.exerciseId))
+        const parsed = JSON.parse(phaseResponse.choices[0].message.content ?? '{}') as {
+          title?: string
+          description?: string
+          dayTemplates?: { dayOfWeek: number; sessionName: string; exercises: PhaseTemplateExercise[] }[]
+        }
 
-        // Force correct weekIndex in case AI drifted
-        for (const ex of validExercises) ex.weekIndex = weekIdx
-        const sessions = (weekParsed.sessions ?? []).map(s => ({ ...s, weekIndex: weekIdx }))
+        const poolIds = new Set(pool.map(e => e.id))
+        const cleanedTemplates = (parsed.dayTemplates ?? []).map(t => ({
+          ...t,
+          exercises: (t.exercises ?? []).filter(e => poolIds.has(e.exerciseId)),
+        }))
+        const dayTemplates = dedupeAcrossDays(cleanedTemplates, pool)
 
-        return { weekIdx, sessions, exercises: validExercises, title: weekParsed.title, description: weekParsed.description }
+        return { phase, dayTemplates, title: parsed.title, description: parsed.description }
       })
     )
+
+    if (phaseResults.every(r => r.dayTemplates.every(t => t.exercises.length === 0))) {
+      throw new Error('AI generated no valid exercises for the multi-week program. Please try again.')
+    }
+
+    // Expand each phase's day templates into concrete per-week exercises,
+    // applying deterministic sets/reps/duration progression (and periodic
+    // deload) for every week within the phase.
+    const weekResults = phaseResults.flatMap(({ phase, dayTemplates, title, description }) => {
+      const isFirstPhase = phase.phaseIndex === 0
+      return phase.weeks.map((wp, weekIdxInPhase) => {
+        const weekIdx = wp.week - 1
+        const isLastWeekOfProgram = wp.week === totalWeeks
+        const deload = isDeloadWeek(weekIdxInPhase, phase.weeks.length, isLastWeekOfProgram)
+
+        const exercises: GeneratedExercise[] = dayTemplates.flatMap(t =>
+          t.exercises.map((e, orderIdx) => {
+            const rx = computeProgressedRx(e, weekIdxInPhase, deload, wp.difficultyLevel)
+            return {
+              exerciseId: e.exerciseId,
+              exerciseName: e.exerciseName || e.exerciseId,
+              phase: e.phase,
+              circuitIndex: e.circuitIndex,
+              sets: rx.sets,
+              reps: rx.reps,
+              durationSeconds: rx.durationSeconds,
+              restSeconds: e.restSeconds,
+              weekIndex: weekIdx,
+              dayOfWeek: t.dayOfWeek,
+              orderIndex: orderIdx,
+              notes: e.notes,
+            }
+          })
+        )
+
+        const sessions = dayTemplates.map(t => ({
+          dayOfWeek: t.dayOfWeek,
+          weekIndex: weekIdx,
+          name: t.sessionName || `Week ${wp.week} Session`,
+        }))
+
+        return {
+          weekIdx,
+          sessions,
+          exercises,
+          title: isFirstPhase && weekIdxInPhase === 0 ? title : undefined,
+          description: isFirstPhase && weekIdxInPhase === 0 ? description : undefined,
+        }
+      })
+    })
 
     const allCollectedSessions: GeneratedPlan['sessions'] = []
     const allCollectedExercises: GeneratedExercise[] = []
@@ -605,9 +639,11 @@ ${jsonFormat}`
       ex.orderIndex = dayOrder++
     }
 
+    const fallbackDescription = `${totalWeeks}-week ${programMode === 'CLINICAL' ? 'rehabilitation' : 'training'} program across ${phases.length} progressive phase${phases.length > 1 ? 's' : ''}.`
+
     return {
       title: programTitle || 'AI Generated Program',
-      description: programDescription,
+      description: programDescription || params.clinicalAssessment || fallbackDescription,
       sessions: allCollectedSessions,
       exercises: sorted,
     }
@@ -679,7 +715,13 @@ ${jsonFormat}`
     throw new Error("No suitable exercises found for the given focus areas and client profile.");
   }
 
+  const clientModeHint = programMode === 'CLINICAL'
+    ? 'This client has documented clinical/rehab needs — use a DPT/rehab persona and framing.'
+    : 'This client has no documented clinical/rehab need — use a strength & conditioning / general-fitness persona, not a rehab persona, unless the trainer instructions explicitly describe an injury or diagnosis.'
+
   const systemPrompt = `You are an expert exercise professional with deep knowledge in physical therapy, strength & conditioning, athletic performance, and general fitness. Create structured exercise programs that adapt to any program context — rehabilitation, athletic development, sports performance, or general fitness.
+
+CLIENT CONTEXT MODE: ${clientModeHint}
 
 PROGRAM DESIGN RULES:
 1. STRUCTURE each session with phases appropriate to the program type. For rehab: Warm-up → Activation → Therapeutic work → Mobility → Cool-down. For athletic/performance: Dynamic warm-up → Power/Plyometrics → Strength work → Conditioning → Recovery. For general fitness: Warm-up → Main work → Cool-down.
@@ -816,8 +858,25 @@ ${hasCircuits ? `7. Assign "circuitIndex" to every exercise — it MUST match on
     throw new Error("AI generated no valid exercises. Please try again.");
   }
 
+  // Group into day templates and deterministically swap out any exerciseId
+  // that repeats across days, instead of only logging a warning about it.
+  const dayGroups = new Map<number, GeneratedExercise[]>();
+  for (const ex of validExercises) {
+    const day = ex.dayOfWeek ?? 0;
+    if (!dayGroups.has(day)) dayGroups.set(day, []);
+    dayGroups.get(day)!.push(ex);
+  }
+  const dedupedTemplates = dedupeAcrossDays(
+    Array.from(dayGroups.entries()).map(([dayOfWeek, dayExercises]) => ({
+      dayOfWeek,
+      exercises: dayExercises,
+    })),
+    exercises
+  );
+  const dedupedExercises = dedupedTemplates.flatMap((t) => t.exercises);
+
   // Post-processing: sort exercises per day by phase order
-  const sortedExercises = [...validExercises].sort((a, b) => {
+  const sortedExercises = [...dedupedExercises].sort((a, b) => {
     // First sort by day
     const dayA = a.dayOfWeek ?? 0;
     const dayB = b.dayOfWeek ?? 0;
@@ -842,17 +901,6 @@ ${hasCircuits ? `7. Assign "circuitIndex" to every exercise — it MUST match on
       dayOrder = 0;
     }
     exercise.orderIndex = dayOrder++;
-  }
-
-  // Detect cross-day duplicates (log but allow)
-  const allUsedIds = sortedExercises.map((e) => e.exerciseId);
-  const duplicateIds = allUsedIds.filter(
-    (id, i) => allUsedIds.indexOf(id) !== i
-  );
-  if (duplicateIds.length > 0) {
-    console.warn(
-      `[AI] Cross-day duplicate exercises detected: ${[...new Set(duplicateIds)].join(", ")}`
-    );
   }
 
   return {
@@ -1223,6 +1271,34 @@ export async function buildProgramPreviewFromBlueprint(params: {
   return { name: programTitle, description, workouts };
 }
 
+const CLINICAL_PLAN_SYSTEM_PROMPT = `You are an expert Doctor of Physical Therapy (DPT). Analyze the client profile and program parameters, then produce a week-by-week clinical rehabilitation plan as JSON.
+
+Think step-by-step:
+1. Identify the client's current rehabilitation phase based on diagnosis, time post-injury, pain score, and limitations.
+2. Plan each week as a clinically distinct, progressive stage toward the client's goals.
+3. Assign an appropriate rehabStage to each week: EARLY_REHAB (pain control, ROM, gentle activation), MID_REHAB (progressive strengthening, neuromuscular control), LATE_REHAB (functional loading, activity-specific), or MAINTENANCE (general fitness, prevention).
+4. For each week, specify what is contraindicated THIS specific week — this may differ from the global contraindications.
+5. Derive indication tags (lowercase, hyphenated clinical keywords) that should be used to find appropriate exercises for each week.
+6. Prefer runs of 2-4 contiguous weeks per rehabStage; only advance to the next stage when the client's needs genuinely shift — do not assign a different stage to every single week just for variety.
+
+Respond with valid JSON only. No markdown, no explanation.`
+
+const PERFORMANCE_PLAN_SYSTEM_PROMPT = `You are an expert strength & conditioning coach and performance program designer. Analyze the client's stated goals and program parameters, then produce a week-by-week periodized training plan as JSON. This client has no documented injury, diagnosis, pain, or physical limitation — do not frame this as rehabilitation or use clinical/DPT language anywhere in your output.
+
+Think step-by-step:
+1. Identify the training goal (event prep such as a race or competition, general strength/hypertrophy, endurance, fat loss, athletic performance) from the stated program goals and any trainer notes.
+2. Plan each week as a periodized, progressive training block using standard periodization: BASE_BUILD (aerobic/movement-quality foundation, higher volume/lower intensity), BUILD (progressive overload, increasing intensity), PEAK (highest intensity/specificity, lower volume), TAPER (volume reduction before an event/deadline), or GENERAL_FITNESS (steady-state, well-rounded training with no specific event).
+3. Assign the single most appropriate one of those five labels to each week as "rehabStage" (field name retained for schema compatibility — treat it as this week's periodization phase).
+4. For each week, note any form/technique cautions relevant to that week's training focus as "contraindicationsThisWeek" — general safety cues, not clinical contraindications.
+5. Derive indication tags (lowercase, hyphenated keywords describing this week's training focus, e.g. "aerobic-base", "power-development", "race-specific") to help select appropriate exercises for each week.
+6. Prefer runs of 2-4 contiguous weeks per phase label; only advance to the next phase when the training focus genuinely shifts — do not assign a different label to every single week just for variety.
+
+If the goals imply a specific event with a deadline (e.g. "marathon in 4 weeks", "competition on [date]"), structure the phases so PEAK/TAPER land in the final week(s) before that deadline.
+
+Exception: if the trainer's explicit instructions or subjective notes describe a specific diagnosis, injury, or rehabilitation context, treat this as a clinical program instead and use appropriate clinical framing despite the absence of a linked client profile.
+
+Respond with valid JSON only. No markdown, no explanation.`
+
 export async function generateClinicalPlan(
   params: ClinicalPlanParams
 ): Promise<ClinicalPlan> {
@@ -1233,37 +1309,20 @@ export async function generateClinicalPlan(
       })
     : null
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const profile = client?.clientProfile as any ?? null
+  const profile = client?.clientProfile ?? null
+  const programMode = params.programMode ?? determineProgramMode(profile)
 
-  const clientContext = client
-    ? `Client: ${client.firstName} ${client.lastName}
-Primary Diagnosis: ${profile?.primaryDiagnosis ?? 'Not specified'}
-Secondary Conditions: ${profile?.secondaryDiagnoses?.length ? profile.secondaryDiagnoses.join(', ') : 'None'}
-Pain Score: ${profile?.painScore != null ? `${profile.painScore}/10` : 'Not assessed'}
-Activity Level: ${profile?.activityLevel ?? 'Not assessed'}
-Physical Limitations: ${profile?.limitations ?? 'None documented'}
-Comorbidities: ${profile?.comorbidities ?? 'None'}
-Functional Challenges: ${profile?.functionalChallenges ?? 'None'}
-Surgery/Injury History: ${profile?.surgeryHistory ?? 'None documented'}
-Time Since Injury/Surgery: ${profile?.injuryDate ? Math.round((Date.now() - new Date(profile.injuryDate).getTime()) / (1000 * 60 * 60 * 24 * 7)) + ' weeks ago' : 'Not specified'}
-Goals: ${profile?.fitnessGoals?.length ? profile.fitnessGoals.join(', ') : 'General fitness'}`
-    : 'No specific client — create a general program.'
+  const clientContext = buildClientContextBlock(client, profile)
 
   const circuitSummary = params.circuits
     .map(c => `  - ${c.name} (${c.focusType}): ${c.exerciseCount} exercises, ${c.rounds} sets`)
     .join('\n')
 
-  const systemPrompt = `You are an expert Doctor of Physical Therapy (DPT). Analyze the client profile and program parameters, then produce a week-by-week clinical rehabilitation plan as JSON.
-
-Think step-by-step:
-1. Identify the client's current rehabilitation phase based on diagnosis, time post-injury, pain score, and limitations.
-2. Plan each week as a clinically distinct, progressive stage toward the client's goals.
-3. Assign an appropriate rehabStage to each week: EARLY_REHAB (pain control, ROM, gentle activation), MID_REHAB (progressive strengthening, neuromuscular control), LATE_REHAB (functional loading, activity-specific), or MAINTENANCE (general fitness, prevention).
-4. For each week, specify what is contraindicated THIS specific week — this may differ from the global contraindications.
-5. Derive indication tags (lowercase, hyphenated clinical keywords) that should be used to find appropriate exercises for each week.
-
-Respond with valid JSON only. No markdown, no explanation.`
+  const systemPrompt = programMode === 'CLINICAL' ? CLINICAL_PLAN_SYSTEM_PROMPT : PERFORMANCE_PLAN_SYSTEM_PROMPT
+  const phaseExample = programMode === 'CLINICAL' ? 'EARLY_REHAB' : 'BASE_BUILD'
+  const assessmentDescription = programMode === 'CLINICAL'
+    ? "2-3 sentence clinical assessment of this client's current state and appropriate rehabilitation approach"
+    : "2-3 sentence assessment of this client's training goals and the periodization approach for this program"
 
   const userPrompt = `${clientContext}
 
@@ -1281,12 +1340,12 @@ ${params.additionalNotes ? `\nAdditional Notes:\n${params.additionalNotes}` : ''
 
 Produce this exact JSON structure:
 {
-  "clinicalAssessment": "2-3 sentence clinical assessment of this client's current state and appropriate rehabilitation approach",
+  "clinicalAssessment": "${assessmentDescription}",
   "weeklyPlan": [
     {
       "week": 1,
       "title": "Short descriptive week title",
-      "rehabStage": "EARLY_REHAB",
+      "rehabStage": "${phaseExample}",
       "focusAreas": ["LOWER_BODY"],
       "difficultyLevel": "BEGINNER",
       "clinicalGuidance": "What to prioritize this week, specific technique or loading guidance",
@@ -1315,6 +1374,10 @@ Generate exactly ${params.durationWeeks} entries in weeklyPlan (weeks 1 through 
   if (!parsed.weeklyPlan || parsed.weeklyPlan.length === 0) {
     throw new Error('Clinical plan generation returned no weekly plan. Please try again.')
   }
+
+  // Stamp programMode deterministically — never trust the LLM to self-report it.
+  parsed.programMode = programMode
+  for (const week of parsed.weeklyPlan) week.programMode = programMode
 
   return parsed
 }

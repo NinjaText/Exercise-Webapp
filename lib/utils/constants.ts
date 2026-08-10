@@ -128,7 +128,7 @@ export const COMMON_EQUIPMENT = [
   "Step/Stair",
 ] as const;
 
-export const FITNESS_GOALS = [
+export const REHAB_GOALS = [
   "Reduce Pain",
   "Improve Mobility",
   "Build Strength",
@@ -138,6 +138,18 @@ export const FITNESS_GOALS = [
   "Injury Prevention",
   "Daily Function Improvement",
 ] as const;
+
+export const PERFORMANCE_GOALS = [
+  "Endurance / Cardio Fitness",
+  "Event Prep (Race, Competition, etc.)",
+  "Athletic Performance",
+  "Muscle Building / Hypertrophy",
+  "Weight Loss / Body Composition",
+  "General Fitness Maintenance",
+] as const;
+
+/** Combined list — used where program type doesn't apply (client onboarding, other generators). */
+export const FITNESS_GOALS = [...REHAB_GOALS, ...PERFORMANCE_GOALS] as const;
 
 export const ASSESSMENT_TYPES = [
   { value: "pain_level", label: "Pain Level", unit: "/10" },

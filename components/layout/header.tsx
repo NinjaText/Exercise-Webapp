@@ -128,10 +128,9 @@ export function Header({
         initialUnreadCount={unreadNotificationCount}
       />
 
-      {/* User button (visible on desktop alongside sidebar) */}
-      <div className="hidden lg:block">
-        <UserButton signInUrl="/sign-in" />
-      </div>
+      {/* User button (always visible top-right; contains sign out) */}
+      <UserButton signInUrl="/sign-in" />
+
     </header>
   );
 }

@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import {
   filterByContraindications,
-  buildWeekPoolWhereClause,
+  buildPhasePoolPrimaryWhereClause,
+  buildPhasePoolFallbackWhereClause,
   filterByEquipment,
 } from '../exercise-pool'
 
@@ -31,15 +32,15 @@ describe('filterByContraindications', () => {
   })
 })
 
-describe('buildWeekPoolWhereClause', () => {
+describe('buildPhasePoolPrimaryWhereClause', () => {
   it('includes rehabStage and indicationTags when provided', () => {
-    const weekPlan = {
+    const phaseInput = {
       rehabStage: 'EARLY_REHAB' as const,
       focusAreas: ['LOWER_BODY'],
       derivedIndicationTags: ['ACL', 'knee'],
     }
     const usedIds = new Set(['abc', 'def'])
-    const clause = buildWeekPoolWhereClause(weekPlan, usedIds)
+    const clause = buildPhasePoolPrimaryWhereClause(phaseInput, usedIds)
 
     expect(clause.rehabStage).toBe('EARLY_REHAB')
     expect(clause.bodyRegion).toEqual({ hasSome: ['LOWER_BODY'] })
@@ -49,23 +50,42 @@ describe('buildWeekPoolWhereClause', () => {
   })
 
   it('omits indicationTags filter when derivedIndicationTags is empty', () => {
-    const weekPlan = {
+    const phaseInput = {
       rehabStage: 'MID_REHAB' as const,
       focusAreas: ['UPPER_BODY'],
       derivedIndicationTags: [],
     }
-    const clause = buildWeekPoolWhereClause(weekPlan, new Set())
+    const clause = buildPhasePoolPrimaryWhereClause(phaseInput, new Set())
     expect(clause.indicationTags).toBeUndefined()
   })
 
   it('omits used IDs from the query when set is empty', () => {
-    const weekPlan = {
+    const phaseInput = {
       rehabStage: 'MID_REHAB' as const,
       focusAreas: ['CORE'],
       derivedIndicationTags: ['low-back-pain'],
     }
-    const clause = buildWeekPoolWhereClause(weekPlan, new Set())
+    const clause = buildPhasePoolPrimaryWhereClause(phaseInput, new Set())
     expect(clause.id).toBeUndefined()
+  })
+})
+
+describe('buildPhasePoolFallbackWhereClause', () => {
+  it('filters by body region only when no difficultyLevel given', () => {
+    const clause = buildPhasePoolFallbackWhereClause(['LOWER_BODY'], new Set())
+    expect(clause.bodyRegion).toEqual({ hasSome: ['LOWER_BODY'] })
+    expect(clause.difficultyLevel).toBeUndefined()
+    expect(clause.isActive).toBe(true)
+  })
+
+  it('adds a difficultyLevel filter when provided', () => {
+    const clause = buildPhasePoolFallbackWhereClause(['UPPER_BODY'], new Set(), 'INTERMEDIATE')
+    expect(clause.difficultyLevel).toBe('INTERMEDIATE')
+  })
+
+  it('includes used IDs when the set is non-empty', () => {
+    const clause = buildPhasePoolFallbackWhereClause(['CORE'], new Set(['x', 'y']))
+    expect(clause.id).toEqual({ notIn: ['x', 'y'] })
   })
 })
 

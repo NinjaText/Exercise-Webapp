@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { DIFFICULTY_LEVELS, FITNESS_GOALS } from "@/lib/utils/constants";
+import { DIFFICULTY_LEVELS, REHAB_GOALS, PERFORMANCE_GOALS } from "@/lib/utils/constants";
 import { generateProgramAction } from "@/actions/program-actions";
 import { toast } from "sonner";
 import { Check, ChevronDown, ChevronUp, ChevronsUpDown, Loader2, Plus, Sparkles, Trash2 } from "lucide-react";
@@ -23,7 +23,7 @@ import {
 import { getDistinctEquipmentAction } from "@/actions/program-actions";
 import { PlanReviewStep } from "@/components/programs/plan-review-step";
 import { ClinicVisibilitySelector } from "@/components/programs/clinic-visibility-selector";
-import type { ClinicalPlan } from "@/lib/ai/types/program-generation";
+import type { ClinicalPlan, ProgramMode } from "@/lib/ai/types/program-generation";
 
 interface CircuitConfig {
   id: string;
@@ -97,6 +97,8 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
   const [clinicalPlan, setClinicalPlan] = useState<ClinicalPlan | null>(null);
   const [durationWeeks, setDurationWeeks] = useState(4);
   const [selectedClient, setSelectedClient] = useState(initialClientId ?? "");
+  const [programMode, setProgramMode] = useState<ProgramMode>("PERFORMANCE");
+  const [programModeTouched, setProgramModeTouched] = useState(false);
   const [selectedOrganizationIds, setSelectedOrganizationIds] = useState<string[]>([]);
   const [selectedGoals, setSelectedGoals] = useState<string[]>([]);
   const [selectedEquipment, setSelectedEquipment] = useState<string[]>([]);
@@ -122,6 +124,32 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
       if (res.success) setEquipmentOptions(res.data);
     });
   }, []);
+
+  // Quick client-side guess mirroring hasDocumentedClinicalNeed — good enough
+  // for a UI default; the backend's full-profile check still runs whenever
+  // no explicit override is sent.
+  function guessProgramMode(client: ClientSummary | undefined): ProgramMode {
+    if (!client) return "PERFORMANCE";
+    const hasClinicalSignal =
+      !!client.primaryDiagnosis ||
+      (client.painScore != null && client.painScore > 0) ||
+      !!client.limitations;
+    return hasClinicalSignal ? "CLINICAL" : "PERFORMANCE";
+  }
+
+  useEffect(() => {
+    if (programModeTouched) return;
+    setProgramMode(guessProgramMode(clients.find(c => c.id === selectedClient)));
+  }, [selectedClient, clients, programModeTouched]);
+
+  const goalOptions = programMode === "CLINICAL" ? REHAB_GOALS : PERFORMANCE_GOALS;
+
+  // Drop any previously selected goal that doesn't belong to the current
+  // program type's list, so a stale invisible selection can't get submitted.
+  useEffect(() => {
+    const options: readonly string[] = programMode === "CLINICAL" ? REHAB_GOALS : PERFORMANCE_GOALS;
+    setSelectedGoals(prev => prev.filter(g => options.includes(g)));
+  }, [programMode]);
 
   function toggleGoal(goal: string) {
     setSelectedGoals(prev =>
@@ -218,6 +246,7 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           clientId: selectedClient || null,
+          programMode,
           programGoals: selectedGoals,
           availableEquipment: selectedEquipment,
           durationWeeks,
@@ -233,12 +262,12 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
         }),
       });
 
-      if (!res.ok) throw new Error('Failed to generate clinical plan');
+      if (!res.ok) throw new Error('Failed to generate program plan');
       const json = await res.json();
       setClinicalPlan(json.data);
       setGenerateState('REVIEWING');
     } catch {
-      toast.error('Failed to generate clinical plan. Please try again.');
+      toast.error('Failed to generate program plan. Please try again.');
       setGenerateState('CONFIGURE');
     }
   }
@@ -260,6 +289,7 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
       preferredWeekdays: selectedWeekdays,
       difficultyLevel: difficulty,
       weekPlan: approvedPlan.weeklyPlan,
+      clinicalAssessment: approvedPlan.clinicalAssessment,
       organizationIds: selectedOrganizationIds,
     };
 
@@ -300,7 +330,7 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-blue-600" />
-              Review Clinical Plan
+              {clinicalPlan.programMode === 'PERFORMANCE' ? 'Review Training Plan' : 'Review Clinical Plan'}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -362,6 +392,25 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
                   })()}
                 </>
               )}
+
+              {/* Program Type */}
+              <div className="space-y-2">
+                <Label>Program Type</Label>
+                <select
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  value={programMode}
+                  onChange={(e) => {
+                    setProgramMode(e.target.value as ProgramMode);
+                    setProgramModeTouched(true);
+                  }}
+                >
+                  <option value="PERFORMANCE">🏋️ Performance / Athletic</option>
+                  <option value="CLINICAL">🩺 Rehab / Clinical</option>
+                </select>
+                <p className="text-xs text-muted-foreground">
+                  {programModeTouched ? "Manually set" : "Auto-detected from client profile"} — change if needed
+                </p>
+              </div>
 
               {/* Clinic visibility — shown only in admin/global context (clinics provided) */}
               {clinics && (
@@ -456,7 +505,7 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
               <div className="space-y-2">
                 <Label>Program Goals *</Label>
                 <div className="flex flex-wrap gap-2">
-                  {FITNESS_GOALS.map((goal) => (
+                  {goalOptions.map((goal) => (
                     <Button
                       key={goal}
                       type="button"
@@ -744,7 +793,7 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
                   id="trainerPrompt"
                   name="trainerPrompt"
                   rows={3}
-                  placeholder='Example: "Act as a DPT and create a 1-week, 3-day PT progression for this subjective."'
+                  placeholder='Example: "Focus on progressive overload for a 4-week marathon build-up" or "Act as a DPT and create a 3-day PT progression for this subjective."'
                 />
               </div>
 
