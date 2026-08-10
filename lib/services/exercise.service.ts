@@ -16,12 +16,14 @@ export interface ExerciseFilters {
   equipment?: string;
   source?: ExerciseSource;
   organizationId?: string;
+  isAssessment?: boolean;
 }
 
 export async function getExercises(filters: ExerciseFilters = {}) {
   return prisma.exercise.findMany({
     where: {
       isActive: true,
+      isAssessment: filters.isAssessment ?? false,
       ...(filters.bodyRegions?.length && { bodyRegion: { hasSome: filters.bodyRegions } }),
       ...(filters.difficultyLevel && { difficultyLevel: filters.difficultyLevel }),
       ...(filters.exercisePhases?.length && { exercisePhases: { hasSome: filters.exercisePhases } }),
@@ -71,6 +73,7 @@ export async function getExercisesForPicker(organizationId?: string) {
   return prisma.exercise.findMany({
     where: {
       isActive: true,
+      isAssessment: false,
       OR: orClauses,
     },
     select: {
@@ -125,6 +128,7 @@ export async function createExercise(data: {
   organizationId?: string;
   isPublic?: boolean;
   exercisePhases?: ExercisePhase[];
+  isAssessment?: boolean;
 }) {
   const videoUrl = data.videoUrl?.trim() || buildYouTubeSearchUrl(data.name);
   let imageUrl = data.imageUrl?.trim() || undefined;
@@ -153,6 +157,7 @@ export async function createExercise(data: {
       organizationId: data.organizationId ?? null,
       isPublic: data.isPublic ?? true,
       exercisePhases: data.exercisePhases ?? [],
+      isAssessment: data.isAssessment ?? false,
     },
   });
 }
@@ -242,6 +247,7 @@ export async function updateExercise(
     imageUrl: string;
     isActive: boolean;
     isPublic: boolean;
+    isAssessment: boolean;
   }>
 ) {
   const nextData = { ...data };
