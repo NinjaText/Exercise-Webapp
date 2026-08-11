@@ -232,7 +232,7 @@ export async function getExercisesForPickerAction() {
   }
 
   const exercises = await prisma.exercise.findMany({
-    where: { isActive: true },
+    where: { isActive: true, isAssessment: false },
     select: {
       id: true,
       name: true,

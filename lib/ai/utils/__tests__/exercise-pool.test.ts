@@ -68,6 +68,16 @@ describe('buildPhasePoolPrimaryWhereClause', () => {
     const clause = buildPhasePoolPrimaryWhereClause(phaseInput, new Set())
     expect(clause.id).toBeUndefined()
   })
+
+  it('always excludes assessment exercises from the pool', () => {
+    const phaseInput = {
+      rehabStage: 'MID_REHAB' as const,
+      focusAreas: ['CORE'],
+      derivedIndicationTags: [],
+    }
+    const clause = buildPhasePoolPrimaryWhereClause(phaseInput, new Set())
+    expect(clause.isAssessment).toBe(false)
+  })
 })
 
 describe('buildPhasePoolFallbackWhereClause', () => {
@@ -86,6 +96,11 @@ describe('buildPhasePoolFallbackWhereClause', () => {
   it('includes used IDs when the set is non-empty', () => {
     const clause = buildPhasePoolFallbackWhereClause(['CORE'], new Set(['x', 'y']))
     expect(clause.id).toEqual({ notIn: ['x', 'y'] })
+  })
+
+  it('always excludes assessment exercises from the pool', () => {
+    const clause = buildPhasePoolFallbackWhereClause(['CORE'], new Set())
+    expect(clause.isAssessment).toBe(false)
   })
 })
 

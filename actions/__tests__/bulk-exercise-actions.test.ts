@@ -32,7 +32,7 @@ const TRAINER_NO_ORG = {
 
 const EXERCISE = {
   name: 'Squat',
-  bodyRegion: 'LOWER_BODY',
+  bodyRegion: ['LOWER_BODY'],
   difficultyLevel: 'BEGINNER',
   musclesTargeted: [],
   equipmentRequired: [],
@@ -83,6 +83,49 @@ describe('bulkCreateExercisesAction — org routing', () => {
         data: expect.not.objectContaining({
           source: 'ORGANIZATION',
         }),
+      })
+    )
+  })
+})
+
+describe('bulkCreateExercisesAction — bodyRegion', () => {
+  it('passes the bodyRegion array through to Prisma without re-wrapping it', async () => {
+    mockUserFindUnique.mockResolvedValue(TRAINER_NO_ORG as any)
+    vi.mocked(prisma.exercise.create).mockImplementation((args: any) => args as any)
+
+    await bulkCreateExercisesAction([{ ...EXERCISE, bodyRegion: ['LOWER_BODY', 'BALANCE'] }])
+
+    expect(prisma.exercise.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ bodyRegion: ['LOWER_BODY', 'BALANCE'] }),
+      })
+    )
+  })
+})
+
+describe('bulkCreateExercisesAction — isAssessment', () => {
+  it('persists isAssessment: true when a row is flagged', async () => {
+    mockUserFindUnique.mockResolvedValue(TRAINER_NO_ORG as any)
+    vi.mocked(prisma.exercise.create).mockImplementation((args: any) => args as any)
+
+    await bulkCreateExercisesAction([{ ...EXERCISE, isAssessment: true }])
+
+    expect(prisma.exercise.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ isAssessment: true }),
+      })
+    )
+  })
+
+  it('defaults isAssessment to false when a row omits it', async () => {
+    mockUserFindUnique.mockResolvedValue(TRAINER_NO_ORG as any)
+    vi.mocked(prisma.exercise.create).mockImplementation((args: any) => args as any)
+
+    await bulkCreateExercisesAction([EXERCISE])
+
+    expect(prisma.exercise.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ isAssessment: false }),
       })
     )
   })

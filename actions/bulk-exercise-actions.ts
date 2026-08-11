@@ -12,7 +12,7 @@ export interface BulkExerciseInput {
   name: string;
   description?: string;
   instructions?: string;
-  bodyRegion: string;
+  bodyRegion: string[];
   difficultyLevel: string;
   exercisePhases?: string[];
   musclesTargeted: string[];
@@ -23,6 +23,7 @@ export interface BulkExerciseInput {
   defaultReps?: number;
   videoUrl?: string;
   imageUrl?: string;
+  isAssessment?: boolean;
 }
 
 export async function bulkCreateExercisesAction(exercises: BulkExerciseInput[]) {
@@ -48,7 +49,7 @@ export async function bulkCreateExercisesAction(exercises: BulkExerciseInput[]) 
             name: ex.name.trim(),
             description: ex.description?.trim() || null,
             instructions: ex.instructions?.trim() || null,
-            bodyRegion: [ex.bodyRegion] as BodyRegion[],
+            bodyRegion: ex.bodyRegion as BodyRegion[],
             difficultyLevel: ex.difficultyLevel as DifficultyLevel,
             exercisePhases: (ex.exercisePhases as ExercisePhase[] | undefined) ?? [],
             musclesTargeted: ex.musclesTargeted,
@@ -62,6 +63,7 @@ export async function bulkCreateExercisesAction(exercises: BulkExerciseInput[]) 
             videoProvider: ex.videoUrl ? "youtube" : null,
             createdById: dbUser.id,
             isActive: true,
+            isAssessment: ex.isAssessment ?? false,
             ...orgData,
           },
         })

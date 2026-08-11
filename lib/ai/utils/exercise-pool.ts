@@ -39,6 +39,7 @@ export function buildPhasePoolPrimaryWhereClause(
 ): Record<string, unknown> {
   const clause: Record<string, unknown> = {
     isActive: true,
+    isAssessment: false,
     rehabStage: input.rehabStage,
     bodyRegion: { hasSome: input.focusAreas },
   }
@@ -66,6 +67,7 @@ export function buildPhasePoolFallbackWhereClause(
 ): Record<string, unknown> {
   const clause: Record<string, unknown> = {
     isActive: true,
+    isAssessment: false,
     bodyRegion: { hasSome: focusAreas },
   }
 

@@ -655,6 +655,7 @@ Produce exactly one dayTemplates entry per weekday index in [${uniqueDayIndices.
   const allExercises = (await (prisma.exercise.findMany as any)({
     where: {
       isActive: true,
+      isAssessment: false,
       bodyRegion: { hasSome: targetRegions },
     },
     select: {
@@ -1190,7 +1191,7 @@ export async function buildProgramPreviewFromBlueprint(params: {
   const circuits = params.circuits || [];
   const circuitNameMap = new Map(circuits.map((c, idx) => [normalizeExerciseName(c.name), idx]));
 
-  const allBriefExercises = await prisma.exercise.findMany({ where: { isActive: true } });
+  const allBriefExercises = await prisma.exercise.findMany({ where: { isActive: true, isAssessment: false } });
 
   const preferredDayIndices = (params.preferredWeekdays ?? [])
     .map((d) => weekdayToIndex[d.toLowerCase().trim()])

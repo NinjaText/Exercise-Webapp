@@ -6,11 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BODY_REGIONS, DIFFICULTY_LEVELS, COMMON_EQUIPMENT } from "@/lib/utils/constants";
 import { createExerciseAction } from "@/actions/exercise-actions";
 import { toast } from "sonner";
-import { Loader2, Plus, X, CheckCircle2 } from "lucide-react";
+import { Loader2, Plus, X, CheckCircle2, ClipboardCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export function ExerciseForm() {
@@ -28,6 +29,7 @@ export function ExerciseForm() {
   const equipmentInputRef = useRef<HTMLInputElement>(null);
 
   const [videoUrl, setVideoUrl] = useState("");
+  const [isAssessment, setIsAssessment] = useState(false);
 
   function toggleRegion(value: string) {
     setSelectedRegions((prev) =>
@@ -84,6 +86,7 @@ export function ExerciseForm() {
           .filter(Boolean) || [],
       instructions: (formData.get("instructions") as string) || undefined,
       videoUrl: videoUrl || undefined,
+      isAssessment,
     });
 
     setLoading(false);
@@ -267,6 +270,27 @@ export function ExerciseForm() {
               name="contraindications"
               placeholder="e.g., Knee replacement, Acute back pain (comma separated)"
             />
+          </div>
+
+          {/* Assessment exercise toggle */}
+          <div className="flex items-start gap-3 rounded-lg border border-blue-200 bg-blue-50/60 p-4">
+            <Checkbox
+              id="isAssessment"
+              checked={isAssessment}
+              onCheckedChange={(checked) => setIsAssessment(checked === true)}
+              className="mt-0.5"
+            />
+            <div className="space-y-1">
+              <Label htmlFor="isAssessment" className="flex items-center gap-1.5 font-medium">
+                <ClipboardCheck className="h-3.5 w-3.5 text-blue-600" />
+                Assessment exercise
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                Used to evaluate a client (e.g. a movement screen or timed test) rather than to train
+                them. Assessment exercises are excluded from AI-generated programs and the
+                add-exercise picker.
+              </p>
+            </div>
           </div>
 
           {/* YouTube URL only */}

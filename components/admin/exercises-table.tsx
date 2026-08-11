@@ -56,9 +56,10 @@ interface AdminExercisesTableProps {
   page: number;
   search: string;
   bodyRegions: string[];
+  kind?: "training" | "assessment";
 }
 
-export function AdminExercisesTable({ exercises, total, totalPages, page, search, bodyRegions }: AdminExercisesTableProps) {
+export function AdminExercisesTable({ exercises, total, totalPages, page, search, bodyRegions, kind }: AdminExercisesTableProps) {
   const router = useRouter();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -237,10 +238,10 @@ export function AdminExercisesTable({ exercises, total, totalPages, page, search
             <p className="text-xs text-muted-foreground">Page {page} of {totalPages} · {total.toLocaleString()} exercises</p>
             <div className="flex gap-2">
               {page > 1 && (
-                <a href={`?search=${search}&bodyRegion=${bodyRegions.join(",")}&page=${page - 1}`} className="rounded-lg bg-muted px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted/80 transition-colors">← Prev</a>
+                <a href={`?search=${search}&bodyRegion=${bodyRegions.join(",")}&page=${page - 1}${kind === "assessment" ? "&kind=assessment" : ""}`} className="rounded-lg bg-muted px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted/80 transition-colors">← Prev</a>
               )}
               {page < totalPages && (
-                <a href={`?search=${search}&bodyRegion=${bodyRegions.join(",")}&page=${page + 1}`} className="rounded-lg bg-muted px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted/80 transition-colors">Next →</a>
+                <a href={`?search=${search}&bodyRegion=${bodyRegions.join(",")}&page=${page + 1}${kind === "assessment" ? "&kind=assessment" : ""}`} className="rounded-lg bg-muted px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted/80 transition-colors">Next →</a>
               )}
             </div>
           </div>

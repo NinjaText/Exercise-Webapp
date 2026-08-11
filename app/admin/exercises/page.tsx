@@ -4,9 +4,10 @@ import { Plus, UploadCloud, FileSpreadsheet } from "lucide-react";
 import { AdminExercisesTable } from "@/components/admin/exercises-table";
 import { AdminExerciseFilters } from "@/components/admin/admin-exercise-filters";
 import Link from "next/link";
+import { cn } from "@/lib/utils";
 
 interface PageProps {
-  searchParams: Promise<{ search?: string; bodyRegion?: string; page?: string }>;
+  searchParams: Promise<{ search?: string; bodyRegion?: string; page?: string; kind?: string }>;
 }
 
 export default async function AdminExercisesPage({ searchParams }: PageProps) {
@@ -14,8 +15,15 @@ export default async function AdminExercisesPage({ searchParams }: PageProps) {
   const search = params.search ?? "";
   const bodyRegions = (params.bodyRegion ?? "").split(",").filter(Boolean);
   const page = parseInt(params.page ?? "1", 10);
+  const activeKind = params.kind === "assessment" ? "assessment" : "training";
 
-  const { items: exercises, total, totalPages } = await getAllExercises({ page, pageSize: 25, search, bodyRegions });
+  const { items: exercises, total, totalPages } = await getAllExercises({
+    page,
+    pageSize: 25,
+    search,
+    bodyRegions,
+    isAssessment: activeKind === "assessment",
+  });
 
   return (
     <div className="space-y-6">
@@ -46,6 +54,30 @@ export default async function AdminExercisesPage({ searchParams }: PageProps) {
         </div>
       </div>
 
+      <div className="flex gap-1 border-b">
+        {(["training", "assessment"] as const).map((k) => {
+          const sp = new URLSearchParams();
+          if (search) sp.set("search", search);
+          if (bodyRegions.length) sp.set("bodyRegion", bodyRegions.join(","));
+          if (k === "assessment") sp.set("kind", "assessment");
+          const href = sp.toString() ? `/admin/exercises?${sp.toString()}` : "/admin/exercises";
+          return (
+            <Link
+              key={k}
+              href={href}
+              className={cn(
+                "px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors",
+                activeKind === k
+                  ? "border-primary text-primary"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              )}
+            >
+              {k === "training" ? "Training" : "Assessment"}
+            </Link>
+          );
+        })}
+      </div>
+
       <AdminExerciseFilters search={search} selected={bodyRegions} />
 
       <AdminExercisesTable
@@ -55,6 +87,7 @@ export default async function AdminExercisesPage({ searchParams }: PageProps) {
         page={page}
         search={search}
         bodyRegions={bodyRegions}
+        kind={activeKind}
       />
     </div>
   );

@@ -3,6 +3,7 @@
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -10,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BODY_REGIONS, DIFFICULTY_LEVELS, COMMON_EQUIPMENT } from "@/lib/utils/constants";
 import { updateExerciseAction, addExerciseMediaAction, deleteExerciseMediaAction } from "@/actions/exercise-actions";
 import { toast } from "sonner";
-import { CheckCircle2, Loader2, Play, Trash2, X, Plus } from "lucide-react";
+import { CheckCircle2, Loader2, Play, Trash2, X, Plus, ClipboardCheck } from "lucide-react";
 import { ExerciseVideoPlayer } from "@/components/exercises/exercise-video-player";
 import { cn } from "@/lib/utils";
 
@@ -34,6 +35,7 @@ interface Exercise {
   videoUrl: string | null;
   imageUrl: string | null;
   isActive: boolean;
+  isAssessment: boolean;
   media: MediaItem[];
 }
 
@@ -51,6 +53,7 @@ export function ExerciseEditForm({ exercise }: Props) {
   const [selectedRegions, setSelectedRegions] = useState<string[]>(exercise.bodyRegion);
   const [difficultyLevel, setDifficultyLevel] = useState(exercise.difficultyLevel);
   const [isActive, setIsActive] = useState(String(exercise.isActive));
+  const [isAssessment, setIsAssessment] = useState(exercise.isAssessment);
   const [instructions, setInstructions] = useState(exercise.instructions ?? "");
   const [contraindications, setContraindications] = useState(
     exercise.contraindications.join(", ")
@@ -88,6 +91,7 @@ export function ExerciseEditForm({ exercise }: Props) {
       videoUrl: videoUrl.trim() || undefined,
       imageUrl: imageUrl.trim() || undefined,
       isActive: isActive === "true",
+      isAssessment,
     });
 
     setLoading(false);
@@ -219,6 +223,27 @@ export function ExerciseEditForm({ exercise }: Props) {
                 <option value="true">Active — visible to AI</option>
                 <option value="false">Inactive — hidden from AI</option>
               </select>
+            </div>
+          </div>
+
+          {/* Assessment exercise toggle */}
+          <div className="flex items-start gap-3 rounded-lg border border-blue-200 bg-blue-50/60 p-4">
+            <Checkbox
+              id="isAssessment"
+              checked={isAssessment}
+              onCheckedChange={(checked) => setIsAssessment(checked === true)}
+              className="mt-0.5"
+            />
+            <div className="space-y-1">
+              <Label htmlFor="isAssessment" className="flex items-center gap-1.5 font-medium">
+                <ClipboardCheck className="h-3.5 w-3.5 text-blue-600" />
+                Assessment exercise
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                Used to evaluate a client (e.g. a movement screen or timed test) rather than to train
+                them. Assessment exercises are excluded from AI-generated programs and the
+                add-exercise picker.
+              </p>
             </div>
           </div>
 

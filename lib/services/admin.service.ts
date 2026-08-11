@@ -240,11 +240,13 @@ export async function getAllExercises(params: {
   pageSize?: number;
   search?: string;
   bodyRegions?: string[];
+  isAssessment?: boolean;
 }) {
-  const { page = 1, pageSize = 25, search, bodyRegions } = params;
+  const { page = 1, pageSize = 25, search, bodyRegions, isAssessment = false } = params;
 
   const where = {
     isActive: { not: false },
+    isAssessment,
     ...(bodyRegions?.length && { bodyRegion: { hasSome: bodyRegions as BodyRegion[] } }),
     ...(search && {
       OR: [

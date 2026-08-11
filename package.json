@@ -19,6 +19,7 @@
     "db:video:resolve": "npx tsx lib/db/seed/resolve-youtube-search-videos.ts",
     "db:migrate-programs": "npx tsx lib/db/seed/migrate-plans-to-programs.ts",
     "db:backfill-exercise-phases": "npx tsx lib/db/scripts/backfill-exercise-phases.ts",
+    "db:backfill-is-assessment": "npx tsx lib/db/scripts/backfill-is-assessment.ts",
     "tag-exercises": "npx ts-node --compiler-options '{\"module\":\"CommonJS\"}' lib/db/seed/tag-exercises-ai.ts",
     "postinstall": "prisma generate"
   },

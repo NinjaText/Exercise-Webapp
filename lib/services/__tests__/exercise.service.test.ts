@@ -23,6 +23,8 @@ import {
   getExercisesForPicker,
   toggleExercisePublic,
   cloneExerciseToOrganization,
+  createExercise,
+  updateExercise,
 } from '../exercise.service'
 
 const mockFindMany = vi.mocked(prisma.exercise.findMany)
@@ -200,6 +202,78 @@ describe('getExercises muscle group filtering', () => {
   })
 })
 
+describe('getExercises isAssessment filtering', () => {
+  it('defaults to training exercises (isAssessment: false) when not specified', async () => {
+    mockFindMany.mockResolvedValue([] as any)
+    await getExercises({})
+    const call = mockFindMany.mock.calls[0][0] as any
+    expect(call.where).toHaveProperty('isAssessment', false)
+  })
+
+  it('filters to assessment exercises when isAssessment: true is requested', async () => {
+    mockFindMany.mockResolvedValue([] as any)
+    await getExercises({ isAssessment: true })
+    const call = mockFindMany.mock.calls[0][0] as any
+    expect(call.where).toHaveProperty('isAssessment', true)
+  })
+})
+
+describe('getExercisesForPicker excludes assessment exercises', () => {
+  it('always filters isAssessment: false', async () => {
+    mockFindMany.mockResolvedValue([] as any)
+    await getExercisesForPicker('org_mine')
+    expect(mockFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ isAssessment: false }),
+      })
+    )
+  })
+})
+
+describe('createExercise', () => {
+  it('persists isAssessment when provided', async () => {
+    mockCreate.mockResolvedValue({ id: 'ex_new' } as any)
+    await createExercise({
+      name: 'Single-Leg Squat Test',
+      bodyRegion: ['LOWER_BODY'] as any,
+      equipmentRequired: [],
+      difficultyLevel: 'INTERMEDIATE' as any,
+      contraindications: [],
+      createdById: 'user_1',
+      isAssessment: true,
+    })
+    expect(mockCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ isAssessment: true }) })
+    )
+  })
+
+  it('defaults isAssessment to false when not provided', async () => {
+    mockCreate.mockResolvedValue({ id: 'ex_new' } as any)
+    await createExercise({
+      name: 'Squat',
+      bodyRegion: ['LOWER_BODY'] as any,
+      equipmentRequired: [],
+      difficultyLevel: 'BEGINNER' as any,
+      contraindications: [],
+      createdById: 'user_1',
+    })
+    expect(mockCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ isAssessment: false }) })
+    )
+  })
+})
+
+describe('updateExercise', () => {
+  it('persists an isAssessment change', async () => {
+    mockUpdate.mockResolvedValue({ id: 'ex_1', isAssessment: true } as any)
+    await updateExercise('ex_1', { isAssessment: true })
+    expect(mockUpdate).toHaveBeenCalledWith({
+      where: { id: 'ex_1' },
+      data: { isAssessment: true },
+    })
+  })
+})
+
 describe('cloneExerciseToOrganization', () => {
   const universalSource = {
     name: 'Squat',
@@ -220,6 +294,7 @@ describe('cloneExerciseToOrganization', () => {
     defaultHoldSeconds: null,
     indicationTags: ['knee'],
     rehabStage: 'LATE_REHAB',
+    isAssessment: false,
   } as any
 
   it('creates an ORGANIZATION-scoped private copy carrying over descriptive fields', async () => {
@@ -258,5 +333,16 @@ describe('cloneExerciseToOrganization', () => {
     const call = mockCreate.mock.calls[0][0] as any
     expect(call.data).not.toHaveProperty('id')
     expect(call.data.source).toBe('ORGANIZATION')
+  })
+
+  it('carries the isAssessment flag over from the source exercise', async () => {
+    mockCreate.mockResolvedValue({ id: 'new', name: 'Squat' } as any)
+    await cloneExerciseToOrganization(
+      { ...universalSource, isAssessment: true },
+      { organizationId: 'org_mine', createdById: 'user_1' }
+    )
+    expect(mockCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({ isAssessment: true }),
+    })
   })
 })

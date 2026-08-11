@@ -25,3 +25,25 @@ describe("createExerciseSchema bodyRegion", () => {
     expect(result.success).toBe(false);
   });
 });
+
+describe("createExerciseSchema isAssessment", () => {
+  const base = {
+    name: "Squat",
+    difficultyLevel: "BEGINNER",
+    bodyRegion: ["LOWER_BODY"],
+    equipmentRequired: [],
+    contraindications: [],
+  };
+
+  it("accepts isAssessment: true", () => {
+    const result = createExerciseSchema.safeParse({ ...base, isAssessment: true });
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.isAssessment).toBe(true);
+  });
+
+  it("defaults isAssessment to false when omitted", () => {
+    const result = createExerciseSchema.safeParse(base);
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.isAssessment).toBe(false);
+  });
+});

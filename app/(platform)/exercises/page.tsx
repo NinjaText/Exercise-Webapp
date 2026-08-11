@@ -21,6 +21,7 @@ interface Props {
     muscleGroup?: string; // comma-separated MUSCLE_GROUPS values
     equipment?: string;
     source?: string;
+    kind?: string;
   }>;
 }
 
@@ -31,6 +32,7 @@ export default async function ExercisesPage({ searchParams }: Props) {
   ]);
   const params = await searchParams;
   const activeSource = params.source === "ORGANIZATION" ? "ORGANIZATION" : "UNIVERSAL";
+  const activeKind = params.kind === "assessment" ? "assessment" : "training";
 
   // Prefer live session orgId — dbUser.clerkOrgId may be null for accounts created before orgs were set up
   const organizationOrgId = sessionOrgId ?? user.clerkOrgId ?? undefined;
@@ -57,6 +59,7 @@ export default async function ExercisesPage({ searchParams }: Props) {
     equipment: params.equipment,
     source: activeSource as ExerciseSource,
     organizationId: activeSource === "ORGANIZATION" ? organizationOrgId : undefined,
+    isAssessment: activeKind === "assessment",
   });
 
   const tabUrl = (source: string) => {
@@ -67,7 +70,21 @@ export default async function ExercisesPage({ searchParams }: Props) {
     if (params.exercisePhase)   sp.set("exercisePhase",   params.exercisePhase);
     if (params.muscleGroup)     sp.set("muscleGroup",     params.muscleGroup);
     if (params.equipment)       sp.set("equipment",       params.equipment);
+    if (activeKind === "assessment") sp.set("kind", "assessment");
     sp.set("source", source);
+    return `/exercises?${sp.toString()}`;
+  };
+
+  const kindUrl = (kind: "training" | "assessment") => {
+    const sp = new URLSearchParams();
+    if (params.search)          sp.set("search",          params.search);
+    if (params.bodyRegion)      sp.set("bodyRegion",      params.bodyRegion);
+    if (params.difficultyLevel) sp.set("difficultyLevel", params.difficultyLevel);
+    if (params.exercisePhase)   sp.set("exercisePhase",   params.exercisePhase);
+    if (params.muscleGroup)     sp.set("muscleGroup",     params.muscleGroup);
+    if (params.equipment)       sp.set("equipment",       params.equipment);
+    if (kind === "assessment") sp.set("kind", "assessment");
+    sp.set("source", activeSource);
     return `/exercises?${sp.toString()}`;
   };
 
@@ -92,6 +109,23 @@ export default async function ExercisesPage({ searchParams }: Props) {
             </Link>
           </Button>
         </div>
+      </div>
+
+      <div className="flex gap-1 border-b">
+        {(["training", "assessment"] as const).map((k) => (
+          <Link
+            key={k}
+            href={kindUrl(k)}
+            className={cn(
+              "px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors",
+              activeKind === k
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            )}
+          >
+            {k === "training" ? "Training" : "Assessment"}
+          </Link>
+        ))}
       </div>
 
       <div className="flex gap-1 border-b">

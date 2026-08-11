@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { Checkbox } from "@/components/ui/checkbox";
 import { BODY_REGIONS, DIFFICULTY_LEVELS, COMMON_EQUIPMENT } from "@/lib/utils/constants";
 import { bulkCreateExercisesAction, type BulkExerciseInput } from "@/actions/bulk-exercise-actions";
 import { isYouTubeUrl, isYouTubePlaylistUrl } from "@/lib/utils/video";
@@ -15,7 +16,7 @@ import { toast } from "sonner";
 import {
   Loader2, Sparkles, ChevronDown, ChevronUp,
   Trash2, CheckCircle2, Video,
-  AlertCircle, Youtube, ListVideo, Search,
+  AlertCircle, Youtube, ListVideo, Search, ClipboardCheck,
 } from "lucide-react";
 
 const EXERCISE_PHASES = [
@@ -149,7 +150,7 @@ interface ExerciseRow {
   name: string;
   description: string;
   instructions: string;
-  bodyRegion: string;
+  bodyRegion: string[];
   difficultyLevel: string;
   exercisePhases: string[];
   musclesTargeted: string;
@@ -158,6 +159,7 @@ interface ExerciseRow {
   commonMistakes: string;
   defaultSets: string;
   defaultReps: string;
+  isAssessment: boolean;
   aiStatus: AiStatus;
   expanded: boolean;
 }
@@ -171,7 +173,7 @@ function makeRow(videoUrl: string, videoFileName: string, imageUrl = ""): Exerci
     name: "",
     description: "",
     instructions: "",
-    bodyRegion: "",
+    bodyRegion: [],
     difficultyLevel: "",
     exercisePhases: [],
     musclesTargeted: "",
@@ -180,6 +182,7 @@ function makeRow(videoUrl: string, videoFileName: string, imageUrl = ""): Exerci
     commonMistakes: "",
     defaultSets: "3",
     defaultReps: "10",
+    isAssessment: false,
     aiStatus: "idle",
     expanded: true,
   };
@@ -245,7 +248,7 @@ export function BulkImportForm() {
         newRow.name = d.exerciseName ?? "";
         newRow.description = d.description ?? "";
         newRow.instructions = d.instructions ?? "";
-        newRow.bodyRegion = d.bodyRegion ?? "";
+        newRow.bodyRegion = d.bodyRegion ?? [];
         newRow.difficultyLevel = d.difficultyLevel ?? "";
         newRow.exercisePhases = d.exercisePhases ?? [];
         newRow.musclesTargeted = (d.musclesTargeted ?? []).join(", ");
@@ -254,6 +257,7 @@ export function BulkImportForm() {
         newRow.commonMistakes = d.commonMistakes ?? "";
         newRow.defaultSets = String(d.defaultSets ?? 3);
         newRow.defaultReps = String(d.defaultReps ?? 10);
+        newRow.isAssessment = d.isAssessment ?? false;
         newRow.aiStatus = "done";
 
         setRows((prev) => [...prev, newRow]);
@@ -429,6 +433,16 @@ export function BulkImportForm() {
     setRows((prev) => prev.filter((r) => r.rowId !== rowId));
   }
 
+  function toggleBodyRegion(rowId: string, region: string) {
+    setRows((prev) =>
+      prev.map((r) => {
+        if (r.rowId !== rowId) return r;
+        const has = r.bodyRegion.includes(region);
+        return { ...r, bodyRegion: has ? r.bodyRegion.filter((v) => v !== region) : [...r.bodyRegion, region] };
+      })
+    );
+  }
+
   function toggleEquipment(rowId: string, item: string) {
     setRows((prev) =>
       prev.map((r) => {
@@ -455,7 +469,7 @@ export function BulkImportForm() {
         aiStatus: "done",
         description: d.description ?? "",
         instructions: d.instructions ?? "",
-        bodyRegion: d.bodyRegion ?? "",
+        bodyRegion: d.bodyRegion ?? [],
         difficultyLevel: d.difficultyLevel ?? "",
         exercisePhases: d.exercisePhases ?? [],
         musclesTargeted: (d.musclesTargeted ?? []).join(", "),
@@ -464,6 +478,7 @@ export function BulkImportForm() {
         commonMistakes: d.commonMistakes ?? "",
         defaultSets: String(d.defaultSets ?? 3),
         defaultReps: String(d.defaultReps ?? 10),
+        isAssessment: d.isAssessment ?? false,
       });
       toast.success(`Metadata generated for "${row.name}"`);
     } catch {
@@ -474,10 +489,10 @@ export function BulkImportForm() {
 
   // ── Publish ─────────────────────────────────────────────────────────────────
 
-  const readyCount = rows.filter((r) => r.name.trim() && r.bodyRegion && r.difficultyLevel).length;
+  const readyCount = rows.filter((r) => r.name.trim() && r.bodyRegion.length > 0 && r.difficultyLevel).length;
 
   async function handlePublish() {
-    const ready = rows.filter((r) => r.name.trim() && r.bodyRegion && r.difficultyLevel);
+    const ready = rows.filter((r) => r.name.trim() && r.bodyRegion.length > 0 && r.difficultyLevel);
     if (!ready.length) { toast.error("Each exercise needs a name, body region, and difficulty"); return; }
     setPublishing(true);
     const payload: BulkExerciseInput[] = ready.map((r) => ({
@@ -487,6 +502,7 @@ export function BulkImportForm() {
       bodyRegion: r.bodyRegion,
       difficultyLevel: r.difficultyLevel,
       exercisePhases: r.exercisePhases,
+      isAssessment: r.isAssessment,
       musclesTargeted: r.musclesTargeted.split(",").map((s) => s.trim()).filter(Boolean),
       equipmentRequired: r.equipmentRequired,
       contraindications: r.contraindications.split(",").map((s) => s.trim()).filter(Boolean),
@@ -868,6 +884,7 @@ export function BulkImportForm() {
                 onRemove={() => removeRow(row.rowId)}
                 onGenerate={() => generateMetadata(row.rowId)}
                 onToggleEquipment={(item) => toggleEquipment(row.rowId, item)}
+                onToggleBodyRegion={(region) => toggleBodyRegion(row.rowId, region)}
               />
             ))}
           </div>
@@ -910,10 +927,11 @@ interface RowProps {
   onRemove: () => void;
   onGenerate: () => void;
   onToggleEquipment: (item: string) => void;
+  onToggleBodyRegion: (region: string) => void;
 }
 
-function ExerciseRowCard({ row, index, onUpdate, onRemove, onGenerate, onToggleEquipment }: RowProps) {
-  const isReady = !!(row.name.trim() && row.bodyRegion && row.difficultyLevel);
+function ExerciseRowCard({ row, index, onUpdate, onRemove, onGenerate, onToggleEquipment, onToggleBodyRegion }: RowProps) {
+  const isReady = !!(row.name.trim() && row.bodyRegion.length > 0 && row.difficultyLevel);
   const isYT = isYouTubeUrl(row.videoUrl);
 
   return (
@@ -930,6 +948,11 @@ function ExerciseRowCard({ row, index, onUpdate, onRemove, onGenerate, onToggleE
         )}
         <p className="flex-1 truncate text-sm text-muted-foreground">{row.videoFileName || row.videoUrl}</p>
         {isReady && <CheckCircle2 className="h-4 w-4 shrink-0 text-green-500" />}
+        {row.isAssessment && (
+          <Badge variant="outline" className="shrink-0 gap-1 border-blue-300 bg-blue-50 text-xs text-blue-700">
+            <ClipboardCheck className="h-3 w-3" /> Assessment
+          </Badge>
+        )}
         {row.aiStatus === "done" && (
           <Badge variant="secondary" className="shrink-0 gap-1 text-xs">
             <Sparkles className="h-3 w-3" /> AI filled
@@ -973,14 +996,30 @@ function ExerciseRowCard({ row, index, onUpdate, onRemove, onGenerate, onToggleE
       {/* Expanded fields */}
       {row.expanded && (
         <div className="space-y-4 border-t px-4 pb-5 pt-4">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label className="text-xs font-medium">Body Region *</Label>
-              <select value={row.bodyRegion} onChange={(e) => onUpdate({ bodyRegion: e.target.value })} className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm">
-                <option value="">Select…</option>
-                {BODY_REGIONS.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
-              </select>
+          <div className="space-y-1.5">
+            <Label className="text-xs font-medium">Body Region *</Label>
+            <div className="flex flex-wrap gap-1.5">
+              {BODY_REGIONS.map((r) => {
+                const active = row.bodyRegion.includes(r.value);
+                return (
+                  <button
+                    key={r.value}
+                    type="button"
+                    onClick={() => onToggleBodyRegion(r.value)}
+                    className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${
+                      active
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-background text-muted-foreground border-border hover:border-primary/60 hover:text-foreground"
+                    }`}
+                  >
+                    {r.label}
+                  </button>
+                );
+              })}
             </div>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label className="text-xs font-medium">Difficulty *</Label>
               <select value={row.difficultyLevel} onChange={(e) => onUpdate({ difficultyLevel: e.target.value })} className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm">
@@ -1013,6 +1052,26 @@ function ExerciseRowCard({ row, index, onUpdate, onRemove, onGenerate, onToggleE
                   );
                 })}
               </div>
+            </div>
+          </div>
+
+          {/* Assessment exercise toggle */}
+          <div className="flex items-start gap-3 rounded-lg border border-blue-200 bg-blue-50/60 p-3">
+            <Checkbox
+              id={`isAssessment-${row.rowId}`}
+              checked={row.isAssessment}
+              onCheckedChange={(checked) => onUpdate({ isAssessment: checked === true })}
+              className="mt-0.5"
+            />
+            <div className="space-y-0.5">
+              <Label htmlFor={`isAssessment-${row.rowId}`} className="flex items-center gap-1.5 text-xs font-medium">
+                <ClipboardCheck className="h-3.5 w-3.5 text-blue-600" />
+                Assessment exercise
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                Evaluates a client (e.g. a movement screen or timed test) rather than trains them —
+                excluded from AI-generated programs and the add-exercise picker.
+              </p>
             </div>
           </div>
 
