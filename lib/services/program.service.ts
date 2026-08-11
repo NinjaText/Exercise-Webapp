@@ -166,7 +166,7 @@ export async function getPrograms(
 ) {
   const where: Prisma.ProgramWhereInput = {
     trainerId,
-    isGlobal: false,
+    isGlobal: { not: true },
     ...(filters.status && { status: filters.status as PlanStatus }),
     ...(filters.isTemplate !== undefined && { isTemplate: filters.isTemplate }),
     ...(filters.clientId && { clientId: filters.clientId }),

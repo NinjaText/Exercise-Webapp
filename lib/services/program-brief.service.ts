@@ -355,6 +355,7 @@ Never invent specific exercises here — only these fields.`;
   const response = await openai.chat.completions.create({
     model: 'gpt-4o',
     max_tokens: 1000,
+    temperature: 0,
     response_format: { type: 'json_schema', json_schema: BRIEF_METADATA_SCHEMA },
     messages: [
       { role: 'system', content: systemPrompt },
@@ -451,6 +452,7 @@ This is chunk ${chunkIndex + 1} of ${totalChunks}.${continuityNote ? ` ${continu
     // mid-response for chunks with many sessions — raised close to gpt-4o's
     // 16,384-token output ceiling so a full chunk's worth of sessions fits.
     max_tokens: 16000,
+    temperature: 0,
     response_format: { type: 'json_schema', json_schema: CHUNK_EXTRACTION_SCHEMA },
     messages: [
       { role: 'system', content: systemPrompt },
