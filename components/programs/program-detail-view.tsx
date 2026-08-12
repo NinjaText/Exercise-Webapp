@@ -113,7 +113,9 @@ export function ProgramDetailView({
     const prefix = (base.setType as string) !== "NORMAL" ? `${base.setType as string} ` : "";
     const reps = (base.targetReps as number) ? `${base.targetReps as number} reps` : "";
     const weight = (base.targetWeight as number) ? ` @ ${base.targetWeight as number}lb` : "";
-    const dur = (base.targetDuration as number) ? ` ${base.targetDuration as number}s` : "";
+    const dur = (base.targetDuration as number)
+      ? ` ${base.targetDuration as number}${(base.targetDurationUnit as string) === "MIN" ? "min" : "s"}`
+      : "";
     const rpe = (base.targetRPE as number) ? ` RPE ${base.targetRPE as number}` : "";
     const detail = `${prefix}${reps}${weight}${dur}${rpe}`.trim();
     if (allSame && sets.length > 1) return `${count} × ${detail}`;
@@ -123,7 +125,9 @@ export function ProgramDetailView({
         const p = (s.setType as string) !== "NORMAL" ? `${s.setType as string} ` : "";
         const r = (s.targetReps as number) ? `${s.targetReps as number} reps` : "";
         const w = (s.targetWeight as number) ? ` @ ${s.targetWeight as number}lb` : "";
-        const d = (s.targetDuration as number) ? ` ${s.targetDuration as number}s` : "";
+        const d = (s.targetDuration as number)
+          ? ` ${s.targetDuration as number}${(s.targetDurationUnit as string) === "MIN" ? "min" : "s"}`
+          : "";
         return `${p}${r}${w}${d}`.trim();
       })
       .join(" | ");

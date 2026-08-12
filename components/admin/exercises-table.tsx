@@ -187,7 +187,7 @@ export function AdminExercisesTable({ exercises, total, totalPages, page, search
                       : <span className="text-xs text-muted-foreground/40">—</span>}
                   </td>
                   <td className="px-5 py-3 hidden lg:table-cell">
-                    <span className="text-xs text-muted-foreground">{diffLabel[ex.difficultyLevel] ?? ex.difficultyLevel}</span>
+                    <span className="text-xs text-muted-foreground">{ex.difficultyLevel ? (diffLabel[ex.difficultyLevel] ?? ex.difficultyLevel) : "—"}</span>
                   </td>
                   <td className="px-5 py-3 hidden xl:table-cell">
                     {ex.createdBy ? (

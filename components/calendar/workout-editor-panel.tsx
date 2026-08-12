@@ -1,5 +1,6 @@
 import {  getClientExerciseHistory } from "@/actions/exercise-history-actions";
 import { cn } from "@/lib/utils";
+import { hasRealVideoUrl } from "@/lib/utils/video";
 import { useClipboard, stripIds } from "@/lib/clipboard-context";
 import { useBuilderKeyboard } from "@/hooks/use-builder-keyboard";
 import {
@@ -31,6 +32,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ExercisePickerDialog } from "@/components/programs/exercise-picker-dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import type { ExerciseSourcePreference } from "@/lib/utils/exercise-picker";
 import type { SessionWithFullWorkout } from "@/actions/calendar-workout-actions";
 import {
@@ -78,7 +86,7 @@ type ExerciseSummary = {
   id: string;
   name: string;
   bodyRegion: string[];
-  difficultyLevel: string;
+  difficultyLevel: string | null;
   defaultReps?: number | null;
   targetRPE?: number | null;
   targetPercentage1RM?: number | null;
@@ -286,6 +294,7 @@ function SortableExercise({
   blockLetter,
   isCircuit,
   onSetChange,
+  onSetUnitChange,
   onDeleteSet,
   onDeleteExercise,
   onAddSet,
@@ -370,7 +379,7 @@ function SortableExercise({
                 <span className="font-semibold text-sm truncate">
                   {exercise.exercise.name}
                 </span>
-                {exercise.exercise.videoUrl && (
+                {hasRealVideoUrl(exercise.exercise.videoUrl) && (
                   <span className="text-[10px] bg-secondary px-1.5 py-0.5 rounded-sm font-medium shrink-0">
                     Video
                   </span>
@@ -427,7 +436,7 @@ function SortableExercise({
           without a further click. The video preview stays behind the expand
           toggle to avoid loading an iframe per exercise on open. */}
       <div className="ml-[2.75rem] mt-3 pl-2 border-l-2 border-muted/50">
-          {expanded && exercise.exercise.videoUrl && (
+          {expanded && hasRealVideoUrl(exercise.exercise.videoUrl) && (
             <div className="mb-3 w-full max-w-[280px] aspect-video rounded-md overflow-hidden bg-black/10">
               <UniversalVideoPlayer
                 url={exercise.exercise.videoUrl}
@@ -484,14 +493,29 @@ function SortableExercise({
                     placeholder="Reps"
                     disabled={isCompleted}
                   />
-                  <Input
-                    type="number"
-                    value={set.targetDuration ?? ""}
-                    onChange={(e) => onSetChange(blockIndex, exerciseIndex, setIndex, "targetDuration", e.target.value)}                                              
-                    className="h-6 text-[10px] px-1.5 text-muted-foreground bg-transparent shadow-none border-transparent hover:border-border focus:border-ring focus-visible:ring-1 disabled:opacity-50 disabled:cursor-not-allowed"
-                    placeholder="Secs"
-                    disabled={isCompleted}
-                  />
+                  <div className="flex gap-1">
+                    <Input
+                      type="number"
+                      value={set.targetDuration ?? ""}
+                      onChange={(e) => onSetChange(blockIndex, exerciseIndex, setIndex, "targetDuration", e.target.value)}
+                      className="h-6 text-[10px] px-1.5 text-muted-foreground bg-transparent shadow-none border-transparent hover:border-border focus:border-ring focus-visible:ring-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                      placeholder="Duration"
+                      disabled={isCompleted}
+                    />
+                    <Select
+                      value={set.targetDurationUnit || "SEC"}
+                      onValueChange={(v) => onSetUnitChange(blockIndex, exerciseIndex, setIndex, "targetDurationUnit", v)}
+                      disabled={isCompleted}
+                    >
+                      <SelectTrigger className="h-6 text-[10px] px-1.5 w-12 shrink-0 shadow-none border-transparent hover:border-border focus:border-ring disabled:opacity-50 disabled:cursor-not-allowed">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="SEC">sec</SelectItem>
+                        <SelectItem value="MIN">min</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                   {isCompleted && actualLog && (actualLog.actualReps != null || actualLog.actualDuration != null) && (
                      <div className="absolute -right-2 -top-2 flex gap-0.5 z-10" title="Actual Performance">
                        <Badge variant="outline" className="px-1 py-0 h-4 text-[9px] shadow-sm flex items-center gap-0.5">
@@ -762,7 +786,7 @@ export function WorkoutEditorPanel({
   const debouncedUpdateSet = useDebouncedCallback(
     async (
       setId: string,
-      data: { targetReps?: number | null; targetWeight?: number | null; targetPercentage1RM?: number | null; targetDuration?: number | null; targetRPE?: number | null; tempo?: string | null; restAfter?: number | null; }
+      data: { targetReps?: number | null; targetWeight?: number | null; targetPercentage1RM?: number | null; targetDuration?: number | null; targetDurationUnit?: string | null; targetRPE?: number | null; tempo?: string | null; restAfter?: number | null; }
     ) => {
       setSavingSetIds((prev) => new Set(prev).add(setId));
       try {
@@ -807,6 +831,35 @@ export function WorkoutEditorPanel({
     setSession(updatedSession);
 
     debouncedUpdateSet(targetSet.id, { [field]: numValue } as never);
+  }
+
+  // Update local set data (string-valued fields, e.g. Select controls) and trigger debounced save.
+  // Mirrors handleSetChange's local-state-update + debouncedUpdateSet mechanism, but the incoming
+  // value is already the raw string (from onValueChange), so no Number() coercion is applied.
+  function handleSetUnitChange(
+    blockIndex: number,
+    exerciseIndex: number,
+    setIndex: number,
+    field: string,
+    value: string
+  ) {
+    if (!session) return;
+    const updatedSession = { ...session };
+    const blocks = [...updatedSession.workout.blocks];
+    const block = { ...blocks[blockIndex] };
+    const exercises = [...block.exercises];
+    const exercise = { ...exercises[exerciseIndex] };
+    const sets = [...exercise.sets];
+    const targetSet = { ...sets[setIndex], [field]: value };
+    sets[setIndex] = targetSet;
+    exercise.sets = sets;
+    exercises[exerciseIndex] = exercise;
+    block.exercises = exercises;
+    blocks[blockIndex] = block;
+    updatedSession.workout = { ...updatedSession.workout, blocks };
+    setSession(updatedSession);
+
+    debouncedUpdateSet(targetSet.id, { [field]: value } as never);
   }
 
   // Add block
@@ -1543,6 +1596,7 @@ export function WorkoutEditorPanel({
                                   sessionStatus={session.status}
                                   exerciseLog={session.exerciseLogs?.find((l: any) => l.blockExerciseId === exercise.id)}
                                   onSetChange={handleSetChange}
+                                  onSetUnitChange={handleSetUnitChange}
                                   onDeleteSet={handleDeleteSet}
                                   onDeleteExercise={handleDeleteExercise}
                                   onAddSet={handleAddSet}

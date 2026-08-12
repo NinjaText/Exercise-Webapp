@@ -309,8 +309,8 @@ export async function bulkDeleteExercisesAction(exerciseIds: string[]) {
 export async function createOrganizationExerciseAction(input: {
   name: string;
   description?: string;
-  bodyRegion: string[];
-  difficultyLevel: string;
+  bodyRegion?: string[];
+  difficultyLevel?: string;
   videoUrl?: string;
   isPublic: boolean;
   exercisePhases?: string[];
@@ -328,8 +328,10 @@ export async function createOrganizationExerciseAction(input: {
     const exercise = await exerciseService.createExercise({
       name: input.name.trim(),
       description: input.description?.trim() || undefined,
-      bodyRegion: input.bodyRegion as BodyRegion[],
-      difficultyLevel: input.difficultyLevel as DifficultyLevel,
+      bodyRegion: (input.bodyRegion ?? []) as BodyRegion[],
+      difficultyLevel: input.difficultyLevel
+        ? (input.difficultyLevel as DifficultyLevel)
+        : undefined,
       equipmentRequired: [],
       contraindications: [],
       videoUrl: input.videoUrl?.trim() || undefined,

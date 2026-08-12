@@ -44,7 +44,9 @@ export default async function ExerciseDetailPage({ params }: Props) {
                 {exercise.bodyRegion.map((region) => (
                   <Badge key={region} variant="secondary">{formatBodyRegion(region)}</Badge>
                 ))}
-                <Badge variant="secondary">{formatDifficulty(exercise.difficultyLevel)}</Badge>
+                {exercise.difficultyLevel && (
+                  <Badge variant="secondary">{formatDifficulty(exercise.difficultyLevel)}</Badge>
+                )}
                 {exercise.exercisePhases?.map((phase) => (
                   <Badge key={phase} className="bg-indigo-100 text-indigo-700 border-0">
                     {phase.charAt(0) + phase.slice(1).toLowerCase()}

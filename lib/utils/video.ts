@@ -77,3 +77,9 @@ export function extractYouTubePlaylistId(url: string): string | null {
 export function isYouTubePlaylistUrl(url: string): boolean {
   return extractYouTubePlaylistId(url) !== null;
 }
+
+export function hasRealVideoUrl(url: string | null | undefined): boolean {
+  if (!url) return false;
+  if (isYouTubeUrl(url)) return extractYouTubeId(url) !== null;
+  return true; // non-YouTube URL (e.g. Vimeo) — assume real, no ID-extraction available
+}

@@ -64,3 +64,28 @@ single-region seed data the old scalar-shaped render still happened to look corr
 declaring a field-shape migration complete, also grep for `: any` (and `as any`) prop/parameter
 boundaries anywhere near components that consume the migrated field, and manually check the local
 types on the *far side* of each one — tsc's silence there is not evidence.
+
+**Contravariant-callback cascade (seen during the `difficultyLevel: string` → `string | null`
+migration in `.superpowers/sdd/2026-08-12-program-builder-fixes/`):** fixing a duplicate-type site can
+*surface a brand-new error elsewhere* that a first `tsc --noEmit` pass didn't show, because function
+parameters are checked contravariantly. Concretely: `exercise-picker-dialog.tsx` has a local `Exercise`
+interface and an `onSelect: (exercise: Exercise) => void` prop. Widening `Exercise.difficultyLevel` to
+`string | null` was necessary and correct — but it then broke every caller that passes a *narrower*
+callback into `onSelect`, e.g. `workout-editor-panel.tsx`'s `handleExerciseSelected: (ex:
+ExerciseSummary) => Promise<void>` and `program-builder.tsx`'s `addExerciseToBlock`, both of which had
+their own stale `ExerciseSummary`/inline-Props type still saying `difficultyLevel: string`. Once
+`Exercise` allows null but `ExerciseSummary` doesn't, `ExerciseSummary` is no longer a valid supertype
+and the callback assignment fails — pointing at the *caller's* `onSelect={...}` line, not at the
+picker file itself. **How to apply:** after widening a locally-duplicated type in a "leaf" component
+that's used via a callback prop (`onSelect`, `onChange`, etc.), always re-run `tsc --noEmit` again — a
+clean first pass can still hide second-order errors that only appear once an earlier fix lands. Don't
+assume the compiler's first error list is complete; iterate until a pass comes back with zero new
+errors, not just zero of the *originally listed* ones.
+
+**Type assertions (`as SomeLocalType[]`) suppress the safety net.** `program-schedule-view.tsx` casts
+`res.data as LibraryExercise[]` where `LibraryExercise.difficultyLevel: string` (non-null) — this
+never surfaced as a tsc error during the same migration because the assertion tells the compiler to
+stop checking. It's a legitimate no-op to leave alone *if* grepping confirms the field is never
+rendered from that array (it wasn't, here — only `defaultReps`/`defaultSets`/`defaultHoldSeconds` were
+read off it) — but always verify with a render-site grep rather than trusting tsc's silence, same as
+the `any`-boundary case above.

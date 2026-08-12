@@ -84,6 +84,7 @@ async function createProgramFromGeneratedPlan(params: {
       trainerId,
       clientId: clientId ?? null,
       status: clientId ? "ACTIVE" : "DRAFT",
+      programType: typeof aiGenerationParams.programMode === "string" ? aiGenerationParams.programMode : null,
       durationWeeks,
       daysPerWeek,
       startDate: sDate ?? undefined,

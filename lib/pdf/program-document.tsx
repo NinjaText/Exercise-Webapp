@@ -30,7 +30,9 @@ function formatSets(sets: Record<string, unknown>[]): string {
   const first = sets[0]
   const reps = first.targetReps ? `${first.targetReps} reps` : ''
   const weight = first.targetWeight ? ` @ ${first.targetWeight}lb` : ''
-  const dur = first.targetDuration ? ` ${first.targetDuration}s` : ''
+  const dur = first.targetDuration
+    ? ` ${first.targetDuration}${first.targetDurationUnit === 'MIN' ? 'min' : 's'}`
+    : ''
   const detail = `${reps}${weight}${dur}`.trim()
   return sets.length > 1 ? `${sets.length} × ${detail}` : detail
 }

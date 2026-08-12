@@ -43,7 +43,7 @@ interface PickerExercise {
   id: string;
   name: string;
   bodyRegion: string[];
-  difficultyLevel: string;
+  difficultyLevel: string | null;
   defaultReps: number | null;
   musclesTargeted: string[];
   description: string | null;

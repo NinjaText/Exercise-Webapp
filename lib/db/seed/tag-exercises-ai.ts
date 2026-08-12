@@ -19,7 +19,7 @@ async function tagBatch(exercises: {
   musclesTargeted: string[]
   contraindications: string[]
   exercisePhases: string[]
-  difficultyLevel: string
+  difficultyLevel: string | null
 }[]): Promise<TaggingResult[]> {
   const exerciseList = exercises
     .map(
@@ -30,7 +30,7 @@ Description: ${e.description ?? 'N/A'}
 Muscles: ${e.musclesTargeted.join(', ')}
 Contraindications: ${e.contraindications.join(', ') || 'None'}
 Phase: ${e.exercisePhases.length ? e.exercisePhases.join(', ') : 'N/A'}
-Difficulty: ${e.difficultyLevel}`
+Difficulty: ${e.difficultyLevel ?? 'Not set'}`
     )
     .join('\n\n---\n\n')
 

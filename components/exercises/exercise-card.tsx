@@ -13,12 +13,13 @@ import { formatBodyRegion, formatDifficulty } from "@/lib/utils/formatting";
 import { toggleExercisePublicAction, adoptUniversalExerciseAction } from "@/actions/exercise-actions";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { hasRealVideoUrl } from "@/lib/utils/video";
 
 interface ExerciseCardProps {
   id: string;
   name: string;
   bodyRegion: string[];
-  difficultyLevel: string;
+  difficultyLevel: string | null;
   exercisePhases?: string[];
   equipmentRequired: string[];
   description?: string | null;
@@ -69,10 +70,12 @@ export function ExerciseCard({
     !!organizationOrganizationId &&
     organizationId === organizationOrganizationId;
 
-  const difficulty = difficultyConfig[difficultyLevel] ?? {
-    label: formatDifficulty(difficultyLevel),
-    className: "bg-muted text-muted-foreground border-border",
-  };
+  const difficulty = difficultyLevel
+    ? difficultyConfig[difficultyLevel] ?? {
+        label: formatDifficulty(difficultyLevel),
+        className: "bg-muted text-muted-foreground border-border",
+      }
+    : null;
   const phases = (exercisePhases ?? []).map(
     (p) => phaseConfig[p] ?? { label: p, className: "bg-black/60 text-white" }
   );
@@ -137,7 +140,7 @@ export function ExerciseCard({
             </div>
           )}
           <div className="ml-auto flex items-center gap-1.5">
-            {videoUrl && (
+            {hasRealVideoUrl(videoUrl) && (
               <span className="flex items-center gap-1 rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-semibold text-white backdrop-blur-sm">
                 <PlayCircle className="h-3 w-3" />Video
               </span>
@@ -156,9 +159,11 @@ export function ExerciseCard({
               {name}
             </h3>
           </Link>
-          <Badge className={`shrink-0 border text-[10px] font-semibold ${difficulty.className}`}>
-            {difficulty.label}
-          </Badge>
+          {difficulty && (
+            <Badge className={`shrink-0 border text-[10px] font-semibold ${difficulty.className}`}>
+              {difficulty.label}
+            </Badge>
+          )}
         </div>
 
         <p className="mt-1 text-xs font-medium text-muted-foreground/70">{bodyRegion.map(formatBodyRegion).join(", ")}</p>

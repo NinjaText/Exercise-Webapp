@@ -23,8 +23,9 @@ import {
 import { Search, Play, X, Plus, ArrowLeft, Globe, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { UniversalVideoPlayer } from "@/components/exercises/universal-video-player";
+import { YouTubeVideoSearch } from "@/components/exercises/youtube-video-search";
 import { createOrganizationExerciseAction, toggleExercisePublicAction } from "@/actions/exercise-actions";
-import { isYouTubeUrl } from "@/lib/utils/video";
+import { isYouTubeUrl, hasRealVideoUrl } from "@/lib/utils/video";
 import { toast } from "sonner";
 import { resolvePickerTabs, type ExerciseSourcePreference } from "@/lib/utils/exercise-picker";
 
@@ -32,7 +33,7 @@ interface Exercise {
   id: string;
   name: string;
   bodyRegion: string[];
-  difficultyLevel: string;
+  difficultyLevel: string | null;
   defaultReps?: number | null;
   musclesTargeted?: string[];
   description?: string | null;
@@ -169,7 +170,7 @@ function ExerciseList({
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <span className="font-medium text-sm">{ex.name}</span>
-                  {ex.videoUrl && (
+                  {hasRealVideoUrl(ex.videoUrl) && (
                     <span
                       className="inline-flex items-center gap-0.5 text-[10px] bg-blue-50 text-blue-600 border border-blue-200 px-1.5 py-0.5 rounded-sm font-medium shrink-0 hover:bg-blue-100 cursor-pointer"
                       onClick={(e) => { e.stopPropagation(); onPreview(ex); }}
@@ -202,9 +203,11 @@ function ExerciseList({
                       {region.replace(/_/g, " ")}
                     </Badge>
                   ))}
-                  <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0", DIFFICULTY_COLORS[ex.difficultyLevel])}>
-                    {ex.difficultyLevel}
-                  </Badge>
+                  {ex.difficultyLevel && (
+                    <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0", DIFFICULTY_COLORS[ex.difficultyLevel])}>
+                      {ex.difficultyLevel}
+                    </Badge>
+                  )}
                   {ex.exercisePhases?.filter((p) => p !== "STRENGTHENING").map((p) => (
                     <Badge key={p} variant="outline" className="text-[10px] px-1.5 py-0 bg-purple-50 text-purple-700 border-purple-200">
                       {p.charAt(0) + p.slice(1).toLowerCase()}
@@ -297,7 +300,7 @@ function CreateExerciseFields({
       </div>
 
       <div className="space-y-1.5">
-        <Label className="text-xs font-semibold">Body Region *</Label>
+        <Label className="text-xs font-semibold">Body Region</Label>
         <div className="flex flex-wrap gap-1.5">
           {REGIONS.map((r) => {
             const active = form.bodyRegion.includes(r.value);
@@ -324,10 +327,11 @@ function CreateExerciseFields({
       </div>
 
       <div className="space-y-1.5">
-        <Label className="text-xs font-semibold">Difficulty *</Label>
-        <Select value={form.difficultyLevel} onValueChange={(v) => setForm((f) => ({ ...f, difficultyLevel: v ?? f.difficultyLevel }))}>
+        <Label className="text-xs font-semibold">Difficulty</Label>
+        <Select value={form.difficultyLevel || "UNSET"} onValueChange={(v) => setForm((f) => ({ ...f, difficultyLevel: (v === "UNSET" ? "" : v) as string }))}>
           <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Select..." /></SelectTrigger>
           <SelectContent>
+            <SelectItem value="UNSET">Not set</SelectItem>
             <SelectItem value="BEGINNER">Beginner</SelectItem>
             <SelectItem value="INTERMEDIATE">Intermediate</SelectItem>
             <SelectItem value="ADVANCED">Advanced</SelectItem>
@@ -399,11 +403,13 @@ export function ExercisePickerDialog({
 
   const [aiForm, setAiForm] = useState(emptyFormShape());
   const [aiVideoUrl, setAiVideoUrl] = useState("");
+  const [aiVideoMode, setAiVideoMode] = useState<"paste" | "search">("search");
   const [aiContext, setAiContext] = useState<"CLINICAL" | "PERFORMANCE">("CLINICAL");
   const [aiStatus, setAiStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [aiError, setAiError] = useState<string | null>(null);
 
   const [manualForm, setManualForm] = useState(emptyFormShape());
+  const [manualVideoMode, setManualVideoMode] = useState<"paste" | "search">("search");
 
   const allExercises = useMemo(
     () => [...exercises, ...localExercises].map((ex) =>
@@ -506,9 +512,10 @@ export function ExercisePickerDialog({
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
+    e.stopPropagation();
     const form = createTab === "ai" ? aiForm : manualForm;
-    if (!form.name || form.bodyRegion.length === 0 || !form.difficultyLevel) {
-      toast.error("Name, body region, and difficulty are required");
+    if (!form.name.trim()) {
+      toast.error("Name is required");
       return;
     }
 
@@ -516,8 +523,8 @@ export function ExercisePickerDialog({
       const result = await createOrganizationExerciseAction({
         name: form.name,
         description: form.description || undefined,
-        bodyRegion: form.bodyRegion,
-        difficultyLevel: form.difficultyLevel,
+        bodyRegion: form.bodyRegion.length ? form.bodyRegion : undefined,
+        difficultyLevel: form.difficultyLevel || undefined,
         exercisePhases: form.exercisePhases,
         videoUrl: form.videoUrl || undefined,
         isPublic: form.isPublic,
@@ -528,7 +535,7 @@ export function ExercisePickerDialog({
           id: result.data.id,
           name: result.data.name,
           bodyRegion: result.data.bodyRegion,
-          difficultyLevel: result.data.difficultyLevel,
+          difficultyLevel: result.data.difficultyLevel || "",
           exercisePhases: result.data.exercisePhases ?? [],
           videoUrl: result.data.videoUrl ?? null,
           videoProvider: result.data.videoProvider ?? null,
@@ -610,25 +617,39 @@ export function ExercisePickerDialog({
                       </div>
                     </div>
                     <div className="space-y-1.5">
-                      <Label htmlFor="ai-video" className="text-xs font-semibold">YouTube Video URL</Label>
-                      <div className="flex gap-2">
-                        <Input
-                          id="ai-video"
-                          value={aiVideoUrl}
-                          onChange={(e) => setAiVideoUrl(e.target.value)}
-                          placeholder="https://www.youtube.com/watch?v=..."
-                          className="h-8 text-sm flex-1"
-                        />
-                        <Button
-                          type="button"
-                          size="sm"
-                          className="h-8 text-xs shrink-0"
-                          disabled={!isYouTubeUrl(aiVideoUrl) || aiStatus === "loading"}
-                          onClick={handleGenerateWithAi}
-                        >
-                          {aiStatus === "loading" ? "Generating..." : "Generate with AI"}
-                        </Button>
-                      </div>
+                      <Label className="text-xs font-semibold">Video</Label>
+                      <Tabs value={aiVideoMode} onValueChange={(v) => setAiVideoMode(v as "paste" | "search")}>
+                        <TabsList className="grid grid-cols-2 h-7">
+                          <TabsTrigger value="search" className="text-xs">Search YouTube</TabsTrigger>
+                          <TabsTrigger value="paste" className="text-xs">Paste URL</TabsTrigger>
+                        </TabsList>
+                        <TabsContent value="search" className="mt-2">
+                          <YouTubeVideoSearch
+                            onSelect={(v) => setAiVideoUrl(v.videoUrl)}
+                          />
+                          {aiVideoUrl && isYouTubeUrl(aiVideoUrl) && (
+                            <p className="text-xs text-muted-foreground mt-1">Selected: {aiVideoUrl}</p>
+                          )}
+                        </TabsContent>
+                        <TabsContent value="paste" className="mt-2">
+                          <Input
+                            id="ai-video"
+                            value={aiVideoUrl}
+                            onChange={(e) => setAiVideoUrl(e.target.value)}
+                            placeholder="https://www.youtube.com/watch?v=..."
+                            className="h-8 text-sm"
+                          />
+                        </TabsContent>
+                      </Tabs>
+                      <Button
+                        type="button"
+                        size="sm"
+                        className="h-8 text-xs w-full"
+                        disabled={!isYouTubeUrl(aiVideoUrl) || aiStatus === "loading"}
+                        onClick={handleGenerateWithAi}
+                      >
+                        {aiStatus === "loading" ? "Generating..." : "Generate with AI"}
+                      </Button>
                       {aiStatus === "error" && (
                         <p className="text-xs text-destructive">{aiError} — check the link and try again.</p>
                       )}
@@ -652,14 +673,30 @@ export function ExercisePickerDialog({
                   <form onSubmit={handleCreate} className="space-y-4">
                     <CreateExerciseFields form={manualForm} setForm={setManualForm} />
                     <div className="space-y-1.5">
-                      <Label htmlFor="ex-video" className="text-xs font-semibold">Video URL</Label>
-                      <Input
-                        id="ex-video"
-                        value={manualForm.videoUrl}
-                        onChange={(e) => setManualForm((f) => ({ ...f, videoUrl: e.target.value }))}
-                        placeholder="YouTube or Vimeo URL"
-                        className="h-8 text-sm"
-                      />
+                      <Label className="text-xs font-semibold">Video</Label>
+                      <Tabs value={manualVideoMode} onValueChange={(v) => setManualVideoMode(v as "paste" | "search")}>
+                        <TabsList className="grid grid-cols-2 h-7">
+                          <TabsTrigger value="search" className="text-xs">Search YouTube</TabsTrigger>
+                          <TabsTrigger value="paste" className="text-xs">Paste URL</TabsTrigger>
+                        </TabsList>
+                        <TabsContent value="search" className="mt-2">
+                          <YouTubeVideoSearch
+                            onSelect={(v) => setManualForm((f) => ({ ...f, videoUrl: v.videoUrl }))}
+                          />
+                          {manualForm.videoUrl && (
+                            <p className="text-xs text-muted-foreground mt-1">Selected: {manualForm.videoUrl}</p>
+                          )}
+                        </TabsContent>
+                        <TabsContent value="paste" className="mt-2">
+                          <Input
+                            id="ex-video"
+                            value={manualForm.videoUrl}
+                            onChange={(e) => setManualForm((f) => ({ ...f, videoUrl: e.target.value }))}
+                            placeholder="YouTube or Vimeo URL"
+                            className="h-8 text-sm"
+                          />
+                        </TabsContent>
+                      </Tabs>
                     </div>
                     <div className="flex gap-2 pt-2">
                       <Button type="button" variant="outline" className="flex-1 h-8 text-xs" onClick={() => setView("list")}>Cancel</Button>

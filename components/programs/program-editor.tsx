@@ -46,7 +46,7 @@ interface Props {
     id: string;
     name: string;
     bodyRegion: string[];
-    difficultyLevel: string;
+    difficultyLevel: string | null;
     defaultReps?: number | null;
     musclesTargeted?: string[];
     imageUrl?: string | null;
@@ -88,6 +88,10 @@ function mapWorkoutToInput(w: Record<string, unknown>): WorkoutInput {
           id: e.id as string,
           exerciseId: e.exerciseId as string,
           orderIndex: ei,
+          activityType: ((e.activityType as string) || "STRENGTH") as
+            | "STRENGTH"
+            | "RUN"
+            | "INTERVAL_RUN",
           restSeconds: e.restSeconds as number | null | undefined,
           notes: e.notes as string | null | undefined,
           supersetGroup: e.supersetGroup as string | null | undefined,
@@ -144,6 +148,7 @@ export function ProgramEditor({ program, exercises, onSave, redirectTo, organiza
       name: (program?.name as string) || "",
       description: (program?.description as string) || "",
       isTemplate: (program?.isTemplate as boolean) || false,
+      programType: (program?.programType as "PERFORMANCE" | "CLINICAL" | null) || null,
       durationWeeks: (program?.durationWeeks as number) || undefined,
       daysPerWeek: (program?.daysPerWeek as number) || undefined,
       tags: (program?.tags as string[]) || [],
@@ -265,6 +270,31 @@ export function ProgramEditor({ program, exercises, onSave, redirectTo, organiza
                       placeholder="e.g., 12-Week Strength Program"
                       {...field}
                     />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="programType"
+              render={({ field }) => (
+                <FormItem className="sm:col-span-2">
+                  <FormLabel>Program Type</FormLabel>
+                  <FormControl>
+                    <Select
+                      value={field.value || "UNSET"}
+                      onValueChange={(v) => field.onChange(v === "UNSET" ? null : v)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="UNSET">Not set</SelectItem>
+                        <SelectItem value="PERFORMANCE">🏋️ Performance / Athletic</SelectItem>
+                        <SelectItem value="CLINICAL">🩺 Rehab / Clinical</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </FormControl>
                   <FormMessage />
                 </FormItem>

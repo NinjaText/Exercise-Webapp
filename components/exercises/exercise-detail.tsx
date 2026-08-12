@@ -37,9 +37,11 @@ export function ExerciseDetail({ exercise }: ExerciseDetailProps) {
           {exercise.bodyRegion.map((region) => (
             <Badge key={region} variant="outline">{formatBodyRegion(region)}</Badge>
           ))}
-          <Badge className={difficultyColors[exercise.difficultyLevel] ?? ""}>
-            {formatDifficulty(exercise.difficultyLevel)}
-          </Badge>
+          {exercise.difficultyLevel && (
+            <Badge className={difficultyColors[exercise.difficultyLevel] ?? ""}>
+              {formatDifficulty(exercise.difficultyLevel)}
+            </Badge>
+          )}
         </div>
         {exercise.description && (
           <p className="text-muted-foreground">{exercise.description}</p>
