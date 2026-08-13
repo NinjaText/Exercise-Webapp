@@ -106,7 +106,12 @@ export function AssignCheckInDialog({
                   onValueChange={(v) => setClientId(v ?? "")}
                 >
                   <SelectTrigger id="client-select">
-                    <SelectValue placeholder="Choose a client..." />
+                    <SelectValue placeholder="Choose a client...">
+                      {(value: string | null) => {
+                        const client = clients.find((c) => c.id === value);
+                        return client ? `${client.firstName} ${client.lastName}` : "Choose a client...";
+                      }}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {clients.map((p) => (

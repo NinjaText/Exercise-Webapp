@@ -293,6 +293,42 @@ export async function deleteProgramAction(programId: string) {
   }
 }
 
+export async function hardDeleteProgramAction(programId: string) {
+  const user = await getTrainerUser();
+  if (!user) return { success: false as const, error: "Unauthorized" };
+
+  const program = await prisma.program.findUnique({
+    where: { id: programId },
+    select: { trainerId: true, name: true },
+  });
+  if (!program || program.trainerId !== user.id) {
+    return { success: false as const, error: "Forbidden" };
+  }
+
+  try {
+    await programService.hardDeleteProgram(programId);
+    await logAudit({
+      actorId: user.id,
+      actorType: deriveActorType(user),
+      actorName: `${user.firstName} ${user.lastName}`,
+      action: AUDIT_ACTIONS.PROGRAM_HARD_DELETED,
+      targetType: "Program",
+      targetId: programId,
+      targetLabel: program.name,
+      orgId: user.clerkOrgId,
+    });
+    revalidatePath("/programs");
+    return { success: true as const };
+  } catch (error) {
+    console.error("Failed to permanently delete program:", error);
+    const message =
+      error instanceof Error && error.message.startsWith("Cannot delete:")
+        ? error.message
+        : "Failed to permanently delete program";
+    return { success: false as const, error: message };
+  }
+}
+
 export async function duplicateProgramAction(
   programId: string,
   asTemplate = false

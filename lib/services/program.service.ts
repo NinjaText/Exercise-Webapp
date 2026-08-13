@@ -280,6 +280,29 @@ export async function deleteProgram(id: string) {
   });
 }
 
+// Permanently removes an archived program. Workouts, blocks, exercises, sets,
+// sessions, and voice memos cascade via the schema's onDelete: Cascade chain.
+export async function hardDeleteProgram(id: string) {
+  const program = await prisma.program.findUnique({
+    where: { id },
+    select: { status: true },
+  });
+  if (!program) throw new Error("Program not found");
+  if (program.status !== "ARCHIVED") {
+    throw new Error("Cannot delete: only archived programs can be permanently deleted");
+  }
+
+  const linkedPackage = await prisma.coachPackage.findFirst({
+    where: { programTemplateId: id },
+    select: { id: true },
+  });
+  if (linkedPackage) {
+    throw new Error("Cannot delete: this program is linked to a sellable package");
+  }
+
+  return prisma.program.delete({ where: { id } });
+}
+
 export async function duplicateProgram(
   id: string,
   trainerId: string,

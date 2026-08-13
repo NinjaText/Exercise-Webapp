@@ -7,7 +7,9 @@ vi.mock('@/lib/prisma', () => ({
       update: vi.fn(),
       create: vi.fn(),
       findUnique: vi.fn(),
+      delete: vi.fn(),
     },
+    coachPackage: { findFirst: vi.fn() },
     workout: { createMany: vi.fn() },
     workoutBlockV2: { createMany: vi.fn() },
     blockExerciseV2: { createMany: vi.fn() },
@@ -22,12 +24,15 @@ import {
   createProgram,
   createGlobalProgram,
   computeDurationWeeksFromWorkouts,
+  hardDeleteProgram,
 } from '../program.service'
 
 const mockFindMany = vi.mocked(prisma.program.findMany)
 const mockUpdate = vi.mocked(prisma.program.update)
 const mockCreate = vi.mocked(prisma.program.create)
 const mockFindUnique = vi.mocked(prisma.program.findUnique)
+const mockDelete = vi.mocked(prisma.program.delete)
+const mockPackageFindFirst = vi.mocked(prisma.coachPackage.findFirst)
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -121,6 +126,49 @@ describe('createGlobalProgram', () => {
         }),
       })
     )
+  })
+})
+
+describe('hardDeleteProgram', () => {
+  it('throws when the program does not exist', async () => {
+    mockFindUnique.mockResolvedValue(null)
+
+    await expect(hardDeleteProgram('prog_1')).rejects.toThrow('Program not found')
+    expect(mockDelete).not.toHaveBeenCalled()
+  })
+
+  it('refuses to delete a program that is not archived', async () => {
+    mockFindUnique.mockResolvedValue({ status: 'ACTIVE' } as any)
+
+    await expect(hardDeleteProgram('prog_1')).rejects.toThrow(
+      'only archived programs can be permanently deleted'
+    )
+    expect(mockDelete).not.toHaveBeenCalled()
+  })
+
+  it('refuses to delete a program linked to a sellable package', async () => {
+    mockFindUnique.mockResolvedValue({ status: 'ARCHIVED' } as any)
+    mockPackageFindFirst.mockResolvedValue({ id: 'pkg_1' } as any)
+
+    await expect(hardDeleteProgram('prog_1')).rejects.toThrow(
+      'linked to a sellable package'
+    )
+    expect(mockDelete).not.toHaveBeenCalled()
+  })
+
+  it('deletes an archived, unlinked program', async () => {
+    mockFindUnique.mockResolvedValue({ status: 'ARCHIVED' } as any)
+    mockPackageFindFirst.mockResolvedValue(null)
+    mockDelete.mockResolvedValue({ id: 'prog_1' } as any)
+
+    const result = await hardDeleteProgram('prog_1')
+
+    expect(mockPackageFindFirst).toHaveBeenCalledWith({
+      where: { programTemplateId: 'prog_1' },
+      select: { id: true },
+    })
+    expect(mockDelete).toHaveBeenCalledWith({ where: { id: 'prog_1' } })
+    expect(result).toEqual({ id: 'prog_1' })
   })
 })
 
