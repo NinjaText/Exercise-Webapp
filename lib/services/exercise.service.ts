@@ -1,11 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
 import type { BodyRegion, DifficultyLevel, ExercisePhase, ExerciseSource } from "@prisma/client";
-import {
-  buildYouTubeSearchUrl,
-  extractYouTubeId,
-  getYouTubeThumbnail,
-} from "@/lib/utils/video";
+import { extractYouTubeId, getYouTubeThumbnail } from "@/lib/utils/video";
 
 export interface ExerciseFilters {
   search?: string;
@@ -115,9 +111,9 @@ export async function getExerciseById(id: string) {
 export async function createExercise(data: {
   name: string;
   description?: string;
-  bodyRegion: BodyRegion[];
+  bodyRegion?: BodyRegion[];
   equipmentRequired: string[];
-  difficultyLevel: DifficultyLevel;
+  difficultyLevel?: DifficultyLevel;
   contraindications: string[];
   instructions?: string;
   videoUrl?: string;
@@ -130,10 +126,10 @@ export async function createExercise(data: {
   exercisePhases?: ExercisePhase[];
   isAssessment?: boolean;
 }) {
-  const videoUrl = data.videoUrl?.trim() || buildYouTubeSearchUrl(data.name);
+  const videoUrl = data.videoUrl?.trim() || undefined;
   let imageUrl = data.imageUrl?.trim() || undefined;
 
-  if (!imageUrl) {
+  if (!imageUrl && videoUrl) {
     const ytId = extractYouTubeId(videoUrl);
     if (ytId) {
       imageUrl = getYouTubeThumbnail(ytId);
@@ -144,9 +140,9 @@ export async function createExercise(data: {
     data: {
       name: data.name,
       description: data.description,
-      bodyRegion: data.bodyRegion,
+      bodyRegion: data.bodyRegion ?? [],
       equipmentRequired: data.equipmentRequired,
-      difficultyLevel: data.difficultyLevel,
+      difficultyLevel: data.difficultyLevel ?? null,
       contraindications: data.contraindications,
       instructions: data.instructions,
       videoUrl,
@@ -175,7 +171,7 @@ export async function cloneExerciseToOrganization(
     description: string | null;
     bodyRegion: BodyRegion[];
     equipmentRequired: string[];
-    difficultyLevel: DifficultyLevel;
+    difficultyLevel: DifficultyLevel | null;
     contraindications: string[];
     videoUrl: string | null;
     videoProvider: string | null;
@@ -258,10 +254,6 @@ export async function updateExercise(
   }
   if (nextData.imageUrl === "") {
     nextData.imageUrl = undefined;
-  }
-
-  if (!nextData.videoUrl && typeof nextData.name === "string" && nextData.name.trim()) {
-    nextData.videoUrl = buildYouTubeSearchUrl(nextData.name);
   }
 
   if (!nextData.imageUrl && nextData.videoUrl) {

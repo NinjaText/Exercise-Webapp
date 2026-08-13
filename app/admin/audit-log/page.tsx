@@ -47,7 +47,13 @@ export default async function AdminAuditLogPage({ searchParams }: PageProps) {
         </Select>
         <Select name="org" defaultValue={orgId ?? "ALL"}>
           <SelectTrigger className="w-56">
-            <SelectValue placeholder="All organizations" />
+            <SelectValue placeholder="All organizations">
+              {(value: string | null) => {
+                if (!value || value === "ALL") return "All organizations";
+                const trainer = trainersForFilter.find((t) => t.clerkOrgId === value);
+                return trainer ? `${trainer.firstName} ${trainer.lastName}` : "All organizations";
+              }}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="ALL">All organizations</SelectItem>

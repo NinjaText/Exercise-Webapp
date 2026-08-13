@@ -180,6 +180,12 @@ describe("buildPriorityAlerts", () => {
     expect(alerts.some((a) => a.severity === "high" && /hasn't started/i.test(a.message))).toBe(true);
   });
 
+  it("does not flag 'hasn't started' when the program's start date is in the future", () => {
+    const futureProgram = { name: "Knee Rehab", startDate: daysAhead(3), durationWeeks: 12 };
+    const alerts = buildPriorityAlerts([snapshot({ activeProgram: futureProgram, sessions: [] })], NOW);
+    expect(alerts.some((a) => /hasn't started/i.test(a.message))).toBe(false);
+  });
+
   it("flags low completion and program ending soon as medium severity", () => {
     const endingProgram = { name: "P", startDate: daysAgo(11 * 7), durationWeeks: 12 };
     const alerts = buildPriorityAlerts(

@@ -23,12 +23,21 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
   Plus,
   Search,
   MoreVertical,
   Copy,
   UserPlus,
   Archive,
+  Trash2,
   Sparkles,
   Library,
   Pencil,
@@ -41,6 +50,7 @@ import { toast } from "sonner";
 import {
   duplicateProgramAction,
   deleteProgramAction,
+  hardDeleteProgramAction,
   copyGlobalProgramAction,
 } from "@/actions/program-actions";
 import { formatDistanceToNow } from "date-fns";
@@ -92,6 +102,13 @@ function matchesSearch(
   );
 }
 
+// "all" means "everything except archived" — archived programs only show up
+// once the trainer explicitly filters for them.
+function matchesStatusFilter(status: string, statusFilter: string): boolean {
+  if (statusFilter === "all") return status !== "ARCHIVED";
+  return status === statusFilter;
+}
+
 const statusConfig: Record<string, { label: string; className: string }> = {
   ACTIVE:    { label: "Active",    className: "bg-emerald-500/10 text-emerald-700 border-emerald-200" },
   DRAFT:     { label: "Draft",     className: "bg-muted text-muted-foreground border-border" },
@@ -106,6 +123,7 @@ function ProgramCard({
   updatableSet,
   onDuplicate,
   onArchive,
+  onRequestHardDelete,
   typeBadge,
   search,
 }: {
@@ -114,6 +132,7 @@ function ProgramCard({
   updatableSet: Set<string>;
   onDuplicate: (id: string) => void;
   onArchive: (id: string) => void;
+  onRequestHardDelete: (id: string, name: string) => void;
   typeBadge?: "clinical";
   search?: string;
 }) {
@@ -150,12 +169,21 @@ function ProgramCard({
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onClick={() => onArchive(program.id)}
-                  className="text-destructive focus:text-destructive"
-                >
-                  <Archive className="mr-2 h-4 w-4" /> Archive
-                </DropdownMenuItem>
+                {program.status === "ARCHIVED" ? (
+                  <DropdownMenuItem
+                    onClick={() => onRequestHardDelete(program.id, program.name)}
+                    className="text-destructive focus:text-destructive"
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" /> Delete Permanently
+                  </DropdownMenuItem>
+                ) : (
+                  <DropdownMenuItem
+                    onClick={() => onArchive(program.id)}
+                    className="text-destructive focus:text-destructive"
+                  >
+                    <Archive className="mr-2 h-4 w-4" /> Archive
+                  </DropdownMenuItem>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           )}
@@ -286,6 +314,8 @@ export function ProgramListClient({
   const updatableSet = new Set(updatableIds);
   const [copying, setCopying] = useState<string | null>(null);
   const [typeFilter, setTypeFilter] = useState<"all" | "clinical" | "global">("all");
+  const [pendingHardDelete, setPendingHardDelete] = useState<{ id: string; name: string } | null>(null);
+  const [hardDeleting, setHardDeleting] = useState(false);
 
   const activeTab =
     role === "TRAINER"
@@ -311,7 +341,7 @@ export function ProgramListClient({
   // Programs tab: non-template programs
   const filteredPrograms = programs.filter((p) => {
     if (search && !matchesSearch(p, search)) return false;
-    if (statusFilter !== "all" && p.status !== statusFilter) return false;
+    if (!matchesStatusFilter(p.status, statusFilter)) return false;
     return true;
   });
 
@@ -320,7 +350,7 @@ export function ProgramListClient({
     activeTab === "templates" && typeFilter !== "global"
       ? programs.filter((p) => {
           if (search && !matchesSearch(p, search)) return false;
-          if (statusFilter !== "all" && p.status !== statusFilter) return false;
+          if (!matchesStatusFilter(p.status, statusFilter)) return false;
           return true;
         })
       : [];
@@ -351,6 +381,23 @@ export function ProgramListClient({
       router.refresh();
     } else {
       toast.error(result.error);
+    }
+  }
+
+  async function handleConfirmHardDelete() {
+    if (!pendingHardDelete) return;
+    setHardDeleting(true);
+    try {
+      const result = await hardDeleteProgramAction(pendingHardDelete.id);
+      if (result.success) {
+        toast.success("Program permanently deleted");
+        setPendingHardDelete(null);
+        router.refresh();
+      } else {
+        toast.error(result.error);
+      }
+    } finally {
+      setHardDeleting(false);
     }
   }
 
@@ -413,7 +460,11 @@ export function ProgramListClient({
           {(activeTab !== "templates" || typeFilter !== "global") && (
             <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v ?? "all")}>
               <SelectTrigger className="w-36">
-                <SelectValue placeholder="Status" />
+                <SelectValue placeholder="Status">
+                  {(value: string | null) =>
+                    !value || value === "all" ? "All Status" : statusConfig[value]?.label ?? value
+                  }
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Status</SelectItem>
@@ -421,6 +472,7 @@ export function ProgramListClient({
                 <SelectItem value="ACTIVE">Active</SelectItem>
                 <SelectItem value="PAUSED">Paused</SelectItem>
                 <SelectItem value="COMPLETED">Completed</SelectItem>
+                <SelectItem value="ARCHIVED">Archived</SelectItem>
               </SelectContent>
             </Select>
           )}
@@ -488,6 +540,7 @@ export function ProgramListClient({
                 updatableSet={updatableSet}
                 onDuplicate={handleDuplicate}
                 onArchive={handleArchive}
+                onRequestHardDelete={(id, name) => setPendingHardDelete({ id, name })}
                 search={search}
               />
             ))}
@@ -539,6 +592,7 @@ export function ProgramListClient({
                 updatableSet={updatableSet}
                 onDuplicate={handleDuplicate}
                 onArchive={handleArchive}
+                onRequestHardDelete={(id, name) => setPendingHardDelete({ id, name })}
                 typeBadge="clinical"
                 search={search}
               />
@@ -554,6 +608,26 @@ export function ProgramListClient({
           </div>
         )
       )}
+
+      <Dialog open={!!pendingHardDelete} onOpenChange={(open) => !open && setPendingHardDelete(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete "{pendingHardDelete?.name}" permanently?</DialogTitle>
+            <DialogDescription>
+              This permanently deletes the program and all of its workouts, scheduled
+              and completed sessions, feedback, and voice memos. This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPendingHardDelete(null)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleConfirmHardDelete} disabled={hardDeleting}>
+              {hardDeleting ? "Deleting..." : "Delete Permanently"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

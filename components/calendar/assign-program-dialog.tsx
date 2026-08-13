@@ -157,7 +157,12 @@ export function AssignProgramDialog({
               }}
             >
               <SelectTrigger>
-                <SelectValue placeholder="Select a program" />
+                <SelectValue placeholder="Select a program">
+                  {(value: string | null) => {
+                    const program = programs.find((p) => p.id === value);
+                    return program ? program.name : "Select a program";
+                  }}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {programs.map((p) => (

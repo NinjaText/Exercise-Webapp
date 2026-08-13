@@ -39,12 +39,14 @@ import { UniversalVideoPlayer } from "@/components/exercises/universal-video-pla
 import type {
   WorkoutInput,
   ExerciseSetInput,
+  BlockExerciseInput,
 } from "@/lib/validators/program";
 import { cn } from "@/lib/utils";
 import { useClipboard, stripIds } from "@/lib/clipboard-context";
 import { useBuilderKeyboard } from "@/hooks/use-builder-keyboard";
 import { toast } from "sonner";
 import { type ExerciseSourcePreference } from "@/lib/utils/exercise-picker";
+import { hasRealVideoUrl } from "@/lib/utils/video";
 
 interface Props {
   workouts: WorkoutInput[];
@@ -53,7 +55,7 @@ interface Props {
     id: string;
     name: string;
     bodyRegion: string[];
-    difficultyLevel: string;
+    difficultyLevel: string | null;
     defaultReps?: number | null;
     musclesTargeted?: string[];
     imageUrl?: string | null;
@@ -238,6 +240,7 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
         restSeconds: 60,
         notes: null,
         supersetGroup: null,
+        activityType: "STRENGTH",
         sets: [
           {
             orderIndex: 0,
@@ -297,6 +300,21 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
       ...next[workoutIdx].blocks[blockIdx].exercises[exIdx],
       notes: notes || null,
     };
+    onChange(next);
+  }
+
+  function updateExerciseField(
+    workoutIdx: number,
+    blockIdx: number,
+    exIdx: number,
+    field: "activityType",
+    value: string | null
+  ) {
+    const next = [...workouts];
+    next[workoutIdx].blocks[blockIdx].exercises[exIdx] = {
+      ...next[workoutIdx].blocks[blockIdx].exercises[exIdx],
+      [field]: value,
+    } as BlockExerciseInput;
     onChange(next);
   }
 
@@ -731,11 +749,26 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
                                               )._exerciseName
                                             )}
                                           </span>
+                                          <Select
+                                            value={ex.activityType || "STRENGTH"}
+                                            onValueChange={(v) =>
+                                              updateExerciseField(wi, bi, ei, "activityType", v)
+                                            }
+                                          >
+                                            <SelectTrigger className="h-6 text-[10px] w-[92px] shrink-0">
+                                              <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                              <SelectItem value="STRENGTH">Strength</SelectItem>
+                                              <SelectItem value="RUN">Run</SelectItem>
+                                              <SelectItem value="INTERVAL_RUN">Interval Run</SelectItem>
+                                            </SelectContent>
+                                          </Select>
                                           {(() => {
                                             const lib = exerciseLibrary.find(
                                               (e) => e.id === ex.exerciseId
                                             );
-                                            return lib?.videoUrl ? (
+                                            return lib?.videoUrl && hasRealVideoUrl(lib.videoUrl) ? (
                                               <button
                                                 type="button"
                                                 onClick={(e) => {
@@ -785,6 +818,7 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
                                       />
                                       <SetEditor
                                         sets={ex.sets}
+                                        activityType={ex.activityType || "STRENGTH"}
                                         onChange={(sets) =>
                                           updateExerciseSets(wi, bi, ei, sets)
                                         }

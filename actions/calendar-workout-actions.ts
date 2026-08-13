@@ -244,6 +244,7 @@ export async function updateSet(
     tempo?: string | null;
     targetWeight?: number | null;
     targetDuration?: number | null;
+    targetDurationUnit?: string | null;
     targetRPE?: number | null;
     restAfter?: number | null;
   }
@@ -299,6 +300,7 @@ export async function addSetToExercise(
   targetReps: number | null;
   targetWeight: number | null;
   targetDuration: number | null;
+  targetDurationUnit: string | null;
   targetRPE: number | null;
   restAfter: number | null;
 }>> {
@@ -339,6 +341,7 @@ export async function addSetToExercise(
         targetReps: newSet.targetReps,
         targetWeight: newSet.targetWeight,
         targetDuration: newSet.targetDuration,
+        targetDurationUnit: newSet.targetDurationUnit,
         targetRPE: newSet.targetRPE,
         restAfter: newSet.restAfter,
       },
@@ -695,6 +698,7 @@ export async function getSessionWithWorkout(
                 targetReps: s.targetReps,
                 targetWeight: s.targetWeight,
                 targetDuration: s.targetDuration,
+                targetDurationUnit: s.targetDurationUnit,
                 targetRPE: s.targetRPE,
                 restAfter: s.restAfter,
               })),
@@ -1255,6 +1259,7 @@ export type SessionWithFullWorkout = {
           targetReps: number | null;
           targetWeight: number | null;
           targetDuration: number | null;
+          targetDurationUnit?: string | null;
           targetRPE: number | null;
           restAfter: number | null;
         }[];

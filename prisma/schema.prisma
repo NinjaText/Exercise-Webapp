@@ -211,7 +211,7 @@ model Exercise {
   description        String?
   bodyRegion         BodyRegion[]
   equipmentRequired  String[]
-  difficultyLevel    DifficultyLevel
+  difficultyLevel    DifficultyLevel?
   contraindications  String[]
   videoUrl           String?
   videoProvider      String?
@@ -428,6 +428,7 @@ model Program {
   clientId           String?    @map("patientId") @db.ObjectId
   client             User?      @relation("ProgramsAssigned", fields: [clientId], references: [id])
   status             PlanStatus @default(DRAFT)
+  programType        String?
   durationWeeks      Int?
   daysPerWeek        Int?
   tags               String[]
@@ -484,6 +485,7 @@ model BlockExerciseV2 {
   exerciseId    String         @db.ObjectId
   exercise      Exercise       @relation("BlockExercisesV2", fields: [exerciseId], references: [id])
   orderIndex    Int
+  activityType  String         @default("STRENGTH")
   restSeconds   Int?
   notes         String?
   supersetGroup String?
@@ -501,7 +503,11 @@ model ExerciseSet {
   targetReps          Int?
   targetWeight        Float?
   targetDuration      Int?
+  targetDurationUnit  String?
   targetDistance      Float?
+  targetPace          String?
+  targetHrZone        String?
+  repeatCount         Int?
   targetRPE           Int?
   targetPercentage1RM Float?
   tempo               String?

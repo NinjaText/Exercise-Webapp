@@ -277,6 +277,7 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
 
     const genParams = {
       clientId: selectedClient || null,
+      programMode,
       programGoals: selectedGoals,
       availableEquipment: selectedEquipment,
       startDate: selectedClient ? startDate : null,

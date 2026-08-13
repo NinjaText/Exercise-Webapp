@@ -20,7 +20,8 @@ export function formatBodyRegion(region: string): string {
   return map[region] || region;
 }
 
-export function formatDifficulty(level: string): string {
+export function formatDifficulty(level: string | null | undefined): string {
+  if (!level) return "Not set";
   const map: Record<string, string> = {
     BEGINNER: "Beginner",
     INTERMEDIATE: "Intermediate",

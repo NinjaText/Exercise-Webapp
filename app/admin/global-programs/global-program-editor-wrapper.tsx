@@ -13,7 +13,7 @@ interface Props {
     id: string;
     name: string;
     bodyRegion: string[];
-    difficultyLevel: string;
+    difficultyLevel: string | null;
     defaultReps?: number | null;
     musclesTargeted?: string[];
     imageUrl?: string | null;

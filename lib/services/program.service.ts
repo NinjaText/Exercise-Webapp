@@ -118,6 +118,7 @@ export async function createProgram(
           blockId,
           exerciseId: e.exerciseId,
           orderIndex: e.orderIndex,
+          activityType: e.activityType,
           restSeconds: e.restSeconds,
           notes: e.notes,
           supersetGroup: e.supersetGroup,
@@ -131,7 +132,11 @@ export async function createProgram(
             targetReps: s.targetReps,
             targetWeight: s.targetWeight,
             targetDuration: s.targetDuration,
+            targetDurationUnit: s.targetDurationUnit,
             targetDistance: s.targetDistance,
+            targetPace: s.targetPace,
+            targetHrZone: s.targetHrZone,
+            repeatCount: s.repeatCount,
             targetRPE: s.targetRPE,
             restAfter: s.restAfter,
           });
@@ -226,6 +231,7 @@ export async function updateProgram(
                   create: b.exercises.map((e) => ({
                     exerciseId: e.exerciseId,
                     orderIndex: e.orderIndex,
+                    activityType: e.activityType,
                     restSeconds: e.restSeconds,
                     notes: e.notes,
                     supersetGroup: e.supersetGroup,
@@ -236,7 +242,11 @@ export async function updateProgram(
                         targetReps: s.targetReps,
                         targetWeight: s.targetWeight,
                         targetDuration: s.targetDuration,
+                        targetDurationUnit: s.targetDurationUnit,
                         targetDistance: s.targetDistance,
+                        targetPace: s.targetPace,
+                        targetHrZone: s.targetHrZone,
+                        repeatCount: s.repeatCount,
                         targetRPE: s.targetRPE,
                         restAfter: s.restAfter,
                       })),
@@ -270,6 +280,29 @@ export async function deleteProgram(id: string) {
   });
 }
 
+// Permanently removes an archived program. Workouts, blocks, exercises, sets,
+// sessions, and voice memos cascade via the schema's onDelete: Cascade chain.
+export async function hardDeleteProgram(id: string) {
+  const program = await prisma.program.findUnique({
+    where: { id },
+    select: { status: true },
+  });
+  if (!program) throw new Error("Program not found");
+  if (program.status !== "ARCHIVED") {
+    throw new Error("Cannot delete: only archived programs can be permanently deleted");
+  }
+
+  const linkedPackage = await prisma.coachPackage.findFirst({
+    where: { programTemplateId: id },
+    select: { id: true },
+  });
+  if (linkedPackage) {
+    throw new Error("Cannot delete: this program is linked to a sellable package");
+  }
+
+  return prisma.program.delete({ where: { id } });
+}
+
 export async function duplicateProgram(
   id: string,
   trainerId: string,
@@ -296,6 +329,7 @@ export async function duplicateProgram(
       exercises: b.exercises.map((e, ei) => ({
         exerciseId: e.exerciseId,
         orderIndex: ei,
+        activityType: e.activityType as "STRENGTH" | "RUN" | "INTERVAL_RUN",
         restSeconds: e.restSeconds,
         notes: e.notes,
         supersetGroup: e.supersetGroup,

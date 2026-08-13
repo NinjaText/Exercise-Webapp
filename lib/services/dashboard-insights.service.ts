@@ -149,15 +149,18 @@ export function buildPriorityAlerts(snapshots: ClientSnapshot[], now: Date): Pri
     }
 
     if (snap.activeProgram) {
+      const programHasStarted = !snap.activeProgram.startDate || snap.activeProgram.startDate <= now;
       const lastActivity = getLastActivityAt(snap.sessions);
       if (!lastActivity) {
-        alerts.push({
-          clientId,
-          clientName,
-          severity: "high",
-          message: `${clientName} hasn't started any sessions yet`,
-          href,
-        });
+        if (programHasStarted) {
+          alerts.push({
+            clientId,
+            clientName,
+            severity: "high",
+            message: `${clientName} hasn't started any sessions yet`,
+            href,
+          });
+        }
       } else {
         const daysSince = Math.floor((now.getTime() - lastActivity.getTime()) / DAY_MS);
         if (daysSince >= INACTIVITY_THRESHOLD_DAYS) {

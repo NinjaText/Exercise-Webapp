@@ -28,7 +28,7 @@ interface Exercise {
   name: string;
   description: string | null;
   bodyRegion: string[];
-  difficultyLevel: string;
+  difficultyLevel: string | null;
   equipmentRequired: string[];
   contraindications: string[];
   instructions: string | null;
@@ -51,7 +51,7 @@ export function ExerciseEditForm({ exercise }: Props) {
   const [name, setName] = useState(exercise.name);
   const [description, setDescription] = useState(exercise.description ?? "");
   const [selectedRegions, setSelectedRegions] = useState<string[]>(exercise.bodyRegion);
-  const [difficultyLevel, setDifficultyLevel] = useState(exercise.difficultyLevel);
+  const [difficultyLevel, setDifficultyLevel] = useState(exercise.difficultyLevel ?? "");
   const [isActive, setIsActive] = useState(String(exercise.isActive));
   const [isAssessment, setIsAssessment] = useState(exercise.isAssessment);
   const [instructions, setInstructions] = useState(exercise.instructions ?? "");

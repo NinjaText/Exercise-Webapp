@@ -85,7 +85,12 @@ export function AssignProgramDialog({
             <Label>Client</Label>
             <Select value={clientId} onValueChange={(v) => setClientId(v ?? "")}>
               <SelectTrigger>
-                <SelectValue placeholder="Select a client" />
+                <SelectValue placeholder="Select a client">
+                  {(value: string | null) => {
+                    const client = clients.find((c) => c.id === value);
+                    return client ? `${client.firstName} ${client.lastName}` : "Select a client";
+                  }}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {clients.map((p) => (

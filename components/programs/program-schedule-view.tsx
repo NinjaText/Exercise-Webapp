@@ -39,6 +39,7 @@ import {
   Copy,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { hasRealVideoUrl } from "@/lib/utils/video";
 import { rescheduleSessionAction } from "@/actions/session-actions";
 import {
   updateExercisePrescriptionAction,
@@ -851,7 +852,7 @@ function ReadOnlyPanel({
                           <span className="text-xs font-medium leading-snug">
                             {be.exercise.name}
                           </span>
-                          {be.exercise.videoUrl && (
+                          {hasRealVideoUrl(be.exercise.videoUrl) && (
                             <span className="inline-flex items-center gap-0.5 text-[9px] bg-blue-50 text-blue-600 border border-blue-200 px-1 py-0 rounded-sm font-medium">
                               <Play className="h-2 w-2" />
                               Video
@@ -1108,7 +1109,7 @@ function ExerciseEditRow({
             <span className="text-xs font-medium leading-snug">
               {exercise.exercise.name}
             </span>
-            {exercise.exercise.videoUrl && (
+            {hasRealVideoUrl(exercise.exercise.videoUrl) && (
               <span className="inline-flex items-center gap-0.5 text-[9px] bg-blue-50 text-blue-600 border border-blue-200 px-1 py-0 rounded-sm font-medium">
                 <Play className="h-2 w-2" />
                 Video
