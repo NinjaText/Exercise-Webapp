@@ -121,9 +121,33 @@ describe('duplicateWorkoutToDayAction', () => {
           name: 'Push Day (copy)',
           weekIndex: 2,
           dayIndex: 4,
+          orderIndex: 18, // weekIndex * 7 + dayIndex
         }),
       })
     )
     expect(result).toEqual({ success: true, data: undefined })
+  })
+
+  it('rejects a dayIndex outside 0-6 without touching the database', async () => {
+    mockAuth.mockResolvedValue({ userId: CLERK_ID } as never)
+
+    const result = await duplicateWorkoutToDayAction(WORKOUT_ID, 0, 7)
+
+    expect(result).toEqual({
+      success: false,
+      error: 'Day must be within a single week (max 7 days)',
+    })
+    expect(mockWorkoutFind).not.toHaveBeenCalled()
+    expect(mockWorkoutCreate).not.toHaveBeenCalled()
+  })
+
+  it('rejects a negative weekIndex without touching the database', async () => {
+    mockAuth.mockResolvedValue({ userId: CLERK_ID } as never)
+
+    const result = await duplicateWorkoutToDayAction(WORKOUT_ID, -1, 0)
+
+    expect(result).toEqual({ success: false, error: 'Invalid week' })
+    expect(mockWorkoutFind).not.toHaveBeenCalled()
+    expect(mockWorkoutCreate).not.toHaveBeenCalled()
   })
 })

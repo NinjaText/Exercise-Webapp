@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -149,13 +149,24 @@ export function ProgramEditor({ program, exercises, onSave, redirectTo, organiza
       description: (program?.description as string) || "",
       isTemplate: (program?.isTemplate as boolean) || false,
       programType: (program?.programType as "PERFORMANCE" | "CLINICAL" | null) || null,
-      durationWeeks: (program?.durationWeeks as number) || undefined,
-      daysPerWeek: (program?.daysPerWeek as number) || undefined,
       tags: (program?.tags as string[]) || [],
       equipmentRequired: [],
       workouts: [],
     },
   });
+
+  // Duration / days-per-week are derived from the actual builder schedule
+  // rather than typed in manually, so they can never drift from reality.
+  const scheduleSummary = useMemo(() => {
+    const daysPerWeekCounts = new Map<number, number>();
+    workouts.forEach((w) => {
+      daysPerWeekCounts.set(w.weekIndex, (daysPerWeekCounts.get(w.weekIndex) ?? 0) + 1);
+    });
+    return {
+      durationWeeks: daysPerWeekCounts.size,
+      daysPerWeek: daysPerWeekCounts.size > 0 ? Math.max(...daysPerWeekCounts.values()) : 0,
+    };
+  }, [workouts]);
 
   // Auto-detect equipment from exercises currently added to the builder
   function autoDetectEquipment() {
@@ -216,6 +227,8 @@ export function ProgramEditor({ program, exercises, onSave, redirectTo, organiza
       data.workouts = cleanWorkouts;
       data.equipmentRequired = equipment;
       data.organizationIds = selectedOrganizationIds;
+      data.durationWeeks = scheduleSummary.durationWeeks || null;
+      data.daysPerWeek = scheduleSummary.daysPerWeek || null;
 
       if (onSave) {
         const result = await onSave(data, program?.id as string | undefined);
@@ -317,57 +330,27 @@ export function ProgramEditor({ program, exercises, onSave, redirectTo, organiza
                 </FormItem>
               )}
             />
-            <FormField
-              control={form.control}
-              name="durationWeeks"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Duration (weeks)</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      min={1}
-                      max={52}
-                      {...field}
-                      value={field.value ?? ""}
-                      onChange={(e) =>
-                        field.onChange(
-                          e.target.value ? parseInt(e.target.value) : undefined
-                        )
-                      }
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="daysPerWeek"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Days per week</FormLabel>
-                  <FormControl>
-                    <Select
-                      value={field.value?.toString() || ""}
-                      onValueChange={(v) => field.onChange(v ? parseInt(v) : undefined)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {[1, 2, 3, 4, 5, 6, 7].map((n) => (
-                          <SelectItem key={n} value={n.toString()}>
-                            {n}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            <FormItem className="sm:col-span-2">
+              <FormLabel>Schedule</FormLabel>
+              <div className="flex flex-wrap items-center gap-2">
+                {scheduleSummary.durationWeeks > 0 ? (
+                  <>
+                    <Badge variant="secondary" className="text-sm">
+                      {scheduleSummary.durationWeeks} week
+                      {scheduleSummary.durationWeeks !== 1 ? "s" : ""}
+                    </Badge>
+                    <Badge variant="secondary" className="text-sm">
+                      up to {scheduleSummary.daysPerWeek} day
+                      {scheduleSummary.daysPerWeek !== 1 ? "s" : ""}/week
+                    </Badge>
+                  </>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    Add weeks and days in the builder below to set the schedule.
+                  </p>
+                )}
+              </div>
+            </FormItem>
             <FormField
               control={form.control}
               name="isTemplate"

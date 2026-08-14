@@ -48,6 +48,7 @@ type BlockExerciseSet = {
   orderIndex: number;
   targetReps?: number | null;
   targetDuration?: number | null;
+  targetDurationUnit?: string | null;
   targetWeight?: number | null;
   targetRPE?: number | null;
   restAfter?: number | null;
@@ -97,7 +98,7 @@ function getPrescriptionText(ex: BlockExercise, block: WorkoutBlock): string {
     ? `${rounds} ${rounds === 1 ? "set" : "sets"}`
     : `${ex.sets.length} ${ex.sets.length === 1 ? "set" : "sets"}`;
   if (set.targetReps) return `${setsLabel} × ${set.targetReps} reps`;
-  if (set.targetDuration) return `${setsLabel} × ${set.targetDuration}s`;
+  if (set.targetDuration) return `${setsLabel} × ${set.targetDuration}${set.targetDurationUnit === "MIN" ? "min" : "s"}`;
   return setsLabel;
 }
 
@@ -646,7 +647,7 @@ export function WorkoutChecklistTracker({
                                   (isCircuit ? block.rounds : ex.sets.length) === 1 ? "set" : "sets"
                                 }`,
                                 ex.sets[0]?.targetReps ? `${ex.sets[0].targetReps} reps` : null,
-                                ex.sets[0]?.targetDuration ? `${ex.sets[0].targetDuration}s hold` : null,
+                                ex.sets[0]?.targetDuration ? `${ex.sets[0].targetDuration}${ex.sets[0].targetDurationUnit === "MIN" ? "min" : "s"} hold` : null,
                                 ex.sets[0]?.restAfter ? `${ex.sets[0].restAfter}s rest` : null,
                               ]
                                 .filter(Boolean)
@@ -839,7 +840,7 @@ export function WorkoutChecklistTracker({
                                           <span className="ml-1 text-[10px] text-muted-foreground/60">(extra)</span>
                                         )}
                                         {setDef?.targetReps && ` · target ${setDef.targetReps} reps`}
-                                        {setDef?.targetDuration && ` · target ${setDef.targetDuration}s`}
+                                        {setDef?.targetDuration && ` · target ${setDef.targetDuration}${setDef.targetDurationUnit === "MIN" ? "min" : "s"}`}
                                       </span>
                                       {/* Remove button for last unlogged extra set */}
                                       {isLastExtra && (
@@ -876,7 +877,7 @@ export function WorkoutChecklistTracker({
                                         {(isExtra || setDef?.targetDuration != null) && (
                                           <div className="space-y-0.5">
                                             <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
-                                              Actual secs
+                                              Actual {setDef?.targetDurationUnit === "MIN" ? "min" : "secs"}
                                             </Label>
                                             <Input
                                               type="number"

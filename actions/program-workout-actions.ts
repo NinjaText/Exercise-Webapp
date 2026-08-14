@@ -46,6 +46,13 @@ export async function duplicateWorkoutToDayAction(
   const user = await getTrainerUser();
   if (!user) return { success: false, error: "Unauthorized" };
 
+  if (!Number.isInteger(dayIndex) || dayIndex < 0 || dayIndex > 6) {
+    return { success: false, error: "Day must be within a single week (max 7 days)" };
+  }
+  if (!Number.isInteger(weekIndex) || weekIndex < 0) {
+    return { success: false, error: "Invalid week" };
+  }
+
   try {
     const workout = await prisma.workout.findUnique({
       where: { id: workoutId },
@@ -74,7 +81,7 @@ export async function duplicateWorkoutToDayAction(
         name: `${workout.name} (copy)`,
         weekIndex,
         dayIndex,
-        orderIndex: 0,
+        orderIndex: weekIndex * 7 + dayIndex,
         estimatedMinutes: workout.estimatedMinutes,
         blocks: {
           create: workout.blocks.map((block) => ({

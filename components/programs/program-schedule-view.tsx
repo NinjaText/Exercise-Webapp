@@ -117,6 +117,7 @@ interface ExerciseSet {
   setType: string;
   targetReps: number | null;
   targetDuration: number | null;
+  targetDurationUnit: string | null;
   targetWeight: number | null;
 }
 
@@ -262,6 +263,7 @@ function castWorkout(raw: Record<string, unknown>): WorkoutData {
           setType: (s.setType as string) || "NORMAL",
           targetReps: s.targetReps as number | null,
           targetDuration: s.targetDuration as number | null,
+          targetDurationUnit: (s.targetDurationUnit as string | null) ?? null,
           targetWeight: s.targetWeight as number | null,
         })),
       };
@@ -293,7 +295,7 @@ function formatPrescription(sets: ExerciseSet[]): string {
   const s = sets[0];
   if (s.targetDuration) {
     const weight = s.targetWeight ? ` @ ${s.targetWeight}lb` : "";
-    return `${n} × ${s.targetDuration}s${weight}`;
+    return `${n} × ${s.targetDuration}${s.targetDurationUnit === "MIN" ? "min" : "s"}${weight}`;
   }
   if (s.targetReps) {
     const weight = s.targetWeight ? ` @ ${s.targetWeight}lb` : "";
