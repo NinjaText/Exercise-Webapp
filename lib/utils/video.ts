@@ -83,3 +83,10 @@ export function hasRealVideoUrl(url: string | null | undefined): boolean {
   if (isYouTubeUrl(url)) return extractYouTubeId(url) !== null;
   return true; // non-YouTube URL (e.g. Vimeo) — assume real, no ID-extraction available
 }
+
+export function parseYoutubeUrls(raw: string): string[] {
+  return raw
+    .split(/[\n,\s]+/)
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0 && isYouTubeUrl(s) && !isYouTubePlaylistUrl(s));
+}

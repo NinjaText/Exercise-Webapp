@@ -3,7 +3,7 @@
 // ProgramBuilder manages the workout -> block -> exercise -> set hierarchy with DnD.
 // Receives `workouts` state and `onChange` callback from ProgramEditor.
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   DndContext,
   closestCenter,
@@ -24,6 +24,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -31,7 +32,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { GripVertical, Plus, Trash2, Play, X } from "lucide-react";
+import { GripVertical, Plus, Trash2, Play, X, ChevronDown, ChevronRight } from "lucide-react";
 import { ExercisePickerDialog } from "./exercise-picker-dialog";
 import { SetEditor } from "./set-editor";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -135,41 +136,135 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
 
   const [selection, setSelection] = useState<SelectionState>(DEFAULT_SELECTION);
   const [hoveredPasteTarget, setHoveredPasteTarget] = useState<string | null>(null);
+  const [collapsedWeeks, setCollapsedWeeks] = useState<Set<number>>(new Set());
   const { clipboard, copy } = useClipboard();
+
+  const MAX_DAYS_PER_WEEK = 7;
+
+  // Group workouts by weekIndex (sorted), and within each week by dayIndex.
+  // Display numbering ("Week 1", "Day 1") is always derived from sort
+  // position, not the raw weekIndex/dayIndex value — so removing a week or
+  // day never needs to renumber every other week to stay gap-free.
+  const weekGroups = useMemo(() => {
+    const byWeek = new Map<number, number[]>();
+    workouts.forEach((w, idx) => {
+      const arr = byWeek.get(w.weekIndex) ?? [];
+      arr.push(idx);
+      byWeek.set(w.weekIndex, arr);
+    });
+    return Array.from(byWeek.entries())
+      .sort((a, b) => a[0] - b[0])
+      .map(([weekIndex, dayIdxs]) => ({
+        weekIndex,
+        dayIdxs: dayIdxs.sort(
+          (a, b) => workouts[a].dayIndex - workouts[b].dayIndex
+        ),
+      }));
+  }, [workouts]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(KeyboardSensor)
   );
 
-  // --- Workout operations ---
-  function addWorkout() {
-    const idx = workouts.length;
-    onChange([
-      ...workouts,
-      {
-        name: `Day ${idx + 1}`,
-        dayIndex: idx,
-        weekIndex: 0,
-        orderIndex: idx,
-        blocks: [
-          {
-            name: "Main",
-            type: "NORMAL",
-            orderIndex: 0,
-            rounds: 1,
-            exercises: [],
-          },
-        ],
-      },
-    ]);
+  // --- Week / day operations ---
+  // orderIndex is always derived from (weekIndex, dayIndex) — this mirrors
+  // the same formula the server uses (moveWorkoutAction / duplicateWorkoutToDayAction)
+  // so ordering stays consistent everywhere.
+  function withRecomputedOrder(list: WorkoutInput[]): WorkoutInput[] {
+    return list.map((w) => ({
+      ...w,
+      orderIndex: w.weekIndex * MAX_DAYS_PER_WEEK + w.dayIndex,
+    }));
+  }
+
+  function toggleWeek(weekIndex: number) {
+    setCollapsedWeeks((prev) => {
+      const next = new Set(prev);
+      if (next.has(weekIndex)) next.delete(weekIndex);
+      else next.add(weekIndex);
+      return next;
+    });
+  }
+
+  function addWeek() {
+    const nextWeekIndex =
+      weekGroups.length > 0
+        ? Math.max(...weekGroups.map((g) => g.weekIndex)) + 1
+        : 0;
+    const newWorkout: WorkoutInput = {
+      name: "Day 1",
+      dayIndex: 0,
+      weekIndex: nextWeekIndex,
+      orderIndex: 0,
+      blocks: [
+        {
+          name: "Main",
+          type: "NORMAL",
+          orderIndex: 0,
+          rounds: 1,
+          exercises: [],
+        },
+      ],
+    };
+    onChange(withRecomputedOrder([...workouts, newWorkout]));
+    setCollapsedWeeks((prev) => {
+      const next = new Set(prev);
+      next.delete(nextWeekIndex);
+      return next;
+    });
+  }
+
+  function addDayToWeek(weekIndex: number) {
+    const daysInWeek = workouts.filter((w) => w.weekIndex === weekIndex).length;
+    if (daysInWeek >= MAX_DAYS_PER_WEEK) return;
+    const newWorkout: WorkoutInput = {
+      name: `Day ${daysInWeek + 1}`,
+      dayIndex: daysInWeek,
+      weekIndex,
+      orderIndex: 0,
+      blocks: [
+        {
+          name: "Main",
+          type: "NORMAL",
+          orderIndex: 0,
+          rounds: 1,
+          exercises: [],
+        },
+      ],
+    };
+    onChange(withRecomputedOrder([...workouts, newWorkout]));
+  }
+
+  function removeWeek(weekIndex: number) {
+    const next = workouts.filter((w) => w.weekIndex !== weekIndex);
+    onChange(withRecomputedOrder(next));
+    setSelection(DEFAULT_SELECTION);
+    setCollapsedWeeks((prev) => {
+      const next = new Set(prev);
+      next.delete(weekIndex);
+      return next;
+    });
   }
 
   function removeWorkout(idx: number) {
-    const next = workouts
-      .filter((_, i) => i !== idx)
-      .map((w, i) => ({ ...w, orderIndex: i, dayIndex: i }));
-    onChange(next);
+    const removedWeek = workouts[idx].weekIndex;
+    const filtered = workouts.filter((_, i) => i !== idx);
+
+    // Re-index dayIndex to stay contiguous (0..n-1) within the affected
+    // week only — other weeks' days are untouched.
+    const sameWeek = filtered
+      .map((w, i) => ({ w, i }))
+      .filter(({ w }) => w.weekIndex === removedWeek)
+      .sort((a, b) => a.w.dayIndex - b.w.dayIndex);
+    const dayIndexByArrayPos = new Map<number, number>();
+    sameWeek.forEach(({ i }, newDayIndex) => dayIndexByArrayPos.set(i, newDayIndex));
+
+    const next = filtered.map((w, i) =>
+      dayIndexByArrayPos.has(i) ? { ...w, dayIndex: dayIndexByArrayPos.get(i)! } : w
+    );
+    onChange(withRecomputedOrder(next));
+    setSelection(DEFAULT_SELECTION);
   }
 
   function updateWorkoutField(
@@ -367,14 +462,26 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
     if (!clipboard) return;
 
     if (clipboard.type === "workout") {
-      const idx = workouts.length;
+      const targetWeekIndex =
+        selection.workoutIdx !== null
+          ? workouts[selection.workoutIdx].weekIndex
+          : weekGroups.length > 0
+            ? weekGroups[weekGroups.length - 1].weekIndex
+            : 0;
+      const daysInTargetWeek = workouts.filter(
+        (w) => w.weekIndex === targetWeekIndex
+      ).length;
+      if (daysInTargetWeek >= MAX_DAYS_PER_WEEK) {
+        toast.info("That week already has 7 days — select a different week first");
+        return;
+      }
       const clone = {
         ...clipboard.data,
-        dayIndex: idx,
-        orderIndex: idx,
+        dayIndex: daysInTargetWeek,
+        weekIndex: targetWeekIndex,
         name: `${clipboard.data.name} (copy)`,
       };
-      onChange([...workouts, clone]);
+      onChange(withRecomputedOrder([...workouts, clone]));
       toast.success("Workout day pasted");
       return;
     }
@@ -488,12 +595,59 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
         <div>
           <h2 className="text-xl font-semibold tracking-tight">Workouts</h2>
           <p className="text-sm text-muted-foreground">
-            Build your program&apos;s workout structure. Drag blocks or exercises to reorder.
+            Organize your program into weeks, with up to 7 days each. Drag blocks or exercises to reorder.
           </p>
         </div>
       </div>
 
-      {workouts.map((workout, wi) => (
+      {weekGroups.length === 0 && (
+        <div className="rounded-lg border-2 border-dashed p-10 text-center text-muted-foreground">
+          <p className="mb-3 text-sm">No weeks yet. Start by adding your first week.</p>
+          <Button type="button" variant="secondary" onClick={addWeek}>
+            <Plus className="mr-2 h-4 w-4" /> Add Week
+          </Button>
+        </div>
+      )}
+
+      {weekGroups.map(({ weekIndex, dayIdxs }, weekPos) => {
+        const isCollapsed = collapsedWeeks.has(weekIndex);
+        return (
+          <div key={weekIndex} className="rounded-xl border-2 bg-muted/10">
+            <div className="flex items-center justify-between p-4">
+              <button
+                type="button"
+                className="flex items-center gap-2 text-left"
+                onClick={() => toggleWeek(weekIndex)}
+              >
+                {isCollapsed ? (
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                ) : (
+                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                )}
+                <h3 className="text-lg font-bold tracking-tight">
+                  Week {weekPos + 1}
+                </h3>
+                <Badge variant="secondary">
+                  {dayIdxs.length}/{MAX_DAYS_PER_WEEK} days
+                </Badge>
+              </button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={() => removeWeek(weekIndex)}
+                className="text-destructive"
+                title="Remove week"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+
+            {!isCollapsed && (
+              <div className="space-y-4 px-4 pb-4">
+                {dayIdxs.map((wi) => {
+                  const workout = workouts[wi];
+                  return (
         <Card
           key={wi}
           className={cn(
@@ -856,15 +1010,38 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
             </Button>
           </CardContent>
         </Card>
-      ))}
+                  );
+                })}
 
-      <Button
-        variant="secondary"
-        onClick={addWorkout}
-        className="w-full border-dashed border-2 bg-background hover:bg-muted"
-      >
-        <Plus className="mr-2 h-4 w-4" /> Add Workout Day
-      </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={dayIdxs.length >= MAX_DAYS_PER_WEEK}
+                  onClick={() => addDayToWeek(weekIndex)}
+                  className="w-full border-dashed border-2"
+                >
+                  <Plus className="mr-1 h-3.5 w-3.5" />
+                  {dayIdxs.length >= MAX_DAYS_PER_WEEK
+                    ? `${MAX_DAYS_PER_WEEK}/${MAX_DAYS_PER_WEEK} days`
+                    : "Add Day"}
+                </Button>
+              </div>
+            )}
+          </div>
+        );
+      })}
+
+      {weekGroups.length > 0 && (
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={addWeek}
+          className="w-full border-dashed border-2 bg-background hover:bg-muted"
+        >
+          <Plus className="mr-2 h-4 w-4" /> Add Week
+        </Button>
+      )}
 
       <ExercisePickerDialog
         open={pickerOpen}

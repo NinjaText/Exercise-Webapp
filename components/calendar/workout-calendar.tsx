@@ -14,6 +14,7 @@ import "react-big-calendar/lib/addons/dragAndDrop/styles.css";
 // But we'll rely on basic functionality first.
 
 import { getClientWorkoutSessions, updateSessionDate } from "@/actions/calendar-actions";
+import { toLocalCalendarDate, toUtcCalendarDate } from "@/lib/utils/calendar-date";
 import { Loader2 } from "lucide-react";
 
 interface WorkoutSessionEvent extends CalendarEvent {
@@ -57,8 +58,8 @@ export default function WorkoutCalendar({
         id: session.id,
         clientId: session.clientId,
         title: session.plan?.title || "Workout Session",
-        start: new Date(session.scheduledDate as Date),
-        end: new Date(new Date(session.scheduledDate as Date).getTime() + 60 * 60 * 1000), // Append hour
+        start: toLocalCalendarDate(session.scheduledDate as Date),
+        end: new Date(toLocalCalendarDate(session.scheduledDate as Date).getTime() + 60 * 60 * 1000), // Append hour
         allDay: false,
         sourceResource: session,
       }));
@@ -98,12 +99,12 @@ export default function WorkoutCalendar({
     const newStart = new Date(start);
     // Optimistic update
     const previousEvents = [...events];
-    const updatedEvents = events.map(e => 
+    const updatedEvents = events.map(e =>
       e.id === event.id ? { ...e, start: newStart, end: new Date(end), allDay: droppedOnAllDaySlot } : e
     );
     setEvents(updatedEvents);
 
-    const result = await updateSessionDate(event.id, newStart);
+    const result = await updateSessionDate(event.id, toUtcCalendarDate(newStart));
     if (result.success) {
       toast.success("Workout session rescheduled successfully.");
     } else {

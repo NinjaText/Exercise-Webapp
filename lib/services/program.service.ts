@@ -175,6 +175,9 @@ export async function getPrograms(
     ...(filters.status && { status: filters.status as PlanStatus }),
     ...(filters.isTemplate !== undefined && { isTemplate: filters.isTemplate }),
     ...(filters.clientId && { clientId: filters.clientId }),
+    ...(filters.hasClient !== undefined && {
+      clientId: filters.hasClient ? { not: null } : null,
+    }),
     ...(filters.search && {
       OR: [
         { name: { contains: filters.search, mode: "insensitive" as const } },
@@ -280,6 +283,16 @@ export async function deleteProgram(id: string) {
   });
 }
 
+async function assertNotLinkedToSellablePackage(id: string) {
+  const linkedPackage = await prisma.coachPackage.findFirst({
+    where: { programTemplateId: id },
+    select: { id: true },
+  });
+  if (linkedPackage) {
+    throw new Error("Cannot delete: this program is linked to a sellable package");
+  }
+}
+
 // Permanently removes an archived program. Workouts, blocks, exercises, sets,
 // sessions, and voice memos cascade via the schema's onDelete: Cascade chain.
 export async function hardDeleteProgram(id: string) {
@@ -292,13 +305,26 @@ export async function hardDeleteProgram(id: string) {
     throw new Error("Cannot delete: only archived programs can be permanently deleted");
   }
 
-  const linkedPackage = await prisma.coachPackage.findFirst({
-    where: { programTemplateId: id },
-    select: { id: true },
+  await assertNotLinkedToSellablePackage(id);
+
+  return prisma.program.delete({ where: { id } });
+}
+
+// Removes a program that's assigned to a client, in one step (no archive-first
+// requirement). Workouts, blocks, exercises, sets, sessions, and voice memos
+// cascade via the schema's onDelete: Cascade chain, so this also clears the
+// program's workouts off the client's calendar.
+export async function deleteClientProgram(id: string) {
+  const program = await prisma.program.findUnique({
+    where: { id },
+    select: { clientId: true },
   });
-  if (linkedPackage) {
-    throw new Error("Cannot delete: this program is linked to a sellable package");
+  if (!program) throw new Error("Program not found");
+  if (!program.clientId) {
+    throw new Error("Cannot delete: this program is not assigned to a client");
   }
+
+  await assertNotLinkedToSellablePackage(id);
 
   return prisma.program.delete({ where: { id } });
 }
@@ -411,22 +437,33 @@ export async function getTemplates(trainerId: string) {
 
 // --- Global Programs (super admin) ---
 
-export async function getGlobalPrograms(clerkOrgId?: string) {
-  const where: Prisma.ProgramWhereInput = {
-    isGlobal: true,
-    status: { not: "ARCHIVED" },
-  };
+export async function getGlobalPrograms(clerkOrgId?: string, excludeTrainerId?: string) {
+  const adminCuratedBranch: Prisma.ProgramWhereInput = { isGlobal: true };
   if (clerkOrgId) {
-    where.OR = [
+    adminCuratedBranch.OR = [
       { organizationIds: { isEmpty: true } },
       { organizationIds: { has: clerkOrgId } },
     ];
   }
 
+  const publicTrainerBranch: Prisma.ProgramWhereInput = excludeTrainerId
+    ? { isPublic: true, trainerId: { not: excludeTrainerId } }
+    : { isPublic: true };
+
   return prisma.program.findMany({
-    where,
+    where: {
+      status: { not: "ARCHIVED" },
+      OR: [adminCuratedBranch, publicTrainerBranch],
+    },
     include: programListInclude,
     orderBy: { updatedAt: "desc" },
+  });
+}
+
+export async function toggleProgramPublic(id: string, isPublic: boolean) {
+  return prisma.program.update({
+    where: { id, isTemplate: true, clientId: null },
+    data: { isPublic },
   });
 }
 
@@ -594,6 +631,8 @@ export async function copyGlobalProgramToOrganization(
 ) {
   const source = await getProgramById(globalProgramId);
   if (!source) throw new Error("Program not found");
-  if (!source.isGlobal) throw new Error("Program is not a global program");
+  if (!source.isGlobal && !source.isPublic) {
+    throw new Error("Program is not available to copy");
+  }
   return duplicateProgram(globalProgramId, trainerId, false);
 }

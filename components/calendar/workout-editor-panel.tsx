@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { toLocalCalendarDate, toUtcCalendarDate } from "@/lib/utils/calendar-date";
 import { UniversalVideoPlayer } from "@/components/exercises/universal-video-player";
 import {
   DropdownMenu,
@@ -718,7 +719,7 @@ export function WorkoutEditorPanel({
     try {
       const result = await createAdHocWorkoutAction(
         clientId,
-        panelState.date.toISOString(),
+        toUtcCalendarDate(panelState.date).toISOString(),
         workoutName
       );
       if (result.success) {
@@ -1283,7 +1284,7 @@ export function WorkoutEditorPanel({
     panelState.mode === "creating"
       ? format(panelState.date, "EEEE, MMM d, yyyy")
       : session
-        ? format(new Date(session.scheduledDate), "EEEE, MMM d, yyyy")
+        ? format(toLocalCalendarDate(session.scheduledDate), "EEEE, MMM d, yyyy")
         : "";
 
   return (

@@ -74,7 +74,7 @@ export async function assignAdminProgramAction(input: {
 
   const existing = await prisma.program.findUnique({
     where: { id: parsed.data.programId },
-    select: { isGlobal: true },
+    select: { isGlobal: true, trainerId: true },
   });
   if (!existing) {
     return { success: false as const, error: "Program not found" };
@@ -85,10 +85,20 @@ export async function assignAdminProgramAction(input: {
       error: "Use the Global Programs section to edit this program",
     };
   }
+  if (!existing.trainerId) {
+    return { success: false as const, error: "Program has no owning trainer" };
+  }
 
   try {
-    const result = await programService.assignProgram(
+    // Never mutate the source program in place — clone it so the original
+    // (which may be a reusable template) stays assignable to other clients.
+    const copy = await programService.duplicateProgram(
       parsed.data.programId,
+      existing.trainerId,
+      false
+    );
+    const result = await programService.assignProgram(
+      copy.id,
       parsed.data.clientId,
       new Date(parsed.data.startDate)
     );

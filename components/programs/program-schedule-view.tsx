@@ -16,6 +16,7 @@ import {
   addDays,
 } from "date-fns";
 import { enUS } from "date-fns/locale";
+import { toLocalCalendarDate, toUtcCalendarDate } from "@/lib/utils/calendar-date";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
@@ -117,6 +118,7 @@ interface ExerciseSet {
   setType: string;
   targetReps: number | null;
   targetDuration: number | null;
+  targetDurationUnit: string | null;
   targetWeight: number | null;
 }
 
@@ -262,6 +264,7 @@ function castWorkout(raw: Record<string, unknown>): WorkoutData {
           setType: (s.setType as string) || "NORMAL",
           targetReps: s.targetReps as number | null,
           targetDuration: s.targetDuration as number | null,
+          targetDurationUnit: (s.targetDurationUnit as string | null) ?? null,
           targetWeight: s.targetWeight as number | null,
         })),
       };
@@ -293,7 +296,7 @@ function formatPrescription(sets: ExerciseSet[]): string {
   const s = sets[0];
   if (s.targetDuration) {
     const weight = s.targetWeight ? ` @ ${s.targetWeight}lb` : "";
-    return `${n} × ${s.targetDuration}s${weight}`;
+    return `${n} × ${s.targetDuration}${s.targetDurationUnit === "MIN" ? "min" : "s"}${weight}`;
   }
   if (s.targetReps) {
     const weight = s.targetWeight ? ` @ ${s.targetWeight}lb` : "";
@@ -1318,7 +1321,7 @@ export function ProgramScheduleView({
   const [view, setView] = useState<View>(Views.WEEK);
   const [calDate, setCalDate] = useState<Date>(() =>
     hasSessions && sessions.length > 0
-      ? new Date(sessions[0].scheduledDate)
+      ? toLocalCalendarDate(sessions[0].scheduledDate)
       : refMonday
   );
 
@@ -1370,7 +1373,7 @@ export function ProgramScheduleView({
     if (hasSessions) {
       return sessions.map((s) => {
         const overrideDate = sessionDateOverrides.get(s.id);
-        const rawStart = overrideDate ?? new Date(s.scheduledDate);
+        const rawStart = overrideDate ?? toLocalCalendarDate(s.scheduledDate);
         // If the session has no meaningful time (midnight), show at 9 AM
         const start = new Date(rawStart);
         if (start.getHours() === 0 && start.getMinutes() === 0) {
@@ -1423,9 +1426,8 @@ export function ProgramScheduleView({
 
       if (hasSessions && event.sessionId) {
         const sessionId = event.sessionId;
-        const prevDate = new Date(
-          sessions.find((s) => s.id === sessionId)?.scheduledDate ?? droppedDate
-        );
+        const foundDate = sessions.find((s) => s.id === sessionId)?.scheduledDate;
+        const prevDate = foundDate ? toLocalCalendarDate(foundDate) : droppedDate;
 
         // Optimistic: show new date immediately
         setSessionDateOverrides((prev) =>
@@ -1434,7 +1436,7 @@ export function ProgramScheduleView({
 
         const result = await rescheduleSessionAction(
           sessionId,
-          droppedDate.toISOString()
+          toUtcCalendarDate(droppedDate).toISOString()
         );
         if (result.success) {
           toast.success("Session rescheduled");

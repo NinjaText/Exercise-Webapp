@@ -20,11 +20,15 @@ vi.mock('@/lib/prisma', () => ({
 import { prisma } from '@/lib/prisma'
 import {
   getGlobalPrograms,
+  getPrograms,
   assignGlobalProgramOrganizations,
   createProgram,
   createGlobalProgram,
   computeDurationWeeksFromWorkouts,
   hardDeleteProgram,
+  deleteClientProgram,
+  toggleProgramPublic,
+  copyGlobalProgramToOrganization,
 } from '../program.service'
 
 const mockFindMany = vi.mocked(prisma.program.findMany)
@@ -38,20 +42,58 @@ beforeEach(() => {
   vi.clearAllMocks()
 })
 
+describe('getPrograms', () => {
+  it('filters to programs with a client attached when hasClient is true (the "Assigned" tab)', async () => {
+    mockFindMany.mockResolvedValue([])
+
+    await getPrograms('trainer_1', { hasClient: true })
+
+    expect(mockFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ trainerId: 'trainer_1', clientId: { not: null } }),
+      })
+    )
+  })
+
+  it('filters to programs with no client attached when hasClient is false (the "Library" tab)', async () => {
+    mockFindMany.mockResolvedValue([])
+
+    await getPrograms('trainer_1', { hasClient: false })
+
+    expect(mockFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ trainerId: 'trainer_1', clientId: null }),
+      })
+    )
+  })
+
+  it('omits the clientId filter entirely when hasClient is not specified', async () => {
+    mockFindMany.mockResolvedValue([])
+
+    await getPrograms('trainer_1', {})
+
+    const where = mockFindMany.mock.calls[0][0]?.where as Record<string, unknown>
+    expect(where).not.toHaveProperty('clientId')
+  })
+})
+
 describe('getGlobalPrograms', () => {
-  it('queries without an organization filter when clerkOrgId is omitted', async () => {
+  it('queries admin-curated OR trainer-published-public programs when clerkOrgId is omitted', async () => {
     mockFindMany.mockResolvedValue([])
 
     await getGlobalPrograms()
 
     expect(mockFindMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { isGlobal: true, status: { not: 'ARCHIVED' } },
+        where: {
+          status: { not: 'ARCHIVED' },
+          OR: [{ isGlobal: true }, { isPublic: true }],
+        },
       })
     )
   })
 
-  it('filters to universal-or-matching-org programs when clerkOrgId is provided', async () => {
+  it('scopes the admin-curated branch to universal-or-matching-org when clerkOrgId is provided, leaving the public-trainer-program branch unscoped', async () => {
     mockFindMany.mockResolvedValue([])
 
     await getGlobalPrograms('org_123')
@@ -59,14 +101,91 @@ describe('getGlobalPrograms', () => {
     expect(mockFindMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: {
-          isGlobal: true,
           status: { not: 'ARCHIVED' },
           OR: [
-            { organizationIds: { isEmpty: true } },
-            { organizationIds: { has: 'org_123' } },
+            {
+              isGlobal: true,
+              OR: [
+                { organizationIds: { isEmpty: true } },
+                { organizationIds: { has: 'org_123' } },
+              ],
+            },
+            { isPublic: true },
           ],
         },
       })
+    )
+  })
+})
+
+describe('toggleProgramPublic', () => {
+  it('flips isPublic on a template program with no client attached', async () => {
+    mockUpdate.mockResolvedValue({ id: 'prog_1', isPublic: true } as any)
+
+    await toggleProgramPublic('prog_1', true)
+
+    expect(mockUpdate).toHaveBeenCalledWith({
+      where: { id: 'prog_1', isTemplate: true, clientId: null },
+      data: { isPublic: true },
+    })
+  })
+})
+
+describe('getGlobalPrograms excluding the viewing trainer\'s own public programs', () => {
+  it('excludes the viewing trainer from the public-trainer-program branch when excludeTrainerId is provided', async () => {
+    mockFindMany.mockResolvedValue([])
+
+    await getGlobalPrograms(undefined, 'trainer_1')
+
+    expect(mockFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          status: { not: 'ARCHIVED' },
+          OR: [
+            { isGlobal: true },
+            { isPublic: true, trainerId: { not: 'trainer_1' } },
+          ],
+        },
+      })
+    )
+  })
+
+  it('does not filter by trainerId in the public branch when excludeTrainerId is omitted', async () => {
+    mockFindMany.mockResolvedValue([])
+
+    await getGlobalPrograms()
+
+    const call = mockFindMany.mock.calls[0][0] as any
+    const publicBranch = call.where.OR.find((clause: any) => 'isPublic' in clause)
+    expect(publicBranch).not.toHaveProperty('trainerId')
+  })
+})
+
+describe('copyGlobalProgramToOrganization', () => {
+  it('copies a trainer-published public program even when it is not isGlobal', async () => {
+    const source = {
+      id: 'prog_pub', isGlobal: false, isPublic: true, name: 'Public Template', workouts: [],
+    }
+    // getProgramById is called once by copyGlobalProgramToOrganization and again
+    // by duplicateProgram, then createProgram re-fetches the newly created copy.
+    mockFindUnique
+      .mockResolvedValueOnce(source as any)
+      .mockResolvedValueOnce(source as any)
+      .mockResolvedValueOnce({ id: 'copy_1' } as any)
+    mockCreate.mockResolvedValue({ id: 'copy_1' } as any)
+
+    const result = await copyGlobalProgramToOrganization('prog_pub', 'trainer_2')
+
+    expect(result).toEqual(expect.objectContaining({ id: 'copy_1' }))
+  })
+
+  it('throws when the source program is neither global nor public', async () => {
+    mockFindUnique.mockResolvedValue({
+      id: 'prog_x', isGlobal: false, isPublic: false, name: 'Private', workouts: [],
+    } as any)
+
+    await expect(copyGlobalProgramToOrganization('prog_x', 'trainer_2')).rejects.toThrow(
+      'Program is not available to copy'
     )
   })
 })
@@ -167,6 +286,45 @@ describe('hardDeleteProgram', () => {
       where: { programTemplateId: 'prog_1' },
       select: { id: true },
     })
+    expect(mockDelete).toHaveBeenCalledWith({ where: { id: 'prog_1' } })
+    expect(result).toEqual({ id: 'prog_1' })
+  })
+})
+
+describe('deleteClientProgram', () => {
+  it('throws when the program does not exist', async () => {
+    mockFindUnique.mockResolvedValue(null)
+
+    await expect(deleteClientProgram('prog_1')).rejects.toThrow('Program not found')
+    expect(mockDelete).not.toHaveBeenCalled()
+  })
+
+  it('refuses to delete a program with no client attached', async () => {
+    mockFindUnique.mockResolvedValue({ clientId: null } as any)
+
+    await expect(deleteClientProgram('prog_1')).rejects.toThrow(
+      'this program is not assigned to a client'
+    )
+    expect(mockDelete).not.toHaveBeenCalled()
+  })
+
+  it('refuses to delete a program linked to a sellable package', async () => {
+    mockFindUnique.mockResolvedValue({ clientId: 'client_1' } as any)
+    mockPackageFindFirst.mockResolvedValue({ id: 'pkg_1' } as any)
+
+    await expect(deleteClientProgram('prog_1')).rejects.toThrow(
+      'linked to a sellable package'
+    )
+    expect(mockDelete).not.toHaveBeenCalled()
+  })
+
+  it('deletes an assigned, unlinked program without requiring it to be archived first', async () => {
+    mockFindUnique.mockResolvedValue({ clientId: 'client_1', status: 'ACTIVE' } as any)
+    mockPackageFindFirst.mockResolvedValue(null)
+    mockDelete.mockResolvedValue({ id: 'prog_1' } as any)
+
+    const result = await deleteClientProgram('prog_1')
+
     expect(mockDelete).toHaveBeenCalledWith({ where: { id: 'prog_1' } })
     expect(result).toEqual({ id: 'prog_1' })
   })

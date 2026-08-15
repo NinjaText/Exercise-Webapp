@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Calendar, ChevronLeft, ChevronRight, ClipboardList, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toLocalCalendarDate } from "@/lib/utils/calendar-date";
 
 interface CalendarSession {
   id: string;
@@ -61,7 +62,7 @@ export function ClientSessionCalendar({ sessions }: Props) {
   }, [currentMonth]);
 
   function getSessionsForDay(date: Date): CalendarSession[] {
-    return sessions.filter((s) => isSameDay(new Date(s.scheduledDate), date));
+    return sessions.filter((s) => isSameDay(toLocalCalendarDate(s.scheduledDate), date));
   }
 
   function isClickable(date: Date, daySessions: CalendarSession[]): boolean {

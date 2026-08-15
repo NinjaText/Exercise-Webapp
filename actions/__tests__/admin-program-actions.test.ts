@@ -4,6 +4,7 @@ vi.mock('@/lib/current-user', () => ({ requireSuperAdmin: vi.fn() }))
 vi.mock('@/lib/services/program.service', () => ({
   updateProgram: vi.fn(),
   assignProgram: vi.fn(),
+  duplicateProgram: vi.fn(),
 }))
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 vi.mock('@/lib/prisma', () => ({
@@ -19,12 +20,13 @@ import { updateAdminProgramAction, assignAdminProgramAction } from '../admin-pro
 const mockRequireSuperAdmin = vi.mocked(requireSuperAdmin)
 const mockUpdateProgram = vi.mocked(programService.updateProgram)
 const mockAssignProgram = vi.mocked(programService.assignProgram)
+const mockDuplicateProgram = vi.mocked(programService.duplicateProgram)
 const mockFindUnique = vi.mocked(prisma.program.findUnique)
 
 beforeEach(() => {
   vi.clearAllMocks()
   mockRequireSuperAdmin.mockResolvedValue({ id: 'admin_1' } as any)
-  mockFindUnique.mockResolvedValue({ isGlobal: false } as any)
+  mockFindUnique.mockResolvedValue({ isGlobal: false, trainerId: 'trainer_1' } as any)
 })
 
 describe('updateAdminProgramAction', () => {
@@ -70,8 +72,9 @@ describe('updateAdminProgramAction', () => {
 })
 
 describe('assignAdminProgramAction', () => {
-  it('checks super admin, assigns the program, and revalidates admin paths', async () => {
-    mockAssignProgram.mockResolvedValue({ id: 'prog_1' } as any)
+  it('clones the source program, assigns the clone, and revalidates admin paths', async () => {
+    mockDuplicateProgram.mockResolvedValue({ id: 'copy_1' } as any)
+    mockAssignProgram.mockResolvedValue({ id: 'copy_1' } as any)
 
     const result = await assignAdminProgramAction({
       programId: 'prog_1',
@@ -80,14 +83,15 @@ describe('assignAdminProgramAction', () => {
     })
 
     expect(mockRequireSuperAdmin).toHaveBeenCalled()
+    expect(mockDuplicateProgram).toHaveBeenCalledWith('prog_1', 'trainer_1', false)
     expect(mockAssignProgram).toHaveBeenCalledWith(
-      'prog_1',
+      'copy_1',
       'client_1',
       new Date('2026-08-01T00:00:00.000Z')
     )
     expect(revalidatePath).toHaveBeenCalledWith('/admin/programs')
     expect(revalidatePath).toHaveBeenCalledWith('/admin/programs/prog_1')
-    expect(result).toEqual({ success: true, data: { id: 'prog_1' } })
+    expect(result).toEqual({ success: true, data: { id: 'copy_1' } })
   })
 
   it('returns a validation error and does not call the service when clientId is missing', async () => {

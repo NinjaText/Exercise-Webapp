@@ -26,10 +26,12 @@ export default async function ProgramsPage({ searchParams }: Props) {
       ? programService.getPrograms(user.id, {
           search: params.search,
           status: params.status as any,
-          isTemplate: tab === "templates",
+          // "Assigned" = a client is currently running it; "Library" = not
+          // yet given to anyone (drafts and reusable templates alike).
+          hasClient: tab === "programs",
         })
       : programService.getProgramsForClient(user.id),
-    user.role === "TRAINER" ? programService.getGlobalPrograms(user.clerkOrgId ?? undefined) : Promise.resolve([]),
+    user.role === "TRAINER" ? programService.getGlobalPrograms(user.clerkOrgId ?? undefined, user.id) : Promise.resolve([]),
   ]);
 
   // For each organization program that came from a global master, check if master has been updated
@@ -50,7 +52,7 @@ export default async function ProgramsPage({ searchParams }: Props) {
         title={user.role === "TRAINER" ? "Programs" : "My Programs"}
         description={
           user.role === "TRAINER"
-            ? "Create, manage, and assign training programs to your clients."
+            ? "Build programs in your Library, then assign them to clients."
             : `You have ${programs.length} programs assigned.`
         }
       />

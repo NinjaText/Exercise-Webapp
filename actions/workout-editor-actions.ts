@@ -195,6 +195,11 @@ export async function moveWorkoutAction(
   const { userId } = await auth();
   if (!userId) return { success: false as const, error: "Unauthorized" };
 
+  if (!Number.isInteger(newDayIndex) || newDayIndex < 0 || newDayIndex > 6)
+    return { success: false as const, error: "Day must be within a single week (max 7 days)" };
+  if (!Number.isInteger(newWeekIndex) || newWeekIndex < 0)
+    return { success: false as const, error: "Invalid week" };
+
   const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
   if (!dbUser || dbUser.role !== "TRAINER")
     return { success: false as const, error: "Unauthorized" };

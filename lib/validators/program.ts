@@ -47,8 +47,8 @@ export const workoutSchema = z.object({
   id: z.string().optional(),
   name: z.string().min(1, "Workout name is required").max(200),
   description: z.string().max(2000).optional().nullable(),
-  dayIndex: z.number().int().min(0),
-  weekIndex: z.number().int().min(0).default(0),
+  dayIndex: z.number().int().min(0).max(6, "A week can have at most 7 days"),
+  weekIndex: z.number().int().min(0).max(103, "Program can span at most 104 weeks").default(0),
   orderIndex: z.number().int().min(0),
   estimatedMinutes: z.number().int().positive().optional().nullable(),
   blocks: z.array(workoutBlockSchema),
@@ -85,6 +85,10 @@ export const programFilterSchema = z.object({
   status: z.enum(["DRAFT", "ACTIVE", "PAUSED", "COMPLETED", "ARCHIVED"]).optional(),
   isTemplate: z.boolean().optional(),
   clientId: z.string().optional(),
+  // Whether the program currently has a client attached — used to split the
+  // programs list into "Assigned" (a client is running it) vs "Library"
+  // (not yet given to anyone: drafts and reusable templates alike).
+  hasClient: z.boolean().optional(),
 });
 
 // --- Inferred types ---

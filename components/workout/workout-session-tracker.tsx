@@ -43,7 +43,7 @@ type BaseExercise = {
   media: MediaItem[];
 };
 type SetLog = { id: string; setIndex: number; actualReps?: number | null; actualWeight?: number | null; actualDuration?: number | null; actualRPE?: number | null };
-type BlockExerciseSet = { id: string; orderIndex: number; targetReps?: number | null; targetDuration?: number | null; targetWeight?: number | null; targetRPE?: number | null; restAfter?: number | null };
+type BlockExerciseSet = { id: string; orderIndex: number; targetReps?: number | null; targetDuration?: number | null; targetDurationUnit?: string | null; targetWeight?: number | null; targetRPE?: number | null; restAfter?: number | null };
 type SessionExerciseLog = { id: string; blockExerciseId: string; status: string; clientNote?: string | null; setLogs: SetLog[] };
 type BlockExercise = { id: string; exerciseId: string; notes?: string | null; exercise: BaseExercise; sets: BlockExerciseSet[] };
 type WorkoutBlock = {
@@ -710,7 +710,7 @@ export function WorkoutSessionTracker({
                       )}
                       {targetSet.targetDuration != null && (
                         <div className="space-y-0.5">
-                          <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Secs</Label>
+                          <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">{targetSet.targetDurationUnit === "MIN" ? "Min" : "Secs"}</Label>
                           <Input type="number" placeholder={targetSet.targetDuration.toString()} value={activeSetLogs[0]?.actualDuration ?? ""} onChange={(e) => handleSetInputChange(0, "actualDuration", e.target.value)} className="h-8 w-20 text-sm" disabled={activeSetLogs[0]?.completed} />
                         </div>
                       )}
