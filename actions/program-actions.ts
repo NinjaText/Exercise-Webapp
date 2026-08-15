@@ -372,8 +372,17 @@ export async function assignProgramAction(input: {
   }
 
   try {
-    const result = await programService.assignProgram(
+    // Assigning a template must never mutate the template row itself — clone
+    // it into a standalone program first, then attach the client/start date
+    // to the clone. Otherwise the template loses isTemplate/clientId=null and
+    // can't be assigned to a second client afterward.
+    const copy = await programService.duplicateProgram(
       parsed.data.programId,
+      user.id,
+      false
+    );
+    const result = await programService.assignProgram(
+      copy.id,
       parsed.data.clientId,
       new Date(parsed.data.startDate)
     );
@@ -385,6 +394,47 @@ export async function assignProgramAction(input: {
   } catch (error) {
     console.error("Failed to assign program:", error);
     return { success: false as const, error: "Failed to assign program" };
+  }
+}
+
+export async function deleteClientProgramAction(programId: string) {
+  const user = await getTrainerUser();
+  if (!user) return { success: false as const, error: "Unauthorized" };
+
+  const program = await prisma.program.findUnique({
+    where: { id: programId },
+    select: { trainerId: true, name: true, clientId: true },
+  });
+  if (!program || program.trainerId !== user.id) {
+    return { success: false as const, error: "Forbidden" };
+  }
+  if (!program.clientId) {
+    return { success: false as const, error: "This program is not assigned to a client" };
+  }
+
+  try {
+    await programService.deleteClientProgram(programId);
+    await logAudit({
+      actorId: user.id,
+      actorType: deriveActorType(user),
+      actorName: `${user.firstName} ${user.lastName}`,
+      action: AUDIT_ACTIONS.PROGRAM_HARD_DELETED,
+      targetType: "Program",
+      targetId: programId,
+      targetLabel: program.name,
+      orgId: user.clerkOrgId,
+    });
+    revalidatePath(`/clients/${program.clientId}`);
+    revalidatePath("/dashboard");
+    revalidatePath("/programs");
+    return { success: true as const };
+  } catch (error) {
+    console.error("Failed to delete client program:", error);
+    const message =
+      error instanceof Error && error.message.startsWith("Cannot delete:")
+        ? error.message
+        : "Failed to delete program";
+    return { success: false as const, error: message };
   }
 }
 

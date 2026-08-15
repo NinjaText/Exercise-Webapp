@@ -16,6 +16,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PlanStatusBadge } from "@/components/workout/plan-status-badge";
 import { ArrowLeft, BarChart3, Activity, MessageSquare, TrendingUp } from "lucide-react";
 import { ClientCalendar } from "@/components/calendar/client-calendar";
+import { AssignedProgramsList } from "@/components/clients/assigned-programs-list";
 import { ClientAdherenceSummary } from "@/components/clients/client-adherence-summary";
 import { MessageThread } from "@/components/messages/message-thread";
 
@@ -269,37 +270,7 @@ export default async function ClientDetailPage({ params }: Props) {
               <CardTitle className="text-base">Assigned Programs</CardTitle>
             </CardHeader>
             <CardContent>
-              {assignedPrograms.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No programs assigned yet.</p>
-              ) : (
-                <div className="space-y-3">
-                  {assignedPrograms.map((prog) => (
-                    <Link
-                      key={prog.id}
-                      href={`/programs/${prog.id}`}
-                      className="flex items-center justify-between rounded-lg border border-border p-3 hover:bg-muted/50 transition-colors"
-                    >
-                      <div>
-                        <p className="font-medium">{prog.name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {prog._count.workouts} workouts
-                        </p>
-                      </div>
-                      <Badge
-                        className={
-                          prog.status === "ACTIVE"
-                            ? "border-emerald-200 bg-emerald-100 text-emerald-700"
-                            : prog.status === "PAUSED"
-                            ? "border-amber-200 bg-amber-100 text-amber-700"
-                            : "border-border bg-muted text-muted-foreground"
-                        }
-                      >
-                        {prog.status.charAt(0) + prog.status.slice(1).toLowerCase()}
-                      </Badge>
-                    </Link>
-                  ))}
-                </div>
-              )}
+              <AssignedProgramsList programs={assignedPrograms} />
             </CardContent>
           </Card>
         </TabsContent>

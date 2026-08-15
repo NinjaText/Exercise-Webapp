@@ -421,8 +421,8 @@ export function ProgramListClient({
       {role === "TRAINER" && (
         <Tabs value={activeTab} onValueChange={handleTabChange}>
           <TabsList className="grid w-full max-w-xs grid-cols-2">
-            <TabsTrigger value="programs">Programs</TabsTrigger>
-            <TabsTrigger value="templates">Templates</TabsTrigger>
+            <TabsTrigger value="programs">Assigned</TabsTrigger>
+            <TabsTrigger value="templates">Library</TabsTrigger>
           </TabsList>
         </Tabs>
       )}
@@ -451,7 +451,7 @@ export function ProgramListClient({
           <div className="relative flex-1 min-w-48 max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder={activeTab === "templates" ? "Search templates or workouts..." : "Search programs or workouts..."}
+              placeholder={activeTab === "templates" ? "Search library or workouts..." : "Search assigned programs or workouts..."}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-9"
@@ -507,10 +507,10 @@ export function ProgramListClient({
         filteredPrograms.length === 0 ? (
           <div className="rounded-xl border border-dashed border-border p-12 text-center">
             <Library className="mx-auto h-12 w-12 text-muted-foreground/40" />
-            <h3 className="mt-4 font-semibold">No programs found</h3>
+            <h3 className="mt-4 font-semibold">No assigned programs</h3>
             <p className="mt-1 text-sm text-muted-foreground">
               {role === "TRAINER"
-                ? "Generate an AI program or create one manually to get started."
+                ? "Assign a program from your Library to a client to see it here."
                 : "No programs have been assigned to you yet."}
             </p>
             {role === "TRAINER" && (
@@ -557,13 +557,13 @@ export function ProgramListClient({
               {typeFilter === "global"
                 ? "No global templates"
                 : typeFilter === "clinical"
-                ? "No clinical templates"
-                : "No templates found"}
+                ? "Your library is empty"
+                : "Your library is empty"}
             </h3>
             <p className="mt-1 text-sm text-muted-foreground">
               {typeFilter === "global"
                 ? "Your administrator hasn't added any global programs yet."
-                : "Create a template or duplicate a program to build your library."}
+                : "Build a program here, then assign it to a client when it's ready."}
             </p>
             {typeFilter !== "global" && role === "TRAINER" && (
               <div className="mt-4 flex justify-center gap-2">

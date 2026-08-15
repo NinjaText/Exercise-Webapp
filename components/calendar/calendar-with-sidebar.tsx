@@ -18,6 +18,7 @@ import {
 import { enUS } from "date-fns/locale";
 import { toast } from "sonner";
 import { rescheduleSessionAction } from "@/actions/session-actions";
+import { toLocalCalendarDate, toUtcCalendarDate } from "@/lib/utils/calendar-date";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 import "react-big-calendar/lib/addons/dragAndDrop/styles.css";
 import { ChevronLeft, ChevronRight } from "lucide-react";
@@ -184,8 +185,8 @@ export function CalendarWithSidebar({ sessions, isTrainer, onSessionClick }: Pro
     return {
       id: s.id as string,
       title: (workout?.name as string) || (program?.name as string) || "Workout",
-      start: new Date(s.scheduledDate as string),
-      end: new Date(new Date(s.scheduledDate as string).getTime() + 60 * 60 * 1000),
+      start: toLocalCalendarDate(s.scheduledDate as string),
+      end: new Date(toLocalCalendarDate(s.scheduledDate as string).getTime() + 60 * 60 * 1000),
       status: s.status as string,
       clientName: client
         ? `${client.firstName} ${client.lastName}`
@@ -204,7 +205,7 @@ export function CalendarWithSidebar({ sessions, isTrainer, onSessionClick }: Pro
       }
       const result = await rescheduleSessionAction(
         event.id,
-        new Date(start).toISOString()
+        toUtcCalendarDate(new Date(start)).toISOString()
       );
       if (result.success) {
         toast.success("Session rescheduled");

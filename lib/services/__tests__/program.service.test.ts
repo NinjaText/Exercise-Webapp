@@ -20,11 +20,13 @@ vi.mock('@/lib/prisma', () => ({
 import { prisma } from '@/lib/prisma'
 import {
   getGlobalPrograms,
+  getPrograms,
   assignGlobalProgramOrganizations,
   createProgram,
   createGlobalProgram,
   computeDurationWeeksFromWorkouts,
   hardDeleteProgram,
+  deleteClientProgram,
 } from '../program.service'
 
 const mockFindMany = vi.mocked(prisma.program.findMany)
@@ -36,6 +38,41 @@ const mockPackageFindFirst = vi.mocked(prisma.coachPackage.findFirst)
 
 beforeEach(() => {
   vi.clearAllMocks()
+})
+
+describe('getPrograms', () => {
+  it('filters to programs with a client attached when hasClient is true (the "Assigned" tab)', async () => {
+    mockFindMany.mockResolvedValue([])
+
+    await getPrograms('trainer_1', { hasClient: true })
+
+    expect(mockFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ trainerId: 'trainer_1', clientId: { not: null } }),
+      })
+    )
+  })
+
+  it('filters to programs with no client attached when hasClient is false (the "Library" tab)', async () => {
+    mockFindMany.mockResolvedValue([])
+
+    await getPrograms('trainer_1', { hasClient: false })
+
+    expect(mockFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ trainerId: 'trainer_1', clientId: null }),
+      })
+    )
+  })
+
+  it('omits the clientId filter entirely when hasClient is not specified', async () => {
+    mockFindMany.mockResolvedValue([])
+
+    await getPrograms('trainer_1', {})
+
+    const where = mockFindMany.mock.calls[0][0]?.where as Record<string, unknown>
+    expect(where).not.toHaveProperty('clientId')
+  })
 })
 
 describe('getGlobalPrograms', () => {
@@ -167,6 +204,45 @@ describe('hardDeleteProgram', () => {
       where: { programTemplateId: 'prog_1' },
       select: { id: true },
     })
+    expect(mockDelete).toHaveBeenCalledWith({ where: { id: 'prog_1' } })
+    expect(result).toEqual({ id: 'prog_1' })
+  })
+})
+
+describe('deleteClientProgram', () => {
+  it('throws when the program does not exist', async () => {
+    mockFindUnique.mockResolvedValue(null)
+
+    await expect(deleteClientProgram('prog_1')).rejects.toThrow('Program not found')
+    expect(mockDelete).not.toHaveBeenCalled()
+  })
+
+  it('refuses to delete a program with no client attached', async () => {
+    mockFindUnique.mockResolvedValue({ clientId: null } as any)
+
+    await expect(deleteClientProgram('prog_1')).rejects.toThrow(
+      'this program is not assigned to a client'
+    )
+    expect(mockDelete).not.toHaveBeenCalled()
+  })
+
+  it('refuses to delete a program linked to a sellable package', async () => {
+    mockFindUnique.mockResolvedValue({ clientId: 'client_1' } as any)
+    mockPackageFindFirst.mockResolvedValue({ id: 'pkg_1' } as any)
+
+    await expect(deleteClientProgram('prog_1')).rejects.toThrow(
+      'linked to a sellable package'
+    )
+    expect(mockDelete).not.toHaveBeenCalled()
+  })
+
+  it('deletes an assigned, unlinked program without requiring it to be archived first', async () => {
+    mockFindUnique.mockResolvedValue({ clientId: 'client_1', status: 'ACTIVE' } as any)
+    mockPackageFindFirst.mockResolvedValue(null)
+    mockDelete.mockResolvedValue({ id: 'prog_1' } as any)
+
+    const result = await deleteClientProgram('prog_1')
+
     expect(mockDelete).toHaveBeenCalledWith({ where: { id: 'prog_1' } })
     expect(result).toEqual({ id: 'prog_1' })
   })

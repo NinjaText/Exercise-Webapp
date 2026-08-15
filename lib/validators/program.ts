@@ -85,6 +85,10 @@ export const programFilterSchema = z.object({
   status: z.enum(["DRAFT", "ACTIVE", "PAUSED", "COMPLETED", "ARCHIVED"]).optional(),
   isTemplate: z.boolean().optional(),
   clientId: z.string().optional(),
+  // Whether the program currently has a client attached — used to split the
+  // programs list into "Assigned" (a client is running it) vs "Library"
+  // (not yet given to anyone: drafts and reusable templates alike).
+  hasClient: z.boolean().optional(),
 });
 
 // --- Inferred types ---

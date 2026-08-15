@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Plus, Dumbbell, ChevronLeft, ChevronRight, Sparkles, MoreHorizontal, Copy } from "lucide-react";
 import { rescheduleSessionAction } from "@/actions/session-actions";
+import { toLocalCalendarDate, toUtcCalendarDate } from "@/lib/utils/calendar-date";
 import {
   Dialog,
   DialogContent,
@@ -404,7 +405,7 @@ export function ClientCalendar({
           (acc, b) => acc + b.exercises.length,
           0
         );
-        const start = new Date(s.scheduledDate);
+        const start = toLocalCalendarDate(s.scheduledDate);
         return {
           id: s.id,
           title: s.workout.name,
@@ -439,7 +440,7 @@ export function ClientCalendar({
     async ({ event, start }: { event: SessionEvent; start: string | Date }) => {
       const result = await rescheduleSessionAction(
         event.id,
-        new Date(start).toISOString()
+        toUtcCalendarDate(new Date(start)).toISOString()
       );
       if (result.success) {
         toast.success("Session rescheduled");

@@ -45,6 +45,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { format } from "date-fns";
+import { toLocalCalendarDate } from "@/lib/utils/calendar-date";
 import { aggregateProgramEquipment } from "@/lib/utils/program-equipment";
 import { VoiceMemoRecorder } from "@/components/voice-memo/VoiceMemoRecorder";
 import { VoiceMemoPlayer } from "@/components/voice-memo/VoiceMemoPlayer";
@@ -85,7 +86,6 @@ export function ProgramDetailView({
   const router = useRouter();
   const [assignOpen, setAssignOpen] = useState(showAssignDialog);
   const [sellOpen, setSellOpen] = useState(false);
-  const [duplicatingForAssign, setDuplicatingForAssign] = useState(false);
   const [detailExercise, setDetailExercise] = useState<Record<string, unknown> | null>(null);
   const workouts = (program.workouts as Record<string, unknown>[]) || [];
 
@@ -207,26 +207,6 @@ export function ProgramDetailView({
     });
   }, [voiceMemoWorkout?.id]);
 
-  async function handleAssignClick() {
-    if (!clientId) {
-      setAssignOpen(true);
-      return;
-    }
-    // Already assigned to a client — clone it so the existing client's
-    // assignment isn't overwritten, then assign the copy to someone else.
-    setDuplicatingForAssign(true);
-    try {
-      const r = await duplicateProgramAction(program.id as string, program.isTemplate as boolean);
-      if (r.success && r.data) {
-        router.push(`/programs/${(r.data as { id: string }).id}?assign=true`);
-      } else {
-        toast.error(r.error ?? "Failed to create a copy to assign");
-      }
-    } finally {
-      setDuplicatingForAssign(false);
-    }
-  }
-
   async function handleDownloadPdf() {
     const res = await fetch(`/api/programs/${program.id as string}/pdf`);
     if (!res.ok) { toast.error("Failed to generate PDF"); return; }
@@ -260,7 +240,7 @@ export function ProgramDetailView({
             {!!program.startDate && (
               <span className="text-sm text-muted-foreground">
                 Starts{" "}
-                {format(new Date(program.startDate as string), "MMM d, yyyy")}
+                {format(toLocalCalendarDate(program.startDate as string), "MMM d, yyyy")}
               </span>
             )}
           </div>
@@ -291,14 +271,11 @@ export function ProgramDetailView({
             >
               <Copy className="mr-2 h-4 w-4" /> Duplicate
             </Button>
-            <Button onClick={handleAssignClick} disabled={duplicatingForAssign}>
-              <UserPlus className="mr-2 h-4 w-4" />
-              {duplicatingForAssign
-                ? "Preparing..."
-                : clientId
-                ? "Assign to Another Client"
-                : "Assign"}
-            </Button>
+            {!clientId && (
+              <Button onClick={() => setAssignOpen(true)}>
+                <UserPlus className="mr-2 h-4 w-4" /> Assign
+              </Button>
+            )}
             {(program.isTemplate as boolean) && !clientId && (
               <Button variant="outline" onClick={() => setSellOpen(true)}>
                 Sell this program
@@ -454,7 +431,7 @@ export function ProgramDetailView({
                                     </span>
                                     {scheduledDate && (
                                       <span className="text-xs text-muted-foreground shrink-0">
-                                        {format(new Date(scheduledDate), "MMM d")}
+                                        {format(toLocalCalendarDate(scheduledDate), "MMM d")}
                                       </span>
                                     )}
                                   </div>

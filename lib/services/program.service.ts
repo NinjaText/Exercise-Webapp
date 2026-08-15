@@ -175,6 +175,9 @@ export async function getPrograms(
     ...(filters.status && { status: filters.status as PlanStatus }),
     ...(filters.isTemplate !== undefined && { isTemplate: filters.isTemplate }),
     ...(filters.clientId && { clientId: filters.clientId }),
+    ...(filters.hasClient !== undefined && {
+      clientId: filters.hasClient ? { not: null } : null,
+    }),
     ...(filters.search && {
       OR: [
         { name: { contains: filters.search, mode: "insensitive" as const } },
@@ -280,6 +283,16 @@ export async function deleteProgram(id: string) {
   });
 }
 
+async function assertNotLinkedToSellablePackage(id: string) {
+  const linkedPackage = await prisma.coachPackage.findFirst({
+    where: { programTemplateId: id },
+    select: { id: true },
+  });
+  if (linkedPackage) {
+    throw new Error("Cannot delete: this program is linked to a sellable package");
+  }
+}
+
 // Permanently removes an archived program. Workouts, blocks, exercises, sets,
 // sessions, and voice memos cascade via the schema's onDelete: Cascade chain.
 export async function hardDeleteProgram(id: string) {
@@ -292,13 +305,26 @@ export async function hardDeleteProgram(id: string) {
     throw new Error("Cannot delete: only archived programs can be permanently deleted");
   }
 
-  const linkedPackage = await prisma.coachPackage.findFirst({
-    where: { programTemplateId: id },
-    select: { id: true },
+  await assertNotLinkedToSellablePackage(id);
+
+  return prisma.program.delete({ where: { id } });
+}
+
+// Removes a program that's assigned to a client, in one step (no archive-first
+// requirement). Workouts, blocks, exercises, sets, sessions, and voice memos
+// cascade via the schema's onDelete: Cascade chain, so this also clears the
+// program's workouts off the client's calendar.
+export async function deleteClientProgram(id: string) {
+  const program = await prisma.program.findUnique({
+    where: { id },
+    select: { clientId: true },
   });
-  if (linkedPackage) {
-    throw new Error("Cannot delete: this program is linked to a sellable package");
+  if (!program) throw new Error("Program not found");
+  if (!program.clientId) {
+    throw new Error("Cannot delete: this program is not assigned to a client");
   }
+
+  await assertNotLinkedToSellablePackage(id);
 
   return prisma.program.delete({ where: { id } });
 }

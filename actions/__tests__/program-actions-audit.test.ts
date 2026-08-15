@@ -20,6 +20,9 @@ vi.mock('@/lib/services/program.service', () => ({
   updateProgram: vi.fn().mockResolvedValue({ id: 'prog_1', name: 'Updated', status: 'ACTIVE' }),
   deleteProgram: vi.fn().mockResolvedValue({}),
   hardDeleteProgram: vi.fn().mockResolvedValue({}),
+  deleteClientProgram: vi.fn().mockResolvedValue({}),
+  duplicateProgram: vi.fn(),
+  assignProgram: vi.fn(),
 }))
 vi.mock('@/lib/services/audit-log.service', () => ({
   logAudit: vi.fn(),
@@ -39,15 +42,19 @@ vi.mock('@/lib/services/audit-log.service', () => ({
 }))
 
 import { prisma } from '@/lib/prisma'
+import { revalidatePath } from 'next/cache'
 import { logAudit } from '@/lib/services/audit-log.service'
 import * as programService from '@/lib/services/program.service'
-import { createProgramAction, updateProgramAction, deleteProgramAction, hardDeleteProgramAction } from '../program-actions'
+import { createProgramAction, updateProgramAction, deleteProgramAction, hardDeleteProgramAction, assignProgramAction, deleteClientProgramAction } from '../program-actions'
 
 const mockUserFindUnique = vi.mocked(prisma.user.findUnique)
 const mockProgramFindUnique = vi.mocked(prisma.program.findUnique)
 const mockLogAudit = vi.mocked(logAudit)
 const mockDeleteProgram = vi.mocked(programService.deleteProgram)
 const mockHardDeleteProgram = vi.mocked(programService.hardDeleteProgram)
+const mockDuplicateProgram = vi.mocked(programService.duplicateProgram)
+const mockAssignProgram = vi.mocked(programService.assignProgram)
+const mockDeleteClientProgram = vi.mocked(programService.deleteClientProgram)
 
 const trainer = { id: 'trainer_1', role: 'TRAINER', clerkOrgId: 'org_1', firstName: 'Jane', lastName: 'Doe', email: 'jane@example.com' }
 
@@ -133,4 +140,107 @@ it('surfaces the specific guard message when hard delete is blocked', async () =
     error: 'Cannot delete: this program is linked to a sellable package',
   })
   expect(mockLogAudit).not.toHaveBeenCalled()
+})
+
+describe('assignProgramAction', () => {
+  it('clones the source program and assigns the clone, never the original', async () => {
+    mockProgramFindUnique.mockResolvedValue({ trainerId: 'trainer_1' } as never)
+    mockDuplicateProgram.mockResolvedValue({ id: 'copy_1' } as never)
+    mockAssignProgram.mockResolvedValue({ id: 'copy_1' } as never)
+
+    const result = await assignProgramAction({
+      programId: 'template_1',
+      clientId: 'client_1',
+      startDate: '2026-08-01T00:00:00.000Z',
+    })
+
+    expect(mockDuplicateProgram).toHaveBeenCalledWith('template_1', 'trainer_1', false)
+    expect(mockAssignProgram).toHaveBeenCalledWith(
+      'copy_1',
+      'client_1',
+      new Date('2026-08-01T00:00:00.000Z')
+    )
+    expect(result).toEqual({ success: true, data: { id: 'copy_1' } })
+  })
+
+  it('rejects when the requesting trainer does not own the program', async () => {
+    mockProgramFindUnique.mockResolvedValue({ trainerId: 'someone_else' } as never)
+
+    const result = await assignProgramAction({
+      programId: 'template_1',
+      clientId: 'client_1',
+      startDate: '2026-08-01T00:00:00.000Z',
+    })
+
+    expect(result).toEqual({ success: false, error: 'Forbidden' })
+    expect(mockDuplicateProgram).not.toHaveBeenCalled()
+    expect(mockAssignProgram).not.toHaveBeenCalled()
+  })
+})
+
+describe('deleteClientProgramAction', () => {
+  it('deletes an assigned program, logs the audit, and revalidates the client page', async () => {
+    mockProgramFindUnique.mockResolvedValue({
+      trainerId: 'trainer_1',
+      name: 'Old',
+      clientId: 'client_1',
+    } as never)
+
+    const result = await deleteClientProgramAction('prog_1')
+
+    expect(mockDeleteClientProgram).toHaveBeenCalledWith('prog_1')
+    expect(result).toEqual({ success: true })
+    expect(mockLogAudit).toHaveBeenCalledWith(expect.objectContaining({
+      action: 'PROGRAM_HARD_DELETED', targetLabel: 'Old',
+    }))
+    expect(revalidatePath).toHaveBeenCalledWith('/clients/client_1')
+  })
+
+  it('rejects when the requesting trainer does not own the program', async () => {
+    mockProgramFindUnique.mockResolvedValue({
+      trainerId: 'someone_else',
+      name: 'Old',
+      clientId: 'client_1',
+    } as never)
+
+    const result = await deleteClientProgramAction('prog_1')
+
+    expect(result).toEqual({ success: false, error: 'Forbidden' })
+    expect(mockDeleteClientProgram).not.toHaveBeenCalled()
+  })
+
+  it('rejects when the program has no client attached', async () => {
+    mockProgramFindUnique.mockResolvedValue({
+      trainerId: 'trainer_1',
+      name: 'Old',
+      clientId: null,
+    } as never)
+
+    const result = await deleteClientProgramAction('prog_1')
+
+    expect(result).toEqual({
+      success: false,
+      error: 'This program is not assigned to a client',
+    })
+    expect(mockDeleteClientProgram).not.toHaveBeenCalled()
+  })
+
+  it('surfaces the sellable-package guard message when the service throws it', async () => {
+    mockProgramFindUnique.mockResolvedValue({
+      trainerId: 'trainer_1',
+      name: 'Old',
+      clientId: 'client_1',
+    } as never)
+    mockDeleteClientProgram.mockRejectedValueOnce(
+      new Error('Cannot delete: this program is linked to a sellable package')
+    )
+
+    const result = await deleteClientProgramAction('prog_1')
+
+    expect(result).toEqual({
+      success: false,
+      error: 'Cannot delete: this program is linked to a sellable package',
+    })
+    expect(mockLogAudit).not.toHaveBeenCalled()
+  })
 })
