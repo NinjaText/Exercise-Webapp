@@ -421,6 +421,7 @@ model Program {
   description        String?
   isTemplate         Boolean    @default(false)
   isGlobal           Boolean    @default(false)
+  isPublic           Boolean    @default(false)
   globalUpdatedAt    DateTime?
   sourceTemplateId   String?    @db.ObjectId
   trainerId          String?    @map("clinicianId") @db.ObjectId
@@ -443,6 +444,7 @@ model Program {
   @@index([trainerId])
   @@index([clientId])
   @@index([isGlobal])
+  @@index([isPublic])
 }
 
 model Workout {

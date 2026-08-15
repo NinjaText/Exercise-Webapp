@@ -437,22 +437,33 @@ export async function getTemplates(trainerId: string) {
 
 // --- Global Programs (super admin) ---
 
-export async function getGlobalPrograms(clerkOrgId?: string) {
-  const where: Prisma.ProgramWhereInput = {
-    isGlobal: true,
-    status: { not: "ARCHIVED" },
-  };
+export async function getGlobalPrograms(clerkOrgId?: string, excludeTrainerId?: string) {
+  const adminCuratedBranch: Prisma.ProgramWhereInput = { isGlobal: true };
   if (clerkOrgId) {
-    where.OR = [
+    adminCuratedBranch.OR = [
       { organizationIds: { isEmpty: true } },
       { organizationIds: { has: clerkOrgId } },
     ];
   }
 
+  const publicTrainerBranch: Prisma.ProgramWhereInput = excludeTrainerId
+    ? { isPublic: true, trainerId: { not: excludeTrainerId } }
+    : { isPublic: true };
+
   return prisma.program.findMany({
-    where,
+    where: {
+      status: { not: "ARCHIVED" },
+      OR: [adminCuratedBranch, publicTrainerBranch],
+    },
     include: programListInclude,
     orderBy: { updatedAt: "desc" },
+  });
+}
+
+export async function toggleProgramPublic(id: string, isPublic: boolean) {
+  return prisma.program.update({
+    where: { id, isTemplate: true, clientId: null },
+    data: { isPublic },
   });
 }
 
@@ -620,6 +631,8 @@ export async function copyGlobalProgramToOrganization(
 ) {
   const source = await getProgramById(globalProgramId);
   if (!source) throw new Error("Program not found");
-  if (!source.isGlobal) throw new Error("Program is not a global program");
+  if (!source.isGlobal && !source.isPublic) {
+    throw new Error("Program is not available to copy");
+  }
   return duplicateProgram(globalProgramId, trainerId, false);
 }

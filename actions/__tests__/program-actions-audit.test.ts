@@ -23,6 +23,7 @@ vi.mock('@/lib/services/program.service', () => ({
   deleteClientProgram: vi.fn().mockResolvedValue({}),
   duplicateProgram: vi.fn(),
   assignProgram: vi.fn(),
+  toggleProgramPublic: vi.fn().mockResolvedValue({}),
 }))
 vi.mock('@/lib/services/audit-log.service', () => ({
   logAudit: vi.fn(),
@@ -45,7 +46,7 @@ import { prisma } from '@/lib/prisma'
 import { revalidatePath } from 'next/cache'
 import { logAudit } from '@/lib/services/audit-log.service'
 import * as programService from '@/lib/services/program.service'
-import { createProgramAction, updateProgramAction, deleteProgramAction, hardDeleteProgramAction, assignProgramAction, deleteClientProgramAction } from '../program-actions'
+import { createProgramAction, updateProgramAction, deleteProgramAction, hardDeleteProgramAction, assignProgramAction, deleteClientProgramAction, toggleProgramPublicAction } from '../program-actions'
 
 const mockUserFindUnique = vi.mocked(prisma.user.findUnique)
 const mockProgramFindUnique = vi.mocked(prisma.program.findUnique)
@@ -55,6 +56,7 @@ const mockHardDeleteProgram = vi.mocked(programService.hardDeleteProgram)
 const mockDuplicateProgram = vi.mocked(programService.duplicateProgram)
 const mockAssignProgram = vi.mocked(programService.assignProgram)
 const mockDeleteClientProgram = vi.mocked(programService.deleteClientProgram)
+const mockToggleProgramPublic = vi.mocked(programService.toggleProgramPublic)
 
 const trainer = { id: 'trainer_1', role: 'TRAINER', clerkOrgId: 'org_1', firstName: 'Jane', lastName: 'Doe', email: 'jane@example.com' }
 
@@ -241,6 +243,71 @@ describe('deleteClientProgramAction', () => {
       success: false,
       error: 'Cannot delete: this program is linked to a sellable package',
     })
+    expect(mockLogAudit).not.toHaveBeenCalled()
+  })
+})
+
+describe('toggleProgramPublicAction', () => {
+  const ownedTemplate = {
+    trainerId: 'trainer_1',
+    name: 'My Template',
+    isTemplate: true,
+    clientId: null,
+  }
+
+  it('publishes an owned template with no client, and logs the audit', async () => {
+    mockProgramFindUnique.mockResolvedValue(ownedTemplate as never)
+
+    const result = await toggleProgramPublicAction('prog_1', true)
+
+    expect(mockToggleProgramPublic).toHaveBeenCalledWith('prog_1', true)
+    expect(result).toEqual({ success: true })
+    expect(mockLogAudit).toHaveBeenCalledWith(expect.objectContaining({
+      action: 'PROGRAM_UPDATED', targetType: 'Program', targetId: 'prog_1', targetLabel: 'My Template',
+      metadata: { isPublic: true },
+    }))
+  })
+
+  it('rejects when the requesting trainer does not own the program', async () => {
+    mockProgramFindUnique.mockResolvedValue({ ...ownedTemplate, trainerId: 'someone_else' } as never)
+
+    const result = await toggleProgramPublicAction('prog_1', true)
+
+    expect(result).toEqual({ success: false, error: 'Forbidden' })
+    expect(mockToggleProgramPublic).not.toHaveBeenCalled()
+  })
+
+  it('rejects a non-template program', async () => {
+    mockProgramFindUnique.mockResolvedValue({ ...ownedTemplate, isTemplate: false } as never)
+
+    const result = await toggleProgramPublicAction('prog_1', true)
+
+    expect(result).toEqual({
+      success: false,
+      error: 'Only templates with no client assigned can be made public',
+    })
+    expect(mockToggleProgramPublic).not.toHaveBeenCalled()
+  })
+
+  it('rejects a program that has a client assigned', async () => {
+    mockProgramFindUnique.mockResolvedValue({ ...ownedTemplate, clientId: 'client_1' } as never)
+
+    const result = await toggleProgramPublicAction('prog_1', true)
+
+    expect(result).toEqual({
+      success: false,
+      error: 'Only templates with no client assigned can be made public',
+    })
+    expect(mockToggleProgramPublic).not.toHaveBeenCalled()
+  })
+
+  it('surfaces a generic error when the service call fails', async () => {
+    mockProgramFindUnique.mockResolvedValue(ownedTemplate as never)
+    mockToggleProgramPublic.mockRejectedValueOnce(new Error('db error'))
+
+    const result = await toggleProgramPublicAction('prog_1', true)
+
+    expect(result).toEqual({ success: false, error: 'Failed to update program' })
     expect(mockLogAudit).not.toHaveBeenCalled()
   })
 })

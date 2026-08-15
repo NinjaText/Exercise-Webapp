@@ -45,6 +45,7 @@ import {
   Dumbbell,
   Upload,
   Globe,
+  Lock,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -52,7 +53,9 @@ import {
   deleteProgramAction,
   hardDeleteProgramAction,
   copyGlobalProgramAction,
+  toggleProgramPublicAction,
 } from "@/actions/program-actions";
+import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
 
 interface ProgramListItem {
@@ -61,6 +64,7 @@ interface ProgramListItem {
   status: string;
   isTemplate: boolean;
   isGlobal: boolean;
+  isPublic: boolean;
   sourceTemplateId?: string | null;
   tags: string[];
   updatedAt: Date;
@@ -78,6 +82,8 @@ interface GlobalProgramItem {
   description?: string | null;
   tags: string[];
   globalUpdatedAt?: Date | null;
+  isGlobal: boolean;
+  trainer: { id: string; firstName: string; lastName: string } | null;
   workouts: { id: string; name: string }[];
   _count: { workouts: number };
 }
@@ -124,6 +130,8 @@ function ProgramCard({
   onDuplicate,
   onArchive,
   onRequestHardDelete,
+  onTogglePublic,
+  togglingPublicId,
   typeBadge,
   search,
 }: {
@@ -133,6 +141,8 @@ function ProgramCard({
   onDuplicate: (id: string) => void;
   onArchive: (id: string) => void;
   onRequestHardDelete: (id: string, name: string) => void;
+  onTogglePublic: (id: string, isPublic: boolean) => void;
+  togglingPublicId: string | null;
   typeBadge?: "clinical";
   search?: string;
 }) {
@@ -208,6 +218,22 @@ function ProgramCard({
               Update available
             </Badge>
           )}
+          {role === "TRAINER" && program.isTemplate && !program.clientId && (
+            <button
+              type="button"
+              disabled={togglingPublicId === program.id}
+              onClick={() => onTogglePublic(program.id, !program.isPublic)}
+              className={cn(
+                "inline-flex items-center gap-1 rounded-sm border px-1.5 py-0.5 text-[11px] font-medium transition-colors disabled:opacity-60",
+                program.isPublic
+                  ? "border-green-200 bg-green-50 text-green-700 hover:bg-green-100"
+                  : "border-border bg-muted/50 text-muted-foreground hover:bg-muted"
+              )}
+            >
+              {program.isPublic ? <Globe className="h-3 w-3" /> : <Lock className="h-3 w-3" />}
+              {program.isPublic ? "Public" : "Private"}
+            </button>
+          )}
         </div>
 
         <div className="mt-4 flex-1 space-y-1.5 text-xs text-muted-foreground">
@@ -269,8 +295,13 @@ function GlobalProgramCard({
 
         <div className="mt-3 flex flex-wrap items-center gap-1.5">
           <Badge variant="secondary" className="text-[11px] font-medium">
-            Global
+            {program.isGlobal ? "Global" : "Community"}
           </Badge>
+          {!program.isGlobal && program.trainer && (
+            <span className="text-[11px] text-muted-foreground">
+              by {program.trainer.firstName} {program.trainer.lastName}
+            </span>
+          )}
           {program.tags.slice(0, 3).map((tag) => (
             <Badge key={tag} variant="secondary" className="text-[10px]">{tag}</Badge>
           ))}
@@ -316,6 +347,7 @@ export function ProgramListClient({
   const [typeFilter, setTypeFilter] = useState<"all" | "clinical" | "global">("all");
   const [pendingHardDelete, setPendingHardDelete] = useState<{ id: string; name: string } | null>(null);
   const [hardDeleting, setHardDeleting] = useState(false);
+  const [togglingPublicId, setTogglingPublicId] = useState<string | null>(null);
 
   const activeTab =
     role === "TRAINER"
@@ -398,6 +430,21 @@ export function ProgramListClient({
       }
     } finally {
       setHardDeleting(false);
+    }
+  }
+
+  async function handleTogglePublic(id: string, isPublic: boolean) {
+    setTogglingPublicId(id);
+    try {
+      const result = await toggleProgramPublicAction(id, isPublic);
+      if (result.success) {
+        toast.success(isPublic ? "Program is now public" : "Program is now private");
+        router.refresh();
+      } else {
+        toast.error(result.error);
+      }
+    } finally {
+      setTogglingPublicId(null);
     }
   }
 
@@ -541,6 +588,8 @@ export function ProgramListClient({
                 onDuplicate={handleDuplicate}
                 onArchive={handleArchive}
                 onRequestHardDelete={(id, name) => setPendingHardDelete({ id, name })}
+                onTogglePublic={handleTogglePublic}
+                togglingPublicId={togglingPublicId}
                 search={search}
               />
             ))}
@@ -593,6 +642,8 @@ export function ProgramListClient({
                 onDuplicate={handleDuplicate}
                 onArchive={handleArchive}
                 onRequestHardDelete={(id, name) => setPendingHardDelete({ id, name })}
+                onTogglePublic={handleTogglePublic}
+                togglingPublicId={togglingPublicId}
                 typeBadge="clinical"
                 search={search}
               />

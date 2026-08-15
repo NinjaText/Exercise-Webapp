@@ -329,6 +329,45 @@ export async function hardDeleteProgramAction(programId: string) {
   }
 }
 
+export async function toggleProgramPublicAction(programId: string, isPublic: boolean) {
+  const user = await getTrainerUser();
+  if (!user) return { success: false as const, error: "Unauthorized" };
+
+  const program = await prisma.program.findUnique({
+    where: { id: programId },
+    select: { trainerId: true, name: true, isTemplate: true, clientId: true },
+  });
+  if (!program || program.trainerId !== user.id) {
+    return { success: false as const, error: "Forbidden" };
+  }
+  if (!program.isTemplate || program.clientId) {
+    return {
+      success: false as const,
+      error: "Only templates with no client assigned can be made public",
+    };
+  }
+
+  try {
+    await programService.toggleProgramPublic(programId, isPublic);
+    await logAudit({
+      actorId: user.id,
+      actorType: deriveActorType(user),
+      actorName: `${user.firstName} ${user.lastName}`,
+      action: AUDIT_ACTIONS.PROGRAM_UPDATED,
+      targetType: "Program",
+      targetId: programId,
+      targetLabel: program.name,
+      orgId: user.clerkOrgId,
+      metadata: { isPublic },
+    });
+    revalidatePath("/programs");
+    return { success: true as const };
+  } catch (error) {
+    console.error("Failed to toggle program public:", error);
+    return { success: false as const, error: "Failed to update program" };
+  }
+}
+
 export async function duplicateProgramAction(
   programId: string,
   asTemplate = false

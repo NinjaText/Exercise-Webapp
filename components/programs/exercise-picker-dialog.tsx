@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Progress } from "@/components/ui/progress";
 import {
   Select,
   SelectContent,
@@ -20,14 +21,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Search, Play, X, Plus, ArrowLeft, Globe, Lock } from "lucide-react";
+import {
+  Search, Play, X, Plus, ArrowLeft, Globe, Lock,
+  ChevronDown, ChevronUp, Trash2, Check, Sparkles, Loader2,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { UniversalVideoPlayer } from "@/components/exercises/universal-video-player";
 import { YouTubeVideoSearch } from "@/components/exercises/youtube-video-search";
 import { createOrganizationExerciseAction, toggleExercisePublicAction } from "@/actions/exercise-actions";
-import { isYouTubeUrl, hasRealVideoUrl } from "@/lib/utils/video";
+import { isYouTubeUrl, hasRealVideoUrl, parseYoutubeUrls } from "@/lib/utils/video";
 import { toast } from "sonner";
-import { resolvePickerTabs, type ExerciseSourcePreference } from "@/lib/utils/exercise-picker";
+import { resolvePickerTabs, mergeExercisesForPicker, type ExerciseSourcePreference } from "@/lib/utils/exercise-picker";
 
 interface Exercise {
   id: string;
@@ -77,6 +81,8 @@ const DIFFICULTY_COLORS: Record<string, string> = {
   INTERMEDIATE: "bg-amber-100 text-amber-700 border-amber-200",
   ADVANCED:     "bg-red-100 text-red-700 border-red-200",
 };
+
+const MAX_BATCH_SIZE = 15;
 
 interface FilterBarProps {
   search: string;
@@ -134,7 +140,7 @@ function FilterBar({ search, setSearch, phase, setPhase, bodyRegions, setRegions
 
 interface ExerciseListProps {
   list: Exercise[];
-  showOrganizationControls?: boolean;
+  organizationOrganizationId?: string | null;
   phase: string;
   setPhase: (v: string) => void;
   bodyRegions: string[];
@@ -147,7 +153,7 @@ interface ExerciseListProps {
 
 function ExerciseList({
   list,
-  showOrganizationControls,
+  organizationOrganizationId,
   phase,
   setPhase,
   bodyRegions,
@@ -161,10 +167,15 @@ function ExerciseList({
     <div className="flex-1 overflow-y-auto px-4 py-2">
       <p className="text-[11px] text-muted-foreground mb-1">{list.length} exercise{list.length !== 1 ? "s" : ""}</p>
       <div className="space-y-0.5">
-        {list.map((ex) => (
-          <button key={ex.id} type="button"
-            className="w-full text-left rounded-lg px-3 py-2.5 hover:bg-muted/70 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        {list.map((ex) => {
+          const isMine = ex.source === "ORGANIZATION" && ex.organizationId === organizationOrganizationId;
+          return (
+          <div key={ex.id} role="button" tabIndex={0}
+            className="w-full text-left rounded-lg px-3 py-2.5 hover:bg-muted/70 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             onClick={() => { onSelect(ex); onClose(); }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSelect(ex); onClose(); }
+            }}
           >
             <div className="flex items-start justify-between gap-2">
               <div className="flex-1 min-w-0">
@@ -178,7 +189,7 @@ function ExerciseList({
                       <Play className="h-2.5 w-2.5" /> Video
                     </span>
                   )}
-                  {showOrganizationControls && ex.source === "ORGANIZATION" && (
+                  {isMine && (
                     <button
                       type="button"
                       onClick={(e) => { e.stopPropagation(); onTogglePublic(ex, !ex.isPublic); }}
@@ -216,8 +227,9 @@ function ExerciseList({
                 </div>
               </div>
             </div>
-          </button>
-        ))}
+          </div>
+          );
+        })}
 
         {list.length === 0 && (
           <div className="text-center py-10">
@@ -267,15 +279,43 @@ function PhaseMultiSelect({ value, onChange }: { value: string[]; onChange: (nex
   );
 }
 
-function emptyFormShape() {
+// ─── Draft exercise model (shared by AI-generated and manual rows) ─────────
+
+interface ExerciseFormShape {
+  name: string;
+  description: string;
+  bodyRegion: string[];
+  difficultyLevel: string;
+  exercisePhases: string[];
+  videoUrl: string;
+  isPublic: boolean;
+}
+
+function emptyFormShape(): ExerciseFormShape {
   return {
     name: "",
     description: "",
-    bodyRegion: [] as string[],
+    bodyRegion: [],
     difficultyLevel: "",
-    exercisePhases: [] as string[],
+    exercisePhases: [],
     videoUrl: "",
     isPublic: true,
+  };
+}
+
+interface DraftExercise extends ExerciseFormShape {
+  draftId: string;
+  videoMode: "search" | "paste";
+  expanded: boolean;
+}
+
+function makeDraft(overrides?: Partial<DraftExercise>): DraftExercise {
+  return {
+    ...emptyFormShape(),
+    draftId: crypto.randomUUID(),
+    videoMode: "search",
+    expanded: true,
+    ...overrides,
   };
 }
 
@@ -283,15 +323,15 @@ function CreateExerciseFields({
   form,
   setForm,
 }: {
-  form: ReturnType<typeof emptyFormShape>;
-  setForm: React.Dispatch<React.SetStateAction<ReturnType<typeof emptyFormShape>>>;
+  form: DraftExercise;
+  setForm: (updater: DraftExercise | ((prev: DraftExercise) => DraftExercise)) => void;
 }) {
   return (
     <>
       <div className="space-y-1.5">
-        <Label htmlFor="ex-name" className="text-xs font-semibold">Name *</Label>
+        <Label htmlFor={`ex-name-${form.draftId}`} className="text-xs font-semibold">Name *</Label>
         <Input
-          id="ex-name"
+          id={`ex-name-${form.draftId}`}
           value={form.name}
           onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
           placeholder="e.g. Seated Hip Flexor Stretch"
@@ -348,14 +388,38 @@ function CreateExerciseFields({
       </div>
 
       <div className="space-y-1.5">
-        <Label htmlFor="ex-desc" className="text-xs font-semibold">Description</Label>
+        <Label htmlFor={`ex-desc-${form.draftId}`} className="text-xs font-semibold">Description</Label>
         <Textarea
-          id="ex-desc"
+          id={`ex-desc-${form.draftId}`}
           value={form.description}
           onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
           placeholder="Brief description..."
           className="text-sm resize-none h-16"
         />
+      </div>
+
+      <div className="space-y-1.5">
+        <Label className="text-xs font-semibold">Video</Label>
+        <Tabs value={form.videoMode} onValueChange={(v) => setForm((f) => ({ ...f, videoMode: v as "search" | "paste" }))}>
+          <TabsList className="grid grid-cols-2 h-7">
+            <TabsTrigger value="search" className="text-xs">Search YouTube</TabsTrigger>
+            <TabsTrigger value="paste" className="text-xs">Paste URL</TabsTrigger>
+          </TabsList>
+          <TabsContent value="search" className="mt-2">
+            <YouTubeVideoSearch onSelect={(v) => setForm((f) => ({ ...f, videoUrl: v.videoUrl }))} />
+            {form.videoUrl && isYouTubeUrl(form.videoUrl) && (
+              <p className="text-xs text-muted-foreground mt-1">Selected: {form.videoUrl}</p>
+            )}
+          </TabsContent>
+          <TabsContent value="paste" className="mt-2">
+            <Input
+              value={form.videoUrl}
+              onChange={(e) => setForm((f) => ({ ...f, videoUrl: e.target.value }))}
+              placeholder="YouTube or Vimeo URL"
+              className="h-8 text-sm"
+            />
+          </TabsContent>
+        </Tabs>
       </div>
 
       <div className="flex items-center justify-between rounded-lg border px-3 py-2.5">
@@ -383,6 +447,126 @@ function CreateExerciseFields({
   );
 }
 
+function DraftExerciseCard({
+  draft,
+  index,
+  onUpdate,
+  onRemove,
+  removeDisabled,
+}: {
+  draft: DraftExercise;
+  index: number;
+  onUpdate: (updater: DraftExercise | ((prev: DraftExercise) => DraftExercise)) => void;
+  onRemove: () => void;
+  removeDisabled?: boolean;
+}) {
+  const isReady = !!draft.name.trim();
+  return (
+    <div className={cn("rounded-lg border bg-background transition-colors", isReady && "border-green-200")}>
+      <div className="flex items-center gap-2 px-3 py-2.5">
+        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-muted text-[10px] font-semibold">
+          {index + 1}
+        </span>
+        <p className="flex-1 truncate text-sm font-medium">{draft.name || "Untitled exercise"}</p>
+        {draft.videoUrl && (
+          <Badge variant="secondary" className="shrink-0 gap-1 text-[10px]">
+            <Play className="h-2.5 w-2.5" /> Video
+          </Badge>
+        )}
+        <button
+          type="button"
+          onClick={() => onUpdate((f) => ({ ...f, expanded: !f.expanded }))}
+          className="rounded p-1 text-muted-foreground hover:text-foreground"
+        >
+          {draft.expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+        </button>
+        <button
+          type="button"
+          onClick={onRemove}
+          disabled={removeDisabled}
+          className="rounded p-1 text-muted-foreground hover:text-destructive disabled:opacity-30 disabled:pointer-events-none"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </button>
+      </div>
+      {draft.expanded && (
+        <div className="space-y-4 border-t px-3 py-3">
+          <CreateExerciseFields form={draft} setForm={onUpdate} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+interface AiSearchVideo {
+  videoId: string;
+  title: string;
+  channelTitle: string;
+  thumbnailUrl: string;
+  videoUrl: string;
+}
+
+function VideoMultiSelectGrid({
+  videos,
+  selectedIds,
+  onToggle,
+  onSelectAll,
+  onDeselectAll,
+}: {
+  videos: AiSearchVideo[];
+  selectedIds: Set<string>;
+  onToggle: (videoId: string) => void;
+  onSelectAll: () => void;
+  onDeselectAll: () => void;
+}) {
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <p className="text-xs text-muted-foreground">
+          <span className="font-medium text-foreground">{selectedIds.size}</span> of {videos.length} selected
+        </p>
+        <div className="flex gap-1">
+          <Button type="button" variant="ghost" size="sm" className="h-6 px-2 text-[11px]" onClick={onSelectAll}>Select all</Button>
+          <Button type="button" variant="ghost" size="sm" className="h-6 px-2 text-[11px]" onClick={onDeselectAll}>Deselect all</Button>
+        </div>
+      </div>
+      <div className="max-h-56 overflow-y-auto rounded-lg border divide-y">
+        {videos.map((v) => {
+          const selected = selectedIds.has(v.videoId);
+          return (
+            <button
+              key={v.videoId}
+              type="button"
+              onClick={() => onToggle(v.videoId)}
+              className={cn(
+                "flex w-full items-center gap-2.5 px-2.5 py-2 text-left transition-colors hover:bg-muted/50",
+                selected && "bg-primary/5"
+              )}
+            >
+              <div className={cn(
+                "flex h-4 w-4 shrink-0 items-center justify-center rounded border-2 transition-colors",
+                selected ? "border-primary bg-primary text-primary-foreground" : "border-border"
+              )}>
+                {selected && <Check className="h-2.5 w-2.5" />}
+              </div>
+              {v.thumbnailUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={v.thumbnailUrl} alt="" className="h-9 w-14 shrink-0 rounded object-cover" />
+              ) : (
+                <div className="h-9 w-14 shrink-0 rounded bg-muted" />
+              )}
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-xs font-medium">{v.title}</p>
+                <p className="truncate text-[10px] text-muted-foreground">{v.channelTitle}</p>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export function ExercisePickerDialog({
   open,
   onOpenChange,
@@ -401,15 +585,18 @@ export function ExercisePickerDialog({
   const [isPending, startTransition] = useTransition();
   const [createTab, setCreateTab] = useState<"ai" | "manual">("ai");
 
-  const [aiForm, setAiForm] = useState(emptyFormShape());
-  const [aiVideoUrl, setAiVideoUrl] = useState("");
-  const [aiVideoMode, setAiVideoMode] = useState<"paste" | "search">("search");
   const [aiContext, setAiContext] = useState<"CLINICAL" | "PERFORMANCE">("CLINICAL");
-  const [aiStatus, setAiStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
-  const [aiError, setAiError] = useState<string | null>(null);
+  const [aiVideoMode, setAiVideoMode] = useState<"paste" | "search">("search");
+  const [aiSearchQuery, setAiSearchQuery] = useState("");
+  const [aiSearchLoading, setAiSearchLoading] = useState(false);
+  const [aiSearchVideos, setAiSearchVideos] = useState<AiSearchVideo[]>([]);
+  const [aiSelectedVideoIds, setAiSelectedVideoIds] = useState<Set<string>>(new Set());
+  const [aiPasteText, setAiPasteText] = useState("");
+  const [aiGenerating, setAiGenerating] = useState(false);
+  const [aiProgress, setAiProgress] = useState({ done: 0, total: 0 });
+  const [aiDrafts, setAiDrafts] = useState<DraftExercise[]>([]);
 
-  const [manualForm, setManualForm] = useState(emptyFormShape());
-  const [manualVideoMode, setManualVideoMode] = useState<"paste" | "search">("search");
+  const [manualDrafts, setManualDrafts] = useState<DraftExercise[]>([makeDraft()]);
 
   const allExercises = useMemo(
     () => [...exercises, ...localExercises].map((ex) =>
@@ -445,53 +632,157 @@ export function ExercisePickerDialog({
     });
   }
 
-  const filteredUniversal = useMemo(() => applyFilters(universalExercises), [universalExercises, search, phase, bodyRegions]);
-  const filteredMyOrganization  = useMemo(() => applyFilters(myOrganizationExercises),  [myOrganizationExercises,  search, phase, bodyRegions]);
-
   const { showUniversal, showOrganization } = resolvePickerTabs(
     exerciseSourcePreference,
     !!organizationOrganizationId
   );
 
-  async function handleGenerateWithAi() {
-    setAiStatus("loading");
-    setAiError(null);
+  const mergedExercises = useMemo(
+    () => mergeExercisesForPicker(
+      showUniversal ? universalExercises : [],
+      showOrganization ? myOrganizationExercises : [],
+      organizationOrganizationId
+    ),
+    [universalExercises, myOrganizationExercises, showUniversal, showOrganization, organizationOrganizationId]
+  );
+
+  const filteredExercises = useMemo(() => applyFilters(mergedExercises), [mergedExercises, search, phase, bodyRegions]);
+
+  // ── AI search ────────────────────────────────────────────────────────────
+
+  async function runAiSearch() {
+    if (!aiSearchQuery.trim()) {
+      toast.error("Enter a search term");
+      return;
+    }
+    setAiSearchLoading(true);
+    setAiSearchVideos([]);
+    setAiSelectedVideoIds(new Set());
     try {
-      const res = await fetch("/api/ai/generate-exercise-metadata", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ youtubeUrl: aiVideoUrl, context: aiContext }),
-      });
+      const res = await fetch(`/api/youtube/search-videos?q=${encodeURIComponent(aiSearchQuery)}`);
       const json = await res.json();
       if (!res.ok) {
-        throw new Error(json.error ?? "Failed to generate exercise metadata");
+        toast.error(json.error ?? "Search failed");
+        return;
       }
-      const d = json.data;
-      setAiForm({
-        name: d.exerciseName ?? "",
-        description: d.description ?? "",
-        bodyRegion: d.bodyRegion ?? [],
-        difficultyLevel: d.difficultyLevel ?? "",
-        exercisePhases: d.exercisePhases ?? [],
-        videoUrl: d.videoUrl ?? aiVideoUrl,
-        isPublic: true,
-      });
-      setAiStatus("done");
-    } catch (error) {
-      setAiError(error instanceof Error ? error.message : "Failed to generate exercise metadata");
-      setAiStatus("error");
+      setAiSearchVideos(json.videos);
+      if (json.total === 0) toast.info("No videos found — try different search terms");
+    } catch {
+      toast.error("Search failed — try again");
+    } finally {
+      setAiSearchLoading(false);
     }
+  }
+
+  function toggleAiVideoSelection(videoId: string) {
+    setAiSelectedVideoIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(videoId)) next.delete(videoId);
+      else next.add(videoId);
+      return next;
+    });
+  }
+
+  const aiPastedUrls = useMemo(() => parseYoutubeUrls(aiPasteText), [aiPasteText]);
+  const aiSelectedCount = aiVideoMode === "search" ? aiSelectedVideoIds.size : aiPastedUrls.length;
+
+  async function handleGenerateWithAi() {
+    const urls = aiVideoMode === "search"
+      ? aiSearchVideos.filter((v) => aiSelectedVideoIds.has(v.videoId)).map((v) => v.videoUrl)
+      : aiPastedUrls;
+
+    if (!urls.length) {
+      toast.error("Select at least one video");
+      return;
+    }
+    if (urls.length > MAX_BATCH_SIZE) {
+      toast.error(`Select at most ${MAX_BATCH_SIZE} videos at a time`);
+      return;
+    }
+
+    setAiGenerating(true);
+    setAiProgress({ done: 0, total: urls.length });
+    let successCount = 0;
+
+    for (const url of urls) {
+      try {
+        const res = await fetch("/api/ai/generate-exercise-metadata", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ youtubeUrl: url, context: aiContext }),
+        });
+        const json = await res.json();
+        if (!res.ok) {
+          toast.error(`Skipped one video: ${json.error ?? "generation failed"}`);
+          setAiProgress((p) => ({ ...p, done: p.done + 1 }));
+          continue;
+        }
+        const d = json.data;
+        setAiDrafts((prev) => [...prev, makeDraft({
+          name: d.exerciseName ?? "",
+          description: d.description ?? "",
+          bodyRegion: d.bodyRegion ?? [],
+          difficultyLevel: d.difficultyLevel ?? "",
+          exercisePhases: d.exercisePhases ?? [],
+          videoUrl: d.videoUrl ?? url,
+          isPublic: true,
+        })]);
+        successCount++;
+      } catch {
+        toast.error("Failed to generate one exercise — skipped");
+      }
+      setAiProgress((p) => ({ ...p, done: p.done + 1 }));
+    }
+
+    setAiGenerating(false);
+    setAiProgress({ done: 0, total: 0 });
+
+    if (successCount > 0) {
+      toast.success(`${successCount} exercise${successCount === 1 ? "" : "s"} generated — review below`);
+      setAiSearchVideos([]);
+      setAiSelectedVideoIds(new Set());
+      setAiSearchQuery("");
+      setAiPasteText("");
+    }
+  }
+
+  function updateAiDraft(draftId: string, updater: DraftExercise | ((prev: DraftExercise) => DraftExercise)) {
+    setAiDrafts((prev) => prev.map((d) => {
+      if (d.draftId !== draftId) return d;
+      return typeof updater === "function" ? updater(d) : updater;
+    }));
+  }
+
+  function removeAiDraft(draftId: string) {
+    setAiDrafts((prev) => prev.filter((d) => d.draftId !== draftId));
+  }
+
+  function updateManualDraft(draftId: string, updater: DraftExercise | ((prev: DraftExercise) => DraftExercise)) {
+    setManualDrafts((prev) => prev.map((d) => {
+      if (d.draftId !== draftId) return d;
+      return typeof updater === "function" ? updater(d) : updater;
+    }));
+  }
+
+  function addManualDraft() {
+    setManualDrafts((prev) => [...prev, makeDraft()]);
+  }
+
+  function removeManualDraft(draftId: string) {
+    setManualDrafts((prev) => prev.length > 1 ? prev.filter((d) => d.draftId !== draftId) : prev);
   }
 
   function handleClose() {
     setView("list");
     setCreateTab("ai");
-    setAiForm(emptyFormShape());
-    setAiVideoUrl("");
     setAiContext("CLINICAL");
-    setAiStatus("idle");
-    setAiError(null);
-    setManualForm(emptyFormShape());
+    setAiVideoMode("search");
+    setAiSearchQuery("");
+    setAiSearchVideos([]);
+    setAiSelectedVideoIds(new Set());
+    setAiPasteText("");
+    setAiDrafts([]);
+    setManualDrafts([makeDraft()]);
     onOpenChange(false);
   }
 
@@ -510,56 +801,75 @@ export function ExercisePickerDialog({
     });
   }
 
-  async function handleCreate(e: React.FormEvent) {
-    e.preventDefault();
-    e.stopPropagation();
-    const form = createTab === "ai" ? aiForm : manualForm;
-    if (!form.name.trim()) {
-      toast.error("Name is required");
+  function handleCreateBatch(drafts: DraftExercise[]) {
+    const ready = drafts.filter((d) => d.name.trim());
+    if (!ready.length) {
+      toast.error("Add a name to at least one exercise");
       return;
     }
 
     startTransition(async () => {
-      const result = await createOrganizationExerciseAction({
-        name: form.name,
-        description: form.description || undefined,
-        bodyRegion: form.bodyRegion.length ? form.bodyRegion : undefined,
-        difficultyLevel: form.difficultyLevel || undefined,
-        exercisePhases: form.exercisePhases,
-        videoUrl: form.videoUrl || undefined,
-        isPublic: form.isPublic,
+      const results = await Promise.all(ready.map((d) =>
+        createOrganizationExerciseAction({
+          name: d.name,
+          description: d.description || undefined,
+          bodyRegion: d.bodyRegion.length ? d.bodyRegion : undefined,
+          difficultyLevel: d.difficultyLevel || undefined,
+          exercisePhases: d.exercisePhases,
+          videoUrl: d.videoUrl || undefined,
+          isPublic: d.isPublic,
+        })
+      ));
+
+      const created: Exercise[] = [];
+      let failureCount = 0;
+      results.forEach((result, i) => {
+        if (result.success) {
+          created.push({
+            id: result.data.id,
+            name: result.data.name,
+            bodyRegion: result.data.bodyRegion,
+            difficultyLevel: result.data.difficultyLevel || "",
+            exercisePhases: result.data.exercisePhases ?? [],
+            videoUrl: result.data.videoUrl ?? null,
+            videoProvider: result.data.videoProvider ?? null,
+            description: result.data.description ?? null,
+            source: "ORGANIZATION",
+            organizationId: result.data.organizationId ?? null,
+            isPublic: result.data.isPublic,
+          });
+        } else {
+          failureCount++;
+          toast.error(`"${ready[i].name}": ${result.error}`);
+        }
       });
 
-      if (result.success) {
-        const newEx: Exercise = {
-          id: result.data.id,
-          name: result.data.name,
-          bodyRegion: result.data.bodyRegion,
-          difficultyLevel: result.data.difficultyLevel || "",
-          exercisePhases: result.data.exercisePhases ?? [],
-          videoUrl: result.data.videoUrl ?? null,
-          videoProvider: result.data.videoProvider ?? null,
-          description: result.data.description ?? null,
-          source: "ORGANIZATION",
-          organizationId: result.data.organizationId ?? null,
-          isPublic: result.data.isPublic,
-        };
-        setLocalExercises((prev) => [...prev, newEx]);
-        toast.success("Exercise created and added");
-        onSelect(newEx);
+      if (created.length) {
+        setLocalExercises((prev) => [...prev, ...created]);
+        created.forEach((ex) => onSelect(ex));
+        toast.success(
+          `${created.length} exercise${created.length === 1 ? "" : "s"} created and added to program` +
+          (failureCount ? ` (${failureCount} failed)` : "")
+        );
         handleClose();
-      } else {
-        toast.error(result.error);
       }
     });
+  }
+
+  const activeDrafts = createTab === "ai" ? aiDrafts : manualDrafts;
+  const readyCount = activeDrafts.filter((d) => d.name.trim()).length;
+
+  function handleSubmitCurrentTab() {
+    if (createTab === "ai") handleCreateBatch(aiDrafts);
+    else handleCreateBatch(manualDrafts);
   }
 
   return (
     <>
       <Dialog open={open} onOpenChange={handleClose}>
-        <DialogContent className="sm:max-w-xl h-[85vh] flex flex-col gap-0 p-0 overflow-hidden">
+        <DialogContent className="sm:max-w-3xl h-[88vh] flex flex-col gap-0 p-0 overflow-hidden" showCloseButton={false}>
           <DialogHeader className="px-4 pt-4 pb-3 border-b shrink-0">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-2">
               {view === "create" ? (
                 <button
                   type="button"
@@ -572,141 +882,175 @@ export function ExercisePickerDialog({
               ) : (
                 <DialogTitle>Add Exercise</DialogTitle>
               )}
-              {view === "list" && organizationOrganizationId && (
-                <Button type="button" variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => setView("create")}>
-                  <Plus className="h-3.5 w-3.5" />
-                  Create New
+              <div className="flex items-center gap-1.5 shrink-0">
+                {view === "list" && organizationOrganizationId && (
+                  <Button type="button" variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => setView("create")}>
+                    <Plus className="h-3.5 w-3.5" />
+                    Create New
+                  </Button>
+                )}
+                <Button type="button" variant="ghost" size="icon-sm" onClick={handleClose}>
+                  <X className="h-4 w-4" />
+                  <span className="sr-only">Close</span>
                 </Button>
-              )}
+              </div>
             </div>
           </DialogHeader>
 
           {view === "create" ? (
-            <div className="flex-1 overflow-y-auto px-4 py-4">
-              <Tabs value={createTab} onValueChange={(v) => setCreateTab(v as "ai" | "manual")}>
-                <TabsList className="grid grid-cols-2 mb-4">
-                  <TabsTrigger value="ai">AI Generate</TabsTrigger>
-                  <TabsTrigger value="manual">Manual</TabsTrigger>
-                </TabsList>
+            <div className="flex flex-col flex-1 overflow-hidden">
+              <div className="flex-1 overflow-y-auto px-4 py-4">
+                <Tabs value={createTab} onValueChange={(v) => setCreateTab(v as "ai" | "manual")}>
+                  <TabsList className="grid grid-cols-2 mb-4">
+                    <TabsTrigger value="ai">AI Generate</TabsTrigger>
+                    <TabsTrigger value="manual">Manual</TabsTrigger>
+                  </TabsList>
 
-                <TabsContent value="ai" className="mt-0">
-                  <form onSubmit={handleCreate} className="space-y-4">
+                  <TabsContent value="ai" className="mt-0 space-y-4">
                     <div className="space-y-1.5">
                       <Label className="text-xs font-semibold">Exercise Context</Label>
                       <div className="flex gap-1 rounded-md border bg-muted/40 p-1 w-fit">
                         <button
                           type="button"
                           onClick={() => setAiContext("CLINICAL")}
-                          className={[
+                          className={cn(
                             "rounded px-2.5 py-1 text-xs font-medium transition-colors",
-                            aiContext === "CLINICAL" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground",
-                          ].join(" ")}
+                            aiContext === "CLINICAL" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
+                          )}
                         >
                           Rehab / Clinical
                         </button>
                         <button
                           type="button"
                           onClick={() => setAiContext("PERFORMANCE")}
-                          className={[
+                          className={cn(
                             "rounded px-2.5 py-1 text-xs font-medium transition-colors",
-                            aiContext === "PERFORMANCE" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground",
-                          ].join(" ")}
+                            aiContext === "PERFORMANCE" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
+                          )}
                         >
                           Athletic / Performance
                         </button>
                       </div>
                     </div>
+
                     <div className="space-y-1.5">
-                      <Label className="text-xs font-semibold">Video</Label>
+                      <Label className="text-xs font-semibold">Video(s)</Label>
+                      <p className="text-xs text-muted-foreground">
+                        Select multiple videos below, then generate exercise details for all of them at once.
+                      </p>
                       <Tabs value={aiVideoMode} onValueChange={(v) => setAiVideoMode(v as "paste" | "search")}>
                         <TabsList className="grid grid-cols-2 h-7">
                           <TabsTrigger value="search" className="text-xs">Search YouTube</TabsTrigger>
-                          <TabsTrigger value="paste" className="text-xs">Paste URL</TabsTrigger>
+                          <TabsTrigger value="paste" className="text-xs">Paste URLs</TabsTrigger>
                         </TabsList>
-                        <TabsContent value="search" className="mt-2">
-                          <YouTubeVideoSearch
-                            onSelect={(v) => setAiVideoUrl(v.videoUrl)}
-                          />
-                          {aiVideoUrl && isYouTubeUrl(aiVideoUrl) && (
-                            <p className="text-xs text-muted-foreground mt-1">Selected: {aiVideoUrl}</p>
+                        <TabsContent value="search" className="mt-2 space-y-2">
+                          <div className="flex gap-2">
+                            <Input
+                              value={aiSearchQuery}
+                              onChange={(e) => setAiSearchQuery(e.target.value)}
+                              placeholder="e.g. Single Leg RDL"
+                              className="h-8 text-sm flex-1"
+                              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); runAiSearch(); } }}
+                            />
+                            <Button type="button" size="sm" className="h-8 text-xs shrink-0" disabled={aiSearchLoading} onClick={runAiSearch}>
+                              <Search className="h-3.5 w-3.5 mr-1" />
+                              {aiSearchLoading ? "Searching..." : "Search"}
+                            </Button>
+                          </div>
+                          {aiSearchVideos.length > 0 && (
+                            <VideoMultiSelectGrid
+                              videos={aiSearchVideos}
+                              selectedIds={aiSelectedVideoIds}
+                              onToggle={toggleAiVideoSelection}
+                              onSelectAll={() => setAiSelectedVideoIds(new Set(aiSearchVideos.map((v) => v.videoId)))}
+                              onDeselectAll={() => setAiSelectedVideoIds(new Set())}
+                            />
                           )}
                         </TabsContent>
-                        <TabsContent value="paste" className="mt-2">
-                          <Input
-                            id="ai-video"
-                            value={aiVideoUrl}
-                            onChange={(e) => setAiVideoUrl(e.target.value)}
-                            placeholder="https://www.youtube.com/watch?v=..."
-                            className="h-8 text-sm"
+                        <TabsContent value="paste" className="mt-2 space-y-1.5">
+                          <Textarea
+                            value={aiPasteText}
+                            onChange={(e) => setAiPasteText(e.target.value)}
+                            placeholder={"https://www.youtube.com/watch?v=abc123\nhttps://youtu.be/def456"}
+                            rows={4}
+                            className="font-mono text-xs resize-none"
                           />
+                          <p className="text-xs text-muted-foreground">
+                            {aiPastedUrls.length > 0
+                              ? <span className="text-foreground font-medium">{aiPastedUrls.length} valid YouTube URL{aiPastedUrls.length === 1 ? "" : "s"} detected</span>
+                              : "One URL per line"}
+                          </p>
                         </TabsContent>
                       </Tabs>
+
+                      {aiSelectedCount > MAX_BATCH_SIZE && (
+                        <p className="text-xs text-destructive">Select at most {MAX_BATCH_SIZE} videos at a time.</p>
+                      )}
+
                       <Button
                         type="button"
                         size="sm"
                         className="h-8 text-xs w-full"
-                        disabled={!isYouTubeUrl(aiVideoUrl) || aiStatus === "loading"}
+                        disabled={aiSelectedCount === 0 || aiSelectedCount > MAX_BATCH_SIZE || aiGenerating}
                         onClick={handleGenerateWithAi}
                       >
-                        {aiStatus === "loading" ? "Generating..." : "Generate with AI"}
+                        {aiGenerating ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Sparkles className="mr-1.5 h-3.5 w-3.5" />}
+                        {aiGenerating
+                          ? `Generating ${aiProgress.done + 1} of ${aiProgress.total}…`
+                          : `Generate ${aiSelectedCount > 0 ? aiSelectedCount : ""} Exercise${aiSelectedCount === 1 ? "" : "s"} with AI`}
                       </Button>
-                      {aiStatus === "error" && (
-                        <p className="text-xs text-destructive">{aiError} — check the link and try again.</p>
+                      {aiGenerating && (
+                        <Progress value={aiProgress.total > 0 ? Math.round((aiProgress.done / aiProgress.total) * 100) : 0} className="h-1.5" />
                       )}
                     </div>
 
-                    {aiStatus === "done" && (
-                      <>
-                        <CreateExerciseFields form={aiForm} setForm={setAiForm} />
-                        <div className="flex gap-2 pt-2">
-                          <Button type="button" variant="outline" className="flex-1 h-8 text-xs" onClick={() => setView("list")}>Cancel</Button>
-                          <Button type="submit" className="flex-1 h-8 text-xs" disabled={isPending}>
-                            {isPending ? "Creating..." : "Create & Add to Program"}
-                          </Button>
+                    {aiDrafts.length > 0 && (
+                      <div className="space-y-2 pt-2 border-t">
+                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                          {aiDrafts.length} exercise{aiDrafts.length === 1 ? "" : "s"} to review
+                        </p>
+                        <div className="space-y-2">
+                          {aiDrafts.map((draft, index) => (
+                            <DraftExerciseCard
+                              key={draft.draftId}
+                              draft={draft}
+                              index={index}
+                              onUpdate={(updater) => updateAiDraft(draft.draftId, updater)}
+                              onRemove={() => removeAiDraft(draft.draftId)}
+                            />
+                          ))}
                         </div>
-                      </>
+                      </div>
                     )}
-                  </form>
-                </TabsContent>
+                  </TabsContent>
 
-                <TabsContent value="manual" className="mt-0">
-                  <form onSubmit={handleCreate} className="space-y-4">
-                    <CreateExerciseFields form={manualForm} setForm={setManualForm} />
-                    <div className="space-y-1.5">
-                      <Label className="text-xs font-semibold">Video</Label>
-                      <Tabs value={manualVideoMode} onValueChange={(v) => setManualVideoMode(v as "paste" | "search")}>
-                        <TabsList className="grid grid-cols-2 h-7">
-                          <TabsTrigger value="search" className="text-xs">Search YouTube</TabsTrigger>
-                          <TabsTrigger value="paste" className="text-xs">Paste URL</TabsTrigger>
-                        </TabsList>
-                        <TabsContent value="search" className="mt-2">
-                          <YouTubeVideoSearch
-                            onSelect={(v) => setManualForm((f) => ({ ...f, videoUrl: v.videoUrl }))}
-                          />
-                          {manualForm.videoUrl && (
-                            <p className="text-xs text-muted-foreground mt-1">Selected: {manualForm.videoUrl}</p>
-                          )}
-                        </TabsContent>
-                        <TabsContent value="paste" className="mt-2">
-                          <Input
-                            id="ex-video"
-                            value={manualForm.videoUrl}
-                            onChange={(e) => setManualForm((f) => ({ ...f, videoUrl: e.target.value }))}
-                            placeholder="YouTube or Vimeo URL"
-                            className="h-8 text-sm"
-                          />
-                        </TabsContent>
-                      </Tabs>
-                    </div>
-                    <div className="flex gap-2 pt-2">
-                      <Button type="button" variant="outline" className="flex-1 h-8 text-xs" onClick={() => setView("list")}>Cancel</Button>
-                      <Button type="submit" className="flex-1 h-8 text-xs" disabled={isPending}>
-                        {isPending ? "Creating..." : "Create & Add to Program"}
-                      </Button>
-                    </div>
-                  </form>
-                </TabsContent>
-              </Tabs>
+                  <TabsContent value="manual" className="mt-0 space-y-3">
+                    {manualDrafts.map((draft, index) => (
+                      <DraftExerciseCard
+                        key={draft.draftId}
+                        draft={draft}
+                        index={index}
+                        onUpdate={(updater) => updateManualDraft(draft.draftId, updater)}
+                        onRemove={() => removeManualDraft(draft.draftId)}
+                        removeDisabled={manualDrafts.length === 1}
+                      />
+                    ))}
+                    <Button type="button" variant="outline" size="sm" className="w-full h-8 text-xs gap-1" onClick={addManualDraft}>
+                      <Plus className="h-3.5 w-3.5" />
+                      Add Another Exercise
+                    </Button>
+                  </TabsContent>
+                </Tabs>
+              </div>
+
+              <div className="flex shrink-0 gap-2 border-t bg-background px-4 py-3">
+                <Button type="button" variant="outline" className="flex-1 h-8 text-xs" onClick={() => setView("list")}>Cancel</Button>
+                <Button type="button" className="flex-1 h-8 text-xs" disabled={isPending || readyCount === 0} onClick={handleSubmitCurrentTab}>
+                  {isPending
+                    ? "Creating..."
+                    : `Create ${readyCount > 0 ? readyCount : ""} Exercise${readyCount === 1 ? "" : "s"} & Add to Program`}
+                </Button>
+              </div>
             </div>
           ) : (
             <>
@@ -718,66 +1062,18 @@ export function ExercisePickerDialog({
                 bodyRegions={bodyRegions}
                 setRegions={setRegions}
               />
-              {showUniversal && showOrganization ? (
-                <Tabs defaultValue="universal" className="flex flex-col flex-1 overflow-hidden">
-                  <TabsList className="shrink-0 mx-4 mt-2 mb-1 h-8 text-xs">
-                    <TabsTrigger value="universal" className="flex-1 text-xs h-6">Universal</TabsTrigger>
-                    <TabsTrigger value="my-organization" className="flex-1 text-xs h-6">My Organization</TabsTrigger>
-                  </TabsList>
-                  <TabsContent value="universal" className="flex-1 overflow-hidden flex flex-col mt-0">
-                    <ExerciseList
-                      list={filteredUniversal}
-                      phase={phase}
-                      setPhase={setPhase}
-                      bodyRegions={bodyRegions}
-                      setRegions={setRegions}
-                      onSelect={onSelect}
-                      onClose={handleClose}
-                      onPreview={setVideoPreview}
-                      onTogglePublic={handleTogglePublic}
-                    />
-                  </TabsContent>
-                  <TabsContent value="my-organization" className="flex-1 overflow-hidden flex flex-col mt-0">
-                    <ExerciseList
-                      list={filteredMyOrganization}
-                      showOrganizationControls
-                      phase={phase}
-                      setPhase={setPhase}
-                      bodyRegions={bodyRegions}
-                      setRegions={setRegions}
-                      onSelect={onSelect}
-                      onClose={handleClose}
-                      onPreview={setVideoPreview}
-                      onTogglePublic={handleTogglePublic}
-                    />
-                  </TabsContent>
-                </Tabs>
-              ) : showOrganization ? (
-                <ExerciseList
-                  list={filteredMyOrganization}
-                  showOrganizationControls
-                  phase={phase}
-                  setPhase={setPhase}
-                  bodyRegions={bodyRegions}
-                  setRegions={setRegions}
-                  onSelect={onSelect}
-                  onClose={handleClose}
-                  onPreview={setVideoPreview}
-                  onTogglePublic={handleTogglePublic}
-                />
-              ) : (
-                <ExerciseList
-                  list={filteredUniversal}
-                  phase={phase}
-                  setPhase={setPhase}
-                  bodyRegions={bodyRegions}
-                  setRegions={setRegions}
-                  onSelect={onSelect}
-                  onClose={handleClose}
-                  onPreview={setVideoPreview}
-                  onTogglePublic={handleTogglePublic}
-                />
-              )}
+              <ExerciseList
+                list={filteredExercises}
+                organizationOrganizationId={organizationOrganizationId}
+                phase={phase}
+                setPhase={setPhase}
+                bodyRegions={bodyRegions}
+                setRegions={setRegions}
+                onSelect={onSelect}
+                onClose={handleClose}
+                onPreview={setVideoPreview}
+                onTogglePublic={handleTogglePublic}
+              />
             </>
           )}
         </DialogContent>
