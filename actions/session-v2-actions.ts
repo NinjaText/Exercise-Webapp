@@ -143,6 +143,7 @@ export async function updateSetLogV2Action(
     actualReps?: number;
     actualWeight?: number;
     actualDuration?: number;
+    actualDistance?: number;
     actualRPE?: number;
     notes?: string;
   }

@@ -46,9 +46,14 @@ type BaseExercise = {
 type BlockExerciseSet = {
   id: string;
   orderIndex: number;
+  setType?: string | null;
   targetReps?: number | null;
   targetDuration?: number | null;
   targetDurationUnit?: string | null;
+  targetDistance?: number | null;
+  targetPace?: string | null;
+  targetHrZone?: string | null;
+  repeatCount?: number | null;
   targetWeight?: number | null;
   targetRPE?: number | null;
   restAfter?: number | null;
@@ -59,12 +64,13 @@ type SessionExerciseLog = {
   status: string;
   actualSets?: number | null;
   clientNote?: string | null;
-  setLogs: { id: string; setIndex: number; actualReps?: number | null; actualWeight?: number | null; actualDuration?: number | null }[];
+  setLogs: { id: string; setIndex: number; actualReps?: number | null; actualWeight?: number | null; actualDuration?: number | null; actualDistance?: number | null; actualRPE?: number | null }[];
 };
 type BlockExercise = {
   id: string;
   exerciseId: string;
   notes?: string | null;
+  activityType?: string | null;
   exercise: BaseExercise;
   sets: BlockExerciseSet[];
 };
@@ -89,11 +95,45 @@ function isCircuitBlock(type: string) {
   return t === "CIRCUIT" || t === "SUPERSET" || t === "WARMUP" || t === "COOLDOWN";
 }
 
+const SEGMENT_LABELS: Record<string, string> = {
+  WARMUP: "Warm-up",
+  WORK: "Work",
+  RECOVERY: "Recovery",
+  COOLDOWN: "Cool-down",
+};
+
+// Only meaningful for Run / Interval Run exercises — labels an interval
+// segment by what it is (not "Set 1"), and folds in the repeat count so
+// "6 x 400m" reads as one row instead of six identical ones.
+function segmentLabel(setType?: string | null, repeatCount?: number | null): string | null {
+  if (!setType) return null;
+  const base = SEGMENT_LABELS[setType];
+  if (!base) return null;
+  return setType === "WORK" && repeatCount ? `${base} ×${repeatCount}` : base;
+}
+
+// Renders a Run/Interval Run set's prescription as a single glance-able
+// line — distance, duration, target pace, HR zone — since none of those
+// are things a client fills in an input for the way reps/weight are.
+function prescriptionSummary(set: BlockExerciseSet): string {
+  const parts: string[] = [];
+  if (set.targetDistance != null) parts.push(`${set.targetDistance} mi`);
+  if (set.targetDuration != null) {
+    parts.push(`${set.targetDuration}${set.targetDurationUnit === "MIN" ? "min" : "s"}`);
+  }
+  if (set.targetPace) parts.push(`@ ${set.targetPace}`);
+  if (set.targetHrZone) parts.push(set.targetHrZone);
+  return parts.join(" · ");
+}
+
 function getPrescriptionText(ex: BlockExercise, block: WorkoutBlock): string {
   const isCircuit = isCircuitBlock(block.type);
   const rounds = isCircuit ? block.rounds : 1;
   const set = ex.sets[0];
   if (!set) return "";
+  if ((ex.activityType || "STRENGTH") !== "STRENGTH") {
+    return prescriptionSummary(set) || `${ex.sets.length} ${ex.sets.length === 1 ? "segment" : "segments"}`;
+  }
   const setsLabel = isCircuit
     ? `${rounds} ${rounds === 1 ? "set" : "sets"}`
     : `${ex.sets.length} ${ex.sets.length === 1 ? "set" : "sets"}`;
@@ -103,6 +143,9 @@ function getPrescriptionText(ex: BlockExercise, block: WorkoutBlock): string {
 }
 
 function getSetCount(ex: BlockExercise, block: WorkoutBlock): number {
+  // Interval Run's segments are an ordered sequence, not repeating rounds —
+  // never collapsed to the block's round count the way a circuit set is.
+  if ((ex.activityType || "STRENGTH") === "INTERVAL_RUN") return ex.sets.length;
   return isCircuitBlock(block.type) ? Math.max(1, block.rounds ?? 1) : ex.sets.length;
 }
 
@@ -150,6 +193,8 @@ export function WorkoutChecklistTracker({
           actualReps: sl.actualReps ?? undefined,
           actualWeight: sl.actualWeight ?? undefined,
           actualDuration: sl.actualDuration ?? undefined,
+          actualDistance: sl.actualDistance ?? undefined,
+          actualRPE: sl.actualRPE ?? undefined,
           completed: true,
         };
       }
@@ -165,7 +210,7 @@ export function WorkoutChecklistTracker({
 
   // Pending input values (before the user taps "Done")
   const [pendingInputs, setPendingInputs] = useState<
-    Record<string, { actualReps?: number; actualWeight?: number; actualDuration?: number; actualRPE?: number }>
+    Record<string, { actualReps?: number; actualWeight?: number; actualDuration?: number; actualDistance?: number; actualRPE?: number }>
   >({});
 
   // Keys of sets where the user clicked "Skip Exercise" — value is the typed "Other" reason
@@ -304,7 +349,7 @@ export function WorkoutChecklistTracker({
   function handleInputChange(
     exerciseId: string,
     setIndex: number,
-    field: "actualReps" | "actualWeight" | "actualDuration" | "actualRPE",
+    field: "actualReps" | "actualWeight" | "actualDuration" | "actualDistance" | "actualRPE",
     value: string
   ) {
     const key = inputKey(exerciseId, setIndex);
@@ -335,6 +380,7 @@ export function WorkoutChecklistTracker({
           actualReps: pending.actualReps,
           actualWeight: pending.actualWeight,
           actualDuration: pending.actualDuration,
+          actualDistance: pending.actualDistance,
           actualRPE: pending.actualRPE,
         };
 
@@ -526,6 +572,11 @@ export function WorkoutChecklistTracker({
                     getExerciseStatus(ex.id, getSetCount(ex, block), exerciseSetLogs) === "partial";
                   const isExOpen = expandedExercises.has(ex.id);
                   const setCount = getSetCount(ex, block);
+                  const activityType = ex.activityType || "STRENGTH";
+                  const isRunType = activityType !== "STRENGTH";
+                  // Interval Run is a sequence of distinct segments — never
+                  // treated as a repeating circuit round.
+                  const showAsSegments = activityType === "INTERVAL_RUN";
                   const hasVideo =
                     ex.exercise.videoUrl || ex.exercise.media.some((m) => m.type === "VIDEO");
                   const isUpNext = ex.id === firstUnfinishedId;
@@ -611,11 +662,16 @@ export function WorkoutChecklistTracker({
                         <div className="flex-1 min-w-0">
                           <p
                             className={cn(
-                              "text-[15px] font-semibold text-foreground",
+                              "flex items-center gap-1.5 text-[15px] font-semibold text-foreground",
                               isFullyDone && "text-muted-foreground"
                             )}
                           >
-                            {ex.exercise.name}
+                            <span className="truncate">{ex.exercise.name}</span>
+                            {isRunType && (
+                              <span className="shrink-0 rounded-full bg-sky-50 text-sky-700 border border-sky-200 px-1.5 py-0 text-[10px] font-medium">
+                                {activityType === "INTERVAL_RUN" ? "Interval Run" : "Run"}
+                              </span>
+                            )}
                           </p>
                           <p className="text-xs text-muted-foreground">
                             {getPrescriptionText(ex, block)}
@@ -642,16 +698,23 @@ export function WorkoutChecklistTracker({
                           {/* Meta line — one quiet line instead of a wall of pills */}
                           <div className="flex items-center justify-between gap-2">
                             <p className="text-sm text-muted-foreground">
-                              {[
-                                `${isCircuit ? block.rounds : ex.sets.length} ${
-                                  (isCircuit ? block.rounds : ex.sets.length) === 1 ? "set" : "sets"
-                                }`,
-                                ex.sets[0]?.targetReps ? `${ex.sets[0].targetReps} reps` : null,
-                                ex.sets[0]?.targetDuration ? `${ex.sets[0].targetDuration}${ex.sets[0].targetDurationUnit === "MIN" ? "min" : "s"} hold` : null,
-                                ex.sets[0]?.restAfter ? `${ex.sets[0].restAfter}s rest` : null,
-                              ]
-                                .filter(Boolean)
-                                .join(" · ")}
+                              {isRunType
+                                ? [
+                                    `${ex.sets.length} ${ex.sets.length === 1 ? "segment" : "segments"}`,
+                                    prescriptionSummary(ex.sets[0]) || null,
+                                  ]
+                                    .filter(Boolean)
+                                    .join(" · ")
+                                : [
+                                    `${isCircuit ? block.rounds : ex.sets.length} ${
+                                      (isCircuit ? block.rounds : ex.sets.length) === 1 ? "set" : "sets"
+                                    }`,
+                                    ex.sets[0]?.targetReps ? `${ex.sets[0].targetReps} reps` : null,
+                                    ex.sets[0]?.targetDuration ? `${ex.sets[0].targetDuration}${ex.sets[0].targetDurationUnit === "MIN" ? "min" : "s"} hold` : null,
+                                    ex.sets[0]?.restAfter ? `${ex.sets[0].restAfter}s rest` : null,
+                                  ]
+                                    .filter(Boolean)
+                                    .join(" · ")}
                             </p>
                             {ex.exercise.bodyRegion && ex.exercise.bodyRegion.length > 0 && (
                               <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
@@ -760,9 +823,10 @@ export function WorkoutChecklistTracker({
                                 const isExtra = i >= setCount;
                                 const setDef = isExtra
                                   ? null
-                                  : isCircuit
+                                  : isCircuit && !showAsSegments
                                   ? ex.sets[0]
                                   : ex.sets[i];
+                                const label = showAsSegments ? segmentLabel(setDef?.setType, setDef?.repeatCount) : null;
                                 const logEntry = exerciseSetLogs[ex.id]?.[i];
                                 const isDone = logEntry?.completed ?? false;
                                 const key = inputKey(ex.id, i);
@@ -775,12 +839,13 @@ export function WorkoutChecklistTracker({
                                 // showing 3+ full editable cards for already-completed sets
                                 // is the main source of clutter once a client is mid-workout.
                                 if (isDone) {
-                                  const skipped = logEntry?.actualReps === 0 && !logEntry?.actualDuration;
+                                  const skipped = logEntry?.actualReps === 0 && !logEntry?.actualDuration && !logEntry?.actualDistance;
                                   const summary = skipped
                                     ? "Skipped"
                                     : [
                                         logEntry?.actualReps ? `${logEntry.actualReps} reps` : null,
-                                        logEntry?.actualDuration ? `${logEntry.actualDuration}s` : null,
+                                        logEntry?.actualDistance ? `${logEntry.actualDistance} mi` : null,
+                                        logEntry?.actualDuration ? `${logEntry.actualDuration}${setDef?.targetDurationUnit === "MIN" ? "min" : "s"}` : null,
                                         logEntry?.actualWeight ? `${logEntry.actualWeight} lbs` : null,
                                         logEntry?.actualRPE ? `RPE ${logEntry.actualRPE}` : null,
                                       ]
@@ -804,7 +869,7 @@ export function WorkoutChecklistTracker({
                                         <Check className="h-3 w-3 text-white" />
                                       </div>
                                       <span className="text-sm text-foreground">
-                                        Set {i + 1}
+                                        {label ?? `Set ${i + 1}`}
                                         {isExtra && <span className="text-muted-foreground"> (extra)</span>}
                                       </span>
                                       <span
@@ -835,12 +900,13 @@ export function WorkoutChecklistTracker({
                                         {i + 1}
                                       </div>
                                       <span className="text-xs text-muted-foreground">
-                                        {`Set ${i + 1}`}
+                                        {label ?? `Set ${i + 1}`}
                                         {isExtra && (
                                           <span className="ml-1 text-[10px] text-muted-foreground/60">(extra)</span>
                                         )}
-                                        {setDef?.targetReps && ` · target ${setDef.targetReps} reps`}
-                                        {setDef?.targetDuration && ` · target ${setDef.targetDuration}${setDef.targetDurationUnit === "MIN" ? "min" : "s"}`}
+                                        {!isRunType && setDef?.targetReps && ` · target ${setDef.targetReps} reps`}
+                                        {!isRunType && setDef?.targetDuration && ` · target ${setDef.targetDuration}${setDef.targetDurationUnit === "MIN" ? "min" : "s"}`}
+                                        {isRunType && setDef && prescriptionSummary(setDef) && ` · ${prescriptionSummary(setDef)}`}
                                       </span>
                                       {/* Remove button for last unlogged extra set */}
                                       {isLastExtra && (
@@ -857,7 +923,7 @@ export function WorkoutChecklistTracker({
                                     {/* Inputs */}
                                     <div className="flex flex-wrap gap-2 items-end">
                                         {/* Reps: always show for extra sets; for prescribed show when target reps or no duration */}
-                                        {(isExtra || setDef?.targetReps != null || !setDef?.targetDuration) && (
+                                        {!isRunType && (isExtra || setDef?.targetReps != null || !setDef?.targetDuration) && (
                                           <div className="space-y-0.5">
                                             <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
                                               Reps completed
@@ -869,6 +935,24 @@ export function WorkoutChecklistTracker({
                                               value={pending.actualReps ?? ""}
                                               onChange={(e) =>
                                                 handleInputChange(ex.id, i, "actualReps", e.target.value)
+                                              }
+                                              className="h-8 w-24 text-sm"
+                                            />
+                                          </div>
+                                        )}
+                                        {isRunType && (isExtra || setDef?.targetDistance != null) && (
+                                          <div className="space-y-0.5">
+                                            <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+                                              Distance (mi)
+                                            </Label>
+                                            <Input
+                                              type="number"
+                                              min={0}
+                                              step={0.1}
+                                              placeholder={setDef?.targetDistance?.toString() ?? "0"}
+                                              value={pending.actualDistance ?? ""}
+                                              onChange={(e) =>
+                                                handleInputChange(ex.id, i, "actualDistance", e.target.value)
                                               }
                                               className="h-8 w-24 text-sm"
                                             />
@@ -891,7 +975,7 @@ export function WorkoutChecklistTracker({
                                             />
                                           </div>
                                         )}
-                                        {(isExtra || setDef?.targetWeight != null) && (
+                                        {!isRunType && (isExtra || setDef?.targetWeight != null) && (
                                           <div className="space-y-0.5">
                                             <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
                                               Weight used
