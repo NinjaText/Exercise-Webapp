@@ -351,9 +351,9 @@ export function ProgramListClient({
 
   const activeTab =
     role === "TRAINER"
-      ? searchParams.get("tab") === "templates"
-        ? "templates"
-        : "programs"
+      ? searchParams.get("tab") === "programs"
+        ? "programs"
+        : "templates"
       : "programs";
 
   function handleTabChange(nextTab: string) {
@@ -361,7 +361,7 @@ export function ProgramListClient({
     setSearch("");
     setStatusFilter("all");
     const params = new URLSearchParams(searchParams.toString());
-    if (nextTab === "programs") {
+    if (nextTab === "templates") {
       params.delete("tab");
     } else {
       params.set("tab", nextTab);

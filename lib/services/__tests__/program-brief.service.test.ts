@@ -20,7 +20,7 @@ beforeEach(() => {
   vi.clearAllMocks()
 })
 
-import { splitIntoChunks, mergeChunkSessions, deriveCircuitsFromSessions, extractBriefMetadata, extractChunkSessions, parseProgramBrief, isExerciseTraceableInDocument, flagUntraceableExercises } from '../program-brief.service'
+import { splitIntoChunks, mergeChunkSessions, deriveCircuitsFromSessions, extractBriefMetadata, extractChunkSessions, parseProgramBrief, isExerciseTraceableInDocument, flagUntraceableExercises, dropFabricatedSessions, renumberSessions } from '../program-brief.service'
 
 function block(name: string, focusType: string, exerciseCount: number) {
   return {
@@ -75,6 +75,84 @@ describe('flagUntraceableExercises', () => {
     ]
     const flagged = flagUntraceableExercises(blueprint as any, [])
     expect(flagged[0].blocks[0].exercises[0].traceableInDocument).toBe(true)
+  })
+})
+
+describe('dropFabricatedSessions', () => {
+  it('drops a session where every exercise is untraceable — the extraction LLM invented it wholesale', () => {
+    const blueprint = [
+      {
+        dayIndex: 0,
+        weekIndex: 0,
+        title: 'Fabricated Day',
+        blocks: [
+          { name: 'Warm Up', focusType: 'WARMUP', exercises: [
+            { name: 'Jumping Jacks', traceableInDocument: false },
+            { name: 'Arm Circles', traceableInDocument: false },
+          ] },
+        ],
+      },
+      {
+        dayIndex: 1,
+        weekIndex: 0,
+        title: 'Real Day',
+        blocks: [
+          { name: 'Warm Up', focusType: 'WARMUP', exercises: [
+            { name: '90/90 Hip Switch', traceableInDocument: true },
+          ] },
+        ],
+      },
+    ]
+
+    const { sessions, warnings } = dropFabricatedSessions(blueprint as any)
+
+    expect(sessions).toHaveLength(1)
+    expect(sessions[0].title).toBe('Real Day')
+    expect(warnings).toHaveLength(1)
+    expect(warnings[0]).toContain('Fabricated Day')
+  })
+
+  it('keeps a session where only some exercises are untraceable — normal per-exercise review, not fabrication', () => {
+    const blueprint = [
+      {
+        dayIndex: 0,
+        weekIndex: 0,
+        title: 'Mostly Real Day',
+        blocks: [
+          { name: 'Warm Up', focusType: 'WARMUP', exercises: [
+            { name: '90/90 Hip Switch', traceableInDocument: true },
+            { name: 'Paraphrased Thing', traceableInDocument: false },
+          ] },
+        ],
+      },
+    ]
+
+    const { sessions, warnings } = dropFabricatedSessions(blueprint as any)
+
+    expect(sessions).toHaveLength(1)
+    expect(warnings).toHaveLength(0)
+  })
+})
+
+describe('renumberSessions', () => {
+  it('re-assigns contiguous 0-based dayIndex/weekIndex after sessions were filtered out', () => {
+    const blueprint = [
+      { dayIndex: 3, weekIndex: 0, title: 'Real Day 1', blocks: [] },
+      { dayIndex: 4, weekIndex: 0, title: 'Real Day 2', blocks: [] },
+      { dayIndex: 5, weekIndex: 0, title: 'Real Day 3', blocks: [] },
+      { dayIndex: 0, weekIndex: 1, title: 'Week 2 Day 1', blocks: [] },
+      { dayIndex: 1, weekIndex: 1, title: 'Week 2 Day 2', blocks: [] },
+    ]
+
+    const result = renumberSessions(blueprint as any)
+
+    expect(result.map((s) => ({ week: s.weekIndex, day: s.dayIndex, title: s.title }))).toEqual([
+      { week: 0, day: 0, title: 'Real Day 1' },
+      { week: 0, day: 1, title: 'Real Day 2' },
+      { week: 0, day: 2, title: 'Real Day 3' },
+      { week: 1, day: 0, title: 'Week 2 Day 1' },
+      { week: 1, day: 1, title: 'Week 2 Day 2' },
+    ])
   })
 })
 
@@ -577,13 +655,13 @@ describe('parseProgramBrief (orchestrator)', () => {
 
     const text = [
       'Week 1',
-      'DAY_1: Lower Body A',
+      'DAY_1: Lower Body A\nSquat - 4x8\nBench Press - 4x8',
       'Week 2',
-      'DAY_1: Lower Body A',
+      'DAY_1: Lower Body A\nSquat - 4x8\nBench Press - 4x8',
       'Week 3',
-      'DAY_1: Lower Body A',
+      'DAY_1: Lower Body A\nSquat - 4x8\nBench Press - 4x8',
       'Week 4',
-      'DAY_1: Lower Body A',
+      'DAY_1: Lower Body A\nSquat - 4x8\nBench Press - 4x8',
     ].join('\n\n')
 
     const result = await parseProgramBrief(text)
@@ -718,7 +796,7 @@ describe('parseProgramBrief (orchestrator)', () => {
       })
     })
 
-    const result = await parseProgramBrief(sessionTitles.join('\n\n'))
+    const result = await parseProgramBrief(sessionTitles.map((t) => `${t}\nSquat - 4x8`).join('\n\n'))
 
     expect(result.ok).toBe(true)
     if (!result.ok) throw new Error('expected ok result')
@@ -728,5 +806,109 @@ describe('parseProgramBrief (orchestrator)', () => {
     // Every (week, day) slot must be unique — no two sessions collided onto the same slot.
     const slots = result.data.sessionBlueprint!.map((s) => `${s.weekIndex}_${s.dayIndex}`)
     expect(new Set(slots).size).toBe(slots.length)
+  })
+
+  it('drops a phantom session fabricated from a front-matter/preamble chunk instead of merging it in as a real day (regression: a title/equipment/"each session has N exercises" chunk with no real exercises was being turned into a fake extra day)', async () => {
+    mockCreate.mockImplementation((args: any) => {
+      const userContent = args.messages[1].content as string
+      if (args.response_format.json_schema.name === 'brief_metadata') {
+        return Promise.resolve({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  programTitle: 'Advanced Tennis Program',
+                  focusAreas: ['power', 'mobility'],
+                  difficultyLevel: 'ADVANCED',
+                  durationMinutes: 60,
+                  preferredWeekdays: ['Monday', 'Wednesday', 'Friday'],
+                  estimatedDaysPerWeek: 3,
+                  inferredFields: [],
+                }),
+              },
+            },
+          ],
+        })
+      }
+      // The preamble chunk (no "Week" label, no real exercises) — simulates the LLM
+      // hallucinating a full fake session instead of returning sessions: [].
+      if (userContent.includes('Each session: 4-exercise warm-up')) {
+        return Promise.resolve({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  sessions: [
+                    {
+                      weekLabel: 'Week 1',
+                      dayLabel: 'Day 1',
+                      title: 'Fabricated Session',
+                      blocks: [
+                        {
+                          name: 'Warm Up',
+                          focusType: 'WARMUP',
+                          exercises: [{ name: 'Jumping Jacks', sets: 1, reps: 20, durationSeconds: null, notes: null }],
+                        },
+                      ],
+                    },
+                  ],
+                  warnings: [],
+                }),
+              },
+            },
+          ],
+        })
+      }
+      // The real "Week N" chunks — genuine exercises that appear verbatim in the chunk text.
+      const weekMatch = userContent.match(/Week (\d)/)
+      const week = weekMatch ? weekMatch[1] : '1'
+      return Promise.resolve({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                sessions: [
+                  {
+                    weekLabel: `Week ${week}`,
+                    dayLabel: 'Day 1',
+                    title: 'Lower Body',
+                    blocks: [
+                      {
+                        name: 'Warm Up',
+                        focusType: 'WARMUP',
+                        exercises: [{ name: '90/90 Hip Switch', sets: null, reps: 8, durationSeconds: null, notes: null }],
+                      },
+                    ],
+                  },
+                ],
+                warnings: [],
+              }),
+            },
+          },
+        ],
+      })
+    })
+
+    const text = [
+      'Advanced Tennis Program',
+      'Each session: 4-exercise warm-up • 4-exercise main circuit × 3 sets • 3-exercise cool-down',
+      'Week 1',
+      '90/90 Hip Switch - 8/side',
+      'Week 2',
+      '90/90 Hip Switch - 8/side',
+    ].join('\n\n')
+
+    const result = await parseProgramBrief(text)
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error('expected ok result')
+    // The fabricated session must not survive into the blueprint.
+    expect(result.data.sessionBlueprint!.some((s) => s.title === 'Fabricated Session')).toBe(false)
+    expect(result.data.sessionBlueprint!.some((s) => s.blocks.some((b) => b.exercises.some((e) => e.name === 'Jumping Jacks')))).toBe(false)
+    // Only the two genuine week sessions remain, correctly numbered.
+    expect(result.data.sessionBlueprint).toHaveLength(2)
+    expect(new Set(result.data.sessionBlueprint!.map((s) => s.weekIndex))).toEqual(new Set([0, 1]))
+    expect(result.data.sessionBlueprint!.every((s) => s.dayIndex === 0)).toBe(true)
+    expect(result.data.warnings!.some((w) => w.includes('Fabricated Session'))).toBe(true)
   })
 })

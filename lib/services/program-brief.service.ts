@@ -301,6 +301,57 @@ export function flagUntraceableExercises(
   });
 }
 
+/**
+ * Defense-in-depth against the extraction LLM fabricating an entire session
+ * (e.g. from a title page or a "programming guidelines" excerpt that merely
+ * describes session structure without naming exercises) rather than genuinely
+ * paraphrasing real content: a real, imperfectly-paraphrased session almost
+ * never has EVERY exercise fail the traceability check (isExerciseTraceableInDocument
+ * already tolerates paraphrasing via token overlap) — so a session where 100%
+ * of exercises are untraceable is treated as invented and dropped, rather than
+ * being merged in as if it were a real day that merely needs per-exercise review.
+ */
+export function dropFabricatedSessions(
+  sessionBlueprint: SessionBlueprint[]
+): { sessions: SessionBlueprint[]; warnings: string[] } {
+  const warnings: string[] = [];
+  const sessions = sessionBlueprint.filter((session) => {
+    const allExercises = session.blocks.flatMap((b) => b.exercises);
+    if (!allExercises.length) return true;
+    const allUntraceable = allExercises.every((e) => e.traceableInDocument === false);
+    if (allUntraceable) {
+      warnings.push(
+        `A session ("${session.title}") could not be matched to any content in the document and was removed automatically — please check that part of the document manually if a session is missing.`
+      );
+      return false;
+    }
+    return true;
+  });
+  return { sessions, warnings };
+}
+
+/**
+ * Re-assigns weekIndex/dayIndex to be contiguous, 0-based sequences after
+ * sessions have been filtered out — otherwise a dropped session leaves a gap
+ * (e.g. day indices 3,4,5 surviving in a week while other weeks start at 0).
+ */
+export function renumberSessions(sessionBlueprint: SessionBlueprint[]): SessionBlueprint[] {
+  const byWeek = new Map<number, SessionBlueprint[]>();
+  for (const session of sessionBlueprint) {
+    const week = session.weekIndex ?? 0;
+    if (!byWeek.has(week)) byWeek.set(week, []);
+    byWeek.get(week)!.push(session);
+  }
+  const orderedWeeks = Array.from(byWeek.keys()).sort((a, b) => a - b);
+  const result: SessionBlueprint[] = [];
+  orderedWeeks.forEach((week, weekPosition) => {
+    byWeek.get(week)!.forEach((session, dayPosition) => {
+      result.push({ ...session, weekIndex: weekPosition, dayIndex: dayPosition });
+    });
+  });
+  return result;
+}
+
 export type BriefMetadata = {
   programTitle: string;
   focusAreas: string[];
@@ -435,6 +486,8 @@ export async function extractChunkSessions(
 
 Rules:
 - Extract every session in this excerpt, in the exact order they appear. Do not skip or merge sessions.
+- Every exercise you output MUST be copied from an actual exercise name written in this excerpt. Never invent, guess, or supply a "typical"/"placeholder"/"example" exercise for a session, even if the excerpt describes what a session generally contains (e.g. "each session: 4-exercise warm-up, 4-exercise main circuit, 3-exercise cool-down") without actually naming exercises there. A description of session structure is not a session.
+- If this excerpt contains no session with actual named exercises — e.g. it is only a title page, table of contents, equipment list, or general programming guidelines — return an empty "sessions" array. Returning nothing is correct and expected for excerpts like that.
 - For each session capture: weekLabel (verbatim label like "Week 1" or "Deload Week" if the excerpt states one for this session, else null), dayLabel (verbatim label like "Day 1" or "Monday" if stated, else null), title (the session's descriptive name), and blocks.
 - Each block is a named section of the session (e.g. "Warm Up", "Strength Block A", "Accessory") containing an ordered list of exercises. Use the document's own section names — do not rename them.
 - Classify each block's focusType as the closest match among: ${ALLOWED_CIRCUIT_FOCUS.join(', ')}.
@@ -591,18 +644,38 @@ export async function parseProgramBrief(
     }
   });
 
-  const { sessionBlueprint, daysPerWeek, warnings: chunkWarnings } = mergeChunkSessions(
+  const { sessionBlueprint, warnings: chunkWarnings } = mergeChunkSessions(
     chunkResults,
     metadata.estimatedDaysPerWeek
   );
-
-  const flaggedSessionBlueprint = flagUntraceableExercises(sessionBlueprint, chunks);
 
   if (!sessionBlueprint.length) {
     return { ok: false, errors: ['No training sessions could be found in this document.'] };
   }
 
-  const circuits = deriveCircuitsFromSessions(sessionBlueprint);
+  const flaggedSessionBlueprint = flagUntraceableExercises(sessionBlueprint, chunks);
+  const { sessions: fabricationFilteredBlueprint, warnings: fabricationWarnings } =
+    dropFabricatedSessions(flaggedSessionBlueprint);
+
+  if (!fabricationFilteredBlueprint.length) {
+    return {
+      ok: false,
+      errors: [
+        'Every session extracted from this document failed verification against the source text — this usually means the document has an unusual layout the parser could not read. Please check the file and try again.',
+      ],
+    };
+  }
+
+  const finalSessionBlueprint = renumberSessions(fabricationFilteredBlueprint);
+
+  const perWeekCount = new Map<number, number>();
+  for (const s of finalSessionBlueprint) {
+    const w = s.weekIndex ?? 0;
+    perWeekCount.set(w, (perWeekCount.get(w) ?? 0) + 1);
+  }
+  const daysPerWeek = Math.max(1, ...Array.from(perWeekCount.values()));
+
+  const circuits = deriveCircuitsFromSessions(finalSessionBlueprint);
 
   let preferredWeekdays = metadata.preferredWeekdays.length
     ? [...metadata.preferredWeekdays]
@@ -623,15 +696,15 @@ export async function parseProgramBrief(
   return {
     ok: true,
     data: {
-      programTitle: metadata.programTitle || flaggedSessionBlueprint[0].title,
+      programTitle: metadata.programTitle || finalSessionBlueprint[0].title,
       focusAreas: metadata.focusAreas,
       difficultyLevel: metadata.difficultyLevel,
       durationMinutes: metadata.durationMinutes,
       daysPerWeek,
       preferredWeekdays,
       circuits,
-      sessionBlueprint: flaggedSessionBlueprint,
-      warnings: chunkWarnings,
+      sessionBlueprint: finalSessionBlueprint,
+      warnings: [...chunkWarnings, ...fabricationWarnings],
       inferredFields: metadata.inferredFields,
     },
   };
