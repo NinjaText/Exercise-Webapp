@@ -35,6 +35,8 @@ export function WorkoutModeWrapper({ session, initialMode }: Props) {
           actualReps: sl.actualReps ?? undefined,
           actualWeight: sl.actualWeight ?? undefined,
           actualDuration: sl.actualDuration ?? undefined,
+          actualDistance: sl.actualDistance ?? undefined,
+          actualRPE: sl.actualRPE ?? undefined,
           completed: true,
         };
       }

@@ -77,6 +77,12 @@ export async function createProgram(
     data: {
       ...rest,
       trainerId,
+      // Must be written explicitly (not omitted) — Prisma's MongoDB filters
+      // for `clientId: null` only match documents where the field is
+      // present and null, not documents where it's absent. Omitting it here
+      // makes the program invisible to both the "Assigned" and "Library"
+      // tab queries in getPrograms.
+      clientId: null,
       startDate: startDate ? new Date(startDate) : undefined,
     },
   });

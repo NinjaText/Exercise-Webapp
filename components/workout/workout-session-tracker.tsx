@@ -42,10 +42,24 @@ type BaseExercise = {
   bodyRegion?: string[] | null; instructions?: string | null;
   media: MediaItem[];
 };
-type SetLog = { id: string; setIndex: number; actualReps?: number | null; actualWeight?: number | null; actualDuration?: number | null; actualRPE?: number | null };
-type BlockExerciseSet = { id: string; orderIndex: number; targetReps?: number | null; targetDuration?: number | null; targetDurationUnit?: string | null; targetWeight?: number | null; targetRPE?: number | null; restAfter?: number | null };
+type SetLog = { id: string; setIndex: number; actualReps?: number | null; actualWeight?: number | null; actualDuration?: number | null; actualDistance?: number | null; actualRPE?: number | null };
+type BlockExerciseSet = {
+  id: string;
+  orderIndex: number;
+  setType?: string | null;
+  targetReps?: number | null;
+  targetDuration?: number | null;
+  targetDurationUnit?: string | null;
+  targetDistance?: number | null;
+  targetPace?: string | null;
+  targetHrZone?: string | null;
+  repeatCount?: number | null;
+  targetWeight?: number | null;
+  targetRPE?: number | null;
+  restAfter?: number | null;
+};
 type SessionExerciseLog = { id: string; blockExerciseId: string; status: string; clientNote?: string | null; setLogs: SetLog[] };
-type BlockExercise = { id: string; exerciseId: string; notes?: string | null; exercise: BaseExercise; sets: BlockExerciseSet[] };
+type BlockExercise = { id: string; exerciseId: string; notes?: string | null; activityType?: string | null; exercise: BaseExercise; sets: BlockExerciseSet[] };
 type WorkoutBlock = {
   id: string;
   type: string;
@@ -87,6 +101,37 @@ type FlatItem = ExerciseFlatItem | RestFlatItem;
 function isCircuitBlock(type: string): boolean {
   const t = type.toUpperCase();
   return t === "CIRCUIT" || t === "SUPERSET" || t === "WARMUP" || t === "COOLDOWN";
+}
+
+const SEGMENT_LABELS: Record<string, string> = {
+  WARMUP: "Warm-up",
+  WORK: "Work",
+  RECOVERY: "Recovery",
+  COOLDOWN: "Cool-down",
+};
+
+// Only meaningful for Run / Interval Run exercises — labels an interval
+// segment by what it is (not "Set 1"), and folds in the repeat count so
+// "6 x 400m" reads as one row instead of six identical ones.
+function segmentLabel(setType?: string | null, repeatCount?: number | null): string | null {
+  if (!setType) return null;
+  const base = SEGMENT_LABELS[setType];
+  if (!base) return null;
+  return setType === "WORK" && repeatCount ? `${base} ×${repeatCount}` : base;
+}
+
+// Renders a Run/Interval Run set's prescription as a single glance-able
+// line — distance, duration, target pace, HR zone — since none of those
+// are things a client fills in an input for the way reps/weight are.
+function prescriptionSummary(set: BlockExerciseSet): string {
+  const parts: string[] = [];
+  if (set.targetDistance != null) parts.push(`${set.targetDistance} mi`);
+  if (set.targetDuration != null) {
+    parts.push(`${set.targetDuration}${set.targetDurationUnit === "MIN" ? "min" : "s"}`);
+  }
+  if (set.targetPace) parts.push(`@ ${set.targetPace}`);
+  if (set.targetHrZone) parts.push(set.targetHrZone);
+  return parts.join(" · ");
 }
 
 function buildFlatItems(blocks: WorkoutBlock[]): FlatItem[] {
@@ -140,7 +185,7 @@ function buildFlatItems(blocks: WorkoutBlock[]): FlatItem[] {
   return items;
 }
 
-type SetLogState = { actualReps?: number; actualWeight?: number; actualDuration?: number; actualRPE?: number; completed: boolean };
+type SetLogState = { actualReps?: number; actualWeight?: number; actualDuration?: number; actualDistance?: number; actualRPE?: number; completed: boolean };
 
 interface WorkoutSessionTrackerProps {
   session: WorkoutSessionV2;
@@ -311,6 +356,7 @@ export function WorkoutSessionTracker({
         actualReps: cacheEntry?.actualReps ?? existing?.actualReps ?? targetSet?.targetReps ?? undefined,
         actualWeight: cacheEntry?.actualWeight ?? existing?.actualWeight ?? targetSet?.targetWeight ?? undefined,
         actualDuration: cacheEntry?.actualDuration ?? existing?.actualDuration ?? targetSet?.targetDuration ?? undefined,
+        actualDistance: cacheEntry?.actualDistance ?? existing?.actualDistance ?? targetSet?.targetDistance ?? undefined,
         actualRPE: cacheEntry?.actualRPE ?? existing?.actualRPE ?? targetSet?.targetRPE ?? undefined,
         completed: cacheEntry?.completed ?? (!!existing || completedKeys.has(key)),
       };
@@ -322,6 +368,7 @@ export function WorkoutSessionTracker({
           actualReps: cacheEntry?.actualReps ?? existing?.actualReps ?? set.targetReps ?? undefined,
           actualWeight: cacheEntry?.actualWeight ?? existing?.actualWeight ?? set.targetWeight ?? undefined,
           actualDuration: cacheEntry?.actualDuration ?? existing?.actualDuration ?? set.targetDuration ?? undefined,
+          actualDistance: cacheEntry?.actualDistance ?? existing?.actualDistance ?? set.targetDistance ?? undefined,
           actualRPE: cacheEntry?.actualRPE ?? existing?.actualRPE ?? set.targetRPE ?? undefined,
           completed: cacheEntry?.completed ?? (!!existing || completedKeys.has(key)),
         };
@@ -371,6 +418,7 @@ export function WorkoutSessionTracker({
         actualReps: logData?.actualReps,
         actualWeight: logData?.actualWeight,
         actualDuration: logData?.actualDuration,
+        actualDistance: logData?.actualDistance,
         actualRPE: logData?.actualRPE,
       });
       setActiveSetLogs((prev) => ({ ...prev, [setIdx]: { ...prev[setIdx], completed: true } }));
@@ -380,6 +428,7 @@ export function WorkoutSessionTracker({
         actualReps: logData?.actualReps,
         actualWeight: logData?.actualWeight,
         actualDuration: logData?.actualDuration,
+        actualDistance: logData?.actualDistance,
         actualRPE: logData?.actualRPE,
         completed: true,
       });
@@ -418,6 +467,7 @@ export function WorkoutSessionTracker({
           actualReps: activeSetLogs[0]?.actualReps,
           actualWeight: activeSetLogs[0]?.actualWeight,
           actualDuration: activeSetLogs[0]?.actualDuration,
+          actualDistance: activeSetLogs[0]?.actualDistance,
           actualRPE: activeSetLogs[0]?.actualRPE,
           completed: true,
         });
@@ -427,6 +477,7 @@ export function WorkoutSessionTracker({
             actualReps: activeSetLogs[i]?.actualReps,
             actualWeight: activeSetLogs[i]?.actualWeight,
             actualDuration: activeSetLogs[i]?.actualDuration,
+            actualDistance: activeSetLogs[i]?.actualDistance,
             actualRPE: activeSetLogs[i]?.actualRPE,
             completed: true,
           });
@@ -617,6 +668,11 @@ export function WorkoutSessionTracker({
         const isCompleted = completedKeys.has(key) || (additionalCompleted?.has(blockExercise.id) ?? false);
         const isSkipped = skippedKeys.has(key);
         const targetSet = blockExercise.sets[0];
+        const activityType = blockExercise.activityType || "STRENGTH";
+        const isRunType = activityType !== "STRENGTH";
+        // Interval Run is a sequence of distinct segments (warm-up, work,
+        // recovery, cool-down) — never a repeating round like a circuit.
+        const showAsSegments = activityType === "INTERVAL_RUN";
 
         return (
           <Card className="overflow-hidden border-0 shadow-md ring-1 ring-border/50">
@@ -635,7 +691,14 @@ export function WorkoutSessionTracker({
 
               {/* Header */}
               <div className="flex items-start justify-between gap-2">
-                <h3 className="text-xl font-bold leading-tight">{blockExercise.exercise.name}</h3>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="text-xl font-bold leading-tight">{blockExercise.exercise.name}</h3>
+                  {isRunType && (
+                    <Badge variant="outline" className="text-[10px] px-1.5 py-0.5 bg-sky-50 text-sky-700 border-sky-200 shrink-0">
+                      {activityType === "INTERVAL_RUN" ? "Interval Run" : "Run"}
+                    </Badge>
+                  )}
+                </div>
                 {isCompleted && (
                   <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 border shrink-0">
                     <Check className="mr-1 h-3 w-3" /> Done
@@ -685,8 +748,8 @@ export function WorkoutSessionTracker({
                 </div>
               )}
 
-              {/* Circuit: single round log entry */}
-              {isCircuit && targetSet && (
+              {/* Circuit: single round log entry (never for Interval Run — its segments are ordered, not repeating rounds) */}
+              {isCircuit && !showAsSegments && targetSet && (
                 <div className="space-y-3">
                   <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                     Log Set
@@ -695,35 +758,46 @@ export function WorkoutSessionTracker({
                     <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold ${activeSetLogs[0]?.completed ? "bg-emerald-500 text-white" : "bg-primary/10 text-primary"}`}>
                       {activeSetLogs[0]?.completed ? <Check className="h-4 w-4" /> : round + 1}
                     </div>
-                    <div className="flex flex-1 flex-wrap gap-2">
-                      {targetSet.targetReps != null && (
-                        <div className="space-y-0.5">
-                          <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Reps completed</Label>
-                          <Input type="number" placeholder={targetSet.targetReps.toString()} value={activeSetLogs[0]?.actualReps ?? ""} onChange={(e) => handleSetInputChange(0, "actualReps", e.target.value)} className="h-8 w-20 text-sm" disabled={activeSetLogs[0]?.completed} />
-                        </div>
+                    <div className="flex-1 space-y-1.5">
+                      {isRunType && prescriptionSummary(targetSet) && (
+                        <p className="text-xs text-muted-foreground">{prescriptionSummary(targetSet)}</p>
                       )}
-                      {targetSet.targetWeight != null && (
+                      <div className="flex flex-wrap gap-2">
+                        {!isRunType && targetSet.targetReps != null && (
+                          <div className="space-y-0.5">
+                            <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Reps completed</Label>
+                            <Input type="number" placeholder={targetSet.targetReps.toString()} value={activeSetLogs[0]?.actualReps ?? ""} onChange={(e) => handleSetInputChange(0, "actualReps", e.target.value)} className="h-8 w-20 text-sm" disabled={activeSetLogs[0]?.completed} />
+                          </div>
+                        )}
+                        {!isRunType && targetSet.targetWeight != null && (
+                          <div className="space-y-0.5">
+                            <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Weight</Label>
+                            <Input type="number" placeholder={targetSet.targetWeight.toString()} value={activeSetLogs[0]?.actualWeight ?? ""} onChange={(e) => handleSetInputChange(0, "actualWeight", e.target.value)} className="h-8 w-20 text-sm" disabled={activeSetLogs[0]?.completed} />
+                          </div>
+                        )}
+                        {isRunType && targetSet.targetDistance != null && (
+                          <div className="space-y-0.5">
+                            <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Distance (mi)</Label>
+                            <Input type="number" step={0.1} placeholder={targetSet.targetDistance.toString()} value={activeSetLogs[0]?.actualDistance ?? ""} onChange={(e) => handleSetInputChange(0, "actualDistance", e.target.value)} className="h-8 w-20 text-sm" disabled={activeSetLogs[0]?.completed} />
+                          </div>
+                        )}
+                        {targetSet.targetDuration != null && (
+                          <div className="space-y-0.5">
+                            <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">{targetSet.targetDurationUnit === "MIN" ? "Min" : "Secs"}</Label>
+                            <Input type="number" placeholder={targetSet.targetDuration.toString()} value={activeSetLogs[0]?.actualDuration ?? ""} onChange={(e) => handleSetInputChange(0, "actualDuration", e.target.value)} className="h-8 w-20 text-sm" disabled={activeSetLogs[0]?.completed} />
+                          </div>
+                        )}
                         <div className="space-y-0.5">
-                          <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Weight</Label>
-                          <Input type="number" placeholder={targetSet.targetWeight.toString()} value={activeSetLogs[0]?.actualWeight ?? ""} onChange={(e) => handleSetInputChange(0, "actualWeight", e.target.value)} className="h-8 w-20 text-sm" disabled={activeSetLogs[0]?.completed} />
+                          <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">RPE</Label>
+                          <Input type="number" min={0} max={10} placeholder={targetSet.targetRPE?.toString() ?? "—"} value={activeSetLogs[0]?.actualRPE ?? ""} onChange={(e) => handleSetInputChange(0, "actualRPE", e.target.value)} className="h-8 w-16 text-sm" disabled={activeSetLogs[0]?.completed} />
                         </div>
-                      )}
-                      {targetSet.targetDuration != null && (
-                        <div className="space-y-0.5">
-                          <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">{targetSet.targetDurationUnit === "MIN" ? "Min" : "Secs"}</Label>
-                          <Input type="number" placeholder={targetSet.targetDuration.toString()} value={activeSetLogs[0]?.actualDuration ?? ""} onChange={(e) => handleSetInputChange(0, "actualDuration", e.target.value)} className="h-8 w-20 text-sm" disabled={activeSetLogs[0]?.completed} />
-                        </div>
-                      )}
-                      <div className="space-y-0.5">
-                        <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">RPE</Label>
-                        <Input type="number" min={0} max={10} placeholder={targetSet.targetRPE?.toString() ?? "—"} value={activeSetLogs[0]?.actualRPE ?? ""} onChange={(e) => handleSetInputChange(0, "actualRPE", e.target.value)} className="h-8 w-16 text-sm" disabled={activeSetLogs[0]?.completed} />
+                        {targetSet.restAfter != null && (
+                          <div className="space-y-0.5">
+                            <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Rest</Label>
+                            <p className="h-8 flex items-center text-sm text-muted-foreground">{targetSet.restAfter}s</p>
+                          </div>
+                        )}
                       </div>
-                      {targetSet.restAfter != null && (
-                        <div className="space-y-0.5">
-                          <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Rest</Label>
-                          <p className="h-8 flex items-center text-sm text-muted-foreground">{targetSet.restAfter}s</p>
-                        </div>
-                      )}
                     </div>
                     <Button
                       size="icon"
@@ -738,47 +812,64 @@ export function WorkoutSessionTracker({
                 </div>
               )}
 
-              {/* Normal: all sets */}
-              {!isCircuit && (
+              {/* Normal: all sets (also used for Interval Run's ordered segments) */}
+              {(!isCircuit || showAsSegments) && (
                 <div className="space-y-3">
-                  <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Sets</p>
+                  <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                    {showAsSegments ? "Segments" : "Sets"}
+                  </p>
                   {blockExercise.sets.map((set, i) => {
                     const logData = activeSetLogs[i] || {};
                     const isSetDone = logData.completed;
+                    const label = showAsSegments ? segmentLabel(set.setType, set.repeatCount) : null;
                     return (
                       <div key={set.id} className={`flex items-center gap-3 rounded-xl border p-3 transition-colors ${isSetDone ? "border-emerald-200 bg-emerald-50/50" : "border-border bg-background"}`}>
                         <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold ${isSetDone ? "bg-emerald-500 text-white" : "bg-primary/10 text-primary"}`}>
                           {isSetDone ? <Check className="h-4 w-4" /> : i + 1}
                         </div>
-                        <div className="flex flex-1 flex-wrap gap-2">
-                          {set.targetReps != null && (
-                            <div className="space-y-0.5">
-                              <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Reps completed</Label>
-                              <Input type="number" placeholder={set.targetReps.toString()} value={logData.actualReps ?? ""} onChange={(e) => handleSetInputChange(i, "actualReps", e.target.value)} className="h-8 w-20 text-sm" disabled={isSetDone} />
-                            </div>
+                        <div className="flex-1 space-y-1.5">
+                          {isRunType && (label || prescriptionSummary(set)) && (
+                            <p className="text-xs text-muted-foreground">
+                              {label && <span className="font-semibold text-foreground mr-1">{label}</span>}
+                              {prescriptionSummary(set)}
+                            </p>
                           )}
-                          {set.targetWeight != null && (
+                          <div className="flex flex-wrap gap-2">
+                            {!isRunType && set.targetReps != null && (
+                              <div className="space-y-0.5">
+                                <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Reps completed</Label>
+                                <Input type="number" placeholder={set.targetReps.toString()} value={logData.actualReps ?? ""} onChange={(e) => handleSetInputChange(i, "actualReps", e.target.value)} className="h-8 w-20 text-sm" disabled={isSetDone} />
+                              </div>
+                            )}
+                            {!isRunType && set.targetWeight != null && (
+                              <div className="space-y-0.5">
+                                <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Weight</Label>
+                                <Input type="number" placeholder={set.targetWeight.toString()} value={logData.actualWeight ?? ""} onChange={(e) => handleSetInputChange(i, "actualWeight", e.target.value)} className="h-8 w-20 text-sm" disabled={isSetDone} />
+                              </div>
+                            )}
+                            {isRunType && set.targetDistance != null && (
+                              <div className="space-y-0.5">
+                                <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Distance (mi)</Label>
+                                <Input type="number" step={0.1} placeholder={set.targetDistance.toString()} value={logData.actualDistance ?? ""} onChange={(e) => handleSetInputChange(i, "actualDistance", e.target.value)} className="h-8 w-20 text-sm" disabled={isSetDone} />
+                              </div>
+                            )}
+                            {set.targetDuration != null && (
+                              <div className="space-y-0.5">
+                                <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">{set.targetDurationUnit === "MIN" ? "Min" : "Secs"}</Label>
+                                <Input type="number" placeholder={set.targetDuration.toString()} value={logData.actualDuration ?? ""} onChange={(e) => handleSetInputChange(i, "actualDuration", e.target.value)} className="h-8 w-20 text-sm" disabled={isSetDone} />
+                              </div>
+                            )}
                             <div className="space-y-0.5">
-                              <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Weight</Label>
-                              <Input type="number" placeholder={set.targetWeight.toString()} value={logData.actualWeight ?? ""} onChange={(e) => handleSetInputChange(i, "actualWeight", e.target.value)} className="h-8 w-20 text-sm" disabled={isSetDone} />
+                              <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">RPE</Label>
+                              <Input type="number" min={0} max={10} placeholder={set.targetRPE?.toString() ?? "—"} value={logData.actualRPE ?? ""} onChange={(e) => handleSetInputChange(i, "actualRPE", e.target.value)} className="h-8 w-16 text-sm" disabled={isSetDone} />
                             </div>
-                          )}
-                          {set.targetDuration != null && (
-                            <div className="space-y-0.5">
-                              <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Secs</Label>
-                              <Input type="number" placeholder={set.targetDuration.toString()} value={logData.actualDuration ?? ""} onChange={(e) => handleSetInputChange(i, "actualDuration", e.target.value)} className="h-8 w-20 text-sm" disabled={isSetDone} />
-                            </div>
-                          )}
-                          <div className="space-y-0.5">
-                            <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">RPE</Label>
-                            <Input type="number" min={0} max={10} placeholder={set.targetRPE?.toString() ?? "—"} value={logData.actualRPE ?? ""} onChange={(e) => handleSetInputChange(i, "actualRPE", e.target.value)} className="h-8 w-16 text-sm" disabled={isSetDone} />
+                            {set.restAfter != null && (
+                              <div className="space-y-0.5">
+                                <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Rest</Label>
+                                <p className="h-8 flex items-center text-sm text-muted-foreground">{set.restAfter}s</p>
+                              </div>
+                            )}
                           </div>
-                          {set.restAfter != null && (
-                            <div className="space-y-0.5">
-                              <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Rest</Label>
-                              <p className="h-8 flex items-center text-sm text-muted-foreground">{set.restAfter}s</p>
-                            </div>
-                          )}
                         </div>
                         <Button
                           size="icon"

@@ -175,6 +175,7 @@ export function ProgramBriefUpload({
   const [pendingMetadata, setPendingMetadata] = useState<PendingMetadata | null>(null);
   const [resolutions, setResolutions] = useState<Map<string, Resolution>>(new Map());
   const [resolverKey, setResolverKey] = useState<string | null>(null);
+  const [confirmedInferredFields, setConfirmedInferredFields] = useState<Set<string>>(new Set());
   const [assignClientId, setAssignClientId] = useState("");
   const [assignStartDate, setAssignStartDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [saving, setSaving] = useState<"template" | "assign" | null>(null);
@@ -195,6 +196,19 @@ export function ProgramBriefUpload({
   }, [preview]);
 
   const unresolvedCount = flaggedSlots.filter((s) => !resolutions.has(s.key)).length;
+
+  const inferredFieldsSet = useMemo(
+    () => new Set(preview?.parsed.inferredFields ?? []),
+    [preview]
+  );
+  const unconfirmedInferredCount = useMemo(
+    () => Array.from(inferredFieldsSet).filter((f) => !confirmedInferredFields.has(f)).length,
+    [inferredFieldsSet, confirmedInferredFields]
+  );
+
+  function confirmInferredField(field: string) {
+    setConfirmedInferredFields((prev) => new Set(prev).add(field));
+  }
 
   // MissingFieldsDialog resets its local state whenever `initialValues`
   // changes identity while open — memoizing here (keyed on pendingMetadata,
@@ -248,6 +262,7 @@ export function ProgramBriefUpload({
     });
     setEditableFields(toEditableFields(matchResult.data.parsed));
     setResolutions(new Map());
+    setConfirmedInferredFields(new Set());
     setStage("ready");
     toast.success("Preview generated");
   }
@@ -396,6 +411,12 @@ export function ProgramBriefUpload({
       toast.error(`Resolve ${unresolvedCount} flagged exercise${unresolvedCount === 1 ? "" : "s"} before saving`);
       return;
     }
+    if (unconfirmedInferredCount > 0) {
+      toast.error(
+        `Confirm ${unconfirmedInferredCount} field${unconfirmedInferredCount === 1 ? "" : "s"} not stated in the document before saving`
+      );
+      return;
+    }
     if (!isTemplate && !assignClientId) {
       toast.error("Select a client to assign");
       return;
@@ -537,34 +558,65 @@ export function ProgramBriefUpload({
               </div>
             )}
             {(() => {
-              const inferred = new Set(preview.parsed.inferredFields ?? []);
-              const inferredNote = (
-                <p className="text-xs text-amber-700 dark:text-amber-400">
-                  Not stated in the document — please confirm.
-                </p>
-              );
+              const inferred = inferredFieldsSet;
+              const inferredNote = (field: string) => {
+                const confirmed = confirmedInferredFields.has(field);
+                if (confirmed) {
+                  return (
+                    <p className="flex items-center gap-1 text-xs text-emerald-700 dark:text-emerald-400">
+                      <CheckCircle2 className="h-3 w-3" /> Confirmed
+                    </p>
+                  );
+                }
+                return (
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-xs text-amber-700 dark:text-amber-400">
+                      Not stated in the document — please confirm.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => confirmInferredField(field)}
+                      className="whitespace-nowrap text-xs font-medium text-amber-800 underline hover:text-amber-900 dark:text-amber-300"
+                    >
+                      Confirm
+                    </button>
+                  </div>
+                );
+              };
               return (
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
                     <Label>Program Title</Label>
                     <Input
                       value={editableFields.programTitle}
-                      onChange={(e) =>
-                        setEditableFields((f) => (f ? { ...f, programTitle: e.target.value } : f))
+                      onChange={(e) => {
+                        setEditableFields((f) => (f ? { ...f, programTitle: e.target.value } : f));
+                        if (inferred.has("programTitle")) confirmInferredField("programTitle");
+                      }}
+                      className={
+                        inferred.has("programTitle") && !confirmedInferredFields.has("programTitle")
+                          ? "border-amber-400"
+                          : undefined
                       }
-                      className={inferred.has("programTitle") ? "border-amber-400" : undefined}
                     />
-                    {inferred.has("programTitle") && inferredNote}
+                    {inferred.has("programTitle") && inferredNote("programTitle")}
                   </div>
                   <div className="space-y-2">
                     <Label>Difficulty</Label>
                     <Select
                       value={editableFields.difficultyLevel}
-                      onValueChange={(v) =>
-                        setEditableFields((f) => (f ? { ...f, difficultyLevel: v ?? f.difficultyLevel } : f))
-                      }
+                      onValueChange={(v) => {
+                        setEditableFields((f) => (f ? { ...f, difficultyLevel: v ?? f.difficultyLevel } : f));
+                        if (inferred.has("difficultyLevel")) confirmInferredField("difficultyLevel");
+                      }}
                     >
-                      <SelectTrigger className={inferred.has("difficultyLevel") ? "border-amber-400" : undefined}>
+                      <SelectTrigger
+                        className={
+                          inferred.has("difficultyLevel") && !confirmedInferredFields.has("difficultyLevel")
+                            ? "border-amber-400"
+                            : undefined
+                        }
+                      >
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -575,18 +627,23 @@ export function ProgramBriefUpload({
                         ))}
                       </SelectContent>
                     </Select>
-                    {inferred.has("difficultyLevel") && inferredNote}
+                    {inferred.has("difficultyLevel") && inferredNote("difficultyLevel")}
                   </div>
                   <div className="space-y-2">
                     <Label>Focus Areas (comma separated)</Label>
                     <Input
                       value={editableFields.focusAreas}
-                      onChange={(e) =>
-                        setEditableFields((f) => (f ? { ...f, focusAreas: e.target.value } : f))
+                      onChange={(e) => {
+                        setEditableFields((f) => (f ? { ...f, focusAreas: e.target.value } : f));
+                        if (inferred.has("focusAreas")) confirmInferredField("focusAreas");
+                      }}
+                      className={
+                        inferred.has("focusAreas") && !confirmedInferredFields.has("focusAreas")
+                          ? "border-amber-400"
+                          : undefined
                       }
-                      className={inferred.has("focusAreas") ? "border-amber-400" : undefined}
                     />
-                    {inferred.has("focusAreas") && inferredNote}
+                    {inferred.has("focusAreas") && inferredNote("focusAreas")}
                   </div>
                   <div className="space-y-2">
                     <Label>Schedule</Label>
@@ -602,16 +659,29 @@ export function ProgramBriefUpload({
                     <Input
                       type="number"
                       value={editableFields.durationMinutes}
-                      onChange={(e) =>
-                        setEditableFields((f) => (f ? { ...f, durationMinutes: e.target.value } : f))
+                      onChange={(e) => {
+                        setEditableFields((f) => (f ? { ...f, durationMinutes: e.target.value } : f));
+                        if (inferred.has("durationMinutes")) confirmInferredField("durationMinutes");
+                      }}
+                      className={
+                        inferred.has("durationMinutes") && !confirmedInferredFields.has("durationMinutes")
+                          ? "border-amber-400"
+                          : undefined
                       }
-                      className={inferred.has("durationMinutes") ? "border-amber-400" : undefined}
                     />
-                    {inferred.has("durationMinutes") && inferredNote}
+                    {inferred.has("durationMinutes") && inferredNote("durationMinutes")}
                   </div>
                 </div>
               );
             })()}
+
+            {unconfirmedInferredCount > 0 && (
+              <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">
+                {unconfirmedInferredCount} field{unconfirmedInferredCount === 1 ? "" : "s"} above{" "}
+                {unconfirmedInferredCount === 1 ? "was" : "were"} not stated in the document and need your
+                confirmation before this program can be saved.
+              </div>
+            )}
 
             {unresolvedCount > 0 && (
               <div className="rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-200">
@@ -699,15 +769,27 @@ export function ProgramBriefUpload({
               </div>
 
               <div className="mt-4 flex flex-wrap items-center gap-2">
-                <Button variant="outline" onClick={() => handleSave(true)} disabled={saving !== null || unresolvedCount > 0}>
+                <Button
+                  variant="outline"
+                  onClick={() => handleSave(true)}
+                  disabled={saving !== null || unresolvedCount > 0 || unconfirmedInferredCount > 0}
+                >
                   {saving === "template" ? "Saving..." : "Save as Template"}
                 </Button>
-                <Button onClick={() => handleSave(false)} disabled={saving !== null || unresolvedCount > 0}>
+                <Button
+                  onClick={() => handleSave(false)}
+                  disabled={saving !== null || unresolvedCount > 0 || unconfirmedInferredCount > 0}
+                >
                   {saving === "assign" ? "Assigning..." : "Save & Assign"}
                 </Button>
                 {unresolvedCount > 0 && (
                   <span className="text-xs text-muted-foreground">
                     {unresolvedCount} unresolved exercise{unresolvedCount === 1 ? "" : "s"}
+                  </span>
+                )}
+                {unconfirmedInferredCount > 0 && (
+                  <span className="text-xs text-muted-foreground">
+                    {unconfirmedInferredCount} unconfirmed field{unconfirmedInferredCount === 1 ? "" : "s"}
                   </span>
                 )}
               </div>

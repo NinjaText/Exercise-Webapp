@@ -17,9 +17,9 @@ export default async function ProgramsPage({ searchParams }: Props) {
   const params = await searchParams;
 
   const tab =
-    params.tab === "templates"
-      ? "templates"
-      : "programs";
+    params.tab === "programs"
+      ? "programs"
+      : "templates";
 
   const [programs, globalPrograms] = await Promise.all([
     user.role === "TRAINER"

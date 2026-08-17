@@ -558,6 +558,7 @@ model SetLog {
   actualReps           Int?
   actualWeight         Float?
   actualDuration       Int?
+  actualDistance       Float?
   actualRPE            Int?
   completedAt          DateTime?
   notes                String?

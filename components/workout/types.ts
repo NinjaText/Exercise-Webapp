@@ -2,6 +2,7 @@ export type SetLogEntry = {
   actualReps?: number;
   actualWeight?: number;
   actualDuration?: number;
+  actualDistance?: number;
   actualRPE?: number;
   completed: boolean;
 };
