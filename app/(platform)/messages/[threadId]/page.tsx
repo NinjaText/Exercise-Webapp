@@ -18,7 +18,7 @@ export default async function ThreadPage({ params }: Props) {
   const user = await getCurrentUser();
 
   const otherUser = await prisma.user.findUnique({ where: { id: threadId } });
-  if (!otherUser) notFound();
+  if (!otherUser || !user.clerkOrgId || otherUser.clerkOrgId !== user.clerkOrgId) notFound();
 
   const messages = await getThread(user.id, threadId);
 

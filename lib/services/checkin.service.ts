@@ -113,10 +113,11 @@ export async function assignTemplateToClient(
 ) {
   const template = await prisma.checkInTemplate.findUnique({
     where: { id: templateId },
-    select: { frequency: true },
+    select: { frequency: true, trainerId: true },
   });
 
   if (!template) throw new Error("Template not found");
+  if (template.trainerId !== trainerId) throw new Error("Unauthorized");
 
   const startDate = new Date();
   const nextDueDate = computeNextDueDate(startDate, template.frequency);

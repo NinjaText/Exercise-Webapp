@@ -25,6 +25,7 @@ vi.mock('@/lib/services/program.service', () => ({
   assignProgram: vi.fn(),
   toggleProgramPublic: vi.fn().mockResolvedValue({}),
 }))
+vi.mock('@/lib/services/client.service', () => ({ getClientIdsForTrainer: vi.fn() }))
 vi.mock('@/lib/services/audit-log.service', () => ({
   logAudit: vi.fn(),
   diffFields: (before: any, after: any, keys: string[]) => {
@@ -45,12 +46,24 @@ vi.mock('@/lib/services/audit-log.service', () => ({
 import { prisma } from '@/lib/prisma'
 import { revalidatePath } from 'next/cache'
 import { logAudit } from '@/lib/services/audit-log.service'
+import { getClientIdsForTrainer } from '@/lib/services/client.service'
 import * as programService from '@/lib/services/program.service'
-import { createProgramAction, updateProgramAction, deleteProgramAction, hardDeleteProgramAction, assignProgramAction, deleteClientProgramAction, toggleProgramPublicAction } from '../program-actions'
+import {
+  createProgramAction,
+  updateProgramAction,
+  deleteProgramAction,
+  hardDeleteProgramAction,
+  assignProgramAction,
+  deleteClientProgramAction,
+  toggleProgramPublicAction,
+  generateProgramAction,
+  saveGeneratedProgramAction,
+} from '../program-actions'
 
 const mockUserFindUnique = vi.mocked(prisma.user.findUnique)
 const mockProgramFindUnique = vi.mocked(prisma.program.findUnique)
 const mockLogAudit = vi.mocked(logAudit)
+const mockGetClientIds = vi.mocked(getClientIdsForTrainer)
 const mockDeleteProgram = vi.mocked(programService.deleteProgram)
 const mockHardDeleteProgram = vi.mocked(programService.hardDeleteProgram)
 const mockDuplicateProgram = vi.mocked(programService.duplicateProgram)
@@ -147,6 +160,7 @@ it('surfaces the specific guard message when hard delete is blocked', async () =
 describe('assignProgramAction', () => {
   it('clones the source program and assigns the clone, never the original', async () => {
     mockProgramFindUnique.mockResolvedValue({ trainerId: 'trainer_1' } as never)
+    mockGetClientIds.mockResolvedValue(['client_1'])
     mockDuplicateProgram.mockResolvedValue({ id: 'copy_1' } as never)
     mockAssignProgram.mockResolvedValue({ id: 'copy_1' } as never)
 
@@ -167,6 +181,21 @@ describe('assignProgramAction', () => {
 
   it('rejects when the requesting trainer does not own the program', async () => {
     mockProgramFindUnique.mockResolvedValue({ trainerId: 'someone_else' } as never)
+
+    const result = await assignProgramAction({
+      programId: 'template_1',
+      clientId: 'client_1',
+      startDate: '2026-08-01T00:00:00.000Z',
+    })
+
+    expect(result).toEqual({ success: false, error: 'Forbidden' })
+    expect(mockDuplicateProgram).not.toHaveBeenCalled()
+    expect(mockAssignProgram).not.toHaveBeenCalled()
+  })
+
+  it('rejects when the client is not in the trainer\'s roster', async () => {
+    mockProgramFindUnique.mockResolvedValue({ trainerId: 'trainer_1' } as never)
+    mockGetClientIds.mockResolvedValue(['someone_else'])
 
     const result = await assignProgramAction({
       programId: 'template_1',
@@ -309,5 +338,30 @@ describe('toggleProgramPublicAction', () => {
 
     expect(result).toEqual({ success: false, error: 'Failed to update program' })
     expect(mockLogAudit).not.toHaveBeenCalled()
+  })
+})
+
+describe('generateProgramAction', () => {
+  it('rejects when the supplied clientId is not in the trainer\'s roster', async () => {
+    mockGetClientIds.mockResolvedValue(['someone_else'])
+
+    const result = await generateProgramAction({ clientId: 'client_1' })
+
+    expect(result).toEqual({ success: false, error: 'Forbidden' })
+  })
+})
+
+describe('saveGeneratedProgramAction', () => {
+  it('rejects when the supplied clientId is not in the trainer\'s roster', async () => {
+    mockGetClientIds.mockResolvedValue(['someone_else'])
+
+    const result = await saveGeneratedProgramAction({
+      aiPlan: {} as never,
+      params: {},
+      isTemplate: false,
+      clientId: 'client_1',
+    })
+
+    expect(result).toEqual({ success: false, error: 'Forbidden' })
   })
 })

@@ -4,6 +4,7 @@ import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import type { ActionResult } from "@/lib/types";
+import { getClientIdsForTrainer } from "@/lib/services/client.service";
 
 // ---------------------------------------------------------------------------
 // Auth helper
@@ -765,6 +766,11 @@ export async function deleteSession(
 export async function getCalendarSessions(clientId: string) {
   const user = await getTrainerUser();
   if (!user) return { success: false as const, error: "Unauthorized" };
+
+  const clientIds = await getClientIdsForTrainer(user.id);
+  if (!clientIds.includes(clientId)) {
+    return { success: false as const, error: "Unauthorized" };
+  }
 
   try {
     const sessions = await prisma.workoutSessionV2.findMany({

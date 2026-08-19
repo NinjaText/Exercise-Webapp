@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/current-user";
+import { prisma } from "@/lib/prisma";
+import { getClientIdsForTrainer } from "@/lib/services/client.service";
 import * as habitService from "@/lib/services/habit.service";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -38,6 +40,10 @@ export async function createHabitAction(data: {
   if (user.role === "TRAINER") {
     if (!data.clientId) {
       return { success: false, error: "Client is required when creating a habit as a trainer" };
+    }
+    const clientIds = await getClientIdsForTrainer(user.id);
+    if (!clientIds.includes(data.clientId)) {
+      return { success: false, error: "Unauthorized" };
     }
     targetClientId = data.clientId;
   } else {
@@ -83,6 +89,23 @@ export async function logHabitAction(
     return { success: false, error: "Habit ID is required" };
   }
 
+  const habit = await prisma.habitDefinition.findUnique({
+    where: { id: habitId },
+    select: { clientId: true },
+  });
+  if (!habit) {
+    return { success: false, error: "Habit not found" };
+  }
+  if (user.role === "CLIENT" && habit.clientId !== user.id) {
+    return { success: false, error: "Unauthorized" };
+  }
+  if (user.role === "TRAINER") {
+    const clientIds = await getClientIdsForTrainer(user.id);
+    if (!clientIds.includes(habit.clientId)) {
+      return { success: false, error: "Unauthorized" };
+    }
+  }
+
   try {
     const log = await habitService.logHabit(
       habitId,
@@ -113,6 +136,23 @@ export async function deleteHabitAction(
 
   if (!habitId) {
     return { success: false, error: "Habit ID is required" };
+  }
+
+  const habit = await prisma.habitDefinition.findUnique({
+    where: { id: habitId },
+    select: { clientId: true },
+  });
+  if (!habit) {
+    return { success: false, error: "Habit not found" };
+  }
+  if (user.role === "CLIENT" && habit.clientId !== user.id) {
+    return { success: false, error: "Unauthorized" };
+  }
+  if (user.role === "TRAINER") {
+    const clientIds = await getClientIdsForTrainer(user.id);
+    if (!clientIds.includes(habit.clientId)) {
+      return { success: false, error: "Unauthorized" };
+    }
   }
 
   try {

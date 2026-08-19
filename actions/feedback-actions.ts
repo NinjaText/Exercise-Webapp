@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { submitFeedbackSchema, respondToFeedbackSchema } from "@/lib/validators/feedback";
 import * as feedbackService from "@/lib/services/feedback.service";
+import { getClientIdsForTrainer } from "@/lib/services/client.service";
 import type { FeedbackRating } from "@prisma/client";
 
 export async function submitFeedbackAction(input: {
@@ -22,6 +23,14 @@ export async function submitFeedbackAction(input: {
   const parsed = submitFeedbackSchema.safeParse(input);
   if (!parsed.success) {
     return { success: false as const, error: parsed.error.issues[0].message };
+  }
+
+  const pe = await prisma.planExercise.findUnique({
+    where: { id: parsed.data.planExerciseId },
+    select: { plan: { select: { clientId: true } } },
+  });
+  if (!pe || pe.plan.clientId !== dbUser.id) {
+    return { success: false as const, error: "Forbidden" };
   }
 
   try {
@@ -54,6 +63,18 @@ export async function respondToFeedbackAction(input: {
   const parsed = respondToFeedbackSchema.safeParse(input);
   if (!parsed.success) {
     return { success: false as const, error: parsed.error.issues[0].message };
+  }
+
+  const feedback = await prisma.exerciseFeedback.findUnique({
+    where: { id: parsed.data.feedbackId },
+    select: { clientId: true },
+  });
+  if (!feedback) {
+    return { success: false as const, error: "Feedback not found" };
+  }
+  const clientIds = await getClientIdsForTrainer(dbUser.id);
+  if (!clientIds.includes(feedback.clientId)) {
+    return { success: false as const, error: "Forbidden" };
   }
 
   try {

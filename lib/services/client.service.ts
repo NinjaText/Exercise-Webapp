@@ -14,6 +14,17 @@ export async function getClientsForTrainer(trainerId: string) {
   });
 }
 
+/**
+ * Returns the ids of every CLIENT-role user sharing the given trainer's
+ * Clerk organization. This is an ORGANIZATION-membership check, not a
+ * per-trainer assignment check — there is no direct trainer↔client
+ * assignment relation in this schema, so shared `clerkOrgId` is the only
+ * tenancy boundary that exists. In a multi-trainer clinic, this means any
+ * trainer in the org passes this check for any client in that same org.
+ * This is the established authorization primitive used throughout this
+ * codebase's server actions to verify a trainer-supplied `clientId`
+ * belongs to a client the caller is legitimately allowed to act on.
+ */
 export async function getClientIdsForTrainer(trainerId: string): Promise<string[]> {
   const trainer = await prisma.user.findUnique({
     where: { id: trainerId },

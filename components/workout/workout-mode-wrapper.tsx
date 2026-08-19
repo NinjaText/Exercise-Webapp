@@ -1,13 +1,16 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { WorkoutSessionTracker } from "./workout-session-tracker";
+import { useState, useMemo, useEffect } from "react";
+import { WorkoutSessionTracker, isSessionStartable, isEarlyStart } from "./workout-session-tracker";
 import { WorkoutChecklistTracker } from "./workout-checklist-tracker";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { ClipboardList, Zap, ChevronRight, Dumbbell } from "lucide-react";
 import type { SetLogEntry, SetLogCache } from "./types";
 import { aggregateProgramEquipment } from "@/lib/utils/program-equipment";
+import { formatDate } from "@/lib/utils/formatting";
+import { toLocalCalendarDate } from "@/lib/utils/calendar-date";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 
 type Mode = "pick" | "checklist" | "session";
 
@@ -22,7 +25,24 @@ function isCircuitBlock(type: string) {
 }
 
 export function WorkoutModeWrapper({ session, initialMode }: Props) {
-  const [mode, setMode] = useState<Mode>(initialMode ?? "pick");
+  const [mode, setMode] = useState<Mode>("pick");
+  const [pendingMode, setPendingMode] = useState<Exclude<Mode, "pick"> | null>(null);
+  const [showEarlyStartConfirm, setShowEarlyStartConfirm] = useState(false);
+
+  function enterMode(next: Exclude<Mode, "pick">) {
+    if (isSessionStartable(session.status) && isEarlyStart(session.scheduledDate)) {
+      setPendingMode(next);
+      setShowEarlyStartConfirm(true);
+    } else {
+      setMode(next);
+    }
+  }
+
+  useEffect(() => {
+    if (initialMode) enterMode(initialMode);
+    // Intentionally runs once on mount only — initialMode is a fixed prop for this component's lifetime.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Cache of set-level logs accumulated across both modes this session.
   // blockExerciseId -> setIndex -> entry
@@ -154,7 +174,7 @@ export function WorkoutModeWrapper({ session, initialMode }: Props) {
       <div className="grid grid-cols-2 gap-3">
         <button
           type="button"
-          onClick={() => setMode("checklist")}
+          onClick={() => enterMode("checklist")}
           className="group flex flex-col rounded-2xl border-2 border-border/60 bg-card p-5 text-left shadow-sm transition-all hover:border-emerald-400 hover:bg-emerald-50/60 hover:shadow-lg hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 group-hover:bg-emerald-200 transition-colors">
@@ -171,7 +191,7 @@ export function WorkoutModeWrapper({ session, initialMode }: Props) {
 
         <button
           type="button"
-          onClick={() => setMode("session")}
+          onClick={() => enterMode("session")}
           className="group flex flex-col rounded-2xl border-2 border-border/60 bg-card p-5 text-left shadow-sm transition-all hover:border-blue-400 hover:bg-blue-50/60 hover:shadow-lg hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 group-hover:bg-blue-200 transition-colors">
@@ -203,6 +223,18 @@ export function WorkoutModeWrapper({ session, initialMode }: Props) {
           ))}
         </CardContent>
       </Card>
+      <ConfirmDialog
+        open={showEarlyStartConfirm}
+        onOpenChange={setShowEarlyStartConfirm}
+        title="Start early?"
+        description={`This workout is scheduled for ${formatDate(toLocalCalendarDate(session.scheduledDate))}. Start it today instead?`}
+        confirmLabel="Start Today"
+        cancelLabel="Cancel"
+        onConfirm={() => {
+          setShowEarlyStartConfirm(false);
+          if (pendingMode) setMode(pendingMode);
+        }}
+      />
     </div>
   );
 }

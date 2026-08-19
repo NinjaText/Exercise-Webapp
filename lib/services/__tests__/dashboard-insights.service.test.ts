@@ -7,6 +7,7 @@ import {
   computeProgramWeek,
   computeSessionStreak,
   computeCompletionRate,
+  computeVarianceBreakdown,
   countSessionsDueToday,
   getLastActivityAt,
   getLastCompletedAt,
@@ -27,6 +28,7 @@ function session(overrides: Partial<ClientSessionSummary>): ClientSessionSummary
     scheduledDate: NOW,
     completedAt: null,
     startedAt: null,
+    scheduleVariance: null,
     ...overrides,
   };
 }
@@ -105,6 +107,34 @@ describe("computeCompletionRate", () => {
 
   it("returns zero when nothing is scheduled in the window", () => {
     expect(computeCompletionRate([], NOW)).toEqual({ rate: 0, scheduled: 0 });
+  });
+});
+
+describe("computeVarianceBreakdown", () => {
+  it("splits completed sessions in the window by scheduleVariance and counts missed separately", () => {
+    const sessions = [
+      session({ status: "COMPLETED", scheduledDate: daysAgo(1), scheduleVariance: "ON_TIME" }),
+      session({ status: "COMPLETED", scheduledDate: daysAgo(2), scheduleVariance: "EARLY" }),
+      session({ status: "COMPLETED", scheduledDate: daysAgo(3), scheduleVariance: "DELAYED" }),
+      session({ status: "MISSED", scheduledDate: daysAgo(4) }),
+      session({ status: "SCHEDULED", scheduledDate: daysAgo(5) }), // not yet resolved, ignored
+    ];
+    expect(computeVarianceBreakdown(sessions, NOW)).toEqual({
+      onTime: 1,
+      early: 1,
+      delayed: 1,
+      missed: 1,
+    });
+  });
+
+  it("treats a completed session with no scheduleVariance as on-time (legacy/unbackfilled data)", () => {
+    const sessions = [session({ status: "COMPLETED", scheduledDate: daysAgo(1), scheduleVariance: null })];
+    expect(computeVarianceBreakdown(sessions, NOW)).toEqual({ onTime: 1, early: 0, delayed: 0, missed: 0 });
+  });
+
+  it("excludes sessions outside the trailing window", () => {
+    const sessions = [session({ status: "COMPLETED", scheduledDate: daysAgo(30), scheduleVariance: "DELAYED" })];
+    expect(computeVarianceBreakdown(sessions, NOW)).toEqual({ onTime: 0, early: 0, delayed: 0, missed: 0 });
   });
 });
 
@@ -204,6 +234,50 @@ describe("buildPriorityAlerts", () => {
     );
     expect(alerts.some((a) => a.severity === "medium" && /%/.test(a.message))).toBe(true);
     expect(alerts.some((a) => a.severity === "medium" && /ends in/i.test(a.message))).toBe(true);
+  });
+
+  it("flags a majority-delayed completion pattern as medium severity", () => {
+    const alerts = buildPriorityAlerts(
+      [
+        snapshot({
+          sessions: [
+            session({ status: "COMPLETED", scheduledDate: daysAgo(1), scheduleVariance: "DELAYED" }),
+            session({ status: "COMPLETED", scheduledDate: daysAgo(3), scheduleVariance: "DELAYED" }),
+            session({ status: "COMPLETED", scheduledDate: daysAgo(5), scheduleVariance: "ON_TIME" }),
+          ],
+        }),
+      ],
+      NOW
+    );
+    expect(alerts.some((a) => a.severity === "medium" && /after their scheduled date/i.test(a.message))).toBe(true);
+  });
+
+  it("does not flag a delayed pattern when on-time/early sessions are the majority", () => {
+    const alerts = buildPriorityAlerts(
+      [
+        snapshot({
+          sessions: [
+            session({ status: "COMPLETED", scheduledDate: daysAgo(1), scheduleVariance: "DELAYED" }),
+            session({ status: "COMPLETED", scheduledDate: daysAgo(3), scheduleVariance: "ON_TIME" }),
+            session({ status: "COMPLETED", scheduledDate: daysAgo(5), scheduleVariance: "EARLY" }),
+          ],
+        }),
+      ],
+      NOW
+    );
+    expect(alerts.some((a) => /after their scheduled date/i.test(a.message))).toBe(false);
+  });
+
+  it("does not flag a delayed pattern from a single delayed session (below the minimum count)", () => {
+    const alerts = buildPriorityAlerts(
+      [
+        snapshot({
+          sessions: [session({ status: "COMPLETED", scheduledDate: daysAgo(1), scheduleVariance: "DELAYED" })],
+        }),
+      ],
+      NOW
+    );
+    expect(alerts.some((a) => /after their scheduled date/i.test(a.message))).toBe(false);
   });
 
   it("flags perfect completion as low severity", () => {

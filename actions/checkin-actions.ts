@@ -4,6 +4,7 @@ import { getCurrentUser, requireRole } from "@/lib/current-user";
 import { revalidatePath } from "next/cache";
 import * as checkinService from "@/lib/services/checkin.service";
 import type { CreateTemplateInput } from "@/lib/services/checkin.service";
+import { getClientIdsForTrainer } from "@/lib/services/client.service";
 
 // ─── Trainer actions ────────────────────────────────────────────────────────
 
@@ -41,6 +42,11 @@ export async function assignCheckInAction(
 
   if (!templateId || !clientId) {
     return { success: false as const, error: "Template and client are required" };
+  }
+
+  const clientIds = await getClientIdsForTrainer(user.id);
+  if (!clientIds.includes(clientId)) {
+    return { success: false as const, error: "Unauthorized" };
   }
 
   try {

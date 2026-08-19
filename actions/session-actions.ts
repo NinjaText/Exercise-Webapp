@@ -16,9 +16,22 @@ export async function rescheduleSessionAction(
   if (!dbUser) return { success: false as const, error: "User not found" };
 
   try {
+    const existingSession = await prisma.workoutSessionV2.findUnique({
+      where: { id: sessionId },
+      select: { clientId: true, workout: { select: { program: { select: { trainerId: true } } } } },
+    });
+    if (!existingSession) return { success: false as const, error: "Session not found" };
+
+    const isOwner =
+      dbUser.role === "TRAINER"
+        ? existingSession.workout.program.trainerId === dbUser.id
+        : existingSession.clientId === dbUser.id;
+    if (!isOwner) return { success: false as const, error: "Session not found" };
+
     const session = await sessionService.rescheduleSession(
       sessionId,
-      new Date(newDate)
+      new Date(newDate),
+      dbUser.role === "TRAINER" ? "coach" : "client"
     );
     revalidatePath("/dashboard");
     revalidatePath("/programs");

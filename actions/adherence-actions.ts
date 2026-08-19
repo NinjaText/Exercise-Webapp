@@ -13,6 +13,14 @@ export async function startSessionAction(planId: string) {
   if (!dbUser) return { success: false as const, error: "User not found" };
   if (dbUser.role !== "CLIENT") return { success: false as const, error: "Forbidden" };
 
+  const plan = await prisma.workoutPlan.findUnique({
+    where: { id: planId },
+    select: { clientId: true },
+  });
+  if (!plan || plan.clientId !== dbUser.id) {
+    return { success: false as const, error: "Forbidden" };
+  }
+
   try {
     const session = await adherenceService.startSession(planId, dbUser.id);
     return { success: true as const, data: session };
@@ -36,9 +44,17 @@ export async function completeSessionExerciseAction(
   // Verify the session belongs to this user
   const session = await prisma.workoutSession.findUnique({
     where: { id: sessionId },
-    select: { clientId: true },
+    select: { clientId: true, planId: true },
   });
   if (!session || session.clientId !== dbUser.id) {
+    return { success: false as const, error: "Forbidden" };
+  }
+
+  const planExercise = await prisma.planExercise.findUnique({
+    where: { id: planExerciseId },
+    select: { planId: true },
+  });
+  if (!planExercise || planExercise.planId !== session.planId) {
     return { success: false as const, error: "Forbidden" };
   }
 

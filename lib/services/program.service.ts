@@ -343,6 +343,10 @@ export async function duplicateProgram(
   const source = await getProgramById(id);
   if (!source) throw new Error("Program not found");
 
+  if (source.trainerId !== trainerId && !source.isPublic && !source.isGlobal) {
+    throw new Error("Unauthorized");
+  }
+
   const workouts = source.workouts.map((w, wi) => ({
     name: w.name,
     description: w.description,

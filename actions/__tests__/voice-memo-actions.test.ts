@@ -196,6 +196,18 @@ describe('markVoiceMemoRead', () => {
     const result = await markVoiceMemoRead('memo_1')
     expect(result).toEqual({ success: false, error: 'Forbidden' })
   })
+
+  it('rejects a non-participant (not this program\'s trainer or client) even if not the author', async () => {
+    mockAuth.mockResolvedValue({ userId: CLERK_ID } as never)
+    mockUserFind.mockResolvedValue(dbTrainer as never)
+    vi.mocked(prisma.voiceMemo.findFirst).mockResolvedValue({
+      id: 'memo_1', workoutId: WORKOUT_ID, isRead: false,
+      authorId: CLIENT_DB_ID,
+      workout: { program: { trainerId: 'someone_elses_trainer_id', clientId: 'someone_elses_client_id' } },
+    } as never)
+    const result = await markVoiceMemoRead('memo_1')
+    expect(result).toEqual({ success: false, error: 'Forbidden' })
+  })
 })
 
 describe('getWorkoutVoiceMemos', () => {

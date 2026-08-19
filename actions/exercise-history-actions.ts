@@ -2,8 +2,22 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/current-user";
+import { getClientIdsForTrainer } from "@/lib/services/client.service";
 
 export async function getClientExerciseHistory(clientId: string, exerciseId: string, limit: number = 3) {
+  const user = await getCurrentUser();
+
+  if (user.role === "CLIENT" && user.id !== clientId) {
+    return { success: false, error: "Unauthorized" };
+  }
+  if (user.role === "TRAINER") {
+    const clientIds = await getClientIdsForTrainer(user.id);
+    if (!clientIds.includes(clientId)) {
+      return { success: false, error: "Unauthorized" };
+    }
+  }
+
   try {
     const sessions = await prisma.workoutSessionV2.findMany({
       where: {

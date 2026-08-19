@@ -17,6 +17,14 @@ export interface ClientSessionSummary {
   scheduledDate: Date;
   completedAt: Date | null;
   startedAt: Date | null;
+  scheduleVariance: string | null;
+}
+
+export interface VarianceBreakdown {
+  onTime: number;
+  early: number;
+  delayed: number;
+  missed: number;
 }
 
 export interface ClientActiveProgram {
@@ -55,6 +63,7 @@ const PROGRAM_ENDING_SOON_DAYS = 7;
 const FEEDBACK_LOOKBACK_DAYS = 7;
 const HISTORY_WINDOW_DAYS = 45;
 const MAX_PRIORITY_ALERTS = 8;
+const MIN_DELAYED_FOR_PATTERN = 2;
 
 const SEVERITY_RANK: Record<AlertSeverity, number> = { high: 0, medium: 1, low: 2 };
 
@@ -113,6 +122,34 @@ export function computeCompletionRate(
   if (inWindow.length === 0) return { rate: 0, scheduled: 0 };
   const completed = inWindow.filter((s) => s.status === "COMPLETED").length;
   return { rate: completed / inWindow.length, scheduled: inWindow.length };
+}
+
+/**
+ * Breaks down completed/missed sessions in the trailing window by how they
+ * relate to their scheduled date. Early completions and intentional
+ * reschedules are not adherence problems — only delayed and missed sessions
+ * indicate a client is falling behind their plan.
+ */
+export function computeVarianceBreakdown(
+  sessions: ClientSessionSummary[],
+  now: Date,
+  windowDays = COMPLETION_WINDOW_DAYS
+): VarianceBreakdown {
+  const windowStart = new Date(now.getTime() - windowDays * DAY_MS);
+  const inWindow = sessions.filter(
+    (s) => s.scheduledDate >= windowStart && s.scheduledDate <= now
+  );
+  const breakdown: VarianceBreakdown = { onTime: 0, early: 0, delayed: 0, missed: 0 };
+  for (const s of inWindow) {
+    if (s.status === "MISSED") {
+      breakdown.missed += 1;
+    } else if (s.status === "COMPLETED") {
+      if (s.scheduleVariance === "EARLY") breakdown.early += 1;
+      else if (s.scheduleVariance === "DELAYED") breakdown.delayed += 1;
+      else breakdown.onTime += 1; // ON_TIME, or legacy/unbackfilled sessions
+    }
+  }
+  return breakdown;
 }
 
 export function countSessionsDueToday(snapshots: ClientSnapshot[], now: Date): number {
@@ -197,6 +234,20 @@ export function buildPriorityAlerts(snapshots: ClientSnapshot[], now: Date): Pri
       });
     }
 
+    const variance = computeVarianceBreakdown(snap.sessions, now);
+    if (
+      variance.delayed >= MIN_DELAYED_FOR_PATTERN &&
+      variance.delayed > variance.onTime + variance.early
+    ) {
+      alerts.push({
+        clientId,
+        clientName,
+        severity: "medium",
+        message: `${clientName} tends to complete workouts after their scheduled date`,
+        href,
+      });
+    }
+
     if (snap.activeProgram?.startDate && snap.activeProgram.durationWeeks) {
       const endDate = new Date(
         snap.activeProgram.startDate.getTime() + snap.activeProgram.durationWeeks * 7 * DAY_MS
@@ -252,6 +303,7 @@ export async function getClientSnapshots(
         scheduledDate: true,
         completedAt: true,
         startedAt: true,
+        scheduleVariance: true,
       },
     }),
     prisma.program.findMany({
@@ -274,6 +326,7 @@ export async function getClientSnapshots(
       scheduledDate: s.scheduledDate,
       completedAt: s.completedAt,
       startedAt: s.startedAt,
+      scheduleVariance: s.scheduleVariance,
     });
     sessionsByClient.set(s.clientId, list);
   }

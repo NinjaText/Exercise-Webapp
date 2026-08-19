@@ -17,6 +17,35 @@ import { prisma } from "@/lib/prisma";
  */
 export const MISSED_SESSION_GRACE_HOURS = 24;
 
+export type ScheduleVariance = "ON_TIME" | "EARLY" | "DELAYED";
+
+/**
+ * Compares the UTC calendar day of `completedAt` to `scheduledDate`.
+ * `scheduledDate` is stored UTC-midnight-anchored; this comparison runs
+ * server-side (not feeding a browser-local-time UI library like
+ * lib/utils/calendar-date.ts's helpers do), so a direct UTC year/month/day
+ * comparison is correct here. This carries the same small timezone
+ * imprecision MISSED_SESSION_GRACE_HOURS above already accepts.
+ */
+export function computeScheduleVariance(
+  scheduledDate: Date,
+  completedAt: Date
+): ScheduleVariance {
+  const scheduledDay = Date.UTC(
+    scheduledDate.getUTCFullYear(),
+    scheduledDate.getUTCMonth(),
+    scheduledDate.getUTCDate()
+  );
+  const completedDay = Date.UTC(
+    completedAt.getUTCFullYear(),
+    completedAt.getUTCMonth(),
+    completedAt.getUTCDate()
+  );
+
+  if (completedDay === scheduledDay) return "ON_TIME";
+  return completedDay < scheduledDay ? "EARLY" : "DELAYED";
+}
+
 const ADHERENCE_SESSION_LIMIT = 100;
 
 export async function getClientPastSessions(clientId: string) {
@@ -91,6 +120,7 @@ export async function getSessionsForClient(
         select: {
           id: true,
           name: true,
+          program: { select: { trainerId: true } },
           blocks: {
             select: {
               exercises: {
@@ -137,10 +167,37 @@ export async function getSessionById(sessionId: string) {
   });
 }
 
-export async function rescheduleSession(sessionId: string, newDate: Date) {
+export type RescheduledBy = "client" | "coach" | "system";
+
+export async function rescheduleSession(
+  sessionId: string,
+  newDate: Date,
+  rescheduledBy: RescheduledBy
+) {
+  const existing = await prisma.workoutSessionV2.findUnique({
+    where: { id: sessionId },
+    select: {
+      scheduledDate: true,
+      originalScheduledDate: true,
+      status: true,
+      completedAt: true,
+    },
+  });
+  if (!existing) {
+    throw new Error(`Session ${sessionId} not found`);
+  }
+
   return prisma.workoutSessionV2.update({
     where: { id: sessionId },
-    data: { scheduledDate: newDate },
+    data: {
+      originalScheduledDate: existing.originalScheduledDate ?? existing.scheduledDate,
+      rescheduledBy,
+      rescheduledAt: new Date(),
+      scheduledDate: newDate,
+      ...(existing.status === "COMPLETED" && existing.completedAt
+        ? { scheduleVariance: computeScheduleVariance(newDate, existing.completedAt) }
+        : {}),
+    },
   });
 }
 

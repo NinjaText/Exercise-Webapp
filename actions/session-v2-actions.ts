@@ -7,6 +7,7 @@ import { revalidatePath } from "next/cache";
 import { createNotification, NOTIFICATION_TYPES } from "@/lib/services/notification.service";
 import { getResend } from "@/lib/email/resend";
 import { SessionCompletedEmail } from "@/lib/email/templates/session-completed";
+import { computeScheduleVariance } from "@/lib/services/session.service";
 
 async function notifyTrainerOnCompletion(
   sessionId: string,
@@ -160,7 +161,7 @@ export async function updateSetLogV2Action(
     });
     if (!session) return { success: false, error: "Session not found" };
 
-    if (session.status === "SCHEDULED") {
+    if (session.status === "SCHEDULED" || session.status === "MISSED") {
       await prisma.workoutSessionV2.update({
         where: { id: sessionId },
         data: { status: "IN_PROGRESS", startedAt: new Date() },
@@ -225,6 +226,11 @@ export async function updateExerciseActualSetsAction(
   try {
     const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
     if (!dbUser) return { success: false, error: "User not found" };
+
+    const session = await prisma.workoutSessionV2.findUnique({
+      where: { id: sessionId, clientId: dbUser.id },
+    });
+    if (!session) return { success: false, error: "Session not found" };
 
     const exerciseLog = await prisma.sessionExerciseLog.findFirst({
       where: { sessionId, blockExerciseId },
@@ -303,9 +309,18 @@ export async function completeSessionV2Action(
     const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
     if (!dbUser) return { success: false, error: "User not found" };
 
+    const session = await prisma.workoutSessionV2.findUnique({
+      where: { id: sessionId, clientId: dbUser.id },
+      select: { scheduledDate: true },
+    });
+    if (!session) return { success: false, error: "Session not found" };
+
+    const completedAt = new Date();
+    const scheduleVariance = computeScheduleVariance(session.scheduledDate, completedAt);
+
     await prisma.workoutSessionV2.update({
       where: { id: sessionId, clientId: dbUser.id },
-      data: { status: "COMPLETED", completedAt: new Date(), overallRPE, overallNotes },
+      data: { status: "COMPLETED", completedAt, overallRPE, overallNotes, scheduleVariance },
     });
 
     // Fire trainer notifications — non-blocking, failures must not break completion
@@ -357,7 +372,7 @@ export async function markExerciseDoneAction(
     });
     if (!session) return { success: false as const, error: "Session not found" };
 
-    if (session.status === "SCHEDULED") {
+    if (session.status === "SCHEDULED" || session.status === "MISSED") {
       await prisma.workoutSessionV2.update({
         where: { id: sessionId },
         data: { status: "IN_PROGRESS", startedAt: new Date() },
