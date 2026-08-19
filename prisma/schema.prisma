@@ -517,22 +517,26 @@ model ExerciseSet {
 }
 
 model WorkoutSessionV2 {
-  id              String               @id @default(auto()) @map("_id") @db.ObjectId
-  workoutId       String               @db.ObjectId
-  workout         Workout              @relation(fields: [workoutId], references: [id], onDelete: Cascade)
-  clientId        String               @map("patientId") @db.ObjectId
-  client          User                 @relation("SessionsV2", fields: [clientId], references: [id])
-  scheduledDate   DateTime
-  startedAt       DateTime?
-  completedAt     DateTime?
-  status          String               @default("SCHEDULED")
-  overallRPE      Int?
-  overallNotes    String?
-  durationMinutes Int?
-  createdAt       DateTime             @default(now())
-  updatedAt       DateTime             @updatedAt
-  exerciseLogs    SessionExerciseLog[]
-  feedback        SessionFeedback[]
+  id                    String               @id @default(auto()) @map("_id") @db.ObjectId
+  workoutId             String               @db.ObjectId
+  workout               Workout              @relation(fields: [workoutId], references: [id], onDelete: Cascade)
+  clientId              String               @map("patientId") @db.ObjectId
+  client                User                 @relation("SessionsV2", fields: [clientId], references: [id])
+  scheduledDate         DateTime
+  originalScheduledDate DateTime?
+  rescheduledBy         String?
+  rescheduledAt         DateTime?
+  startedAt             DateTime?
+  completedAt           DateTime?
+  status                String               @default("SCHEDULED")
+  scheduleVariance      String?
+  overallRPE            Int?
+  overallNotes          String?
+  durationMinutes       Int?
+  createdAt             DateTime             @default(now())
+  updatedAt             DateTime             @updatedAt
+  exerciseLogs          SessionExerciseLog[]
+  feedback              SessionFeedback[]
 
   @@index([clientId, scheduledDate])
 }

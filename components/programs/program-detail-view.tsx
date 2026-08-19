@@ -37,6 +37,7 @@ import { duplicateProgramAction } from "@/actions/program-actions";
 import { AssignProgramDialog } from "@/components/programs/assign-program-dialog";
 import { SellProgramDialog } from "@/components/programs/sell-program-dialog";
 import { ProgramScheduleView } from "@/components/programs/program-schedule-view";
+import { ClientProgramScheduleView } from "@/components/programs/client-program-schedule-view";
 import { UniversalVideoPlayer } from "@/components/exercises/universal-video-player";
 import {
   Dialog,
@@ -552,12 +553,16 @@ export function ProgramDetailView({
           )}
         </TabsContent>
         <TabsContent value="schedule" className="mt-4">
-          <ProgramScheduleView
-            rawWorkouts={workouts}
-            rawSessions={sessions}
-            isTrainer={isTrainer}
-            trainerName={trainerName}
-          />
+          {isTrainer || adminMode ? (
+            <ProgramScheduleView
+              rawWorkouts={workouts}
+              rawSessions={sessions}
+              trainerName={trainerName}
+              readOnly={!isTrainer}
+            />
+          ) : (
+            <ClientProgramScheduleView rawSessions={sessions} />
+          )}
         </TabsContent>
       </Tabs>
 

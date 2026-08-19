@@ -5,6 +5,7 @@ import {
   getClientSnapshots,
   computeCompletionRate,
   computeSessionStreak,
+  computeVarianceBreakdown,
   getLastActivityAt,
 } from "@/lib/services/dashboard-insights.service";
 
@@ -39,6 +40,7 @@ export async function generateCoachingInsights(
       .slice(0, MAX_CLIENTS_IN_CONTEXT)
       .map((s) => {
         const { rate, scheduled } = computeCompletionRate(s.sessions, now);
+        const variance = computeVarianceBreakdown(s.sessions, now);
         const streak = computeSessionStreak(s.sessions, now);
         const lastActivity = getLastActivityAt(s.sessions);
         const daysSince = lastActivity
@@ -46,7 +48,8 @@ export async function generateCoachingInsights(
           : null;
         const feedback = s.recentFeedback.map((f) => f.rating).join(", ") || "none";
         const completion = scheduled > 0 ? `${Math.round(rate * 100)}%` : "n/a";
-        return `- ${s.clientName}: program "${s.activeProgram?.name ?? "none"}", completion ${completion} over last 14d (${scheduled} scheduled), current streak ${streak}, days since last activity ${daysSince ?? "never"}, recent feedback: ${feedback}`;
+        const varianceSummary = `${variance.onTime} on-time, ${variance.early} early, ${variance.delayed} delayed, ${variance.missed} missed`;
+        return `- ${s.clientName}: program "${s.activeProgram?.name ?? "none"}", completion ${completion} over last 14d (${scheduled} scheduled: ${varianceSummary}), current streak ${streak}, days since last activity ${daysSince ?? "never"}, recent feedback: ${feedback}`;
       })
       .join("\n");
 
@@ -59,6 +62,7 @@ Rules:
 - Each insight must reference a real client by their exact name and be a single sentence.
 - Prioritise the most notable clients: pain or discomfort, low adherence, standout consistency, or a plateau worth progressing.
 - Use type "warning" for concerns (pain, inactivity, dropping adherence), "suggestion" for programming ideas (progress load, swap an exercise), and "positive" for clients doing well.
+- "early" sessions are workouts a client completed ahead of schedule — this is not a sign of poor adherence, and can be a "positive" if notable. Only "delayed" and "missed" sessions indicate a client is falling behind their plan.
 - Do not invent data that is not present below.
 
 Client data:

@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { createAssessmentSchema } from "@/lib/validators/assessment";
 import * as outcomeService from "@/lib/services/outcome.service";
+import { getClientIdsForTrainer } from "@/lib/services/client.service";
 
 export async function createAssessmentAction(input: {
   clientId?: string;
@@ -22,6 +23,12 @@ export async function createAssessmentAction(input: {
   // Clients always record for themselves; trainers must supply a clientId
   if (dbUser.role === "TRAINER" && !input.clientId) {
     return { success: false as const, error: "Please select a client" };
+  }
+  if (dbUser.role === "TRAINER" && input.clientId) {
+    const clientIds = await getClientIdsForTrainer(dbUser.id);
+    if (!clientIds.includes(input.clientId)) {
+      return { success: false as const, error: "Unauthorized" };
+    }
   }
   const resolvedClientId =
     dbUser.role === "CLIENT" ? dbUser.id : (input.clientId ?? "");

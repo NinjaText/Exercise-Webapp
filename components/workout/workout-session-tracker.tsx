@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { isAfter, startOfDay } from "date-fns";
 import {
   startSessionV2Action,
   updateSetLogV2Action,
@@ -10,6 +11,7 @@ import {
   updateExerciseClientNoteAction,
 } from "@/actions/session-v2-actions";
 import { useDebouncedCallback } from "@/hooks/use-debounced-callback";
+import { toLocalCalendarDate } from "@/lib/utils/calendar-date";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,7 +28,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Check, SkipForward, X, PlayCircle, Loader2, Timer, ChevronRight, ChevronLeft, Trophy, RotateCcw, ClipboardList, Dumbbell } from "lucide-react";
+import { Check, SkipForward, X, PlayCircle, Loader2, Timer, ChevronRight, ChevronLeft, ChevronDown, Trophy, RotateCcw, ClipboardList, Dumbbell } from "lucide-react";
 import type { SetLogEntry, SetLogCache } from "./types";
 import { instructionsToBullets } from "./format-instructions";
 import { aggregateProgramEquipment } from "@/lib/utils/program-equipment";
@@ -69,7 +71,7 @@ type WorkoutBlock = {
   exercises: BlockExercise[];
 };
 type WorkoutSessionV2 = {
-  id: string; status: string;
+  id: string; status: string; scheduledDate: Date | string;
   workout: { id: string; name: string; blocks: WorkoutBlock[] };
   exerciseLogs: SessionExerciseLog[];
 };
@@ -101,6 +103,14 @@ type FlatItem = ExerciseFlatItem | RestFlatItem;
 function isCircuitBlock(type: string): boolean {
   const t = type.toUpperCase();
   return t === "CIRCUIT" || t === "SUPERSET" || t === "WARMUP" || t === "COOLDOWN";
+}
+
+export function isSessionStartable(status: string): boolean {
+  return status === "SCHEDULED" || status === "MISSED";
+}
+
+export function isEarlyStart(scheduledDate: Date | string, now: Date = new Date()): boolean {
+  return isAfter(toLocalCalendarDate(new Date(scheduledDate)), startOfDay(now));
 }
 
 const SEGMENT_LABELS: Record<string, string> = {
@@ -255,7 +265,7 @@ export function WorkoutSessionTracker({
   const currentIndexRef = useRef(0);
   useEffect(() => { currentIndexRef.current = currentIndex; }, [currentIndex]);
 
-  const [sessionActive, setSessionActive] = useState(session.status !== "SCHEDULED");
+  const [sessionActive, setSessionActive] = useState(!isSessionStartable(session.status));
   const [showEndDialog, setShowEndDialog] = useState(false);
   const [rpe, setRpe] = useState(5);
   const [notes, setNotes] = useState("");
@@ -267,6 +277,7 @@ export function WorkoutSessionTracker({
   const [restCountdown, setRestCountdown] = useState<number | null>(null);
   const [activeSetLogs, setActiveSetLogs] = useState<Record<number, SetLogState>>({});
   const [loggingSet, setLoggingSet] = useState<number | null>(null);
+  const [instructionsExpanded, setInstructionsExpanded] = useState(false);
 
   // Client's own note per exercise, auto-saved as they type
   const [clientNotes, setClientNotes] = useState<Record<string, string>>(() => {
@@ -376,6 +387,11 @@ export function WorkoutSessionTracker({
     }
     setActiveSetLogs(initial);
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentIndex]);
+
+  // Instructions collapse by default per exercise
+  useEffect(() => {
+    setInstructionsExpanded(false);
   }, [currentIndex]);
 
   // Load voice memos when the end dialog opens
@@ -727,14 +743,24 @@ export function WorkoutSessionTracker({
                 />
               )}
 
-              {/* Instructions */}
+              {/* Instructions (collapsed by default) */}
               {blockExercise.exercise.instructions && (
                 <div className="rounded-xl bg-muted/40 px-4 py-3">
-                  <ul className="space-y-1 text-sm leading-relaxed text-muted-foreground list-disc pl-4">
-                    {instructionsToBullets(blockExercise.exercise.instructions).map((line, idx) => (
-                      <li key={idx}>{line}</li>
-                    ))}
-                  </ul>
+                  <button
+                    type="button"
+                    onClick={() => setInstructionsExpanded((v) => !v)}
+                    className="flex w-full items-center justify-between text-sm font-semibold text-muted-foreground"
+                  >
+                    Instructions
+                    <ChevronDown className={`h-4 w-4 transition-transform ${instructionsExpanded ? "rotate-180" : ""}`} />
+                  </button>
+                  {instructionsExpanded && (
+                    <ul className="mt-2 space-y-1 text-sm leading-relaxed text-muted-foreground list-disc pl-4">
+                      {instructionsToBullets(blockExercise.exercise.instructions).map((line, idx) => (
+                        <li key={idx}>{line}</li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
               )}
 

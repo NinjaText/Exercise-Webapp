@@ -108,6 +108,9 @@ export default async function DashboardPage() {
         workout: {
           select: {
             name: true,
+            dayIndex: true,
+            weekIndex: true,
+            estimatedMinutes: true,
             blocks: {
               select: {
                 exercises: { select: { id: true } },
@@ -149,6 +152,7 @@ export default async function DashboardPage() {
       return total + (s.completedAt.getTime() - s.startedAt.getTime()) / 60000;
     }, 0)
   );
+  const workoutsCompleted = completedSessionDates.length;
 
   return (
     <ClientDashboard
@@ -158,6 +162,7 @@ export default async function DashboardPage() {
       weeklyCompliance={completedThisWeek}
       recentAssessments={recentAssessments}
       currentStreak={currentStreak}
+      workoutsCompleted={workoutsCompleted}
       exercisesCompleted={exercisesCompleted}
       minutesExercised={minutesExercised}
     />

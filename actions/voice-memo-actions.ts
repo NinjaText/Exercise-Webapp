@@ -232,12 +232,15 @@ export async function markVoiceMemoRead(
 
     const memo = await prisma.voiceMemo.findFirst({
       where: { id: memoId },
-      include: { workout: { include: { program: { select: { trainerId: true } } } } },
+      include: { workout: { include: { program: { select: { trainerId: true, clientId: true } } } } },
     })
     if (!memo) return { success: false, error: "Not found" }
 
-    // Only the recipient can mark as read (not the author)
-    if (memo.authorId === user.id) {
+    // Only a genuine participant in this program (its trainer or its client) may
+    // mark a memo as read, and never the memo's own author.
+    const isParticipant =
+      user.id === memo.workout.program.trainerId || user.id === memo.workout.program.clientId;
+    if (!isParticipant || memo.authorId === user.id) {
       return { success: false, error: "Forbidden" }
     }
 

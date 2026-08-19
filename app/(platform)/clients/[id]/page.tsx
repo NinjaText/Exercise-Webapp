@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { auth } from "@clerk/nextjs/server";
 import { requireRole } from "@/lib/current-user";
-import { getClientDetail } from "@/lib/services/client.service";
+import { getClientDetail, getClientIdsForTrainer } from "@/lib/services/client.service";
 import * as sessionService from "@/lib/services/session.service";
 import * as programService from "@/lib/services/program.service";
 import * as messageService from "@/lib/services/message.service";
@@ -31,6 +31,8 @@ export default async function ClientDetailPage({ params }: Props) {
     auth(),
   ]);
   const organizationOrgId = sessionOrgId ?? user.clerkOrgId ?? undefined;
+  const clientIds = await getClientIdsForTrainer(user.id);
+  if (!clientIds.includes(id)) notFound();
   const client = await getClientDetail(id);
 
   if (!client) notFound();
@@ -57,6 +59,7 @@ export default async function ClientDetailPage({ params }: Props) {
     workout: {
       id: s.workout.id,
       name: s.workout.name,
+      program: { trainerId: s.workout.program.trainerId },
       blocks: s.workout.blocks.map((b) => ({
         exercises: b.exercises.map((e) => ({ id: e.id })),
       })),

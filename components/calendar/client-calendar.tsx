@@ -92,6 +92,7 @@ type SessionSummary = {
   workout: {
     id: string;
     name: string;
+    program: { trainerId: string | null };
     blocks: { exercises: { id: string }[] }[];
   };
 };
@@ -438,6 +439,10 @@ export function ClientCalendar({
 
   const handleEventDrop = useCallback(
     async ({ event, start }: { event: SessionEvent; start: string | Date }) => {
+      if (event.resource.workout.program.trainerId !== trainerId) {
+        toast.error("You can only reschedule sessions in your own programs.");
+        return;
+      }
       const result = await rescheduleSessionAction(
         event.id,
         toUtcCalendarDate(new Date(start)).toISOString()
@@ -449,7 +454,7 @@ export function ClientCalendar({
         toast.error(result.error);
       }
     },
-    [router]
+    [router, trainerId]
   );
 
   const handlePanelClose = useCallback(() => setPanelState({ mode: "closed" }), []);
@@ -508,7 +513,7 @@ export function ClientCalendar({
           onEventDrop={handleEventDrop as never}
           selectable
           resizable={false}
-          draggableAccessor={() => true}
+          draggableAccessor={(event: SessionEvent) => event.resource.workout.program.trainerId === trainerId}
           popup
           style={{ height: 640 }}
           components={{

@@ -29,6 +29,7 @@ import {
   deleteClientProgram,
   toggleProgramPublic,
   copyGlobalProgramToOrganization,
+  duplicateProgram,
 } from '../program.service'
 
 const mockFindMany = vi.mocked(prisma.program.findMany)
@@ -343,5 +344,56 @@ describe('computeDurationWeeksFromWorkouts', () => {
 
   it('returns null for an empty workouts array', () => {
     expect(computeDurationWeeksFromWorkouts([])).toBeNull()
+  })
+})
+
+describe('duplicateProgram', () => {
+  it('allows a trainer to duplicate their own program', async () => {
+    mockFindUnique.mockResolvedValue({
+      id: 'prog_1', trainerId: 'trainer_1', isPublic: false, isGlobal: false,
+      name: 'Program', workouts: [],
+    } as never)
+    mockCreate.mockResolvedValue({ id: 'copy_1' } as never)
+
+    const result = await duplicateProgram('prog_1', 'trainer_1')
+
+    expect(result).toBeDefined()
+    expect(mockCreate).toHaveBeenCalled()
+  })
+
+  it('allows a trainer to duplicate a public program they do not own', async () => {
+    mockFindUnique.mockResolvedValue({
+      id: 'prog_1', trainerId: 'someone_else', isPublic: true, isGlobal: false,
+      name: 'Program', workouts: [],
+    } as never)
+    mockCreate.mockResolvedValue({ id: 'copy_1' } as never)
+
+    const result = await duplicateProgram('prog_1', 'trainer_1')
+
+    expect(result).toBeDefined()
+    expect(mockCreate).toHaveBeenCalled()
+  })
+
+  it('allows a trainer to duplicate a global program they do not own', async () => {
+    mockFindUnique.mockResolvedValue({
+      id: 'prog_1', trainerId: null, isPublic: false, isGlobal: true,
+      name: 'Program', workouts: [],
+    } as never)
+    mockCreate.mockResolvedValue({ id: 'copy_1' } as never)
+
+    const result = await duplicateProgram('prog_1', 'trainer_1')
+
+    expect(result).toBeDefined()
+    expect(mockCreate).toHaveBeenCalled()
+  })
+
+  it('rejects duplicating another trainer\'s private, non-global program', async () => {
+    mockFindUnique.mockResolvedValue({
+      id: 'prog_1', trainerId: 'someone_else', isPublic: false, isGlobal: false,
+      name: 'Program', workouts: [],
+    } as never)
+
+    await expect(duplicateProgram('prog_1', 'trainer_1')).rejects.toThrow()
+    expect(mockCreate).not.toHaveBeenCalled()
   })
 })

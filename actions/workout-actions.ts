@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/current-user";
 import * as workoutPlanService from "@/lib/services/workout-plan.service";
 import * as aiService from "@/lib/services/ai.service";
+import { getClientIdsForTrainer } from "@/lib/services/client.service";
 import type { PlanStatus } from "@prisma/client";
 
 export async function createPlanAction(input: {
@@ -31,6 +32,13 @@ export async function createPlanAction(input: {
   const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
   if (!dbUser) return { success: false as const, error: "User not found" };
   if (dbUser.role !== "TRAINER") return { success: false as const, error: "Forbidden" };
+
+  if (input.clientId) {
+    const clientIds = await getClientIdsForTrainer(dbUser.id);
+    if (!clientIds.includes(input.clientId)) {
+      return { success: false as const, error: "Forbidden" };
+    }
+  }
 
   try {
     const plan = await workoutPlanService.createPlan({
@@ -60,6 +68,13 @@ export async function generatePlanAction(input: {
   const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
   if (!dbUser) return { success: false as const, error: "User not found" };
   if (dbUser.role !== "TRAINER") return { success: false as const, error: "Forbidden" };
+
+  if (input.clientId) {
+    const clientIds = await getClientIdsForTrainer(dbUser.id);
+    if (!clientIds.includes(input.clientId)) {
+      return { success: false as const, error: "Forbidden" };
+    }
+  }
 
   try {
     const generated = await aiService.generateWorkoutPlan(input);
@@ -139,6 +154,14 @@ export async function updatePlanExerciseAction(
   if (!dbUser) return { success: false as const, error: "User not found" };
   if (dbUser.role !== "TRAINER") return { success: false as const, error: "Forbidden" };
 
+  const planExercise = await prisma.planExercise.findUnique({
+    where: { id: planExerciseId },
+    select: { plan: { select: { createdById: true } } },
+  });
+  if (!planExercise || planExercise.plan.createdById !== dbUser.id) {
+    return { success: false as const, error: "Forbidden" };
+  }
+
   try {
     await workoutPlanService.updatePlanExercise(planExerciseId, data);
     revalidatePath("/workout-plans");
@@ -204,6 +227,14 @@ export async function swapExerciseAction(planExerciseId: string, newExerciseId: 
   if (!dbUser) return { success: false as const, error: "User not found" };
   if (dbUser.role !== "TRAINER") return { success: false as const, error: "Forbidden" };
 
+  const planExercise = await prisma.planExercise.findUnique({
+    where: { id: planExerciseId },
+    select: { plan: { select: { createdById: true } } },
+  });
+  if (!planExercise || planExercise.plan.createdById !== dbUser.id) {
+    return { success: false as const, error: "Forbidden" };
+  }
+
   try {
     await workoutPlanService.swapExercise(planExerciseId, newExerciseId);
     revalidatePath("/workout-plans");
@@ -230,6 +261,13 @@ export async function assignClientToPlanAction(planId: string, clientId: string 
     return { success: false as const, error: "Forbidden" };
   }
 
+  if (clientId) {
+    const clientIds = await getClientIdsForTrainer(dbUser.id);
+    if (!clientIds.includes(clientId)) {
+      return { success: false as const, error: "Forbidden" };
+    }
+  }
+
   try {
     await prisma.workoutPlan.update({
       where: { id: planId },
@@ -244,10 +282,9 @@ export async function assignClientToPlanAction(planId: string, clientId: string 
   }
 }
 export async function saveAiTemplateAction(planData: any) {
-  try {
-    const user = await getCurrentUser();
-    if (!user) return { success: false, error: 'Unauthorized' };
+  const user = await getCurrentUser();
 
+  try {
     const plan = await prisma.workoutPlan.create({
       data: {
         title: planData.title,

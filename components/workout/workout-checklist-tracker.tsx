@@ -220,6 +220,8 @@ export function WorkoutChecklistTracker({
 
   // Exercise ids whose video is expanded (collapsed by default to reduce clutter)
   const [expandedVideos, setExpandedVideos] = useState<Set<string>>(new Set());
+  // Exercise ids whose instructions are expanded (collapsed by default)
+  const [expandedInstructions, setExpandedInstructions] = useState<Set<string>>(new Set());
   const [togglingExerciseId, setTogglingExerciseId] = useState<string | null>(null);
 
   // Actual sets logged per exercise (exercise-level, separate from per-set rows)
@@ -748,17 +750,31 @@ export function WorkoutChecklistTracker({
                             )
                           )}
 
-                          {/* Instructions */}
+                          {/* Instructions (collapsed by default) */}
                           {ex.exercise.instructions && (
                             <div className="rounded-xl bg-muted/60 px-3 py-2.5">
-                              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setExpandedInstructions((prev) => {
+                                    const next = new Set(prev);
+                                    if (next.has(ex.id)) next.delete(ex.id);
+                                    else next.add(ex.id);
+                                    return next;
+                                  })
+                                }
+                                className="flex w-full items-center justify-between text-xs font-semibold uppercase tracking-wider text-muted-foreground"
+                              >
                                 Instructions
-                              </p>
-                              <ul className="space-y-1 text-sm leading-relaxed text-muted-foreground list-disc pl-4">
-                                {instructionsToBullets(ex.exercise.instructions).map((line, idx) => (
-                                  <li key={idx}>{line}</li>
-                                ))}
-                              </ul>
+                                <ChevronDown className={`h-3.5 w-3.5 transition-transform ${expandedInstructions.has(ex.id) ? "rotate-180" : ""}`} />
+                              </button>
+                              {expandedInstructions.has(ex.id) && (
+                                <ul className="mt-1.5 space-y-1 text-sm leading-relaxed text-muted-foreground list-disc pl-4">
+                                  {instructionsToBullets(ex.exercise.instructions).map((line, idx) => (
+                                    <li key={idx}>{line}</li>
+                                  ))}
+                                </ul>
+                              )}
                             </div>
                           )}
 

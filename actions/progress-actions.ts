@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/current-user";
 import * as progressService from "@/lib/services/progress.service";
+import { getClientIdsForTrainer } from "@/lib/services/client.service";
 
 // ---------------------------------------------------------------------------
 // Progress Photo Actions (client only)
@@ -62,9 +63,15 @@ export async function addBodyMetricAction(
 ) {
   const user = await getCurrentUser();
 
-  // Clients can only add metrics for themselves; trainers for any client
+  // Clients can only add metrics for themselves; trainers for their own roster
   if (user.role === "CLIENT" && user.id !== clientId) {
     return { success: false as const, error: "Forbidden" };
+  }
+  if (user.role === "TRAINER") {
+    const clientIds = await getClientIdsForTrainer(user.id);
+    if (!clientIds.includes(clientId)) {
+      return { success: false as const, error: "Forbidden" };
+    }
   }
 
   try {

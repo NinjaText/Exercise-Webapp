@@ -41,6 +41,7 @@ import type {
 } from "@/lib/validators/program";
 import type { WeekPlan } from "@/lib/ai/types/program-generation";
 import { logAudit, diffFields, deriveActorType, AUDIT_ACTIONS } from "@/lib/services/audit-log.service";
+import { getClientIdsForTrainer } from "@/lib/services/client.service";
 
 async function getTrainerUser() {
   const { userId } = await auth();
@@ -410,6 +411,11 @@ export async function assignProgramAction(input: {
     return { success: false as const, error: "Forbidden" };
   }
 
+  const clientIds = await getClientIdsForTrainer(user.id);
+  if (!clientIds.includes(parsed.data.clientId)) {
+    return { success: false as const, error: "Forbidden" };
+  }
+
   try {
     // Assigning a template must never mutate the template row itself — clone
     // it into a standalone program first, then attach the client/start date
@@ -531,6 +537,13 @@ export async function generateProgramAction(
 ) {
   const user = await getTrainerUser();
   if (!user) return { success: false as const, error: "Unauthorized" };
+
+  if (params.clientId) {
+    const clientIds = await getClientIdsForTrainer(user.id);
+    if (!clientIds.includes(params.clientId)) {
+      return { success: false as const, error: "Forbidden" };
+    }
+  }
 
   try {
     const aiPlan = await generateProgram({
@@ -712,6 +725,13 @@ export async function saveGeneratedProgramAction(input: {
 }) {
   const user = await getTrainerUser();
   if (!user) return { success: false as const, error: "Unauthorized" };
+
+  if (input.clientId) {
+    const clientIds = await getClientIdsForTrainer(user.id);
+    if (!clientIds.includes(input.clientId)) {
+      return { success: false as const, error: "Forbidden" };
+    }
+  }
 
   try {
     const program = await createProgramFromGeneratedPlan({

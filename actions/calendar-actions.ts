@@ -4,6 +4,7 @@ import { prisma as db } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/current-user";
 import { SessionStatus } from "@prisma/client";
+import { getClientIdsForTrainer } from "@/lib/services/client.service";
 
 export async function getClientWorkoutSessions(clientId: string) {
   try {
@@ -12,7 +13,15 @@ export async function getClientWorkoutSessions(clientId: string) {
       throw new Error("Unauthorized");
     }
 
-    // Optional: add a check to make sure the user has access to this client
+    if (user.role === "CLIENT" && user.id !== clientId) {
+      throw new Error("Unauthorized");
+    }
+    if (user.role === "TRAINER") {
+      const clientIds = await getClientIdsForTrainer(user.id);
+      if (!clientIds.includes(clientId)) {
+        throw new Error("Unauthorized");
+      }
+    }
 
     const sessions = await db.workoutSession.findMany({
       where: {
@@ -57,8 +66,10 @@ export async function updateSessionDate(sessionId: string, newDate: Date) {
     if (user.role === "CLIENT" && session.clientId !== user.id) {
        return { success: false, error: "Unauthorized" };
     }
-    
-    // Trainer authorization would go here as well
+
+    if (user.role === "TRAINER" && session.plan?.createdById !== user.id) {
+      return { success: false, error: "Unauthorized" };
+    }
 
     const updatedSession = await db.workoutSession.update({
       where: { id: sessionId },
@@ -100,6 +111,11 @@ export async function scheduleProgramForClientAction({
       return { success: false, error: "Unauthorized or Forbidden" };
     }
 
+    const clientIds = await getClientIdsForTrainer(user.id);
+    if (!clientIds.includes(clientId)) {
+      return { success: false, error: "Unauthorized or Forbidden" };
+    }
+
     const sourceProgram = await db.program.findUnique({
       where: { id: programId },
       include: {
@@ -121,6 +137,10 @@ export async function scheduleProgramForClientAction({
 
     if (!sourceProgram) {
       return { success: false, error: "Program not found" };
+    }
+
+    if (sourceProgram.trainerId !== user.id) {
+      return { success: false, error: "Unauthorized or Forbidden" };
     }
 
     // Parse as local midnight to avoid UTC timezone shifting the date backward

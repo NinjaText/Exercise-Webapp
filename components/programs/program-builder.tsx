@@ -137,7 +137,12 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
   const [selection, setSelection] = useState<SelectionState>(DEFAULT_SELECTION);
   const [hoveredPasteTarget, setHoveredPasteTarget] = useState<string | null>(null);
   const [collapsedWeeks, setCollapsedWeeks] = useState<Set<number>>(new Set());
+  const [collapsedDays, setCollapsedDays] = useState<Set<string>>(new Set());
   const { clipboard, copy } = useClipboard();
+
+  function dayKey(weekIndex: number, dayIndex: number) {
+    return `${weekIndex}:${dayIndex}`;
+  }
 
   const MAX_DAYS_PER_WEEK = 7;
 
@@ -187,6 +192,16 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
     });
   }
 
+  function toggleDay(weekIndex: number, dayIndex: number) {
+    const key = dayKey(weekIndex, dayIndex);
+    setCollapsedDays((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+
   function addWeek() {
     const nextWeekIndex =
       weekGroups.length > 0
@@ -208,11 +223,10 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
       ],
     };
     onChange(withRecomputedOrder([...workouts, newWorkout]));
-    setCollapsedWeeks((prev) => {
-      const next = new Set(prev);
-      next.delete(nextWeekIndex);
-      return next;
-    });
+    // Collapse every existing week/day so the newly added week (and its
+    // first day) is the only thing left expanded — avoids endless scrolling.
+    setCollapsedWeeks(new Set(weekGroups.map((g) => g.weekIndex)));
+    setCollapsedDays(new Set(workouts.map((w) => dayKey(w.weekIndex, w.dayIndex))));
   }
 
   function addDayToWeek(weekIndex: number) {
@@ -234,6 +248,12 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
       ],
     };
     onChange(withRecomputedOrder([...workouts, newWorkout]));
+    // Collapse every other week and every existing day so only the week
+    // being worked on — and the newly added day within it — stay open.
+    setCollapsedWeeks(
+      new Set(weekGroups.map((g) => g.weekIndex).filter((wi) => wi !== weekIndex))
+    );
+    setCollapsedDays(new Set(workouts.map((w) => dayKey(w.weekIndex, w.dayIndex))));
   }
 
   function removeWeek(weekIndex: number) {
@@ -243,6 +263,13 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
     setCollapsedWeeks((prev) => {
       const next = new Set(prev);
       next.delete(weekIndex);
+      return next;
+    });
+    setCollapsedDays((prev) => {
+      const next = new Set(prev);
+      for (const key of prev) {
+        if (key.startsWith(`${weekIndex}:`)) next.delete(key);
+      }
       return next;
     });
   }
@@ -265,6 +292,15 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
     );
     onChange(withRecomputedOrder(next));
     setSelection(DEFAULT_SELECTION);
+    // Day indices within the affected week were just renumbered, so any
+    // collapsed-state keyed to the old numbering is stale — drop it.
+    setCollapsedDays((prev) => {
+      const next = new Set(prev);
+      for (const key of prev) {
+        if (key.startsWith(`${removedWeek}:`)) next.delete(key);
+      }
+      return next;
+    });
   }
 
   function updateWorkoutField(
@@ -647,6 +683,13 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
               <div className="space-y-4 px-4 pb-4">
                 {dayIdxs.map((wi) => {
                   const workout = workouts[wi];
+                  const isDayCollapsed = collapsedDays.has(
+                    dayKey(weekIndex, workout.dayIndex)
+                  );
+                  const exerciseCount = workout.blocks.reduce(
+                    (sum, b) => sum + b.exercises.length,
+                    0
+                  );
                   return (
         <Card
           key={wi}
@@ -669,6 +712,20 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
         >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
             <div className="flex items-center gap-3 flex-1">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 shrink-0"
+                onClick={() => toggleDay(weekIndex, workout.dayIndex)}
+                title={isDayCollapsed ? "Expand day" : "Collapse day"}
+              >
+                {isDayCollapsed ? (
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                ) : (
+                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                )}
+              </Button>
               <Input
                 value={workout.name}
                 onChange={(e) =>
@@ -689,6 +746,12 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
                 placeholder="Est. min"
                 className="w-24"
               />
+              {isDayCollapsed && (
+                <Badge variant="secondary" className="shrink-0">
+                  {workout.blocks.length} block{workout.blocks.length === 1 ? "" : "s"} ·{" "}
+                  {exerciseCount} exercise{exerciseCount === 1 ? "" : "s"}
+                </Badge>
+              )}
             </div>
             <Button
               variant="ghost"
@@ -699,6 +762,7 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
               <Trash2 className="h-4 w-4" />
             </Button>
           </CardHeader>
+          {!isDayCollapsed && (
           <CardContent className="space-y-4">
             <DndContext
               sensors={sensors}
@@ -909,11 +973,11 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
                                               updateExerciseField(wi, bi, ei, "activityType", v)
                                             }
                                           >
-                                            <SelectTrigger className="h-6 text-[10px] w-[92px] shrink-0">
+                                            <SelectTrigger className="h-6 text-[10px] w-[118px] shrink-0">
                                               <SelectValue />
                                             </SelectTrigger>
                                             <SelectContent>
-                                              <SelectItem value="STRENGTH">Strength</SelectItem>
+                                              <SelectItem value="STRENGTH">Strength/Mobility</SelectItem>
                                               <SelectItem value="RUN">Run</SelectItem>
                                               <SelectItem value="INTERVAL_RUN">Interval Run</SelectItem>
                                             </SelectContent>
@@ -1009,6 +1073,7 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
               <Plus className="mr-1 h-3.5 w-3.5" /> Add Block
             </Button>
           </CardContent>
+          )}
         </Card>
                   );
                 })}

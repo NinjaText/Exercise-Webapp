@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,10 +11,11 @@ import {
   Play,
   Flame,
   ChevronRight,
-  Calendar,
   CalendarX,
 } from "lucide-react";
+import { format, isSameDay, startOfDay } from "date-fns";
 import { formatDate } from "@/lib/utils/formatting";
+import { toLocalCalendarDate } from "@/lib/utils/calendar-date";
 import { ClientSessionCalendar } from "./client-session-calendar";
 
 const MOTIVATIONAL_QUOTES = [
@@ -25,7 +29,35 @@ const MOTIVATIONAL_QUOTES = [
 ];
 
 function isSameLocalDay(a: Date, b: Date) {
-  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+  const localA = toLocalCalendarDate(a);
+  return localA.getFullYear() === b.getFullYear() && localA.getMonth() === b.getMonth() && localA.getDate() === b.getDate();
+}
+
+export function formatDayLabel(
+  workout?: { dayIndex?: number | null; weekIndex?: number | null; name?: string | null } | null
+): string {
+  if (!workout) return "Workout Session";
+  const parts: string[] = [];
+  if (workout.weekIndex != null) parts.push(`Week ${workout.weekIndex + 1}`);
+  if (workout.dayIndex != null) parts.push(`Day ${workout.dayIndex + 1}`);
+  const prefix = parts.length > 0 ? `${parts.join(", ")}: ` : "";
+  return `${prefix}${workout.name || "Workout Session"}`;
+}
+
+export function formatWorkoutMetaLine(
+  estimatedMinutes: number | null | undefined,
+  exerciseCount: number
+): string {
+  const exercisePart = `${exerciseCount} ${exerciseCount === 1 ? "exercise" : "exercises"}`;
+  if (estimatedMinutes == null) return exercisePart;
+  return `~${estimatedMinutes} min • ${exercisePart}`;
+}
+
+export function countExercises(
+  workout?: { blocks: { exercises: { id: string }[] }[] } | null
+): number {
+  if (!workout) return 0;
+  return workout.blocks.reduce((n, b) => n + b.exercises.length, 0);
 }
 
 interface ClientDashboardProps {
@@ -34,7 +66,13 @@ interface ClientDashboardProps {
     id: string;
     scheduledDate: Date;
     status: string;
-    workout?: { name?: string | null } | null;
+    workout?: {
+      name?: string | null;
+      dayIndex?: number | null;
+      weekIndex?: number | null;
+      estimatedMinutes?: number | null;
+      blocks: { exercises: { id: string }[] }[];
+    } | null;
   }[];
   calendarSessions: {
     id: string;
@@ -42,12 +80,16 @@ interface ClientDashboardProps {
     status: string;
     workout: {
       name: string | null;
+      dayIndex?: number | null;
+      weekIndex?: number | null;
+      estimatedMinutes?: number | null;
       blocks: { exercises: { id: string }[] }[];
     } | null;
   }[];
   weeklyCompliance: number;
   recentAssessments: { id: string; assessmentType: string; value: number; unit: string; createdAt: Date }[];
   currentStreak: number;
+  workoutsCompleted: number;
   exercisesCompleted: number;
   minutesExercised: number;
 }
@@ -59,9 +101,12 @@ export function ClientDashboard({
   weeklyCompliance,
   recentAssessments,
   currentStreak,
+  workoutsCompleted,
   exercisesCompleted,
   minutesExercised,
 }: ClientDashboardProps) {
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+
   const totalWeekSessions = weeklyCompliance + upcomingSessions.length;
   const compliancePercent = totalWeekSessions > 0
     ? Math.min(Math.round((weeklyCompliance / totalWeekSessions) * 100), 100)
@@ -73,6 +118,18 @@ export function ClientDashboard({
   const dayOfYear = Math.floor((today.getTime() - new Date(today.getFullYear(), 0, 0).getTime()) / 86400000);
   const quote = MOTIVATIONAL_QUOTES[dayOfYear % MOTIVATIONAL_QUOTES.length];
 
+  // When a calendar day is selected: show that day's session if one exists,
+  // otherwise the next session scheduled after it (never before).
+  const selectedExactMatch = selectedDate
+    ? calendarSessions.find((s) => isSameLocalDay(new Date(s.scheduledDate), selectedDate)) ?? null
+    : null;
+  const selectedNextAfter = selectedDate && !selectedExactMatch
+    ? calendarSessions
+        .filter((s) => toLocalCalendarDate(s.scheduledDate).getTime() > startOfDay(selectedDate).getTime())
+        .sort((a, b) => toLocalCalendarDate(a.scheduledDate).getTime() - toLocalCalendarDate(b.scheduledDate).getTime())[0] ?? null
+    : null;
+  const selectedSession = selectedExactMatch ?? selectedNextAfter;
+
   return (
     <div className="space-y-8">
       {/* Welcome */}
@@ -81,7 +138,20 @@ export function ClientDashboard({
         <p className="mt-1 text-muted-foreground">Stay on track with your exercises and progress.</p>
       </div>
 
-      {/* Stats row */}
+      {/* Primary completion metric */}
+      <Card className="border-0 ring-1 ring-border/50 shadow-sm">
+        <CardContent className="flex items-center gap-4 p-5">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-violet-50 text-2xl">
+            ✅
+          </div>
+          <div>
+            <p className="text-3xl font-bold leading-none">{workoutsCompleted}</p>
+            <p className="mt-1 text-sm text-muted-foreground">Workouts Completed</p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Secondary stats row */}
       <div className="grid gap-4 sm:grid-cols-3">
         {[
           { label: "Current Streak", value: `${currentStreak} ${currentStreak === 1 ? "day" : "days"}`, emoji: "🔥", bg: "bg-amber-50" },
@@ -102,19 +172,66 @@ export function ClientDashboard({
         ))}
       </div>
 
-      {/* Today's workout hero */}
-      {todayWorkout ? (
+      {/* Workout hero — reflects the calendar selection below, or today/next by default */}
+      {selectedDate ? (
+        selectedSession ? (
+          <div className="relative overflow-hidden rounded-2xl bg-muted p-6 shadow-sm">
+            <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <Badge className="mb-3 border-border bg-background text-foreground text-xs font-medium uppercase tracking-wide">
+                  {selectedExactMatch
+                    ? isSameDay(selectedDate, today)
+                      ? "Today's Workout"
+                      : "Selected Day"
+                    : "Next Available"}
+                </Badge>
+                <p className="text-sm font-medium text-muted-foreground">
+                  {format(toLocalCalendarDate(selectedSession.scheduledDate), "EEEE, MMM d")}
+                </p>
+                <h2 className="text-xl font-bold text-foreground">{formatDayLabel(selectedSession.workout)}</h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {formatWorkoutMetaLine(selectedSession.workout?.estimatedMinutes, countExercises(selectedSession.workout))}
+                </p>
+              </div>
+              {selectedExactMatch && selectedSession.status !== "COMPLETED" ? (
+                <Button
+                  size="lg"
+                  className="shrink-0 bg-primary text-primary-foreground hover:bg-primary/90 font-semibold shadow-lg border-0"
+                  asChild
+                >
+                  <Link href={`/sessions/${selectedSession.id}`}>
+                    <Play className="mr-2 h-4 w-4 fill-current" />
+                    Start Workout
+                  </Link>
+                </Button>
+              ) : (
+                <Button size="lg" variant="outline" className="shrink-0 font-semibold" asChild>
+                  <Link href={`/sessions/${selectedSession.id}`}>
+                    View Workout
+                    <ChevronRight className="ml-2 h-4 w-4" />
+                  </Link>
+                </Button>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="relative overflow-hidden rounded-2xl bg-muted p-6 shadow-sm text-center">
+            <CalendarX className="mx-auto mb-2 h-6 w-6 text-muted-foreground" />
+            <h2 className="text-lg font-bold text-foreground">No Workouts After {format(selectedDate, "MMM d")}</h2>
+            <p className="mt-2 text-xs text-muted-foreground italic">{quote}</p>
+          </div>
+        )
+      ) : todayWorkout ? (
         <div className="relative overflow-hidden rounded-2xl bg-muted p-6 shadow-sm">
           <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <Badge className="mb-3 border-border bg-background text-foreground text-xs font-medium">
-                <Calendar className="mr-1 h-3 w-3" />
-                {formatDate(todayWorkout.scheduledDate)}
+              <Badge className="mb-3 border-border bg-background text-foreground text-xs font-medium uppercase tracking-wide">
+                Today&apos;s Workout
               </Badge>
-              <h2 className="text-xl font-bold text-foreground">
-                {todayWorkout.workout?.name || "Workout Session"}
-              </h2>
-              <p className="mt-1 text-sm text-muted-foreground">Ready when you are — let&apos;s go!</p>
+              <h2 className="text-xl font-bold text-foreground">{formatDayLabel(todayWorkout.workout)}</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {formatWorkoutMetaLine(todayWorkout.workout?.estimatedMinutes, countExercises(todayWorkout.workout))}
+              </p>
             </div>
             <Button
               size="lg"
@@ -128,20 +245,43 @@ export function ClientDashboard({
             </Button>
           </div>
         </div>
+      ) : nextFutureSession ? (
+        <div className="relative overflow-hidden rounded-2xl bg-muted p-6 shadow-sm">
+          <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <Badge className="mb-3 border-border bg-background text-foreground text-xs font-medium uppercase tracking-wide">
+                Next Workout
+              </Badge>
+              <p className="text-sm font-medium text-muted-foreground">
+                {format(toLocalCalendarDate(nextFutureSession.scheduledDate), "EEEE, MMM d")}
+              </p>
+              <h2 className="text-xl font-bold text-foreground">{formatDayLabel(nextFutureSession.workout)}</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {formatWorkoutMetaLine(nextFutureSession.workout?.estimatedMinutes, countExercises(nextFutureSession.workout))}
+              </p>
+            </div>
+            <Button size="lg" variant="outline" className="shrink-0 font-semibold" asChild>
+              <Link href={`/sessions/${nextFutureSession.id}`}>
+                View Workout
+                <ChevronRight className="ml-2 h-4 w-4" />
+              </Link>
+            </Button>
+          </div>
+        </div>
       ) : (
         <div className="relative overflow-hidden rounded-2xl bg-muted p-6 shadow-sm text-center">
           <CalendarX className="mx-auto mb-2 h-6 w-6 text-muted-foreground" />
-          <h2 className="text-lg font-bold text-foreground">
-            No Workouts for Today
-            {nextFutureSession && (
-              <span className="font-medium text-muted-foreground">
-                {" "}(next session {formatDate(nextFutureSession.scheduledDate)})
-              </span>
-            )}
-          </h2>
+          <h2 className="text-lg font-bold text-foreground">Nothing Scheduled Right Now</h2>
           <p className="mt-2 text-xs text-muted-foreground italic">{quote}</p>
         </div>
       )}
+
+      {/* Schedule calendar */}
+      <ClientSessionCalendar
+        sessions={calendarSessions}
+        selectedDate={selectedDate}
+        onSelectDate={setSelectedDate}
+      />
 
       {/* Weekly Progress */}
       <Card>
@@ -167,9 +307,6 @@ export function ClientDashboard({
           </div>
         </CardContent>
       </Card>
-
-      {/* Schedule calendar */}
-      <ClientSessionCalendar sessions={calendarSessions} />
 
       {/* Recent Assessments */}
       {recentAssessments.length > 0 && (

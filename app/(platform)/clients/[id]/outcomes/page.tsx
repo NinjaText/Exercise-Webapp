@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { requireRole } from "@/lib/current-user";
 import { getAssessments } from "@/lib/services/outcome.service";
+import { getClientIdsForTrainer } from "@/lib/services/client.service";
 import { prisma } from "@/lib/prisma";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -16,7 +17,9 @@ interface Props {
 
 export default async function ClientOutcomesPage({ params }: Props) {
   const { id } = await params;
-  await requireRole("TRAINER");
+  const user = await requireRole("TRAINER");
+  const clientIds = await getClientIdsForTrainer(user.id);
+  if (!clientIds.includes(id)) notFound();
 
   const client = await prisma.user.findUnique({ where: { id } });
   if (!client) notFound();

@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { requireRole } from "@/lib/current-user";
 import { prisma } from "@/lib/prisma";
+import { getClientIdsForTrainer } from "@/lib/services/client.service";
 import { getClientPastSessions, computeAdherenceStats } from "@/lib/services/session.service";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -25,9 +26,23 @@ const statusColors: Record<string, string> = {
   SKIPPED:     "bg-muted text-muted-foreground",
 };
 
+const varianceColors: Record<string, string> = {
+  ON_TIME: "bg-success/10 text-success",
+  EARLY:   "bg-blue-100 text-blue-700",
+  DELAYED: "bg-amber-100 text-amber-700",
+};
+
+const varianceLabels: Record<string, string> = {
+  ON_TIME: "On Time",
+  EARLY:   "Early",
+  DELAYED: "Delayed",
+};
+
 export default async function ClientAdherencePage({ params }: Props) {
   const { id } = await params;
-  await requireRole("TRAINER");
+  const user = await requireRole("TRAINER");
+  const clientIds = await getClientIdsForTrainer(user.id);
+  if (!clientIds.includes(id)) notFound();
 
   const client = await prisma.user.findUnique({ where: { id } });
   if (!client) notFound();
@@ -107,10 +122,23 @@ export default async function ClientAdherencePage({ params }: Props) {
                         <span className="ml-2 opacity-60">· {session.workout.program.name}</span>
                       )}
                     </p>
+                    {session.originalScheduledDate && (
+                      <p className="text-xs text-muted-foreground/70 mt-0.5">
+                        Rescheduled from {format(new Date(session.originalScheduledDate), "MMM d, yyyy")}
+                        {session.rescheduledBy && ` by ${session.rescheduledBy}`}
+                      </p>
+                    )}
                   </div>
                   <div className="flex items-center gap-2 shrink-0 ml-3">
                     {session.overallRPE != null && (
                       <span className="text-xs text-muted-foreground">RPE {session.overallRPE}/10</span>
+                    )}
+                    {session.scheduleVariance && (
+                      <Badge
+                        className={`border-0 text-xs font-medium ${varianceColors[session.scheduleVariance] ?? "bg-muted text-muted-foreground"}`}
+                      >
+                        {varianceLabels[session.scheduleVariance] ?? session.scheduleVariance}
+                      </Badge>
                     )}
                     <Badge
                       className={`border-0 text-xs font-medium ${statusColors[session.status] ?? "bg-muted text-muted-foreground"}`}

@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { requireRole } from "@/lib/current-user";
-import { getClientDetail } from "@/lib/services/client.service";
+import { getClientDetail, getClientIdsForTrainer } from "@/lib/services/client.service";
 import * as progressService from "@/lib/services/progress.service";
 import * as noteService from "@/lib/services/clinical-note.service";
 import { Card, CardContent } from "@/components/ui/card";
@@ -20,6 +20,8 @@ interface Props {
 export default async function ClientProgressPage({ params }: Props) {
   const { id } = await params;
   const user = await requireRole("TRAINER");
+  const clientIds = await getClientIdsForTrainer(user.id);
+  if (!clientIds.includes(id)) notFound();
   const client = await getClientDetail(id);
 
   if (!client) notFound();

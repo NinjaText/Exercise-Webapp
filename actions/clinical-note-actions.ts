@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/current-user";
 import * as noteService from "@/lib/services/clinical-note.service";
 import type { UpdateClinicalNoteData } from "@/lib/services/clinical-note.service";
+import { getClientIdsForTrainer } from "@/lib/services/client.service";
 
 export interface ClinicalNoteFormData {
   appointmentDate: string; // ISO date string from form input
@@ -24,6 +25,11 @@ export async function createClinicalNoteAction(
   data: ClinicalNoteFormData
 ) {
   const trainer = await requireRole("TRAINER");
+
+  const clientIds = await getClientIdsForTrainer(trainer.id);
+  if (!clientIds.includes(clientId)) {
+    return { success: false as const, error: "Unauthorized" };
+  }
 
   if (!data.appointmentDate) {
     return { success: false as const, error: "Appointment date is required" };
