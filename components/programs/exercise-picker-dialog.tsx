@@ -512,12 +512,14 @@ function VideoMultiSelectGrid({
   onToggle,
   onSelectAll,
   onDeselectAll,
+  onPreview,
 }: {
   videos: AiSearchVideo[];
   selectedIds: Set<string>;
   onToggle: (videoId: string) => void;
   onSelectAll: () => void;
   onDeselectAll: () => void;
+  onPreview: (video: AiSearchVideo) => void;
 }) {
   return (
     <div className="space-y-2">
@@ -534,12 +536,19 @@ function VideoMultiSelectGrid({
         {videos.map((v) => {
           const selected = selectedIds.has(v.videoId);
           return (
-            <button
+            <div
               key={v.videoId}
-              type="button"
+              role="button"
+              tabIndex={0}
               onClick={() => onToggle(v.videoId)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  onToggle(v.videoId);
+                }
+              }}
               className={cn(
-                "flex w-full items-center gap-2.5 px-2.5 py-2 text-left transition-colors hover:bg-muted/50",
+                "flex w-full cursor-pointer items-center gap-2.5 px-2.5 py-2 text-left transition-colors hover:bg-muted/50",
                 selected && "bg-primary/5"
               )}
             >
@@ -549,17 +558,27 @@ function VideoMultiSelectGrid({
               )}>
                 {selected && <Check className="h-2.5 w-2.5" />}
               </div>
-              {v.thumbnailUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={v.thumbnailUrl} alt="" className="h-9 w-14 shrink-0 rounded object-cover" />
-              ) : (
-                <div className="h-9 w-14 shrink-0 rounded bg-muted" />
-              )}
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); onPreview(v); }}
+                className="group relative h-9 w-14 shrink-0 overflow-hidden rounded"
+                title="Preview video"
+              >
+                {v.thumbnailUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={v.thumbnailUrl} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  <div className="h-full w-full bg-muted" />
+                )}
+                <span className="absolute inset-0 flex items-center justify-center bg-black/0 transition-colors group-hover:bg-black/40">
+                  <Play className="h-3.5 w-3.5 text-white opacity-0 transition-opacity group-hover:opacity-100" />
+                </span>
+              </button>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-xs font-medium">{v.title}</p>
                 <p className="truncate text-[10px] text-muted-foreground">{v.channelTitle}</p>
               </div>
-            </button>
+            </div>
           );
         })}
       </div>
@@ -579,6 +598,7 @@ export function ExercisePickerDialog({
   const [phase, setPhase]       = useState<string>("all");
   const [bodyRegions, setRegions] = useState<string[]>([]);
   const [videoPreview, setVideoPreview] = useState<Exercise | null>(null);
+  const [videoUrlPreview, setVideoUrlPreview] = useState<{ videoId: string; url: string; title: string } | null>(null);
   const [view, setView] = useState<"list" | "create">("list");
   const [localExercises, setLocalExercises] = useState<Exercise[]>([]);
   const [publicOverrides, setPublicOverrides] = useState<Map<string, boolean>>(new Map());
@@ -964,6 +984,7 @@ export function ExercisePickerDialog({
                               onToggle={toggleAiVideoSelection}
                               onSelectAll={() => setAiSelectedVideoIds(new Set(aiSearchVideos.map((v) => v.videoId)))}
                               onDeselectAll={() => setAiSelectedVideoIds(new Set())}
+                              onPreview={(v) => setVideoUrlPreview({ videoId: v.videoId, url: v.videoUrl, title: v.title })}
                             />
                           )}
                         </TabsContent>
@@ -1091,6 +1112,37 @@ export function ExercisePickerDialog({
             {videoPreview?.videoUrl && (
               <UniversalVideoPlayer url={videoPreview.videoUrl} provider={videoPreview.videoProvider} autoPlay />
             )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!videoUrlPreview} onOpenChange={(o) => { if (!o) setVideoUrlPreview(null); }}>
+        <DialogContent className="sm:max-w-2xl gap-0 p-0 overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-3 border-b">
+            <p className="font-semibold text-sm truncate pr-4">{videoUrlPreview?.title}</p>
+            <button onClick={() => setVideoUrlPreview(null)} className="shrink-0 rounded-md p-1 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+          <div className="w-full bg-black">
+            {videoUrlPreview?.url && (
+              <UniversalVideoPlayer url={videoUrlPreview.url} autoPlay />
+            )}
+          </div>
+          <div className="flex justify-end gap-2 px-4 py-3 border-t">
+            <Button type="button" variant="outline" size="sm" onClick={() => setVideoUrlPreview(null)}>
+              Close
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => {
+                if (videoUrlPreview) toggleAiVideoSelection(videoUrlPreview.videoId);
+                setVideoUrlPreview(null);
+              }}
+            >
+              {videoUrlPreview && aiSelectedVideoIds.has(videoUrlPreview.videoId) ? "Deselect video" : "Select video"}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

@@ -527,24 +527,30 @@ export function ProgramListClient({
 
         {role === "TRAINER" && (
           <div className="flex flex-wrap shrink-0 items-center gap-2">
-            <Button variant="outline" className="gap-2" asChild>
-              <Link href="/programs/upload">
-                <Upload className="h-4 w-4 text-emerald-600" />
-                Upload Brief
-              </Link>
-            </Button>
-            <Button variant="outline" className="gap-2" asChild>
-              <Link href="/programs/generate">
-                <Sparkles className="h-4 w-4 text-blue-600" />
-                AI Generate
-              </Link>
-            </Button>
-            <Button className="gap-2" asChild>
-              <Link href="/programs/new">
+            <DropdownMenu>
+              <DropdownMenuTrigger render={<Button className="gap-2" />}>
                 <Plus className="h-4 w-4" />
-                New Program
-              </Link>
-            </Button>
+                Create Program
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuItem onClick={() => router.push("/programs/new")}>
+                  <Pencil className="mr-2 h-4 w-4 text-muted-foreground" />
+                  Start from scratch
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => router.push("/programs/generate")}>
+                  <Sparkles className="mr-2 h-4 w-4 text-blue-600" />
+                  Generate with AI
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => router.push("/programs/upload")}>
+                  <Upload className="mr-2 h-4 w-4 text-emerald-600" />
+                  Upload a program/document
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleTabChange("templates")}>
+                  <Library className="mr-2 h-4 w-4 text-muted-foreground" />
+                  Use a template
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         )}
       </div>
