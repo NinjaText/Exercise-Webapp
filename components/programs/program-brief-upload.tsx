@@ -34,6 +34,8 @@ import { cn } from "@/lib/utils";
 import {
   AlertTriangle,
   CheckCircle2,
+  ChevronDown,
+  ChevronRight,
   FileText,
   Loader2,
   Sparkles,
@@ -176,6 +178,9 @@ export function ProgramBriefUpload({
   const [resolutions, setResolutions] = useState<Map<string, Resolution>>(new Map());
   const [resolverKey, setResolverKey] = useState<string | null>(null);
   const [confirmedInferredFields, setConfirmedInferredFields] = useState<Set<string>>(new Set());
+  // Single-open accordion: null means every week is collapsed. A week index
+  // (not a Set) so opening one week always closes whichever other week was open.
+  const [expandedWeek, setExpandedWeek] = useState<number | null>(null);
   const [assignClientId, setAssignClientId] = useState("");
   const [assignStartDate, setAssignStartDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [saving, setSaving] = useState<"template" | "assign" | null>(null);
@@ -196,6 +201,33 @@ export function ProgramBriefUpload({
   }, [preview]);
 
   const unresolvedCount = flaggedSlots.filter((s) => !resolutions.has(s.key)).length;
+
+  // Groups sessions by week for the accordion, while keeping each session's
+  // original index into preview.aiPlan.workouts — flagKey/resolutions/flaggedSlots
+  // are all keyed off that flat index, so it must survive the regrouping.
+  const weekGroups = useMemo(() => {
+    if (!preview) return [];
+    const byWeek = new Map<number, { workout: PreviewWorkout; index: number }[]>();
+    preview.aiPlan.workouts.forEach((workout, index) => {
+      const week = workout.weekIndex;
+      if (!byWeek.has(week)) byWeek.set(week, []);
+      byWeek.get(week)!.push({ workout, index });
+    });
+    return Array.from(byWeek.entries())
+      .sort(([a], [b]) => a - b)
+      .map(([weekIndex, items]) => ({
+        weekIndex,
+        items: [...items].sort((a, b) => a.workout.dayIndex - b.workout.dayIndex),
+      }));
+  }, [preview]);
+
+  function toggleWeek(weekIndex: number) {
+    setExpandedWeek((prev) => (prev === weekIndex ? null : weekIndex));
+  }
+
+  function sessionDayLabel(workout: PreviewWorkout) {
+    return preview?.parsed.preferredWeekdays?.[workout.dayIndex] ?? `Day ${workout.dayIndex + 1}`;
+  }
 
   const inferredFieldsSet = useMemo(
     () => new Set(preview?.parsed.inferredFields ?? []),
@@ -263,6 +295,7 @@ export function ProgramBriefUpload({
     setEditableFields(toEditableFields(matchResult.data.parsed));
     setResolutions(new Map());
     setConfirmedInferredFields(new Set());
+    setExpandedWeek(null);
     setStage("ready");
     toast.success("Preview generated");
   }
@@ -693,50 +726,83 @@ export function ProgramBriefUpload({
             <div className="space-y-2">
               <Label>Generated Sessions</Label>
               <div className="space-y-3">
-                {preview.aiPlan.workouts.map((workout, wIdx) => (
-                  <div key={`${workout.name}-${wIdx}`} className="border rounded-lg p-4">
-                    <div className="font-medium">{workout.name}</div>
-                    <div className="mt-3 space-y-3">
-                      {workout.blocks.map((block, bIdx) => (
-                        <div key={`${block.name || block.type}-${bIdx}`}>
-                          <div className="text-sm font-semibold flex items-center gap-2">
-                            <span>{block.name || "Block"}</span>
-                            {block.type !== "NORMAL" && <Badge variant="outline">{block.type}</Badge>}
-                          </div>
-                          <div className="mt-2 space-y-1.5">
-                            {block.exercises.map((ex, eIdx) => {
-                              const key = flagKey(wIdx, bIdx, eIdx);
-                              const flags = ex.flags ?? [];
-                              if (flags.length === 0) {
-                                return (
-                                  <div key={key} className="text-sm text-muted-foreground">
-                                    {ex.exerciseName || ex.exerciseId} — {ex.sets} x {ex.reps}
+                {weekGroups.map(({ weekIndex, items }) => {
+                  const isOpen = expandedWeek === weekIndex;
+                  return (
+                    <div key={weekIndex} className="rounded-lg border overflow-hidden">
+                      <button
+                        type="button"
+                        onClick={() => toggleWeek(weekIndex)}
+                        className="flex w-full items-center justify-between gap-2 p-4 text-left hover:bg-muted/50"
+                      >
+                        <span className="flex items-center gap-2 font-medium">
+                          {isOpen ? (
+                            <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                          ) : (
+                            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                          )}
+                          Week {weekIndex + 1}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {items.length} session{items.length === 1 ? "" : "s"}
+                        </span>
+                      </button>
+                      {isOpen && (
+                        <div className="divide-y border-t">
+                          {items.map(({ workout, index: wIdx }) => (
+                            <div key={`${workout.name}-${wIdx}`} className="p-4">
+                              <div className="flex items-center gap-2 font-medium">
+                                <Badge variant="secondary" className="shrink-0">
+                                  {sessionDayLabel(workout)}
+                                </Badge>
+                                <span>{workout.name}</span>
+                              </div>
+                              <div className="mt-3 space-y-3">
+                                {workout.blocks.map((block, bIdx) => (
+                                  <div key={`${block.name || block.type}-${bIdx}`}>
+                                    <div className="text-sm font-semibold flex items-center gap-2">
+                                      <span>{block.name || "Block"}</span>
+                                      {block.type !== "NORMAL" && <Badge variant="outline">{block.type}</Badge>}
+                                    </div>
+                                    <div className="mt-2 space-y-1.5">
+                                      {block.exercises.map((ex, eIdx) => {
+                                        const key = flagKey(wIdx, bIdx, eIdx);
+                                        const flags = ex.flags ?? [];
+                                        if (flags.length === 0) {
+                                          return (
+                                            <div key={key} className="text-sm text-muted-foreground">
+                                              {ex.exerciseName || ex.exerciseId} — {ex.sets} x {ex.reps}
+                                            </div>
+                                          );
+                                        }
+                                        const resolution = resolutions.get(key);
+                                        return (
+                                          <FlaggedExerciseRow
+                                            key={key}
+                                            exerciseName={ex.exerciseName}
+                                            sets={ex.sets}
+                                            reps={ex.reps}
+                                            flags={flags}
+                                            hasSuggestion={!!ex.exerciseId}
+                                            resolved={!!resolution}
+                                            resolvedLabel={resolutionLabel(resolution)}
+                                            onConfirm={() => confirmSuggestion(key, ex)}
+                                            onPickAlternative={() => setResolverKey(key)}
+                                            onSkip={() => skipSlot(key)}
+                                          />
+                                        );
+                                      })}
+                                    </div>
                                   </div>
-                                );
-                              }
-                              const resolution = resolutions.get(key);
-                              return (
-                                <FlaggedExerciseRow
-                                  key={key}
-                                  exerciseName={ex.exerciseName}
-                                  sets={ex.sets}
-                                  reps={ex.reps}
-                                  flags={flags}
-                                  hasSuggestion={!!ex.exerciseId}
-                                  resolved={!!resolution}
-                                  resolvedLabel={resolutionLabel(resolution)}
-                                  onConfirm={() => confirmSuggestion(key, ex)}
-                                  onPickAlternative={() => setResolverKey(key)}
-                                  onSkip={() => skipSlot(key)}
-                                />
-                              );
-                            })}
-                          </div>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
                         </div>
-                      ))}
+                      )}
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
 

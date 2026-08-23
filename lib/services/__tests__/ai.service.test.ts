@@ -138,6 +138,48 @@ describe('buildProgramPreviewFromBlueprint', () => {
     expect(ex.flags).toEqual(['not_in_library'])
   })
 
+  it('assigns dayOfWeek from the session\'s own dayLabel, not just position-in-week (regression: dropping a middle-of-week session — e.g. an unresolvable "same exercises as Week 1" reference — used to shift every later session onto the wrong weekday)', async () => {
+    const squat = exercise({ id: 'sq1', name: 'Squat' })
+    vi.mocked(prisma.exercise.findMany).mockResolvedValue([squat])
+
+    // Monday's session was dropped upstream (unresolvable), so only the
+    // Tuesday and Wednesday sessions survive into the blueprint — but they
+    // still carry their own true dayLabel, at dayIndex 0 and 1 respectively
+    // (position within the week, NOT the same as their real weekday).
+    const result = await buildProgramPreviewFromBlueprint({
+      circuits: [{ name: 'Main', focusType: 'FULL_BODY', exerciseCount: 1 }],
+      preferredWeekdays: ['Monday', 'Tuesday', 'Wednesday'],
+      sessionBlueprint: [
+        { dayIndex: 0, weekIndex: 0, title: 'Tuesday Run', dayLabel: 'Tuesday', blocks: [{ name: 'Main', exercises: [{ name: 'Squat' }] }] },
+        { dayIndex: 1, weekIndex: 0, title: 'Wednesday Strength', dayLabel: 'Wednesday', blocks: [{ name: 'Main', exercises: [{ name: 'Squat' }] }] },
+      ],
+    })
+
+    const dayOfWeeks = result.workouts.map((w) => w.dayIndex).sort()
+    // Tuesday=1, Wednesday=2 (0=Monday) — NOT 0 and 1, which is what
+    // position-based mapping through preferredWeekdays would have produced.
+    expect(dayOfWeeks).toEqual([1, 2])
+  })
+
+  it('falls back to position-based weekday assignment when no dayLabel is present', async () => {
+    const squat = exercise({ id: 'sq1', name: 'Squat' })
+    vi.mocked(prisma.exercise.findMany).mockResolvedValue([squat])
+
+    const result = await buildProgramPreviewFromBlueprint({
+      circuits: [{ name: 'Main', focusType: 'FULL_BODY', exerciseCount: 1 }],
+      preferredWeekdays: ['Monday', 'Wednesday', 'Friday'],
+      sessionBlueprint: [
+        { dayIndex: 0, weekIndex: 0, title: 'Day 1', blocks: [{ name: 'Main', exercises: [{ name: 'Squat' }] }] },
+        { dayIndex: 1, weekIndex: 0, title: 'Day 2', blocks: [{ name: 'Main', exercises: [{ name: 'Squat' }] }] },
+      ],
+    })
+
+    const dayOfWeeks = result.workouts.map((w) => w.dayIndex).sort()
+    // Monday=0, Wednesday=2 — the original position-based mapping, unchanged
+    // when the document never names a real weekday for these sessions.
+    expect(dayOfWeeks).toEqual([0, 2])
+  })
+
   it('adds a not_in_document flag alongside a library flag when the exercise is untraceable', async () => {
     const squat = exercise({ id: 'sq1', name: 'Squat' })
     vi.mocked(prisma.exercise.findMany).mockResolvedValue([squat])

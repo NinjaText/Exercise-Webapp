@@ -4,6 +4,7 @@ import { useRef, useState, useCallback } from "react";
 import Papa from "papaparse";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import {
   UploadCloud,
   FileSpreadsheet,
@@ -13,11 +14,13 @@ import {
   Download,
   X,
   Mail,
+  ClipboardPaste,
 } from "lucide-react";
-import { validateCsvInviteRows, type CsvRowError } from "@/lib/validators/csv-invite";
+import { validateCsvInviteRows, parseEmailList, type CsvRowError } from "@/lib/validators/csv-invite";
 import type { InviteEmailResult } from "@/actions/bulk-invite-action";
 
 type TabState = "idle" | "errors" | "preview" | "sending" | "results";
+type Source = "csv" | "paste";
 
 interface Props {
   onInvite: (emails: string[]) => Promise<InviteEmailResult[]>;
@@ -26,8 +29,10 @@ interface Props {
 
 export function BulkInviteTab({ onInvite, onDone }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const [source, setSource] = useState<Source>("csv");
   const [state, setState] = useState<TabState>("idle");
   const [fileName, setFileName] = useState("");
+  const [pastedText, setPastedText] = useState("");
   const [errors, setErrors] = useState<CsvRowError[]>([]);
   const [validEmails, setValidEmails] = useState<string[]>([]);
   const [results, setResults] = useState<InviteEmailResult[]>([]);
@@ -35,6 +40,7 @@ export function BulkInviteTab({ onInvite, onDone }: Props) {
   const reset = useCallback(() => {
     setState("idle");
     setFileName("");
+    setPastedText("");
     setErrors([]);
     setValidEmails([]);
     setResults([]);
@@ -95,6 +101,25 @@ export function BulkInviteTab({ onInvite, onDone }: Props) {
     [handleFile]
   );
 
+  const handleParsePasted = useCallback(() => {
+    const result = parseEmailList(pastedText);
+
+    if (result.valid.length === 0 && result.errors.length === 0) {
+      toast.error("Paste at least one email address");
+      return;
+    }
+
+    if (result.errors.length > 0) {
+      setErrors(result.errors);
+      setValidEmails([]);
+      setState("errors");
+    } else {
+      setErrors([]);
+      setValidEmails(result.valid);
+      setState("preview");
+    }
+  }, [pastedText]);
+
   const handleSend = useCallback(async () => {
     setState("sending");
     try {
@@ -115,28 +140,53 @@ export function BulkInviteTab({ onInvite, onDone }: Props) {
 
   return (
     <div className="space-y-4">
-      {/* Template download */}
-      <div className="flex items-center justify-between rounded-xl border border-border bg-muted/40 px-4 py-3">
-        <div>
-          <p className="text-sm font-medium text-foreground">
-            Download the CSV template
-          </p>
-          <p className="text-xs text-muted-foreground">
-            One email per row, single column.
-          </p>
+      {state === "idle" && (
+        <div className="inline-flex w-fit gap-1 rounded-lg bg-muted p-[3px]">
+          <button
+            type="button"
+            onClick={() => setSource("csv")}
+            className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
+              source === "csv" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"
+            }`}
+          >
+            Upload CSV
+          </button>
+          <button
+            type="button"
+            onClick={() => setSource("paste")}
+            className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
+              source === "paste" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"
+            }`}
+          >
+            Paste Emails
+          </button>
         </div>
-        <a
-          href="/invite-template.csv"
-          download
-          className="inline-flex items-center gap-1.5 rounded-lg bg-background px-3 py-1.5 text-sm font-medium text-foreground ring-1 ring-border hover:bg-muted transition-colors"
-        >
-          <Download className="h-4 w-4" />
-          Template
-        </a>
-      </div>
+      )}
+
+      {/* Template download */}
+      {state === "idle" && source === "csv" && (
+        <div className="flex items-center justify-between rounded-xl border border-border bg-muted/40 px-4 py-3">
+          <div>
+            <p className="text-sm font-medium text-foreground">
+              Download the CSV template
+            </p>
+            <p className="text-xs text-muted-foreground">
+              One email per row, single column.
+            </p>
+          </div>
+          <a
+            href="/invite-template.csv"
+            download
+            className="inline-flex items-center gap-1.5 rounded-lg bg-background px-3 py-1.5 text-sm font-medium text-foreground ring-1 ring-border hover:bg-muted transition-colors"
+          >
+            <Download className="h-4 w-4" />
+            Template
+          </a>
+        </div>
+      )}
 
       {/* Upload area */}
-      {state === "idle" && (
+      {state === "idle" && source === "csv" && (
         <div
           onDragOver={(e) => e.preventDefault()}
           onDrop={handleDrop}
@@ -164,6 +214,28 @@ export function BulkInviteTab({ onInvite, onDone }: Props) {
         </div>
       )}
 
+      {/* Paste emails area */}
+      {state === "idle" && source === "paste" && (
+        <div className="space-y-3">
+          <Textarea
+            value={pastedText}
+            onChange={(e) => setPastedText(e.target.value)}
+            placeholder={"client1@example.com, client2@example.com\nclient3@example.com"}
+            className="min-h-32 resize-y"
+            autoFocus
+          />
+          <p className="text-xs text-muted-foreground">
+            Separate emails with commas, spaces, or new lines.
+          </p>
+          <div className="flex justify-end">
+            <Button onClick={handleParsePasted} disabled={!pastedText.trim()}>
+              <ClipboardPaste className="mr-2 h-4 w-4" />
+              Continue
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Error state */}
       {state === "errors" && (
         <div className="space-y-4">
@@ -171,8 +243,13 @@ export function BulkInviteTab({ onInvite, onDone }: Props) {
             <div className="flex items-center gap-2">
               <AlertCircle className="h-5 w-5 text-destructive" />
               <p className="font-medium text-foreground">
-                {errors.length} error{errors.length === 1 ? "" : "s"} found in{" "}
-                <span className="text-muted-foreground">{fileName}</span>
+                {errors.length} error{errors.length === 1 ? "" : "s"} found
+                {fileName ? (
+                  <>
+                    {" "}
+                    in <span className="text-muted-foreground">{fileName}</span>
+                  </>
+                ) : null}
               </p>
             </div>
             <Button variant="ghost" size="sm" onClick={reset}>
@@ -225,8 +302,13 @@ export function BulkInviteTab({ onInvite, onDone }: Props) {
                   {validEmails.length} email
                   {validEmails.length === 1 ? "" : "s"}
                 </span>{" "}
-                ready to invite from{" "}
-                <span className="text-muted-foreground">{fileName}</span>
+                ready to invite
+                {fileName ? (
+                  <>
+                    {" "}
+                    from <span className="text-muted-foreground">{fileName}</span>
+                  </>
+                ) : null}
               </p>
             </div>
             {state === "preview" && (

@@ -9,7 +9,6 @@ import {
   ClipboardList,
   Users,
   MessageSquare,
-  BarChart3,
   Settings,
   Activity,
   Library,
@@ -55,7 +54,7 @@ const trainerLinks: NavLink[] = [
   // { href: "/check-ins",   label: "Check-ins",    icon: ClipboardCheck },
   // { href: "/habits",      label: "Habits",       icon: Flame },
   { href: "/messages",    label: "Messages",     icon: MessageSquare },
-  { href: "/assessments", label: "Assessments",  icon: BarChart3 },
+  // { href: "/assessments", label: "Assessments",  icon: BarChart3 },
   { href: "/analytics",   label: "Analytics",    icon: TrendingUp },
 ];
 

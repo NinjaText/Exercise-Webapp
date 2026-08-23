@@ -1,8 +1,9 @@
-import "server-only";
 import OpenAI from "openai";
 import mammoth from "mammoth";
 import pdfParse from "pdf-parse";
-import { normalizeExerciseName } from "./ai.service";
+function normalizeExerciseName(name) {
+  return name.toLowerCase().replace(/https?:\/\/\S+/g, "").replace(/[^a-z0-9]+/g, " ").trim();
+}
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,

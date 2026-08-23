@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import type { TrainerWithClients } from "@/lib/services/admin.service";
 import { UserActionsMenu } from "@/components/admin/user-actions-menu";
 import { AdminBulkInviteDialog } from "@/components/admin/admin-bulk-invite-dialog";
+import { AdminInvitationsDialog } from "@/components/admin/admin-invitations-dialog";
 
 interface Props {
   trainers: TrainerWithClients[];
@@ -112,10 +113,16 @@ export function TrainersWithClientsTable({ trainers }: Props) {
                 <td className="px-5 py-3">
                   <div className="flex items-center justify-end gap-1">
                     {trainer.clerkOrgId && (
-                      <AdminBulkInviteDialog
-                        clerkOrgId={trainer.clerkOrgId}
-                        trainerName={`${trainer.firstName} ${trainer.lastName}`}
-                      />
+                      <>
+                        <AdminInvitationsDialog
+                          clerkOrgId={trainer.clerkOrgId}
+                          trainerName={`${trainer.firstName} ${trainer.lastName}`}
+                        />
+                        <AdminBulkInviteDialog
+                          clerkOrgId={trainer.clerkOrgId}
+                          trainerName={`${trainer.firstName} ${trainer.lastName}`}
+                        />
+                      </>
                     )}
                     <UserActionsMenu
                       userId={trainer.id}

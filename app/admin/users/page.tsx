@@ -46,6 +46,13 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
   const total = allUsersData?.total ?? 0;
   const totalPages = allUsersData?.totalPages ?? 0;
 
+  const selectedOrgTrainer = orgId
+    ? (trainersForFilter ?? []).find((t) => t.clerkOrgId === orgId)
+    : undefined;
+  const selectedOrgLabel = selectedOrgTrainer
+    ? `${selectedOrgTrainer.firstName} ${selectedOrgTrainer.lastName}`
+    : "All organizations";
+
   return (
     <div className="space-y-6">
       <div>
@@ -109,11 +116,7 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
               <Select name="org" defaultValue={orgId || "ALL"}>
                 <SelectTrigger className="w-48">
                   <SelectValue placeholder="All organizations">
-                    {(value: string | null) => {
-                      if (!value || value === "ALL") return "All organizations";
-                      const trainer = (trainersForFilter ?? []).find((t) => t.clerkOrgId === value);
-                      return trainer ? `${trainer.firstName} ${trainer.lastName}` : "All organizations";
-                    }}
+                    {selectedOrgLabel}
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
