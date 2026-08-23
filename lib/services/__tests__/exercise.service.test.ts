@@ -101,12 +101,17 @@ describe('toggleExercisePublic', () => {
 })
 
 describe('getExercises', () => {
-  it('filters to UNIVERSAL exercises only when source is UNIVERSAL', async () => {
+  it('includes public ORGANIZATION exercises alongside true UNIVERSAL ones when source is UNIVERSAL', async () => {
     mockFindMany.mockResolvedValue([] as any)
     await getExercises({ source: 'UNIVERSAL' as any })
     expect(mockFindMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: expect.objectContaining({ source: 'UNIVERSAL' }),
+        where: expect.objectContaining({
+          OR: [
+            { source: 'UNIVERSAL' },
+            { source: 'ORGANIZATION', isPublic: true },
+          ],
+        }),
       })
     )
   })

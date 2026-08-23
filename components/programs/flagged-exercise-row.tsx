@@ -18,7 +18,7 @@ const FLAG_META: Record<ExerciseMatchFlag, { label: string; icon: typeof AlertTr
     className: "bg-red-50 text-red-700 border-red-200",
   },
   not_in_document: {
-    label: "Not in document",
+    label: "Couldn't verify in document",
     icon: FileWarning,
     className: "bg-purple-50 text-purple-700 border-purple-200",
   },

@@ -13,6 +13,7 @@ import { determineProgramMode, buildClientContextBlock } from '@/lib/ai/utils/cl
 import { groupWeeksIntoPhases } from '@/lib/ai/utils/program-phasing'
 import { computeProgressedRx, isDeloadWeek, type PhaseTemplateExercise } from '@/lib/ai/utils/progression-rules'
 import { dedupeAcrossDays } from '@/lib/ai/utils/exercise-dedup'
+import { enforceCircuitExerciseCounts } from '@/lib/ai/utils/circuit-counts'
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -874,7 +875,44 @@ ${hasCircuits ? `7. Assign "circuitIndex" to every exercise — it MUST match on
     })),
     exercises
   );
-  const dedupedExercises = dedupedTemplates.flatMap((t) => t.exercises);
+
+  let dedupedExercises = dedupedTemplates.flatMap((t) => t.exercises);
+
+  // The prompt tells the model "EXACTLY N exercises per circuit", but
+  // response_format: "json_object" gives no structural (array-length)
+  // guarantee, and the invalid-ID filter above can only ever reduce counts
+  // further — nothing restores a shortfall. Deterministically correct each
+  // day's per-circuit count to match what the trainer configured.
+  if (hasCircuits) {
+    const countCorrectedByDay = enforceCircuitExerciseCounts<GeneratedExercise>(
+      new Map(dedupedTemplates.map((t) => [t.dayOfWeek, t.exercises])),
+      circuits,
+      exercises,
+      (poolItem, circuitIndex, orderIndex, dayOfWeek) => {
+        const focusType = circuits[circuitIndex].focusType;
+        const phase =
+          focusType === "WARMUP" ? "WARMUP" :
+          focusType === "COOLDOWN" ? "COOLDOWN" :
+          focusType === "FLEXIBILITY" ? "MOBILITY" :
+          focusType === "CARDIO" || focusType === "BALANCE" ? "ACTIVATION" : "STRENGTHENING";
+        const hasReps = poolItem.defaultReps != null || poolItem.defaultHoldSeconds == null;
+        return {
+          exerciseId: poolItem.id,
+          exerciseName: poolItem.name,
+          phase,
+          circuitIndex,
+          sets: poolItem.defaultSets ?? 3,
+          reps: hasReps ? (poolItem.defaultReps ?? 10) : undefined,
+          durationSeconds: hasReps ? undefined : (poolItem.defaultHoldSeconds ?? undefined),
+          restSeconds: 30,
+          dayOfWeek,
+          orderIndex,
+          notes: undefined,
+        };
+      }
+    );
+    dedupedExercises = Array.from(countCorrectedByDay.values()).flat();
+  }
 
   // Post-processing: sort exercises per day by phase order
   const sortedExercises = [...dedupedExercises].sort((a, b) => {
@@ -1078,7 +1116,25 @@ type BlueprintExercise = {
   traceableInDocument?: boolean;
 };
 type BlueprintBlock = { name: string; exercises: BlueprintExercise[] };
-type BlueprintSession = { dayIndex: number; weekIndex?: number; title: string; blocks: BlueprintBlock[] };
+type BlueprintSession = { dayIndex: number; weekIndex?: number; title: string; blocks: BlueprintBlock[]; dayLabel?: string | null };
+
+const WEEKDAY_NAME_TO_INDEX: Record<string, number> = {
+  monday: 0, mon: 0,
+  tuesday: 1, tue: 1, tues: 1,
+  wednesday: 2, wed: 2,
+  thursday: 3, thu: 3, thur: 3, thurs: 3,
+  friday: 4, fri: 4,
+  saturday: 5, sat: 5,
+  sunday: 6, sun: 6,
+};
+
+// Resolves a verbatim dayLabel (e.g. "Monday") to an absolute weekday index
+// (0=Monday..6=Sunday), or null if it doesn't name a real weekday (e.g. "Day 1").
+function parseWeekdayFromLabel(label: string | null | undefined): number | null {
+  if (!label) return null;
+  const normalized = label.toLowerCase().trim().replace(/[^a-z]/g, "");
+  return WEEKDAY_NAME_TO_INDEX[normalized] ?? null;
+}
 
 function assemblePreviewWorkouts(
   sessions: { dayOfWeek: number; weekIndex: number; name: string }[],
@@ -1202,8 +1258,16 @@ export async function buildProgramPreviewFromBlueprint(params: {
     return preferredDayIndices[dayIndex % preferredDayIndices.length];
   }
 
+  // Prefer the document's own stated weekday (e.g. "Monday") over counting
+  // position within the week — position drifts as soon as any session in the
+  // middle of the week gets dropped (e.g. an unresolvable "same exercises as
+  // Week 1" reference shifts every later session's position down by one).
+  function resolveDayOfWeek(session: BlueprintSession): number {
+    return parseWeekdayFromLabel(session.dayLabel) ?? toActualDayOfWeek(session.dayIndex);
+  }
+
   const sessions = params.sessionBlueprint.map((s) => ({
-    dayOfWeek: toActualDayOfWeek(s.dayIndex),
+    dayOfWeek: resolveDayOfWeek(s),
     weekIndex: s.weekIndex ?? 0,
     name: s.title,
   }));
@@ -1255,7 +1319,7 @@ export async function buildProgramPreviewFromBlueprint(params: {
           reps,
           restSeconds: undefined,
           weekIndex: session.weekIndex ?? 0,
-          dayOfWeek: toActualDayOfWeek(session.dayIndex),
+          dayOfWeek: resolveDayOfWeek(session),
           orderIndex: orderIndex++,
           notes: exerciseBp.notes ?? undefined,
           flags,

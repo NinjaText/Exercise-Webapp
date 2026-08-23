@@ -5,6 +5,7 @@ const ACTION_LABELS: Record<string, string> = {
   LOGIN: "Logged in",
   LOGOUT: "Logged out",
   USER_INVITED: "Invited user",
+  USER_INVITE_REVOKED: "Revoked invitation",
   USER_DEACTIVATED: "Deactivated user",
   USER_REACTIVATED: "Reactivated user",
   USER_DELETED: "Deleted user",

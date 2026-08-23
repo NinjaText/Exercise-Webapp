@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-const { mockCreate } = vi.hoisted(() => ({ mockCreate: vi.fn() }))
+const { mockCreate, mockConvertToHtml } = vi.hoisted(() => ({ mockCreate: vi.fn(), mockConvertToHtml: vi.fn() }))
 vi.mock('server-only', () => ({}))
 vi.mock('openai', () => {
   return {
@@ -10,7 +10,8 @@ vi.mock('openai', () => {
   }
 })
 vi.mock('mammoth', () => ({
-  convertToHtml: vi.fn(),
+  default: { convertToHtml: mockConvertToHtml },
+  convertToHtml: mockConvertToHtml,
 }))
 vi.mock('pdf-parse', () => ({
   default: vi.fn(),
@@ -20,7 +21,7 @@ beforeEach(() => {
   vi.clearAllMocks()
 })
 
-import { splitIntoChunks, mergeChunkSessions, deriveCircuitsFromSessions, extractBriefMetadata, extractChunkSessions, parseProgramBrief, isExerciseTraceableInDocument, flagUntraceableExercises, dropFabricatedSessions, renumberSessions } from '../program-brief.service'
+import { splitIntoChunks, mergeChunkSessions, deriveCircuitsFromSessions, extractBriefMetadata, extractChunkSessions, parseProgramBrief, isExerciseTraceableInDocument, flagUntraceableExercises, dropFabricatedSessions, renumberSessions, extractProgramBriefText, parseWeekdayFromLabel } from '../program-brief.service'
 
 function block(name: string, focusType: string, exerciseCount: number) {
   return {
@@ -156,6 +157,66 @@ describe('renumberSessions', () => {
   })
 })
 
+describe('extractProgramBriefText (docx table flattening)', () => {
+  it('strips a week-by-week overview grid entirely (regression: a bare "Week 1" header cell was first mistaken for a real section boundary; after fixing that, its flattened rows were then mistaken for real training days since they read like "Tuesday: 5 mi easy"-style entries)', async () => {
+    mockConvertToHtml.mockResolvedValue({
+      value:
+        '<p>Intro paragraph.</p>' +
+        '<h1>4-Week Overview</h1>' +
+        '<table>' +
+        '<tr><td><p><strong>Day</strong></p></td><td><p><strong>Week 1</strong></p></td><td><p><strong>Week 2</strong></p></td></tr>' +
+        '<tr><td><p>Mon</p></td><td><p>Strength A</p></td><td><p>Strength A</p></td></tr>' +
+        '<tr><td><p>Tue</p></td><td><p>5 mi easy</p></td><td><p>5 mi incl. tempo</p></td></tr>' +
+        '</table>' +
+        '<h1>Week 1 — Final Loading Week</h1><p>Real content here.</p>',
+      messages: [],
+    } as any)
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      arrayBuffer: async () => new ArrayBuffer(0),
+    } as any)
+
+    const text = await extractProgramBriefText('https://example.com/file.docx', 'plan.docx')
+
+    // Neither a bare "Week 1" header cell nor a flattened summary row like
+    // "Tue | 5 mi easy | 5 mi incl. tempo" should appear anywhere — the whole
+    // overview grid is redundant with the real "Week 1 — Final Loading Week"
+    // section that follows, and only ever confuses extraction.
+    expect(text).not.toMatch(/^Week 1$/m)
+    expect(text).not.toContain('Day | Week 1 | Week 2')
+    expect(text).not.toContain('5 mi easy')
+    expect(text).toContain('Real content here.')
+
+    // Chunking must therefore find exactly one real boundary ("Week 1 — Final
+    // Loading Week"), not treat the table's header cell as a second one.
+    const boundaryPattern = /^(week|phase|month|cycle|block)\s+\d+/i
+    const paragraphs = text.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean)
+    const boundaryCount = paragraphs.filter((p) => boundaryPattern.test(p)).length
+    expect(boundaryCount).toBe(1)
+  })
+
+  it('still flattens an ordinary (non-overview) table into one line per row', async () => {
+    mockConvertToHtml.mockResolvedValue({
+      value:
+        '<h2>Monday — Strength A</h2>' +
+        '<table>' +
+        '<tr><td><p><strong>Exercise</strong></p></td><td><p><strong>Sets</strong></p></td></tr>' +
+        '<tr><td><p>Goblet squat</p></td><td><p>3 x 8</p></td></tr>' +
+        '</table>',
+      messages: [],
+    } as any)
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      arrayBuffer: async () => new ArrayBuffer(0),
+    } as any)
+
+    const text = await extractProgramBriefText('https://example.com/file.docx', 'plan.docx')
+
+    expect(text).toContain('Exercise | Sets')
+    expect(text).toContain('Goblet squat | 3 x 8')
+  })
+})
+
 describe('splitIntoChunks', () => {
   it('returns an empty array for empty text', () => {
     expect(splitIntoChunks('')).toEqual([])
@@ -228,6 +289,31 @@ describe('splitIntoChunks', () => {
   })
 })
 
+describe('parseWeekdayFromLabel', () => {
+  it('resolves full weekday names case-insensitively', () => {
+    expect(parseWeekdayFromLabel('Monday')).toBe(0)
+    expect(parseWeekdayFromLabel('wednesday')).toBe(2)
+    expect(parseWeekdayFromLabel('SUNDAY')).toBe(6)
+  })
+
+  it('resolves common abbreviations', () => {
+    expect(parseWeekdayFromLabel('Mon')).toBe(0)
+    expect(parseWeekdayFromLabel('Thurs')).toBe(3)
+  })
+
+  it('tolerates trailing punctuation', () => {
+    expect(parseWeekdayFromLabel('Monday:')).toBe(0)
+    expect(parseWeekdayFromLabel('Mon.')).toBe(0)
+  })
+
+  it('returns null for non-weekday labels', () => {
+    expect(parseWeekdayFromLabel('Day 1')).toBeNull()
+    expect(parseWeekdayFromLabel('Session A')).toBeNull()
+    expect(parseWeekdayFromLabel(null)).toBeNull()
+    expect(parseWeekdayFromLabel(undefined)).toBeNull()
+  })
+})
+
 describe('mergeChunkSessions', () => {
   it('groups sessions into weeks by weekLabel continuity, not by dividing a flat count', () => {
     const chunkResults = [
@@ -249,6 +335,22 @@ describe('mergeChunkSessions', () => {
       [1, 0, 'Lower A'],
     ])
     expect(daysPerWeek).toBe(2)
+  })
+
+  it('carries dayLabel through onto the session blueprint (regression: it was captured by extraction but discarded during merge, so downstream day-of-week assignment could only guess from position)', () => {
+    const chunkResults = [
+      {
+        sessions: [
+          { weekLabel: 'Week 1', dayLabel: 'Monday', title: 'Lower A', blocks: [] },
+          { weekLabel: 'Week 1', dayLabel: 'Wednesday', title: 'Upper A', blocks: [] },
+        ],
+        warnings: [],
+      },
+    ]
+
+    const { sessionBlueprint } = mergeChunkSessions(chunkResults, 2)
+
+    expect(sessionBlueprint.map((s) => s.dayLabel)).toEqual(['Monday', 'Wednesday'])
   })
 
   it('carries the last non-null weekLabel forward onto undecorated sessions', () => {
@@ -538,6 +640,51 @@ describe('extractChunkSessions', () => {
     mockCreate.mockResolvedValue({ choices: [{ message: { content: null } }] })
     const result = await extractChunkSessions('chunk text', 0, 1, null)
     expect(result).toEqual({ sessions: [], warnings: [] })
+  })
+})
+
+describe('parseProgramBrief (orchestrator) — deterministic chunk weekLabel override', () => {
+  it('groups all sessions from one chunk into a single week even when the extraction LLM tags weekLabel inconsistently across them (regression: inconsistent per-session weekLabel tagging fractured one real week into several phantom weeks)', async () => {
+    mockCreate.mockImplementation((args: any) => {
+      const userContent = args.messages[1].content as string
+      if (args.response_format.json_schema.name === 'brief_metadata') {
+        return Promise.resolve({
+          choices: [{ message: { content: JSON.stringify({
+            programTitle: 'Test Program', focusAreas: ['full body'], difficultyLevel: 'ADVANCED',
+            durationMinutes: 45, preferredWeekdays: ['Monday', 'Tuesday', 'Wednesday'],
+            estimatedDaysPerWeek: 3, inferredFields: [],
+          }) } }],
+        })
+      }
+      const weekMatch = userContent.match(/Week (\d)/)
+      const week = weekMatch ? weekMatch[1] : '1'
+      // Simulate the model tagging weekLabel inconsistently within the SAME
+      // chunk — e.g. correctly for the strength session, but null (or a
+      // stray different value) for a borderline "session" like a plain run.
+      return Promise.resolve({
+        choices: [{ message: { content: JSON.stringify({
+          sessions: [
+            { weekLabel: `Week ${week}`, dayLabel: 'Monday', title: 'Strength', blocks: [{ name: 'Main', focusType: 'FULL_BODY', exercises: [{ name: 'Squat', sets: 3, reps: 8, durationSeconds: null, notes: null }] }] },
+            { weekLabel: null, dayLabel: 'Tuesday', title: 'Easy Run', blocks: [{ name: 'Run', focusType: 'CARDIO', exercises: [{ name: '5 miles easy', sets: null, reps: null, durationSeconds: null, notes: null }] }] },
+          ],
+          warnings: [],
+        }) } }],
+      })
+    })
+
+    const text = [
+      'Week 1', 'DAY_1: Strength\nSquat - 3x8\nDAY_2: 5 miles easy',
+      'Week 2', 'DAY_1: Strength\nSquat - 3x8\nDAY_2: 5 miles easy',
+    ].join('\n\n')
+
+    const result = await parseProgramBrief(text)
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error('expected ok result')
+    // 2 real weeks (from the 2 chunks), 2 sessions each — NOT 3-4 phantom
+    // weeks from the null-tagged "Easy Run" session drifting to its own group.
+    expect(new Set(result.data.sessionBlueprint!.map((s) => s.weekIndex))).toEqual(new Set([0, 1]))
+    expect(result.data.sessionBlueprint).toHaveLength(4)
   })
 })
 

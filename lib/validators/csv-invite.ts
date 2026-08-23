@@ -43,3 +43,42 @@ export function validateCsvInviteRows(
 
   return { valid, errors };
 }
+
+export interface EmailListValidationResult {
+  valid: string[];
+  errors: CsvRowError[];
+}
+
+/**
+ * Parses free-form pasted text into a deduped list of valid emails.
+ * Splits on commas, semicolons, whitespace, and newlines.
+ */
+export function parseEmailList(input: string): EmailListValidationResult {
+  const tokens = input
+    .split(/[\s,;]+/)
+    .map((t) => t.trim())
+    .filter(Boolean);
+
+  const valid: string[] = [];
+  const errors: CsvRowError[] = [];
+  const seen = new Set<string>();
+
+  tokens.forEach((token, i) => {
+    const result = emailRowSchema.safeParse({ email: token });
+    if (result.success) {
+      const email = result.data.email.toLowerCase();
+      if (!seen.has(email)) {
+        seen.add(email);
+        valid.push(email);
+      }
+    } else {
+      errors.push({
+        row: i + 1,
+        column: "email",
+        message: `"${token}" is not a valid email address`,
+      });
+    }
+  });
+
+  return { valid, errors };
+}

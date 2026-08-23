@@ -30,8 +30,12 @@ export async function getExercises(filters: ExerciseFilters = {}) {
       ...(filters.equipment && {
         equipmentRequired: { has: filters.equipment },
       }),
-      // UNIVERSAL: explicit match only — run backfillExerciseSources() once to fix pre-migration docs
-      ...(filters.source === "UNIVERSAL" && { source: "UNIVERSAL" as const }),
+      // UNIVERSAL: true UNIVERSAL exercises plus any org exercise a trainer has made public —
+      // mirrors getExercisesForPicker so the library page and program-builder picker agree
+      // on what counts as "Universal". Run backfillExerciseSources() once to fix pre-migration docs.
+      ...(filters.source === "UNIVERSAL" && {
+        OR: [{ source: "UNIVERSAL" as const }, { source: "ORGANIZATION" as const, isPublic: true }],
+      }),
       // ORGANIZATION: always filter by source; use impossible sentinel when no orgId to return 0 results
       ...(filters.source === "ORGANIZATION" && {
         source: "ORGANIZATION" as const,
