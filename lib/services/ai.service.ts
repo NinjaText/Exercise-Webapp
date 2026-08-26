@@ -541,7 +541,49 @@ Produce exactly one dayTemplates entry per weekday index in [${uniqueDayIndices.
           ...t,
           exercises: (t.exercises ?? []).filter(e => poolIds.has(e.exerciseId)),
         }))
-        const dayTemplates = dedupeAcrossDays(cleanedTemplates, pool)
+        let dayTemplates = dedupeAcrossDays(cleanedTemplates, pool)
+
+        // Same drift as the single-week path: "EXACTLY N per circuit" is a
+        // soft prompt instruction under response_format: "json_object", and
+        // the poolIds filter above can only ever shrink a circuit's count,
+        // never restore it. Deterministically correct each day template's
+        // per-circuit count before it gets expanded across every week of
+        // this phase (expanding first would just repeat the same drift N
+        // times over).
+        if (hasCircuits) {
+          const exercisesByDay = new Map<number, (PhaseTemplateExercise & { orderIndex: number })[]>(
+            dayTemplates.map(t => [t.dayOfWeek, t.exercises.map((e, i) => ({ ...e, orderIndex: i }))])
+          )
+          const corrected = enforceCircuitExerciseCounts(
+            exercisesByDay,
+            circuits,
+            pool,
+            (poolItem, circuitIndex, orderIndex) => {
+              const focusType = circuits[circuitIndex].focusType
+              const exercisePhase =
+                focusType === 'WARMUP' ? 'WARMUP' :
+                focusType === 'COOLDOWN' ? 'COOLDOWN' :
+                focusType === 'FLEXIBILITY' ? 'MOBILITY' :
+                focusType === 'CARDIO' || focusType === 'BALANCE' ? 'ACTIVATION' : 'STRENGTHENING'
+              const hasReps = poolItem.defaultReps != null || poolItem.defaultHoldSeconds == null
+              return {
+                exerciseId: poolItem.id,
+                exerciseName: poolItem.name,
+                phase: exercisePhase,
+                circuitIndex,
+                baseSets: poolItem.defaultSets ?? 3,
+                baseReps: hasReps ? (poolItem.defaultReps ?? 10) : undefined,
+                baseDurationSeconds: hasReps ? undefined : (poolItem.defaultHoldSeconds ?? undefined),
+                restSeconds: 30,
+                orderIndex,
+              }
+            }
+          )
+          dayTemplates = dayTemplates.map(t => ({
+            ...t,
+            exercises: corrected.get(t.dayOfWeek) ?? t.exercises,
+          }))
+        }
 
         return { phase, dayTemplates, title: parsed.title, description: parsed.description }
       })
