@@ -1,5 +1,11 @@
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { ListChecks, ChevronRight, CircleCheck } from "lucide-react";
 import type { AlertSeverity, PriorityAlert } from "@/lib/services/dashboard-insights.service";
 
@@ -10,9 +16,9 @@ const severityDot: Record<AlertSeverity, string> = {
 };
 
 const severityLabel: Record<AlertSeverity, string> = {
-  high: "High",
-  medium: "Medium",
-  low: "On track",
+  high: "High Priority",
+  medium: "Medium Priority",
+  low: "On Track",
 };
 
 const severityBadge: Record<AlertSeverity, string> = {
@@ -21,7 +27,14 @@ const severityBadge: Record<AlertSeverity, string> = {
   low: "bg-success/10 text-success",
 };
 
+const SEVERITY_ORDER: AlertSeverity[] = ["high", "medium", "low"];
+
 export function TodaysPrioritiesCard({ priorities }: { priorities: PriorityAlert[] }) {
+  const groups = SEVERITY_ORDER.map((severity) => ({
+    severity,
+    alerts: priorities.filter((alert) => alert.severity === severity),
+  })).filter((group) => group.alerts.length > 0);
+
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between pb-3">
@@ -40,24 +53,38 @@ export function TodaysPrioritiesCard({ priorities }: { priorities: PriorityAlert
             </p>
           </div>
         ) : (
-          <div className="space-y-2">
-            {priorities.map((alert, i) => (
-              <Link
-                key={`${alert.clientId}-${i}`}
-                href={alert.href}
-                className="flex items-center gap-3 rounded-xl border border-border/60 bg-muted/20 p-3 transition-colors hover:bg-muted/40"
-              >
-                <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${severityDot[alert.severity]}`} />
-                <p className="min-w-0 flex-1 truncate text-sm">{alert.message}</p>
-                <span
-                  className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${severityBadge[alert.severity]}`}
-                >
-                  {severityLabel[alert.severity]}
-                </span>
-                <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground/40" />
-              </Link>
+          <Accordion multiple>
+            {groups.map(({ severity, alerts }) => (
+              <AccordionItem key={severity} value={severity}>
+                <AccordionTrigger>
+                  <span className="flex items-center gap-2">
+                    <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${severityDot[severity]}`} />
+                    {severityLabel[severity]}
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${severityBadge[severity]}`}
+                    >
+                      {alerts.length}
+                    </span>
+                  </span>
+                </AccordionTrigger>
+                <AccordionContent>
+                  <div className="space-y-2">
+                    {alerts.map((alert, i) => (
+                      <Link
+                        key={`${alert.clientId}-${i}`}
+                        href={alert.href}
+                        className="flex items-center gap-3 rounded-xl border border-border/60 bg-muted/20 p-3 transition-colors hover:bg-muted/40"
+                      >
+                        <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${severityDot[alert.severity]}`} />
+                        <p className="min-w-0 flex-1 truncate text-sm">{alert.message}</p>
+                        <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground/40" />
+                      </Link>
+                    ))}
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
             ))}
-          </div>
+          </Accordion>
         )}
       </CardContent>
     </Card>

@@ -1,9 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { format } from "date-fns";
+import { addDays, format, isToday } from "date-fns";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { ChevronLeft, ChevronRight, Clock, Info } from "lucide-react";
+import { ChevronLeft, ChevronRight, Clock, Info, Moon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toLocalCalendarDate } from "@/lib/utils/calendar-date";
 import { groupSessionsByWeek } from "@/lib/utils/schedule-weeks";
@@ -20,7 +20,7 @@ interface Props {
 
 export function ClientProgramScheduleView({ rawSessions }: Props) {
   const sessions = useMemo(() => rawSessions.map(castSession), [rawSessions]);
-  const { weeks, defaultWeekIndex } = useMemo(
+  const { weeks, defaultWeekIndex, weekStartDates } = useMemo(
     () => groupSessionsByWeek(sessions, new Date()),
     [sessions]
   );
@@ -39,6 +39,13 @@ export function ClientProgramScheduleView({ rawSessions }: Props) {
 
   const clampedIndex = Math.max(0, Math.min(weekIndex, weeks.length - 1));
   const currentWeek = weeks[clampedIndex];
+  const weekStart = weekStartDates[clampedIndex];
+  const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+
+  const sessionsByDay = new Map<string, SessionData>();
+  for (const session of currentWeek) {
+    sessionsByDay.set(format(toLocalCalendarDate(session.scheduledDate), "yyyy-MM-dd"), session);
+  }
 
   return (
     <div className="space-y-4">
@@ -51,9 +58,14 @@ export function ClientProgramScheduleView({ rawSessions }: Props) {
         >
           <ChevronLeft className="h-4 w-4" />
         </button>
-        <h2 className="text-sm font-bold tracking-tight sm:text-base">
-          Week {clampedIndex + 1} of {weeks.length}
-        </h2>
+        <div className="text-center">
+          <h2 className="text-sm font-bold tracking-tight sm:text-base">
+            Week {clampedIndex + 1} of {weeks.length}
+          </h2>
+          <p className="text-[11px] text-muted-foreground">
+            {format(weekStart, "MMM d")} – {format(addDays(weekStart, 6), "MMM d")}
+          </p>
+        </div>
         <button
           onClick={() => setWeekIndex((i) => Math.min(weeks.length - 1, i + 1))}
           disabled={clampedIndex === weeks.length - 1}
@@ -64,57 +76,70 @@ export function ClientProgramScheduleView({ rawSessions }: Props) {
         </button>
       </div>
 
-      {currentWeek.length === 0 ? (
-        <p className="px-1 text-sm text-muted-foreground">
-          No workouts scheduled this week.
-        </p>
-      ) : (
-        <div className="space-y-2">
-          {currentWeek.map((session) => {
-            const statusCfg = STATUS_CONFIG[session.status] ?? STATUS_CONFIG.SCHEDULED;
-            const exerciseCount = session.workout.blocks.reduce(
-              (sum, b) => sum + b.exercises.length,
-              0
-            );
-            const date = toLocalCalendarDate(session.scheduledDate);
+      <div className="overflow-x-auto pb-1">
+        <div className="grid min-w-[700px] grid-cols-7 gap-2 sm:min-w-0">
+          {days.map((day) => {
+            const key = format(day, "yyyy-MM-dd");
+            const session = sessionsByDay.get(key);
+            const statusCfg = session ? STATUS_CONFIG[session.status] ?? STATUS_CONFIG.SCHEDULED : null;
+            const exerciseCount = session
+              ? session.workout.blocks.reduce((sum, b) => sum + b.exercises.length, 0)
+              : 0;
+            const today = isToday(day);
 
             return (
-              <button
-                key={session.id}
-                onClick={() => setSelectedSession(session)}
-                className="flex w-full items-center gap-3 rounded-lg border border-border bg-card px-3 py-2.5 text-left transition-colors hover:border-foreground/30"
+              <div
+                key={key}
+                className={cn(
+                  "flex min-h-40 flex-col rounded-lg border bg-card p-2",
+                  today ? "border-primary/50 ring-1 ring-primary/30" : "border-border"
+                )}
               >
-                <div
-                  className={cn("h-2 w-2 shrink-0 rounded-full")}
-                  style={{ backgroundColor: statusCfg.dot }}
-                />
-                <div className="min-w-0 flex-1">
-                  <p className="text-xs font-medium text-muted-foreground">
-                    {format(date, "EEEE, MMM d")}
-                  </p>
-                  <p className="truncate text-sm font-semibold leading-snug text-foreground">
-                    {session.workout.name}
-                  </p>
-                  <p className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
-                    {session.workout.estimatedMinutes && (
-                      <span className="flex items-center gap-1">
-                        <Clock className="h-3 w-3" />
-                        ~{session.workout.estimatedMinutes} min
-                      </span>
-                    )}
-                    <span>
-                      {exerciseCount} exercise{exerciseCount !== 1 ? "s" : ""}
-                    </span>
-                  </p>
+                <div className="mb-1.5 flex items-baseline justify-between px-0.5">
+                  <span className={cn("text-[11px] font-semibold uppercase tracking-wide", today ? "text-primary" : "text-muted-foreground")}>
+                    {format(day, "EEE")}
+                  </span>
+                  <span className={cn("text-xs font-medium", today ? "text-primary" : "text-muted-foreground")}>
+                    {format(day, "d")}
+                  </span>
                 </div>
-                <span className="shrink-0 text-[10px] font-medium text-muted-foreground">
-                  {statusCfg.label}
-                </span>
-              </button>
+
+                {session ? (
+                  <button
+                    onClick={() => setSelectedSession(session)}
+                    className="flex flex-1 flex-col items-start gap-1.5 rounded-md border border-border/70 bg-muted/30 p-2 text-left transition-colors hover:border-foreground/30 hover:bg-muted/50"
+                  >
+                    <span
+                      className="h-2 w-2 shrink-0 rounded-full"
+                      style={{ backgroundColor: statusCfg!.dot }}
+                    />
+                    <p className="line-clamp-2 text-xs font-semibold leading-snug text-foreground">
+                      {session.workout.name}
+                    </p>
+                    <div className="mt-auto flex flex-col gap-0.5 text-[10px] text-muted-foreground">
+                      {session.workout.estimatedMinutes && (
+                        <span className="flex items-center gap-1">
+                          <Clock className="h-2.5 w-2.5" />
+                          ~{session.workout.estimatedMinutes} min
+                        </span>
+                      )}
+                      <span>
+                        {exerciseCount} exercise{exerciseCount !== 1 ? "s" : ""}
+                      </span>
+                      <span className="font-medium">{statusCfg!.label}</span>
+                    </div>
+                  </button>
+                ) : (
+                  <div className="flex flex-1 flex-col items-center justify-center gap-1 rounded-md border border-dashed border-border/60 text-muted-foreground/50">
+                    <Moon className="h-3.5 w-3.5" />
+                    <span className="text-[10px]">Rest day</span>
+                  </div>
+                )}
+              </div>
             );
           })}
         </div>
-      )}
+      </div>
 
       <Dialog
         open={selectedSession !== null}

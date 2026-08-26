@@ -3,10 +3,17 @@
 import { useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import {
   Select,
   SelectContent,
@@ -41,11 +48,11 @@ import {
   Sparkles,
   Library,
   Pencil,
-  Users,
   Dumbbell,
   Upload,
   Globe,
   Lock,
+  Eye,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -123,7 +130,24 @@ const statusConfig: Record<string, { label: string; className: string }> = {
   ARCHIVED:  { label: "Archived",  className: "bg-muted text-muted-foreground border-border opacity-70" },
 };
 
-function ProgramCard({
+function WorkoutCount({ count }: { count: number }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+      <Dumbbell className="h-3.5 w-3.5 shrink-0" />
+      {count}
+    </span>
+  );
+}
+
+function UpdatedAt({ date }: { date: Date }) {
+  return (
+    <span className="text-muted-foreground">
+      {formatDistanceToNow(new Date(date), { addSuffix: true })}
+    </span>
+  );
+}
+
+function ProgramRow({
   program,
   role,
   updatableSet,
@@ -134,6 +158,7 @@ function ProgramCard({
   togglingPublicId,
   typeBadge,
   search,
+  personColumn,
 }: {
   program: ProgramListItem;
   role?: string;
@@ -145,6 +170,8 @@ function ProgramCard({
   togglingPublicId: string | null;
   typeBadge?: "clinical";
   search?: string;
+  /** Which related person to show — trainers see the assigned client, clients see their trainer. */
+  personColumn: "client" | "trainer";
 }) {
   const router = useRouter();
   const status = statusConfig[program.status] ?? { label: program.status, className: "bg-muted text-muted-foreground border-border" };
@@ -152,54 +179,20 @@ function ProgramCard({
   const detailHref = matchedWorkoutId
     ? `/programs/${program.id}?workoutId=${matchedWorkoutId}`
     : `/programs/${program.id}`;
-  return (
-    <Card className="group flex flex-col border-0 shadow-sm ring-1 ring-border/50 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:ring-border">
-      <CardContent className="flex flex-1 flex-col p-5">
-        <div className="flex items-start justify-between gap-2">
-          <Link href={detailHref} className="flex-1 min-w-0">
-            <h3 className="truncate text-base font-semibold leading-tight transition-colors group-hover:text-primary">
-              {program.name}
-            </h3>
-          </Link>
-          {role === "TRAINER" && (
-            <DropdownMenu>
-              <DropdownMenuTrigger className="shrink-0 flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity hover:bg-muted group-hover:opacity-100">
-                <MoreVertical className="h-4 w-4" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-44">
-                <DropdownMenuItem onClick={() => router.push(`/programs/${program.id}/edit`)}>
-                  <Pencil className="mr-2 h-4 w-4" /> Edit
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onDuplicate(program.id)}>
-                  <Copy className="mr-2 h-4 w-4" /> Duplicate
-                </DropdownMenuItem>
-                {!program.clientId && (
-                  <DropdownMenuItem onClick={() => router.push(`/programs/${program.id}?assign=true`)}>
-                    <UserPlus className="mr-2 h-4 w-4" /> Assign Client
-                  </DropdownMenuItem>
-                )}
-                <DropdownMenuSeparator />
-                {program.status === "ARCHIVED" ? (
-                  <DropdownMenuItem
-                    onClick={() => onRequestHardDelete(program.id, program.name)}
-                    className="text-destructive focus:text-destructive"
-                  >
-                    <Trash2 className="mr-2 h-4 w-4" /> Delete Permanently
-                  </DropdownMenuItem>
-                ) : (
-                  <DropdownMenuItem
-                    onClick={() => onArchive(program.id)}
-                    className="text-destructive focus:text-destructive"
-                  >
-                    <Archive className="mr-2 h-4 w-4" /> Archive
-                  </DropdownMenuItem>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-        </div>
+  const person = personColumn === "client" ? program.client : program.trainer;
 
-        <div className="mt-3 flex flex-wrap items-center gap-1.5">
+  return (
+    <TableRow className="group">
+      <TableCell className="max-w-64">
+        <Link href={detailHref} className="font-medium hover:text-primary hover:underline truncate block">
+          {program.name}
+        </Link>
+      </TableCell>
+      <TableCell className="text-muted-foreground">
+        {person ? `${person.firstName} ${person.lastName}` : personColumn === "client" ? "Unassigned" : "—"}
+      </TableCell>
+      <TableCell>
+        <div className="flex flex-wrap items-center gap-1.5">
           <Badge className={`border text-[11px] font-medium ${status.className}`}>
             {status.label}
           </Badge>
@@ -235,43 +228,65 @@ function ProgramCard({
             </button>
           )}
         </div>
-
-        <div className="mt-4 flex-1 space-y-1.5 text-xs text-muted-foreground">
-          <div className="flex items-center gap-1.5">
-            <Users className="h-3.5 w-3.5 shrink-0" />
-            <span className="truncate">
-              {program.client
-                ? `${program.client.firstName} ${program.client.lastName}`
-                : "Unassigned"}
-            </span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <Dumbbell className="h-3.5 w-3.5 shrink-0" />
-            <span>
-              {program._count.workouts} workout{program._count.workouts !== 1 ? "s" : ""}
-            </span>
-          </div>
+      </TableCell>
+      <TableCell>
+        <WorkoutCount count={program._count.workouts} />
+      </TableCell>
+      <TableCell>
+        <UpdatedAt date={program.updatedAt} />
+      </TableCell>
+      <TableCell className="text-right">
+        <div className="flex items-center justify-end gap-1">
+          <Link
+            href={detailHref}
+            className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity hover:bg-muted hover:text-foreground group-hover:opacity-100"
+            title={matchedWorkoutId ? "View workout" : "View program"}
+          >
+            <Eye className="h-4 w-4" />
+          </Link>
+          {role === "TRAINER" && (
+            <DropdownMenu>
+              <DropdownMenuTrigger className="shrink-0 flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-opacity hover:bg-muted">
+                <MoreVertical className="h-4 w-4" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-44">
+                <DropdownMenuItem onClick={() => router.push(`/programs/${program.id}/edit`)}>
+                  <Pencil className="mr-2 h-4 w-4" /> Edit
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onDuplicate(program.id)}>
+                  <Copy className="mr-2 h-4 w-4" /> Duplicate
+                </DropdownMenuItem>
+                {!program.clientId && (
+                  <DropdownMenuItem onClick={() => router.push(`/programs/${program.id}?assign=true`)}>
+                    <UserPlus className="mr-2 h-4 w-4" /> Assign Client
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuSeparator />
+                {program.status === "ARCHIVED" ? (
+                  <DropdownMenuItem
+                    onClick={() => onRequestHardDelete(program.id, program.name)}
+                    className="text-destructive focus:text-destructive"
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" /> Delete Permanently
+                  </DropdownMenuItem>
+                ) : (
+                  <DropdownMenuItem
+                    onClick={() => onArchive(program.id)}
+                    className="text-destructive focus:text-destructive"
+                  >
+                    <Archive className="mr-2 h-4 w-4" /> Archive
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </div>
-
-        <div className="mt-4 border-t border-border/60 pt-3">
-          <div className="flex items-center justify-between">
-            <p className="text-[11px] text-muted-foreground/60">
-              Updated {formatDistanceToNow(new Date(program.updatedAt), { addSuffix: true })}
-            </p>
-            <Link
-              href={detailHref}
-              className="text-[11px] font-medium text-primary opacity-0 transition-opacity group-hover:opacity-100"
-            >
-              {matchedWorkoutId ? "View workout →" : "View →"}
-            </Link>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
+      </TableCell>
+    </TableRow>
   );
 }
 
-function GlobalProgramCard({
+function GlobalProgramRow({
   program,
   copying,
   onCopy,
@@ -281,19 +296,21 @@ function GlobalProgramCard({
   onCopy: (id: string, name: string) => void;
 }) {
   return (
-    <Card className="group flex flex-col border-0 shadow-sm ring-1 ring-border/50 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:ring-border">
-      <CardContent className="flex flex-1 flex-col p-5">
+    <TableRow className="group">
+      <TableCell className="max-w-64">
         <div className="flex items-start gap-2">
           <Globe className="mt-0.5 h-4 w-4 shrink-0 text-primary/60" />
-          <div className="min-w-0 flex-1">
-            <h3 className="truncate text-base font-semibold leading-tight">{program.name}</h3>
+          <div className="min-w-0">
+            <p className="font-medium truncate">{program.name}</p>
             {program.description && (
-              <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{program.description}</p>
+              <p className="truncate text-xs text-muted-foreground">{program.description}</p>
             )}
           </div>
         </div>
-
-        <div className="mt-3 flex flex-wrap items-center gap-1.5">
+      </TableCell>
+      <TableCell className="text-muted-foreground">—</TableCell>
+      <TableCell>
+        <div className="flex flex-wrap items-center gap-1.5">
           <Badge variant="secondary" className="text-[11px] font-medium">
             {program.isGlobal ? "Global" : "Community"}
           </Badge>
@@ -302,27 +319,54 @@ function GlobalProgramCard({
               by {program.trainer.firstName} {program.trainer.lastName}
             </span>
           )}
-          {program.tags.slice(0, 3).map((tag) => (
+          {program.tags.slice(0, 2).map((tag) => (
             <Badge key={tag} variant="secondary" className="text-[10px]">{tag}</Badge>
           ))}
         </div>
+      </TableCell>
+      <TableCell>
+        <WorkoutCount count={program._count.workouts} />
+      </TableCell>
+      <TableCell className="text-muted-foreground">
+        {program.globalUpdatedAt ? formatDistanceToNow(new Date(program.globalUpdatedAt), { addSuffix: true }) : "—"}
+      </TableCell>
+      <TableCell className="text-right">
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={copying === program.id}
+          onClick={() => onCopy(program.id, program.name)}
+        >
+          {copying === program.id ? "Copying…" : "Copy to My Library"}
+        </Button>
+      </TableCell>
+    </TableRow>
+  );
+}
 
-        <p className="mt-3 text-xs text-muted-foreground">
-          {program._count.workouts} workout{program._count.workouts !== 1 ? "s" : ""}
-        </p>
-
-        <div className="mt-4 border-t border-border/60 pt-3">
-          <Button
-            size="sm"
-            className="w-full"
-            disabled={copying === program.id}
-            onClick={() => onCopy(program.id, program.name)}
-          >
-            {copying === program.id ? "Copying…" : "Copy to My Library"}
+function ProgramsEmptyState({ title, description, showCreateActions }: { title: string; description: string; showCreateActions: boolean }) {
+  return (
+    <div className="rounded-xl border border-dashed border-border p-12 text-center">
+      <Library className="mx-auto h-12 w-12 text-muted-foreground/40" />
+      <h3 className="mt-4 font-semibold">{title}</h3>
+      <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+      {showCreateActions && (
+        <div className="mt-4 flex justify-center gap-2">
+          <Button variant="outline" size="sm" asChild>
+            <Link href="/programs/generate">
+              <Sparkles className="mr-1.5 h-3.5 w-3.5 text-blue-600" />
+              Generate with AI
+            </Link>
+          </Button>
+          <Button size="sm" asChild>
+            <Link href="/programs/new">
+              <Plus className="mr-1.5 h-3.5 w-3.5" />
+              New Program
+            </Link>
           </Button>
         </div>
-      </CardContent>
-    </Card>
+      )}
+    </div>
   );
 }
 
@@ -463,6 +507,8 @@ export function ProgramListClient({
     }
   }
 
+  const personColumn: "client" | "trainer" = role === "TRAINER" ? "client" : "trainer";
+
   return (
     <div className="space-y-6">
       {role === "TRAINER" && (
@@ -555,113 +601,109 @@ export function ProgramListClient({
         )}
       </div>
 
-      {/* Programs tab grid */}
+      {/* Programs tab table */}
       {activeTab === "programs" && (
         filteredPrograms.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-border p-12 text-center">
-            <Library className="mx-auto h-12 w-12 text-muted-foreground/40" />
-            <h3 className="mt-4 font-semibold">No assigned programs</h3>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {role === "TRAINER"
+          <ProgramsEmptyState
+            title="No assigned programs"
+            description={
+              role === "TRAINER"
                 ? "Assign a program from your Library to a client to see it here."
-                : "No programs have been assigned to you yet."}
-            </p>
-            {role === "TRAINER" && (
-              <div className="mt-4 flex justify-center gap-2">
-                <Button variant="outline" size="sm" asChild>
-                  <Link href="/programs/generate">
-                    <Sparkles className="mr-1.5 h-3.5 w-3.5 text-blue-600" />
-                    Generate with AI
-                  </Link>
-                </Button>
-                <Button size="sm" asChild>
-                  <Link href="/programs/new">
-                    <Plus className="mr-1.5 h-3.5 w-3.5" />
-                    New Program
-                  </Link>
-                </Button>
-              </div>
-            )}
-          </div>
+                : "No programs have been assigned to you yet."
+            }
+            showCreateActions={role === "TRAINER"}
+          />
         ) : (
-          <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-            {filteredPrograms.map((program) => (
-              <ProgramCard
-                key={program.id}
-                program={program}
-                role={role}
-                updatableSet={updatableSet}
-                onDuplicate={handleDuplicate}
-                onArchive={handleArchive}
-                onRequestHardDelete={(id, name) => setPendingHardDelete({ id, name })}
-                onTogglePublic={handleTogglePublic}
-                togglingPublicId={togglingPublicId}
-                search={search}
-              />
-            ))}
+          <div className="rounded-xl border border-border/50 shadow-sm">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>{personColumn === "client" ? "Client" : "Trainer"}</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Workouts</TableHead>
+                  <TableHead>Updated</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredPrograms.map((program) => (
+                  <ProgramRow
+                    key={program.id}
+                    program={program}
+                    role={role}
+                    updatableSet={updatableSet}
+                    onDuplicate={handleDuplicate}
+                    onArchive={handleArchive}
+                    onRequestHardDelete={(id, name) => setPendingHardDelete({ id, name })}
+                    onTogglePublic={handleTogglePublic}
+                    togglingPublicId={togglingPublicId}
+                    search={search}
+                    personColumn={personColumn}
+                  />
+                ))}
+              </TableBody>
+            </Table>
           </div>
         )
       )}
 
-      {/* Templates tab grid — merged clinical + global */}
+      {/* Templates tab table — merged clinical + global */}
       {activeTab === "templates" && (
         filteredClinical.length === 0 && filteredGlobal.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-border p-12 text-center">
-            <Library className="mx-auto h-12 w-12 text-muted-foreground/40" />
-            <h3 className="mt-4 font-semibold">
-              {typeFilter === "global"
+          <ProgramsEmptyState
+            title={
+              typeFilter === "global"
                 ? "No global templates"
-                : typeFilter === "clinical"
-                ? "Your library is empty"
-                : "Your library is empty"}
-            </h3>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {typeFilter === "global"
+                : "Your library is empty"
+            }
+            description={
+              typeFilter === "global"
                 ? "Your administrator hasn't added any global programs yet."
-                : "Build a program here, then assign it to a client when it's ready."}
-            </p>
-            {typeFilter !== "global" && role === "TRAINER" && (
-              <div className="mt-4 flex justify-center gap-2">
-                <Button variant="outline" size="sm" asChild>
-                  <Link href="/programs/generate">
-                    <Sparkles className="mr-1.5 h-3.5 w-3.5 text-blue-600" />
-                    Generate with AI
-                  </Link>
-                </Button>
-                <Button size="sm" asChild>
-                  <Link href="/programs/new">
-                    <Plus className="mr-1.5 h-3.5 w-3.5" />
-                    New Program
-                  </Link>
-                </Button>
-              </div>
-            )}
-          </div>
+                : "Build a program here, then assign it to a client when it's ready."
+            }
+            showCreateActions={typeFilter !== "global" && role === "TRAINER"}
+          />
         ) : (
-          <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-            {filteredClinical.map((program) => (
-              <ProgramCard
-                key={program.id}
-                program={program}
-                role={role}
-                updatableSet={updatableSet}
-                onDuplicate={handleDuplicate}
-                onArchive={handleArchive}
-                onRequestHardDelete={(id, name) => setPendingHardDelete({ id, name })}
-                onTogglePublic={handleTogglePublic}
-                togglingPublicId={togglingPublicId}
-                typeBadge="clinical"
-                search={search}
-              />
-            ))}
-            {filteredGlobal.map((prog) => (
-              <GlobalProgramCard
-                key={prog.id}
-                program={prog}
-                copying={copying}
-                onCopy={handleCopyGlobal}
-              />
-            ))}
+          <div className="rounded-xl border border-border/50 shadow-sm">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Client</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Workouts</TableHead>
+                  <TableHead>Updated</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredClinical.map((program) => (
+                  <ProgramRow
+                    key={program.id}
+                    program={program}
+                    role={role}
+                    updatableSet={updatableSet}
+                    onDuplicate={handleDuplicate}
+                    onArchive={handleArchive}
+                    onRequestHardDelete={(id, name) => setPendingHardDelete({ id, name })}
+                    onTogglePublic={handleTogglePublic}
+                    togglingPublicId={togglingPublicId}
+                    typeBadge="clinical"
+                    search={search}
+                    personColumn="client"
+                  />
+                ))}
+                {filteredGlobal.map((prog) => (
+                  <GlobalProgramRow
+                    key={prog.id}
+                    program={prog}
+                    copying={copying}
+                    onCopy={handleCopyGlobal}
+                  />
+                ))}
+              </TableBody>
+            </Table>
           </div>
         )
       )}
@@ -669,7 +711,7 @@ export function ProgramListClient({
       <Dialog open={!!pendingHardDelete} onOpenChange={(open) => !open && setPendingHardDelete(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete "{pendingHardDelete?.name}" permanently?</DialogTitle>
+            <DialogTitle>Delete &quot;{pendingHardDelete?.name}&quot; permanently?</DialogTitle>
             <DialogDescription>
               This permanently deletes the program and all of its workouts, scheduled
               and completed sessions, feedback, and voice memos. This cannot be undone.

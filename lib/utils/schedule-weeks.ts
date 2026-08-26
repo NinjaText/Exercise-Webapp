@@ -9,6 +9,8 @@ export interface GroupedSchedule {
   weeks: SessionData[][];
   /** Index into `weeks` for the week containing `today`, clamped to the program's range. */
   defaultWeekIndex: number;
+  /** Monday (local calendar date) that each entry in `weeks` starts on, same length/index as `weeks`. */
+  weekStartDates: Date[];
 }
 
 /**
@@ -21,7 +23,7 @@ export function groupSessionsByWeek(
   today: Date
 ): GroupedSchedule {
   if (sessions.length === 0) {
-    return { weeks: [], defaultWeekIndex: 0 };
+    return { weeks: [], defaultWeekIndex: 0, weekStartDates: [] };
   }
 
   const localDates = sessions.map((s) => toLocalCalendarDate(s.scheduledDate));
@@ -61,5 +63,10 @@ export function groupSessionsByWeek(
     Math.min(weekIndexOf(today), totalWeeks - 1)
   );
 
-  return { weeks, defaultWeekIndex };
+  const weekStartDates = Array.from(
+    { length: totalWeeks },
+    (_, i) => new Date(weekZeroMonday.getTime() + i * ONE_WEEK_MS)
+  );
+
+  return { weeks, defaultWeekIndex, weekStartDates };
 }
