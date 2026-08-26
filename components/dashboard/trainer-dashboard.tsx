@@ -106,7 +106,7 @@ export function TrainerDashboard({
               <p className="mt-1 text-sm text-white/80">
                 Here&apos;s what&apos;s happening with your clients today.
               </p>
-              <Button className="mt-4 bg-white text-primary hover:bg-white/90" asChild>
+              <Button className="mt-4 bg-white text-primary hover:bg-white/90 [a]:hover:bg-white/90" asChild>
                 <Link href="/programs/generate">
                   <Sparkles className="mr-2 h-4 w-4" />
                   Generate Program

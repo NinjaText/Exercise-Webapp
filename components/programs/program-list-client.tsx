@@ -1,11 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import {
   Table,
   TableBody,
@@ -21,6 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   DropdownMenu,
@@ -53,6 +56,9 @@ import {
   Globe,
   Lock,
   Eye,
+  ChevronDown,
+  X,
+  Users,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -113,6 +119,11 @@ function matchesSearch(
     program.name.toLowerCase().includes(search.toLowerCase()) ||
     findMatchedWorkoutId(program, search) !== null
   );
+}
+
+function clientLabel(client: { firstName: string; lastName: string }): string {
+  const name = `${client.firstName} ${client.lastName}`.trim();
+  return name || "Unnamed client";
 }
 
 // "all" means "everything except archived" — archived programs only show up
@@ -189,7 +200,7 @@ function ProgramRow({
         </Link>
       </TableCell>
       <TableCell className="text-muted-foreground">
-        {person ? `${person.firstName} ${person.lastName}` : personColumn === "client" ? "Unassigned" : "—"}
+        {person ? clientLabel(person) : personColumn === "client" ? "Unassigned" : "—"}
       </TableCell>
       <TableCell>
         <div className="flex flex-wrap items-center gap-1.5">
@@ -392,6 +403,7 @@ export function ProgramListClient({
   const [pendingHardDelete, setPendingHardDelete] = useState<{ id: string; name: string } | null>(null);
   const [hardDeleting, setHardDeleting] = useState(false);
   const [togglingPublicId, setTogglingPublicId] = useState<string | null>(null);
+  const [clientFilter, setClientFilter] = useState<Set<string>>(new Set());
 
   const activeTab =
     role === "TRAINER"
@@ -400,10 +412,44 @@ export function ProgramListClient({
         : "templates"
       : "programs";
 
+  // Clients with at least one assigned program — powers the Assigned tab's client filter.
+  const assignedClients = useMemo(() => {
+    const byId = new Map<string, { id: string; firstName: string; lastName: string }>();
+    for (const p of programs) {
+      if (p.client) byId.set(p.client.id, p.client);
+    }
+    return Array.from(byId.values()).sort((a, b) =>
+      `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`)
+    );
+  }, [programs]);
+
+  function toggleClientFilter(clientId: string) {
+    setClientFilter((prev) => {
+      const next = new Set(prev);
+      if (next.has(clientId)) next.delete(clientId);
+      else next.add(clientId);
+      return next;
+    });
+  }
+
+  const hasActiveFilters =
+    search !== "" ||
+    statusFilter !== "all" ||
+    clientFilter.size > 0 ||
+    (activeTab === "templates" && typeFilter !== "all");
+
+  function handleClearFilters() {
+    setSearch("");
+    setStatusFilter("all");
+    setClientFilter(new Set());
+    setTypeFilter("all");
+  }
+
   function handleTabChange(nextTab: string) {
     setTypeFilter("all");
     setSearch("");
     setStatusFilter("all");
+    setClientFilter(new Set());
     const params = new URLSearchParams(searchParams.toString());
     if (nextTab === "templates") {
       params.delete("tab");
@@ -418,6 +464,7 @@ export function ProgramListClient({
   const filteredPrograms = programs.filter((p) => {
     if (search && !matchesSearch(p, search)) return false;
     if (!matchesStatusFilter(p.status, statusFilter)) return false;
+    if (clientFilter.size > 0 && (!p.client || !clientFilter.has(p.client.id))) return false;
     return true;
   });
 
@@ -568,6 +615,54 @@ export function ProgramListClient({
                 <SelectItem value="ARCHIVED">Archived</SelectItem>
               </SelectContent>
             </Select>
+          )}
+          {activeTab === "programs" && role === "TRAINER" && assignedClients.length > 0 && (
+            <Popover>
+              <PopoverTrigger render={<Button variant="outline" className="h-8 gap-1.5 px-2.5 font-normal" />}>
+                <Users className="h-3.5 w-3.5 text-muted-foreground" />
+                {clientFilter.size === 0
+                  ? "Client"
+                  : clientFilter.size === 1
+                  ? (() => {
+                      const c = assignedClients.find((client) => clientFilter.has(client.id));
+                      return c ? clientLabel(c) : "1 client";
+                    })()
+                  : `${clientFilter.size} clients`}
+                <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+              </PopoverTrigger>
+              <PopoverContent align="start" className="w-64 p-1.5">
+                <div className="max-h-64 space-y-0.5 overflow-y-auto">
+                  {assignedClients.map((client) => {
+                    const id = `client-filter-${client.id}`;
+                    return (
+                      <div
+                        key={client.id}
+                        className="flex items-center gap-2.5 rounded-md px-2 py-1.5 hover:bg-muted"
+                      >
+                        <Checkbox
+                          id={id}
+                          checked={clientFilter.has(client.id)}
+                          onCheckedChange={() => toggleClientFilter(client.id)}
+                        />
+                        <Label htmlFor={id} className="flex-1 cursor-pointer truncate text-sm font-normal">
+                          {clientLabel(client)}
+                        </Label>
+                      </div>
+                    );
+                  })}
+                </div>
+              </PopoverContent>
+            </Popover>
+          )}
+          {hasActiveFilters && (
+            <Button
+              variant="ghost"
+              className="h-8 gap-1.5 px-2.5 text-muted-foreground hover:text-foreground"
+              onClick={handleClearFilters}
+            >
+              <X className="h-3.5 w-3.5" />
+              Clear filters
+            </Button>
           )}
         </div>
 

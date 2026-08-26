@@ -41,6 +41,8 @@ import {
   Sparkles,
 } from "lucide-react";
 
+const NO_CLIENT_VALUE = "__none__";
+
 interface PickerExercise {
   id: string;
   name: string;
@@ -810,16 +812,21 @@ export function ProgramBriefUpload({
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
                   <Label>Assign to Client (optional)</Label>
-                  <Select value={assignClientId} onValueChange={(v) => setAssignClientId(v ?? "")}>
+                  <Select
+                    value={assignClientId || NO_CLIENT_VALUE}
+                    onValueChange={(v) => setAssignClientId(!v || v === NO_CLIENT_VALUE ? "" : v)}
+                  >
                     <SelectTrigger>
                       <SelectValue placeholder="Select a client">
                         {(value: string | null) => {
+                          if (!value || value === NO_CLIENT_VALUE) return "No client — save as template";
                           const client = clients.find((c) => c.id === value);
                           return client ? `${client.firstName} ${client.lastName}` : "Select a client";
                         }}
                       </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value={NO_CLIENT_VALUE}>No client — save as template</SelectItem>
                       {clients.map((p) => (
                         <SelectItem key={p.id} value={p.id}>
                           {p.firstName} {p.lastName}
