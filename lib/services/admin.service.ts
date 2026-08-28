@@ -153,13 +153,13 @@ export async function getAllUsers(params: {
   pageSize?: number;
   search?: string;
   role?: "TRAINER" | "CLIENT" | "ALL";
-  includeArchived?: boolean;
+  archivedOnly?: boolean;
   orgId?: string;
 }) {
-  const { page = 1, pageSize = 20, search, role = "ALL", includeArchived = false, orgId } = params;
+  const { page = 1, pageSize = 20, search, role = "ALL", archivedOnly = false, orgId } = params;
 
   const where = {
-    ...(!includeArchived && { isActive: { not: false } }),
+    isActive: archivedOnly ? false : { not: false },
     ...(role !== "ALL" && { role }),
     ...(orgId && { clerkOrgId: orgId }),
     ...(search && {

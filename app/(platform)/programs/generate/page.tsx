@@ -2,6 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { GenerateProgramForm } from "@/components/programs/generate-program-form";
+import type { ClientSummary } from "@/components/programs/client-details-panel";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -36,7 +37,8 @@ export default async function GenerateProgramPage({
 
   const { clientId } = await searchParams;
 
-  // Fetch clients for this trainer's organization with profile fields needed for the inline summary
+  // Fetch clients for this trainer's organization with the full clinical profile
+  // rendered by the form's Client Details side panel.
   const rawClients = user.clerkOrgId
     ? await prisma.user.findMany({
     where: {
@@ -50,8 +52,17 @@ export default async function GenerateProgramPage({
       clientProfile: {
         select: {
           primaryDiagnosis: true,
+          secondaryDiagnoses: true,
           painScore: true,
           limitations: true,
+          comorbidities: true,
+          functionalChallenges: true,
+          activityLevel: true,
+          priorInjuries: true,
+          surgeryHistory: true,
+          occupation: true,
+          fitnessGoals: true,
+          injuryDate: true,
           availableEquipment: true,
         },
       },
@@ -60,13 +71,23 @@ export default async function GenerateProgramPage({
   })
     : []
 
-  const clients = rawClients.map(p => ({
+  const clients: ClientSummary[] = rawClients.map(p => ({
     id: p.id,
     firstName: p.firstName,
     lastName: p.lastName,
     primaryDiagnosis: p.clientProfile?.primaryDiagnosis ?? null,
+    secondaryDiagnoses: p.clientProfile?.secondaryDiagnoses ?? [],
     painScore: p.clientProfile?.painScore ?? null,
     limitations: p.clientProfile?.limitations ?? null,
+    comorbidities: p.clientProfile?.comorbidities ?? null,
+    functionalChallenges: p.clientProfile?.functionalChallenges ?? null,
+    activityLevel: p.clientProfile?.activityLevel ?? null,
+    priorInjuries: p.clientProfile?.priorInjuries ?? [],
+    surgeryHistory: p.clientProfile?.surgeryHistory ?? null,
+    occupation: p.clientProfile?.occupation ?? null,
+    fitnessGoals: p.clientProfile?.fitnessGoals ?? [],
+    // Serialised here so the client component never receives a Date instance.
+    injuryDate: p.clientProfile?.injuryDate?.toISOString() ?? null,
     availableEquipment: p.clientProfile?.availableEquipment ?? [],
   }))
 
@@ -83,9 +104,9 @@ export default async function GenerateProgramPage({
         description="Use AI to create a personalised program for a client."
       />
 
-      <div className="max-w-2xl mx-auto">
-        <GenerateProgramForm clients={clients} initialClientId={clientId} />
-      </div>
+      {/* Width is owned by the form — it widens itself when the client details
+          panel takes the second column. */}
+      <GenerateProgramForm clients={clients} initialClientId={clientId} />
     </div>
   );
 }

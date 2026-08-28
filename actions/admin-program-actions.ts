@@ -60,6 +60,79 @@ export async function updateAdminProgramAction(
   }
 }
 
+/**
+ * Permanently deletes a program on behalf of a super admin.
+ *
+ * `hardDeleteProgram` only accepts already-archived programs, so this archives
+ * first and hard-deletes immediately after — giving the admin a single
+ * one-click permanent delete while still running the sellable-package guard
+ * that lives inside `hardDeleteProgram`.
+ */
+export async function deleteAdminProgramAction(programId: string) {
+  const admin = await requireSuperAdmin();
+
+  // Captured before the delete so the audit label/org survive the row removal.
+  const existing = await prisma.program.findUnique({
+    where: { id: programId },
+    select: {
+      name: true,
+      status: true,
+      isGlobal: true,
+      trainer: { select: { clerkOrgId: true } },
+    },
+  });
+  if (!existing) {
+    return { success: false as const, error: "Program not found" };
+  }
+  if (existing.isGlobal) {
+    return {
+      success: false as const,
+      error: "Use the Global Programs section to delete this program",
+    };
+  }
+
+  try {
+    await programService.deleteProgram(programId);
+    await programService.hardDeleteProgram(programId);
+    await logAudit({
+      actorId: admin.id,
+      actorType: "SUPER_ADMIN",
+      actorName: `${admin.firstName} ${admin.lastName}`,
+      action: AUDIT_ACTIONS.PROGRAM_HARD_DELETED,
+      targetType: "Program",
+      targetId: programId,
+      targetLabel: existing.name,
+      orgId: existing.trainer?.clerkOrgId ?? null,
+    });
+    revalidatePath("/admin/programs");
+    revalidatePath(`/admin/programs/${programId}`);
+    return { success: true as const };
+  } catch (error) {
+    console.error("Failed to permanently delete program (admin):", error);
+
+    // The archive step may have already landed. If the hard delete was refused
+    // the program must not be left silently archived, so put its status back.
+    if (existing.status !== "ARCHIVED") {
+      await prisma.program
+        .updateMany({
+          where: { id: programId, status: "ARCHIVED" },
+          data: { status: existing.status },
+        })
+        .catch((restoreError) => {
+          console.error("Failed to restore program status after failed delete:", restoreError);
+        });
+    }
+
+    // Service-level guards (e.g. linked sellable package) are legitimate
+    // reasons a program can't be deleted, so surface those verbatim.
+    const message =
+      error instanceof Error && error.message.startsWith("Cannot delete:")
+        ? error.message
+        : "Failed to permanently delete program";
+    return { success: false as const, error: message };
+  }
+}
+
 export async function assignAdminProgramAction(input: {
   programId: string;
   clientId: string;

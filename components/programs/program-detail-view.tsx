@@ -34,6 +34,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { duplicateProgramAction } from "@/actions/program-actions";
+import { ProgramActionsMenu } from "@/components/admin/program-actions-menu";
 import { AssignProgramDialog } from "@/components/programs/assign-program-dialog";
 import { SellProgramDialog } from "@/components/programs/sell-program-dialog";
 import { ProgramScheduleView } from "@/components/programs/program-schedule-view";
@@ -331,6 +332,11 @@ export function ProgramDetailView({
                 <UserPlus className="mr-2 h-4 w-4" /> Assign
               </Button>
             )}
+            <ProgramActionsMenu
+              programId={program.id as string}
+              programName={(program.name as string) ?? "this program"}
+              redirectTo="/admin/programs"
+            />
           </div>
         )}
       </div>

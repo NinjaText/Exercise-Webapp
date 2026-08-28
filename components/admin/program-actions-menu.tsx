@@ -1,11 +1,11 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -18,45 +18,36 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { MoreHorizontal, Archive, RotateCcw, Trash2 } from "lucide-react";
+import { MoreHorizontal, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import {
-  archiveUserAction,
-  restoreUserAction,
-  deleteUserAction,
-} from "@/actions/admin-actions";
+import { deleteAdminProgramAction } from "@/actions/admin-program-actions";
 
-interface UserActionsMenuProps {
-  userId: string;
-  isActive: boolean;
-  userName: string;
+interface ProgramActionsMenuProps {
+  programId: string;
+  programName: string;
+  /** Where to send the admin after a successful delete (detail pages only). */
+  redirectTo?: string;
 }
 
-export function UserActionsMenu({ userId, isActive, userName }: UserActionsMenuProps) {
+export function ProgramActionsMenu({
+  programId,
+  programName,
+  redirectTo,
+}: ProgramActionsMenuProps) {
+  const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
-  function handleArchive() {
-    startTransition(async () => {
-      const result = await archiveUserAction(userId);
-      if (result.success) toast.success("User archived.");
-      else toast.error("Failed to archive user.");
-    });
-  }
-
-  function handleRestore() {
-    startTransition(async () => {
-      const result = await restoreUserAction(userId);
-      if (result.success) toast.success("User restored.");
-      else toast.error("Failed to restore user.");
-    });
-  }
-
   function handleDelete() {
     startTransition(async () => {
-      const result = await deleteUserAction(userId);
-      if (result.success) toast.success("User permanently deleted.");
-      else toast.error((result as { success: false; error: string }).error ?? "Failed to delete user.");
+      const result = await deleteAdminProgramAction(programId);
+      if (result.success) {
+        toast.success("Program permanently deleted.");
+        setShowDeleteDialog(false);
+        if (redirectTo) router.push(redirectTo);
+        return;
+      }
+      toast.error(result.error ?? "Failed to delete program.");
       setShowDeleteDialog(false);
     });
   }
@@ -67,29 +58,11 @@ export function UserActionsMenu({ userId, isActive, userName }: UserActionsMenuP
         <DropdownMenuTrigger
           className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50"
           disabled={isPending}
-          aria-label="User actions"
+          aria-label="Program actions"
         >
           <MoreHorizontal className="h-4 w-4" />
         </DropdownMenuTrigger>
         <DropdownMenuContent side="bottom" align="end" className="w-40">
-          {isActive ? (
-            <DropdownMenuItem
-              onClick={handleArchive}
-              className="gap-2 text-amber-600"
-            >
-              <Archive className="h-4 w-4" />
-              Archive
-            </DropdownMenuItem>
-          ) : (
-            <DropdownMenuItem onClick={handleRestore} className="gap-2">
-              <RotateCcw className="h-4 w-4" />
-              Restore
-            </DropdownMenuItem>
-          )}
-          <DropdownMenuSeparator />
-          {/* Delete is offered regardless of active state — deleteUserAction
-              still refuses (with a friendly error) when related data exists,
-              so there's no need to force an archive step first. */}
           <DropdownMenuItem
             onClick={() => setShowDeleteDialog(true)}
             variant="destructive"
@@ -107,9 +80,10 @@ export function UserActionsMenu({ userId, isActive, userName }: UserActionsMenuP
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete {userName}?</AlertDialogTitle>
+            <AlertDialogTitle>Delete {programName}?</AlertDialogTitle>
             <AlertDialogDescription>
-              This permanently deletes the user and all their data. This cannot be undone.
+              This permanently deletes the program along with all of its
+              workouts, exercises, and logged sessions. This cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

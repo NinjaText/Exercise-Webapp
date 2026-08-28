@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/select";
 import { Library, Search } from "lucide-react";
 import Link from "next/link";
+import { ProgramActionsMenu } from "@/components/admin/program-actions-menu";
 
 interface PageProps {
   searchParams: Promise<{ search?: string; status?: string; page?: string }>;
@@ -73,6 +74,9 @@ export default async function AdminProgramsPage({ searchParams }: PageProps) {
                 <th className="px-5 py-3 text-left text-[10px] font-semibold uppercase tracking-widest text-muted-foreground hidden lg:table-cell">Client</th>
                 <th className="px-5 py-3 text-left text-[10px] font-semibold uppercase tracking-widest text-muted-foreground hidden xl:table-cell">Duration</th>
                 <th className="px-5 py-3 text-left text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Created</th>
+                <th className="px-5 py-3 text-right text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                  <span className="sr-only">Actions</span>
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -128,11 +132,18 @@ export default async function AdminProgramsPage({ searchParams }: PageProps) {
                   <td className="px-5 py-3 text-xs text-muted-foreground">
                     {format(new Date(prog.createdAt), "MMM d, yyyy")}
                   </td>
+                  <td className="px-5 py-3 text-right">
+                    <div className="flex justify-end">
+                      {prog.trainer && (
+                        <ProgramActionsMenu programId={prog.id} programName={prog.name} />
+                      )}
+                    </div>
+                  </td>
                 </tr>
               ))}
               {programs.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-5 py-12 text-center">
+                  <td colSpan={7} className="px-5 py-12 text-center">
                     <Library className="mx-auto h-8 w-8 text-muted-foreground/30 mb-2" />
                     <p className="text-sm text-muted-foreground">No programs found.</p>
                   </td>
