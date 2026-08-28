@@ -17,6 +17,8 @@ export async function getCurrentUser(): Promise<User> {
     redirect("/onboarding");
   }
 
+  if (!user.isActive) redirect("/account-deactivated");
+
   // Auto-sync clerkOrgId from the live Clerk session into the DB.
   // This handles accounts created before Clerk Organizations were configured —
   // the DB field stays null until the user logs in again, at which point it's fixed.

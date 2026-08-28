@@ -23,7 +23,14 @@ import {
 import { getDistinctEquipmentAction } from "@/actions/program-actions";
 import { PlanReviewStep } from "@/components/programs/plan-review-step";
 import { ClinicVisibilitySelector } from "@/components/programs/clinic-visibility-selector";
+import {
+  ClientDetailsPanel,
+  type ClientSummary,
+} from "@/components/programs/client-details-panel";
+import { mapClientEquipmentToOptions } from "@/lib/utils/program-equipment";
 import type { ClinicalPlan, ProgramMode } from "@/lib/ai/types/program-generation";
+
+export type { ClientSummary };
 
 interface CircuitConfig {
   id: string;
@@ -45,16 +52,6 @@ const CIRCUIT_FOCUS_OPTIONS = [
   { value: "COOLDOWN", label: "Cool Down" },
   { value: "CARDIO", label: "Cardio" },
 ];
-
-interface ClientSummary {
-  id: string;
-  firstName: string;
-  lastName: string;
-  primaryDiagnosis?: string | null;
-  painScore?: number | null;
-  limitations?: string | null;
-  availableEquipment?: string[];
-}
 
 export type GenerateExercisesHandler = (params: {
   clientId: string | null;
@@ -102,6 +99,7 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
   const [selectedOrganizationIds, setSelectedOrganizationIds] = useState<string[]>([]);
   const [selectedGoals, setSelectedGoals] = useState<string[]>([]);
   const [selectedEquipment, setSelectedEquipment] = useState<string[]>([]);
+  const [equipmentTouched, setEquipmentTouched] = useState(false);
   const [equipmentOptions, setEquipmentOptions] = useState<string[]>([]);
   const [equipmentOpen, setEquipmentOpen] = useState(false);
   const [startDate, setStartDate] = useState("");
@@ -142,6 +140,21 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
     setProgramMode(guessProgramMode(clients.find(c => c.id === selectedClient)));
   }, [selectedClient, clients, programModeTouched]);
 
+  const selectedClientDetails = selectedClient
+    ? clients.find(c => c.id === selectedClient)
+    : undefined;
+
+  // Pre-fill the equipment picker from the client's own profile. Mirrors the
+  // programMode guard above: once the trainer edits the selection themselves we
+  // stop overwriting it, even if they switch client afterwards. Re-runs when the
+  // library options land so client spellings snap onto the canonical ones.
+  useEffect(() => {
+    if (equipmentTouched) return;
+    setSelectedEquipment(
+      mapClientEquipmentToOptions(selectedClientDetails?.availableEquipment, equipmentOptions)
+    );
+  }, [selectedClientDetails, equipmentOptions, equipmentTouched]);
+
   const goalOptions = programMode === "CLINICAL" ? REHAB_GOALS : PERFORMANCE_GOALS;
 
   // Drop any previously selected goal that doesn't belong to the current
@@ -158,6 +171,7 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
   }
 
   function toggleEquipment(item: string) {
+    setEquipmentTouched(true);
     setSelectedEquipment(prev => {
       if (item === "none") {
         return prev.includes("none") ? [] : ["none"];
@@ -324,8 +338,19 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
 
   const isReviewing = generateState === 'REVIEWING' || generateState === 'GENERATING';
 
+  // The details panel only earns a second column while a client is selected and
+  // we're still configuring; otherwise the form keeps its original single-column
+  // width so the existing layout is unchanged.
+  const showClientDetails = !!selectedClientDetails && !isReviewing;
+
   return (
-    <div>
+    <div
+      className={
+        showClientDetails
+          ? "mx-auto grid w-full max-w-5xl grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_320px]"
+          : "mx-auto w-full max-w-2xl"
+      }
+    >
       {isReviewing && clinicalPlan ? (
         <Card>
           <CardHeader>
@@ -353,45 +378,24 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
-              {/* Client selector — hidden when no clients available (e.g. admin context) */}
+              {/* Client selector — hidden when no clients available (e.g. admin context).
+                  The selected client's profile is shown in the side panel, not inline. */}
               {clients.length > 0 && (
-                <>
-                  <div className="space-y-2">
-                    <Label>Client <span className="text-muted-foreground font-normal">(optional)</span></Label>
-                    <select
-                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                      value={selectedClient}
-                      onChange={(e) => setSelectedClient(e.target.value)}
-                    >
-                      <option value="">No client — general program template</option>
-                      {clients.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.firstName} {p.lastName}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Client profile inline summary */}
-                  {selectedClient && (() => {
-                    const p = clients.find(pt => pt.id === selectedClient)
-                    if (!p) return null
-                    return (
-                      <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm space-y-0.5">
-                        <p className="font-medium">{p.firstName} {p.lastName}</p>
-                        {p.primaryDiagnosis && (
-                          <p className="text-muted-foreground">Dx: {p.primaryDiagnosis}</p>
-                        )}
-                        {p.painScore != null && (
-                          <p className="text-muted-foreground">Pain: {p.painScore}/10</p>
-                        )}
-                        {p.limitations && (
-                          <p className="text-muted-foreground">Limitations: {p.limitations}</p>
-                        )}
-                      </div>
-                    )
-                  })()}
-                </>
+                <div className="space-y-2">
+                  <Label>Client <span className="text-muted-foreground font-normal">(optional)</span></Label>
+                  <select
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    value={selectedClient}
+                    onChange={(e) => setSelectedClient(e.target.value)}
+                  >
+                    <option value="">No client — general program template</option>
+                    {clients.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.firstName} {p.lastName}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               )}
 
               {/* Program Type */}
@@ -526,6 +530,11 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
                 <p className="text-xs text-muted-foreground">
                   Only exercises using this equipment (plus bodyweight) will be selected. Leave empty to allow any equipment.
                 </p>
+                {!equipmentTouched && selectedEquipment.length > 0 && selectedClientDetails && (
+                  <p className="text-xs text-muted-foreground">
+                    Pre-filled from {selectedClientDetails.firstName}&apos;s profile — adjust as needed.
+                  </p>
+                )}
 
                 <Popover open={equipmentOpen} onOpenChange={setEquipmentOpen}>
                   <PopoverTrigger
@@ -831,6 +840,14 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
             </CardContent>
           </Card>
         </form>
+      )}
+
+      {/* Client Details — second column on desktop, stacked below on mobile */}
+      {showClientDetails && selectedClientDetails && (
+        <ClientDetailsPanel
+          client={selectedClientDetails}
+          className="lg:sticky lg:top-6"
+        />
       )}
     </div>
   );

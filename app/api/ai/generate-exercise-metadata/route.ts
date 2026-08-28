@@ -15,7 +15,7 @@ function buildMetadataFields(context: ExerciseContext) {
   return {
     description: z.string().describe(
       isClinical
-        ? "2-3 sentence clinical description of the exercise and its purpose in a rehabilitation or senior fitness context"
+        ? "2-3 sentence clinical description of the exercise and its purpose in a rehabilitation or general clinical fitness context, written for the general public rather than any one age group"
         : "2-3 sentence description of the exercise and its purpose in an athletic training or general fitness context"
     ),
     instructions: z.string().describe("Clear step-by-step instructions for the client, numbered list format, safety-first"),
@@ -24,7 +24,7 @@ function buildMetadataFields(context: ExerciseContext) {
       .describe("Body region(s) targeted — an exercise can target more than one, e.g. a lunge is both LOWER_BODY and BALANCE. Return every region that genuinely applies."),
     difficultyLevel: z.enum(["BEGINNER", "INTERMEDIATE", "ADVANCED"]).describe(
       isClinical
-        ? "Appropriate difficulty level for a senior/rehab population — default to BEGINNER unless clearly advanced"
+        ? "Appropriate difficulty level for a general rehab/clinical population — default to BEGINNER unless clearly advanced"
         : "Appropriate difficulty level for an athletic/general-fitness population, judged on the movement's actual technical and physical demand"
     ),
     exercisePhases: z.array(z.enum(["WARMUP", "ACTIVATION", "STRENGTHENING", "MOBILITY", "COOLDOWN"]))
@@ -59,8 +59,8 @@ function buildSchemas(context: ExerciseContext) {
   };
 }
 
-const CLINICAL_SYSTEM_PROMPT = `You are an expert physical therapist specializing in senior rehabilitation and geriatric fitness.
-Clients are typically older adults (60+) recovering from injury or surgery, or managing chronic conditions.
+const CLINICAL_SYSTEM_PROMPT = `You are an expert physical therapist specializing in rehabilitation and clinical exercise programming.
+Clients span the general adult population of any age — recovering from injury or surgery, or managing chronic conditions. Do not assume or reference a specific age group (e.g. do not default to senior/geriatric framing) unless the exercise name or context explicitly calls for it.
 All metadata must be conservative, evidence-based, and safe for this population.
 Distinguish assessment/screening exercises (e.g. movement tests, timed tests, ROM checks used to evaluate a client) from ordinary training exercises when setting isAssessment.`;
 
@@ -155,7 +155,7 @@ export async function POST(req: Request) {
 
 ${contextParts.join("\n\n")}
 
-Based on all available information above, create a clean exercise name and full metadata appropriate for ${exerciseContext === "CLINICAL" ? "senior rehabilitation clients" : "athletic/general-fitness clients"}. Prioritise the transcript and description for accurate instructions and details — use the title primarily for the exercise name.`,
+Based on all available information above, create a clean exercise name and full metadata appropriate for ${exerciseContext === "CLINICAL" ? "general rehabilitation clients of any age" : "athletic/general-fitness clients"}. Prioritise the transcript and description for accurate instructions and details — use the title primarily for the exercise name.`,
       });
 
       return NextResponse.json({
@@ -183,7 +183,7 @@ Based on all available information above, create a clean exercise name and full 
 
 Exercise name: "${name}"
 
-Provide practical, evidence-based metadata ${exerciseContext === "CLINICAL" ? "a physical therapist would give their senior clients" : "a strength & conditioning coach would give athletic/general-fitness clients"}.`,
+Provide practical, evidence-based metadata ${exerciseContext === "CLINICAL" ? "a physical therapist would give their general rehab clients" : "a strength & conditioning coach would give athletic/general-fitness clients"}.`,
     });
 
     return NextResponse.json({ success: true, data: object });

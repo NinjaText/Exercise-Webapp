@@ -8,6 +8,7 @@ import { requireRole } from "@/lib/current-user";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/shared/page-header";
+import { ClientNoteReply } from "@/components/sessions/client-note-reply";
 
 // ---------- Types derived from the Prisma query ----------
 
@@ -236,12 +237,12 @@ export default async function SessionReviewPage({ params }: Props) {
                     </CardHeader>
                     <CardContent className="p-0">
                       {clientNote && (
-                        <div className="flex items-start gap-2 border-b border-border/60 bg-blue-50 px-4 py-3">
-                          <span className="mt-0.5 shrink-0 text-[10px] font-bold uppercase tracking-widest text-blue-500">
-                            Client note
-                          </span>
-                          <p className="text-sm italic text-blue-700">{clientNote}</p>
-                        </div>
+                        <ClientNoteReply
+                          sessionId={session.id}
+                          blockExerciseId={exercise.id}
+                          clientNote={clientNote}
+                          clientFirstName={session.client.firstName}
+                        />
                       )}
                       <SetTable
                         block={block}

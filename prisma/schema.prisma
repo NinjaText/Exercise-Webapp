@@ -411,6 +411,17 @@ model Message {
   isRead           Boolean       @default(false)
   readAt           DateTime?
   createdAt        DateTime      @default(now())
+  editedAt         DateTime?
+  // Soft delete: rows are never removed so thread ordering and read-receipt
+  // history stay intact. The UI renders a placeholder when this is set.
+  deletedAt        DateTime?
+
+  // Reply-to-client-note context. Denormalized (plain id + cached strings, not
+  // a relation) so the quoted card stays stable even if the underlying session
+  // log is later edited or deleted.
+  replyToSessionExerciseLogId String? @db.ObjectId
+  replyToExerciseName         String?
+  replyToNoteExcerpt          String?
 }
 
 // --- Phase 1 Models ---

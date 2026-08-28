@@ -500,7 +500,7 @@ export function ClientCalendar({
 
       {/* Calendar */}
       <div className="min-h-160 overflow-x-auto">
-        <div className={cn(view === Views.DAY ? "min-w-full" : "min-w-[640px]")}>
+        <div className={cn(view === Views.DAY ? "min-w-full" : "min-w-[640px]", "rbc-no-time-grid")}>
         <DnDCalendar
           localizer={localizer}
           events={events}
@@ -515,7 +515,7 @@ export function ClientCalendar({
           resizable={false}
           draggableAccessor={(event: SessionEvent) => event.resource.workout.program.trainerId === trainerId}
           popup
-          style={{ height: 640 }}
+          style={{ height: view === Views.MONTH ? 640 : "auto" }}
           components={{
             event: EventComponent,
             toolbar: (props) => (
@@ -540,6 +540,21 @@ export function ClientCalendar({
         />
         </div>
       </div>
+      <style jsx global>{`
+        /* Sessions are always all-day (day-granularity scheduling, no time-of-day) —
+           hide the empty scrollable hour grid in Week/Day view and keep just the
+           day headers + all-day event row. */
+        .rbc-no-time-grid .rbc-time-content,
+        .rbc-no-time-grid .rbc-time-header-gutter {
+          display: none;
+        }
+        .rbc-no-time-grid .rbc-time-header.rbc-overflowing {
+          border-right: none;
+        }
+        .rbc-no-time-grid .rbc-allday-cell {
+          height: auto;
+        }
+      `}</style>
 
       {/* Workout editor side panel */}
       <WorkoutEditorPanel

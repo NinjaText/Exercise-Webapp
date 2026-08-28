@@ -17,7 +17,7 @@ interface Thread {
     imageUrl: string | null;
     role: string;
   };
-  lastMessage: { content: string; createdAt: Date };
+  lastMessage: { content: string; createdAt: Date; deletedAt?: Date | null };
   unreadCount: number;
 }
 
@@ -49,7 +49,7 @@ export function MessagesInboxClient({
           const updated = [...prev];
           updated[idx] = {
             ...updated[idx],
-            lastMessage: { content: data.content, createdAt: new Date(data.createdAt) },
+            lastMessage: { content: data.content, createdAt: new Date(data.createdAt), deletedAt: null },
             unreadCount: updated[idx].unreadCount + 1,
           };
           return [updated[idx], ...updated.filter((_, i) => i !== idx)];
@@ -142,10 +142,14 @@ export function MessagesInboxClient({
                 </div>
                 <p
                   className={`mt-0.5 truncate text-sm leading-snug ${
-                    hasUnread ? "font-medium text-foreground/80" : "text-muted-foreground"
+                    thread.lastMessage.deletedAt
+                      ? "italic text-muted-foreground/70"
+                      : hasUnread
+                      ? "font-medium text-foreground/80"
+                      : "text-muted-foreground"
                   }`}
                 >
-                  {thread.lastMessage.content}
+                  {thread.lastMessage.deletedAt ? "Message deleted" : thread.lastMessage.content}
                 </p>
               </div>
 

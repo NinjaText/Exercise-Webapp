@@ -31,12 +31,12 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
   const role = (params.role as "TRAINER" | "CLIENT" | "ALL") ?? "ALL";
   const page = parseInt(params.page ?? "1", 10);
   const view = params.view === "orgs" ? "orgs" : "all";
-  const includeArchived = params.archived === "1";
+  const archivedOnly = params.archived === "1";
   const orgId = params.org && params.org !== "ALL" ? params.org : "";
 
   const [allUsersData, trainersData, trainersForFilter] = await Promise.all([
     view === "all"
-      ? getAllUsers({ page, pageSize: 25, search, role, includeArchived, orgId: orgId || undefined })
+      ? getAllUsers({ page, pageSize: 25, search, role, archivedOnly, orgId: orgId || undefined })
       : Promise.resolve(null),
     view === "orgs" ? getTrainersWithClients() : Promise.resolve(null),
     view === "all" ? getTrainersForOrgFilter() : Promise.resolve([]),
@@ -136,10 +136,10 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
               </button>
             </form>
             <a
-              href={includeArchived ? `?view=all&search=${search}&role=${role}&org=${orgId}` : `?view=all&search=${search}&role=${role}&org=${orgId}&archived=1`}
+              href={archivedOnly ? `?view=all&search=${search}&role=${role}&org=${orgId}` : `?view=all&search=${search}&role=${role}&org=${orgId}&archived=1`}
               className="text-sm text-muted-foreground hover:text-foreground transition-colors whitespace-nowrap"
             >
-              {includeArchived ? "Hide archived" : "Show archived"}
+              {archivedOnly ? "Hide archived" : "Show archived"}
             </a>
           </div>
 
@@ -248,12 +248,12 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
                 </p>
                 <div className="flex gap-2">
                   {page > 1 && (
-                    <a href={`?view=all&search=${search}&role=${role}&org=${orgId}&page=${page - 1}${includeArchived ? "&archived=1" : ""}`} className="rounded-lg bg-muted px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted/80 transition-colors">
+                    <a href={`?view=all&search=${search}&role=${role}&org=${orgId}&page=${page - 1}${archivedOnly ? "&archived=1" : ""}`} className="rounded-lg bg-muted px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted/80 transition-colors">
                       ← Prev
                     </a>
                   )}
                   {page < totalPages && (
-                    <a href={`?view=all&search=${search}&role=${role}&org=${orgId}&page=${page + 1}${includeArchived ? "&archived=1" : ""}`} className="rounded-lg bg-muted px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted/80 transition-colors">
+                    <a href={`?view=all&search=${search}&role=${role}&org=${orgId}&page=${page + 1}${archivedOnly ? "&archived=1" : ""}`} className="rounded-lg bg-muted px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted/80 transition-colors">
                       Next →
                     </a>
                   )}
