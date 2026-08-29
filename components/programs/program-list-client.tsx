@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { CreateProgramMenu } from "@/components/programs/create-program-menu";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -52,7 +53,6 @@ import {
   Library,
   Pencil,
   Dumbbell,
-  Upload,
   Globe,
   Lock,
   Eye,
@@ -668,30 +668,13 @@ export function ProgramListClient({
 
         {role === "TRAINER" && (
           <div className="flex flex-wrap shrink-0 items-center gap-2">
-            <DropdownMenu>
-              <DropdownMenuTrigger render={<Button className="gap-2" />}>
-                <Plus className="h-4 w-4" />
-                Create Program
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuItem onClick={() => router.push("/programs/new")}>
-                  <Pencil className="mr-2 h-4 w-4 text-muted-foreground" />
-                  Start from scratch
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => router.push("/programs/generate")}>
-                  <Sparkles className="mr-2 h-4 w-4 text-blue-600" />
-                  Generate with AI
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => router.push("/programs/upload")}>
-                  <Upload className="mr-2 h-4 w-4 text-emerald-600" />
-                  Upload a program/document
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleTabChange("templates")}>
-                  <Library className="mr-2 h-4 w-4 text-muted-foreground" />
-                  Use a template
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <CreateProgramMenu
+              onUseTemplate={() => handleTabChange("templates")}
+              trigger={<Button className="gap-2" />}
+            >
+              <Plus className="h-4 w-4" />
+              Create Program
+            </CreateProgramMenu>
           </div>
         )}
       </div>

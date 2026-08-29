@@ -318,10 +318,10 @@ describe("buildPriorityAlerts", () => {
 describe("countClientsNeedingAttention", () => {
   it("counts distinct clients with high or medium alerts, excluding low-only clients", () => {
     const alerts = [
-      { clientId: "a", clientName: "A", severity: "high" as const, message: "", href: "" },
-      { clientId: "a", clientName: "A", severity: "medium" as const, message: "", href: "" },
-      { clientId: "b", clientName: "B", severity: "low" as const, message: "", href: "" },
-      { clientId: "c", clientName: "C", severity: "medium" as const, message: "", href: "" },
+      { clientId: "a", clientName: "A", severity: "high" as const, kind: "inactive" as const, message: "", href: "" },
+      { clientId: "a", clientName: "A", severity: "medium" as const, kind: "discomfort" as const, message: "", href: "" },
+      { clientId: "b", clientName: "B", severity: "low" as const, kind: "fully_completed" as const, message: "", href: "" },
+      { clientId: "c", clientName: "C", severity: "medium" as const, kind: "discomfort" as const, message: "", href: "" },
     ];
     expect(countClientsNeedingAttention(alerts)).toBe(2);
   });

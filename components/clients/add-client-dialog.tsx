@@ -18,8 +18,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BulkInviteTab } from "@/components/shared/bulk-invite-tab";
 import { toast } from "sonner";
 import { Loader2, UserPlus } from "lucide-react";
+import { cn } from "@/lib/utils";
 
-export function AddClientDialog() {
+const DEFAULT_TRIGGER_CLASSNAME =
+  "inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg bg-primary px-2.5 text-sm font-medium text-primary-foreground transition-all outline-none select-none hover:bg-primary/90 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 h-8";
+
+export function AddClientDialog({ triggerClassName }: { triggerClassName?: string } = {}) {
   const [open, setOpen] = useState(false);
   const [email, setEmail] = useState("");
   const [isPending, startTransition] = useTransition();
@@ -59,7 +63,7 @@ export function AddClientDialog() {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg bg-primary px-2.5 text-sm font-medium text-primary-foreground transition-all outline-none select-none hover:bg-primary/90 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 h-8">
+      <DialogTrigger className={cn(DEFAULT_TRIGGER_CLASSNAME, triggerClassName)}>
         <UserPlus className="h-4 w-4" />
         Invite Client
       </DialogTrigger>
