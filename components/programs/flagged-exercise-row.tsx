@@ -2,6 +2,7 @@
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { AlertTriangle, HelpCircle, FileWarning, Check, X } from "lucide-react";
 
 export type ExerciseMatchFlag = "needs_review" | "not_in_library" | "not_in_document";
@@ -32,6 +33,9 @@ interface Props {
   hasSuggestion: boolean;
   resolved: boolean;
   resolvedLabel?: string;
+  duplicateCount?: number;
+  applyToAll?: boolean;
+  onApplyToAllChange?: (checked: boolean) => void;
   onConfirm: () => void;
   onPickAlternative: () => void;
   onSkip: () => void;
@@ -45,6 +49,9 @@ export function FlaggedExerciseRow({
   hasSuggestion,
   resolved,
   resolvedLabel,
+  duplicateCount = 0,
+  applyToAll = false,
+  onApplyToAllChange,
   onConfirm,
   onPickAlternative,
   onSkip,
@@ -69,6 +76,16 @@ export function FlaggedExerciseRow({
         </div>
         {resolved && resolvedLabel && (
           <p className="mt-1 text-xs text-emerald-700">Resolved: {resolvedLabel}</p>
+        )}
+        {!resolved && duplicateCount > 0 && (
+          <label className="mt-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+            <Checkbox
+              checked={applyToAll}
+              onCheckedChange={(checked) => onApplyToAllChange?.(checked === true)}
+              aria-label="Apply this action to all matching occurrences"
+            />
+            Also apply to {duplicateCount} other place{duplicateCount === 1 ? "" : "s"} with this exercise
+          </label>
         )}
       </div>
       {!resolved && (

@@ -1,13 +1,14 @@
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import {
   Accordion,
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { ListChecks, ChevronRight, CircleCheck } from "lucide-react";
-import type { AlertSeverity, PriorityAlert } from "@/lib/services/dashboard-insights.service";
+import { ListChecks, CircleCheck } from "lucide-react";
+import type { AlertKind, AlertSeverity, PriorityAlert } from "@/lib/services/dashboard-insights.service";
 
 const severityDot: Record<AlertSeverity, string> = {
   high: "bg-red-500",
@@ -28,6 +29,28 @@ const severityBadge: Record<AlertSeverity, string> = {
 };
 
 const SEVERITY_ORDER: AlertSeverity[] = ["high", "medium", "low"];
+
+type ActionKey = "view_client" | "message" | "create_next_program";
+
+const ACTIONS_BY_KIND: Record<AlertKind, ActionKey[]> = {
+  pain_feedback: ["view_client", "message"],
+  no_sessions_started: ["view_client", "message"],
+  inactive: ["view_client", "message"],
+  discomfort: ["view_client", "message"],
+  low_completion: ["view_client", "message"],
+  delayed_pattern: ["view_client", "message"],
+  program_ending: ["view_client", "create_next_program"],
+  fully_completed: ["view_client"],
+};
+
+const ACTION_CONFIG: Record<ActionKey, { label: string; href: (alert: PriorityAlert) => string }> = {
+  view_client: { label: "View Client", href: (alert) => `/clients/${alert.clientId}` },
+  message: { label: "Message", href: (alert) => `/messages/${alert.clientId}` },
+  create_next_program: {
+    label: "Create Next Program",
+    href: (alert) => `/programs/generate?clientId=${alert.clientId}`,
+  },
+};
 
 export function TodaysPrioritiesCard({ priorities }: { priorities: PriorityAlert[] }) {
   const groups = SEVERITY_ORDER.map((severity) => ({
@@ -70,15 +93,36 @@ export function TodaysPrioritiesCard({ priorities }: { priorities: PriorityAlert
                 <AccordionContent>
                   <div className="space-y-2">
                     {alerts.map((alert, i) => (
-                      <Link
+                      <div
                         key={`${alert.clientId}-${i}`}
-                        href={alert.href}
-                        className="flex items-center gap-3 rounded-xl border border-border/60 bg-muted/20 p-3 transition-colors hover:bg-muted/40"
+                        className="rounded-xl border border-border/60 bg-muted/20 p-3"
                       >
-                        <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${severityDot[alert.severity]}`} />
-                        <p className="min-w-0 flex-1 truncate text-sm">{alert.message}</p>
-                        <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground/40" />
-                      </Link>
+                        <div className="flex items-start gap-2.5">
+                          <span
+                            className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${severityDot[alert.severity]}`}
+                          />
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-semibold">{alert.clientName}</p>
+                            <p className="mt-0.5 text-sm text-muted-foreground">{alert.message}</p>
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              {ACTIONS_BY_KIND[alert.kind].map((actionKey) => {
+                                const action = ACTION_CONFIG[actionKey];
+                                return (
+                                  <Button
+                                    key={actionKey}
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-7 text-xs"
+                                    asChild
+                                  >
+                                    <Link href={action.href(alert)}>{action.label}</Link>
+                                  </Button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
                     ))}
                   </div>
                 </AccordionContent>

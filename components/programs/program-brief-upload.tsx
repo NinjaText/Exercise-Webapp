@@ -17,6 +17,16 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   generateProgramBriefUploadUrlAction,
   extractProgramMetadataFromBriefAction,
   extractProgramChunksAction,
@@ -135,6 +145,10 @@ function flagKey(workoutIdx: number, blockIdx: number, exIdx: number) {
   return `${workoutIdx}-${blockIdx}-${exIdx}`;
 }
 
+function normalizeExerciseName(name: string | undefined) {
+  return (name ?? "").trim().toLowerCase();
+}
+
 function ProgressStepper({ stage }: { stage: Stage }) {
   const currentIndex = STAGE_ORDER.indexOf(stage);
   if (currentIndex === -1) return null;
@@ -178,6 +192,13 @@ export function ProgramBriefUpload({
   const [editableFields, setEditableFields] = useState<EditableFields | null>(null);
   const [pendingMetadata, setPendingMetadata] = useState<PendingMetadata | null>(null);
   const [resolutions, setResolutions] = useState<Map<string, Resolution>>(new Map());
+  const [applyToAllKeys, setApplyToAllKeys] = useState<Set<string>>(new Set());
+  const [pendingApplyAll, setPendingApplyAll] = useState<{
+    key: string;
+    resolution: Resolution;
+    matches: string[];
+    exerciseName: string;
+  } | null>(null);
   const [resolverKey, setResolverKey] = useState<string | null>(null);
   const [confirmedInferredFields, setConfirmedInferredFields] = useState<Set<string>>(new Set());
   // Single-open accordion: null means every week is collapsed. A week index
@@ -203,6 +224,26 @@ export function ProgramBriefUpload({
   }, [preview]);
 
   const unresolvedCount = flaggedSlots.filter((s) => !resolutions.has(s.key)).length;
+
+  // Groups flagged slots by normalized exercise name so a resolution made on
+  // one occurrence can optionally be propagated to every other occurrence of
+  // the same exercise elsewhere in the plan (see applyResolution below).
+  const flaggedByName = useMemo(() => {
+    const map = new Map<string, string[]>();
+    flaggedSlots.forEach(({ key, exercise }) => {
+      const norm = normalizeExerciseName(exercise.exerciseName);
+      if (!norm) return;
+      if (!map.has(norm)) map.set(norm, []);
+      map.get(norm)!.push(key);
+    });
+    return map;
+  }, [flaggedSlots]);
+
+  function otherUnresolvedMatches(key: string, exerciseName: string | undefined) {
+    const norm = normalizeExerciseName(exerciseName);
+    if (!norm) return [];
+    return (flaggedByName.get(norm) ?? []).filter((k) => k !== key && !resolutions.has(k));
+  }
 
   // Groups sessions by week for the accordion, while keeping each session's
   // original index into preview.aiPlan.workouts — flagKey/resolutions/flaggedSlots
@@ -269,6 +310,7 @@ export function ProgramBriefUpload({
     setPreview(null);
     setPendingMetadata(null);
     setResolutions(new Map());
+    setApplyToAllKeys(new Set());
   }
 
   async function runExtractionAndMatching(rawText: string, metadata: BriefMetadata) {
@@ -296,6 +338,7 @@ export function ProgramBriefUpload({
     });
     setEditableFields(toEditableFields(matchResult.data.parsed));
     setResolutions(new Map());
+    setApplyToAllKeys(new Set());
     setConfirmedInferredFields(new Set());
     setExpandedWeek(null);
     setStage("ready");
@@ -375,27 +418,111 @@ export function ProgramBriefUpload({
     }
   }
 
-  function confirmSuggestion(key: string, exercise: PreviewExercise) {
-    if (!exercise.exerciseId) return;
-    setResolutions((prev) =>
-      new Map(prev).set(key, { exerciseId: exercise.exerciseId!, exerciseName: exercise.exerciseName ?? "" })
-    );
+  // Resolves `key`, and — when that slot's "apply to all" checkbox is
+  // checked — every other still-unresolved slot sharing the same exercise
+  // name, so a trainer can fix one occurrence of a repeated exercise once
+  // instead of hunting down every block/week it appears in. Propagating to
+  // other slots is a multi-exercise change, so it's gated behind an
+  // explicit confirmation instead of applying immediately.
+  function applyResolution(key: string, resolution: Resolution, exerciseName: string | undefined) {
+    const matches = applyToAllKeys.has(key) ? otherUnresolvedMatches(key, exerciseName) : [];
+    if (matches.length > 0) {
+      setPendingApplyAll({ key, resolution, matches, exerciseName: exerciseName ?? "this exercise" });
+      return;
+    }
+    setResolutions((prev) => new Map(prev).set(key, resolution));
   }
 
-  function skipSlot(key: string) {
-    setResolutions((prev) => new Map(prev).set(key, { skip: true }));
+  function confirmApplyAll() {
+    if (!pendingApplyAll) return;
+    const { key, resolution, matches } = pendingApplyAll;
+    setResolutions((prev) => {
+      const next = new Map(prev);
+      next.set(key, resolution);
+      matches.forEach((k) => next.set(k, resolution));
+      return next;
+    });
+    setApplyToAllKeys((prev) => {
+      const next = new Set(prev);
+      next.delete(key);
+      return next;
+    });
+    toast.success(`Applied to ${matches.length + 1} matching exercises`);
+    setPendingApplyAll(null);
+  }
+
+  function setApplyToAll(key: string, checked: boolean) {
+    setApplyToAllKeys((prev) => {
+      const next = new Set(prev);
+      if (checked) next.add(key);
+      else next.delete(key);
+      return next;
+    });
+  }
+
+  function confirmSuggestion(key: string, exercise: PreviewExercise) {
+    if (!exercise.exerciseId) return;
+    applyResolution(key, { exerciseId: exercise.exerciseId, exerciseName: exercise.exerciseName ?? "" }, exercise.exerciseName);
+  }
+
+  function skipSlot(key: string, exercise: PreviewExercise) {
+    applyResolution(key, { skip: true }, exercise.exerciseName);
   }
 
   function handlePickerSelect(exercise: { id: string; name: string }) {
     if (!resolverKey) return;
-    setResolutions((prev) => new Map(prev).set(resolverKey, { exerciseId: exercise.id, exerciseName: exercise.name }));
+    const originalName = flaggedSlots.find((s) => s.key === resolverKey)?.exercise.exerciseName;
+    applyResolution(resolverKey, { exerciseId: exercise.id, exerciseName: exercise.name }, originalName);
     setResolverKey(null);
+  }
+
+  // Block-scoped bulk actions. `entries` is that block's currently-unresolved
+  // flagged slots — confirmAllInBlock only touches ones with a suggested
+  // match; slots without one (not_in_library) still need a manual pick.
+  function confirmAllInBlock(entries: { key: string; exercise: PreviewExercise }[]) {
+    const confirmable = entries.filter((e) => e.exercise.exerciseId);
+    if (confirmable.length === 0) {
+      toast.error("None of these have a suggested match — pick one manually");
+      return;
+    }
+    setResolutions((prev) => {
+      const next = new Map(prev);
+      confirmable.forEach(({ key, exercise }) => {
+        next.set(key, { exerciseId: exercise.exerciseId!, exerciseName: exercise.exerciseName ?? "" });
+      });
+      return next;
+    });
+    const skipped = entries.length - confirmable.length;
+    toast.success(
+      skipped > 0
+        ? `Confirmed ${confirmable.length} of ${entries.length} — ${skipped} have no suggested match`
+        : `Confirmed ${confirmable.length} exercise${confirmable.length === 1 ? "" : "s"}`
+    );
+  }
+
+  function skipAllInBlock(entries: { key: string; exercise: PreviewExercise }[]) {
+    setResolutions((prev) => {
+      const next = new Map(prev);
+      entries.forEach(({ key }) => next.set(key, { skip: true }));
+      return next;
+    });
+    toast.success(`Skipped ${entries.length} exercise${entries.length === 1 ? "" : "s"}`);
   }
 
   function resolutionLabel(resolution: Resolution | undefined) {
     if (!resolution) return undefined;
     if ("skip" in resolution) return "Skipped";
     return resolution.exerciseName;
+  }
+
+  function pendingApplyAllDescription() {
+    if (!pendingApplyAll) return "";
+    const { resolution, matches, exerciseName } = pendingApplyAll;
+    const placement = `${matches.length} other place${matches.length === 1 ? "" : "s"}`;
+    if ("skip" in resolution) {
+      return `This will skip "${exerciseName}" here and in ${placement} in this plan.`;
+    }
+    return `This will resolve "${exerciseName}" to "${resolution.exerciseName}" here and in ${placement} in this plan.`;
   }
 
   function buildResolvedPlan() {
@@ -760,43 +887,79 @@ export function ProgramBriefUpload({
                                 <span>{workout.name}</span>
                               </div>
                               <div className="mt-3 space-y-3">
-                                {workout.blocks.map((block, bIdx) => (
-                                  <div key={`${block.name || block.type}-${bIdx}`}>
-                                    <div className="text-sm font-semibold flex items-center gap-2">
-                                      <span>{block.name || "Block"}</span>
-                                      {block.type !== "NORMAL" && <Badge variant="outline">{block.type}</Badge>}
-                                    </div>
-                                    <div className="mt-2 space-y-1.5">
-                                      {block.exercises.map((ex, eIdx) => {
-                                        const key = flagKey(wIdx, bIdx, eIdx);
-                                        const flags = ex.flags ?? [];
-                                        if (flags.length === 0) {
+                                {workout.blocks.map((block, bIdx) => {
+                                  const blockUnresolved = block.exercises
+                                    .map((exercise, exIdx) => ({ key: flagKey(wIdx, bIdx, exIdx), exercise }))
+                                    .filter(
+                                      ({ key, exercise }) =>
+                                        (exercise.flags?.length ?? 0) > 0 && !resolutions.has(key)
+                                    );
+                                  return (
+                                    <div key={`${block.name || block.type}-${bIdx}`}>
+                                      <div className="flex items-center justify-between gap-2">
+                                        <div className="text-sm font-semibold flex items-center gap-2">
+                                          <span>{block.name || "Block"}</span>
+                                          {block.type !== "NORMAL" && <Badge variant="outline">{block.type}</Badge>}
+                                        </div>
+                                        {blockUnresolved.length > 1 && (
+                                          <div className="flex items-center gap-2">
+                                            <span className="text-xs text-muted-foreground">
+                                              {blockUnresolved.length} need review
+                                            </span>
+                                            <Button
+                                              size="sm"
+                                              variant="outline"
+                                              className="h-6 text-xs"
+                                              onClick={() => confirmAllInBlock(blockUnresolved)}
+                                            >
+                                              Confirm all
+                                            </Button>
+                                            <Button
+                                              size="sm"
+                                              variant="ghost"
+                                              className="h-6 text-xs text-muted-foreground"
+                                              onClick={() => skipAllInBlock(blockUnresolved)}
+                                            >
+                                              Skip all
+                                            </Button>
+                                          </div>
+                                        )}
+                                      </div>
+                                      <div className="mt-2 space-y-1.5">
+                                        {block.exercises.map((ex, eIdx) => {
+                                          const key = flagKey(wIdx, bIdx, eIdx);
+                                          const flags = ex.flags ?? [];
+                                          if (flags.length === 0) {
+                                            return (
+                                              <div key={key} className="text-sm text-muted-foreground">
+                                                {ex.exerciseName || ex.exerciseId} — {ex.sets} x {ex.reps}
+                                              </div>
+                                            );
+                                          }
+                                          const resolution = resolutions.get(key);
                                           return (
-                                            <div key={key} className="text-sm text-muted-foreground">
-                                              {ex.exerciseName || ex.exerciseId} — {ex.sets} x {ex.reps}
-                                            </div>
+                                            <FlaggedExerciseRow
+                                              key={key}
+                                              exerciseName={ex.exerciseName}
+                                              sets={ex.sets}
+                                              reps={ex.reps}
+                                              flags={flags}
+                                              hasSuggestion={!!ex.exerciseId}
+                                              resolved={!!resolution}
+                                              resolvedLabel={resolutionLabel(resolution)}
+                                              duplicateCount={otherUnresolvedMatches(key, ex.exerciseName).length}
+                                              applyToAll={applyToAllKeys.has(key)}
+                                              onApplyToAllChange={(checked) => setApplyToAll(key, checked)}
+                                              onConfirm={() => confirmSuggestion(key, ex)}
+                                              onPickAlternative={() => setResolverKey(key)}
+                                              onSkip={() => skipSlot(key, ex)}
+                                            />
                                           );
-                                        }
-                                        const resolution = resolutions.get(key);
-                                        return (
-                                          <FlaggedExerciseRow
-                                            key={key}
-                                            exerciseName={ex.exerciseName}
-                                            sets={ex.sets}
-                                            reps={ex.reps}
-                                            flags={flags}
-                                            hasSuggestion={!!ex.exerciseId}
-                                            resolved={!!resolution}
-                                            resolvedLabel={resolutionLabel(resolution)}
-                                            onConfirm={() => confirmSuggestion(key, ex)}
-                                            onPickAlternative={() => setResolverKey(key)}
-                                            onSkip={() => skipSlot(key)}
-                                          />
-                                        );
-                                      })}
+                                        })}
+                                      </div>
                                     </div>
-                                  </div>
-                                ))}
+                                  );
+                                })}
                               </div>
                             </div>
                           ))}
@@ -881,6 +1044,21 @@ export function ProgramBriefUpload({
         organizationOrganizationId={organizationOrganizationId}
         exerciseSourcePreference={exerciseSourcePreference}
       />
+
+      <AlertDialog open={!!pendingApplyAll} onOpenChange={(open) => !open && setPendingApplyAll(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Apply to {pendingApplyAll ? pendingApplyAll.matches.length + 1 : 0} exercises?
+            </AlertDialogTitle>
+            <AlertDialogDescription>{pendingApplyAllDescription()}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmApplyAll}>Apply to all</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

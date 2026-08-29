@@ -4,10 +4,21 @@ import { startOfDay, endOfDay } from "date-fns";
 
 export type AlertSeverity = "high" | "medium" | "low";
 
+export type AlertKind =
+  | "pain_feedback"
+  | "no_sessions_started"
+  | "inactive"
+  | "discomfort"
+  | "low_completion"
+  | "delayed_pattern"
+  | "program_ending"
+  | "fully_completed";
+
 export interface PriorityAlert {
   clientId: string;
   clientName: string;
   severity: AlertSeverity;
+  kind: AlertKind;
   message: string;
   href: string;
 }
@@ -180,6 +191,7 @@ export function buildPriorityAlerts(snapshots: ClientSnapshot[], now: Date): Pri
         clientId,
         clientName,
         severity: "high",
+        kind: "pain_feedback",
         message: `${clientName} reported pain on a recent exercise`,
         href,
       });
@@ -194,6 +206,7 @@ export function buildPriorityAlerts(snapshots: ClientSnapshot[], now: Date): Pri
             clientId,
             clientName,
             severity: "high",
+            kind: "no_sessions_started",
             message: `${clientName} hasn't started any sessions yet`,
             href,
           });
@@ -205,6 +218,7 @@ export function buildPriorityAlerts(snapshots: ClientSnapshot[], now: Date): Pri
             clientId,
             clientName,
             severity: "high",
+            kind: "inactive",
             message: `${clientName} has been inactive for ${daysSince} days`,
             href,
           });
@@ -218,6 +232,7 @@ export function buildPriorityAlerts(snapshots: ClientSnapshot[], now: Date): Pri
         clientId,
         clientName,
         severity: "medium",
+        kind: "discomfort",
         message: `${clientName} reported mild discomfort recently`,
         href,
       });
@@ -229,6 +244,7 @@ export function buildPriorityAlerts(snapshots: ClientSnapshot[], now: Date): Pri
         clientId,
         clientName,
         severity: "medium",
+        kind: "low_completion",
         message: `${clientName} completed ${Math.round(rate * 100)}% of scheduled workouts recently`,
         href,
       });
@@ -243,6 +259,7 @@ export function buildPriorityAlerts(snapshots: ClientSnapshot[], now: Date): Pri
         clientId,
         clientName,
         severity: "medium",
+        kind: "delayed_pattern",
         message: `${clientName} tends to complete workouts after their scheduled date`,
         href,
       });
@@ -258,6 +275,7 @@ export function buildPriorityAlerts(snapshots: ClientSnapshot[], now: Date): Pri
           clientId,
           clientName,
           severity: "medium",
+          kind: "program_ending",
           message: `${clientName}'s program ends in ${daysToEnd} day${daysToEnd === 1 ? "" : "s"}`,
           href,
         });
@@ -269,6 +287,7 @@ export function buildPriorityAlerts(snapshots: ClientSnapshot[], now: Date): Pri
         clientId,
         clientName,
         severity: "low",
+        kind: "fully_completed",
         message: `${clientName} completed every scheduled workout recently`,
         href,
       });
