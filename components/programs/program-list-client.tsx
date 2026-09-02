@@ -59,6 +59,11 @@ import {
   ChevronDown,
   X,
   Users,
+  Star,
+  FolderPlus,
+  Folder,
+  ArrowLeft,
+  Clock,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -67,9 +72,14 @@ import {
   hardDeleteProgramAction,
   copyGlobalProgramAction,
   toggleProgramPublicAction,
+  toggleProgramFavoriteAction,
+  setProgramCollectionsAction,
 } from "@/actions/program-actions";
+import { createCollectionAction } from "@/actions/collection-actions";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
+
+const RECENT_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
 
 interface ProgramListItem {
   id: string;
@@ -87,6 +97,17 @@ interface ProgramListItem {
   client: { id: string; firstName: string; lastName: string } | null;
   workouts: { id: string; name: string }[];
   _count: { workouts: number };
+  isFavorite?: boolean;
+  collectionIds?: string[];
+  bodyAreas?: string[];
+  goals?: string[];
+  activities?: string[];
+}
+
+interface CollectionItem {
+  id: string;
+  name: string;
+  programCount: number;
 }
 
 interface GlobalProgramItem {
@@ -167,6 +188,9 @@ function ProgramRow({
   onRequestHardDelete,
   onTogglePublic,
   togglingPublicId,
+  onToggleFavorite,
+  togglingFavoriteId,
+  onAddToCollection,
   typeBadge,
   search,
   personColumn,
@@ -179,6 +203,9 @@ function ProgramRow({
   onRequestHardDelete: (id: string, name: string) => void;
   onTogglePublic: (id: string, isPublic: boolean) => void;
   togglingPublicId: string | null;
+  onToggleFavorite?: (id: string, next: boolean) => void;
+  togglingFavoriteId?: string | null;
+  onAddToCollection?: (program: ProgramListItem) => void;
   typeBadge?: "clinical";
   search?: string;
   /** Which related person to show — trainers see the assigned client, clients see their trainer. */
@@ -248,6 +275,22 @@ function ProgramRow({
       </TableCell>
       <TableCell className="text-right">
         <div className="flex items-center justify-end gap-1">
+          {onToggleFavorite && (
+            <button
+              type="button"
+              disabled={togglingFavoriteId === program.id}
+              onClick={() => onToggleFavorite(program.id, !program.isFavorite)}
+              title={program.isFavorite ? "Remove from favorites" : "Add to favorites"}
+              className={cn(
+                "inline-flex h-7 w-7 items-center justify-center rounded-md transition-opacity hover:bg-muted disabled:opacity-60",
+                program.isFavorite
+                  ? "text-amber-500 opacity-100"
+                  : "text-muted-foreground opacity-0 group-hover:opacity-100"
+              )}
+            >
+              <Star className={cn("h-4 w-4", program.isFavorite && "fill-current")} />
+            </button>
+          )}
           <Link
             href={detailHref}
             className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity hover:bg-muted hover:text-foreground group-hover:opacity-100"
@@ -270,6 +313,11 @@ function ProgramRow({
                 {!program.clientId && (
                   <DropdownMenuItem onClick={() => router.push(`/programs/${program.id}?assign=true`)}>
                     <UserPlus className="mr-2 h-4 w-4" /> Assign Client
+                  </DropdownMenuItem>
+                )}
+                {onAddToCollection && !program.clientId && (
+                  <DropdownMenuItem onClick={() => onAddToCollection(program)}>
+                    <Folder className="mr-2 h-4 w-4" /> Add to Collection
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuSeparator />
@@ -381,15 +429,83 @@ function ProgramsEmptyState({ title, description, showCreateActions }: { title: 
   );
 }
 
+function CollectionCard({ collection, onClick }: { collection: CollectionItem; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex items-center gap-3 rounded-xl border border-border/50 p-4 text-left shadow-sm transition-colors hover:border-primary/40 hover:bg-muted/40"
+    >
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+        <Folder className="h-4.5 w-4.5" />
+      </div>
+      <div className="min-w-0">
+        <p className="truncate font-medium text-sm">{collection.name}</p>
+        <p className="text-xs text-muted-foreground">
+          {collection.programCount} program{collection.programCount === 1 ? "" : "s"}
+        </p>
+      </div>
+    </button>
+  );
+}
+
+function CreateCollectionCard({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex items-center gap-3 rounded-xl border border-dashed border-border p-4 text-left text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
+    >
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted">
+        <FolderPlus className="h-4.5 w-4.5" />
+      </div>
+      <p className="text-sm font-medium">Create Collection</p>
+    </button>
+  );
+}
+
+function RecentlyUsedPrograms({ programs }: { programs: ProgramListItem[] }) {
+  const recent = useMemo(
+    () => [...programs].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()).slice(0, 8),
+    [programs]
+  );
+  if (recent.length === 0) return null;
+
+  return (
+    <div className="space-y-2">
+      <h3 className="flex items-center gap-1.5 text-sm font-semibold text-muted-foreground">
+        <Clock className="h-3.5 w-3.5" />
+        Recently Used
+      </h3>
+      <div className="flex gap-3 overflow-x-auto pb-1">
+        {recent.map((p) => (
+          <Link
+            key={p.id}
+            href={`/programs/${p.id}`}
+            className="shrink-0 rounded-lg border border-border/50 px-3.5 py-2.5 text-sm shadow-sm transition-colors hover:border-primary/40 hover:bg-muted/40"
+          >
+            <p className="max-w-40 truncate font-medium">{p.name}</p>
+            <p className="text-xs text-muted-foreground">
+              <UpdatedAt date={p.updatedAt} />
+            </p>
+          </Link>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function ProgramListClient({
   programs,
   globalPrograms = [],
   updatableIds = [],
+  collections = [],
   role,
 }: {
   programs: ProgramListItem[];
   globalPrograms?: GlobalProgramItem[];
   updatableIds?: string[];
+  collections?: CollectionItem[];
   role?: string;
 }) {
   const router = useRouter();
@@ -403,7 +519,36 @@ export function ProgramListClient({
   const [pendingHardDelete, setPendingHardDelete] = useState<{ id: string; name: string } | null>(null);
   const [hardDeleting, setHardDeleting] = useState(false);
   const [togglingPublicId, setTogglingPublicId] = useState<string | null>(null);
+  const [togglingFavoriteId, setTogglingFavoriteId] = useState<string | null>(null);
   const [clientFilter, setClientFilter] = useState<Set<string>>(new Set());
+
+  // Library-tab-only: quick state filter chips, and the Collection drill-down.
+  const [chipFilter, setChipFilter] = useState<"all" | "recent" | "favorites" | "templates" | "archived">("all");
+  const [selectedCollectionId, setSelectedCollectionId] = useState<string | null>(null);
+  const [collectionTagFilter, setCollectionTagFilter] = useState<Set<string>>(new Set());
+  const [createCollectionOpen, setCreateCollectionOpen] = useState(false);
+  const [newCollectionName, setNewCollectionName] = useState("");
+  const [creatingCollection, setCreatingCollection] = useState(false);
+  const [manageMembersOpen, setManageMembersOpen] = useState(false);
+  const [memberSelection, setMemberSelection] = useState<Set<string>>(new Set());
+  const [savingMembers, setSavingMembers] = useState(false);
+  const [memberSearch, setMemberSearch] = useState("");
+
+  // Row-level "Add to Collection" — the inverse of the above: pick a program
+  // first (from its row menu), then choose which collections it belongs to.
+  const [addToCollectionsProgram, setAddToCollectionsProgram] = useState<ProgramListItem | null>(null);
+  const [addToCollectionsSelection, setAddToCollectionsSelection] = useState<Set<string>>(new Set());
+  const [savingProgramCollections, setSavingProgramCollections] = useState(false);
+  const [extraCollections, setExtraCollections] = useState<CollectionItem[]>([]);
+  const [inlineCollectionName, setInlineCollectionName] = useState("");
+  const [creatingInlineCollection, setCreatingInlineCollection] = useState(false);
+
+  // collections prop plus any created inline this session that the prop
+  // hasn't caught up to yet (router.refresh() is async).
+  const allCollections = useMemo(() => {
+    const known = new Set(collections.map((c) => c.id));
+    return [...collections, ...extraCollections.filter((c) => !known.has(c.id))];
+  }, [collections, extraCollections]);
 
   const activeTab =
     role === "TRAINER"
@@ -436,13 +581,18 @@ export function ProgramListClient({
     search !== "" ||
     statusFilter !== "all" ||
     clientFilter.size > 0 ||
-    (activeTab === "templates" && typeFilter !== "all");
+    (activeTab === "templates" && typeFilter !== "all") ||
+    (activeTab === "templates" && chipFilter !== "all") ||
+    !!selectedCollectionId;
 
   function handleClearFilters() {
     setSearch("");
     setStatusFilter("all");
     setClientFilter(new Set());
     setTypeFilter("all");
+    setChipFilter("all");
+    setSelectedCollectionId(null);
+    setCollectionTagFilter(new Set());
   }
 
   function handleTabChange(nextTab: string) {
@@ -450,6 +600,9 @@ export function ProgramListClient({
     setSearch("");
     setStatusFilter("all");
     setClientFilter(new Set());
+    setChipFilter("all");
+    setSelectedCollectionId(null);
+    setCollectionTagFilter(new Set());
     const params = new URLSearchParams(searchParams.toString());
     if (nextTab === "templates") {
       params.delete("tab");
@@ -468,12 +621,49 @@ export function ProgramListClient({
     return true;
   });
 
+  function matchesChip(p: ProgramListItem): boolean {
+    if (chipFilter === "archived") return p.status === "ARCHIVED";
+    if (p.status === "ARCHIVED") return false;
+    switch (chipFilter) {
+      case "recent":
+        return Date.now() - new Date(p.updatedAt).getTime() < RECENT_WINDOW_MS;
+      case "favorites":
+        return !!p.isFavorite;
+      case "templates":
+        return p.isTemplate;
+      default:
+        return true;
+    }
+  }
+
+  function matchesCollectionTags(p: ProgramListItem): boolean {
+    if (collectionTagFilter.size === 0) return true;
+    const facets = [...p.tags, ...(p.bodyAreas ?? []), ...(p.goals ?? []), ...(p.activities ?? [])];
+    return facets.some((t) => collectionTagFilter.has(t));
+  }
+
+  // Programs shown inside the selected collection (for the tag-filter facet list).
+  const collectionPrograms = selectedCollectionId
+    ? programs.filter((p) => (p.collectionIds ?? []).includes(selectedCollectionId))
+    : [];
+  const collectionTagOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const p of collectionPrograms) {
+      for (const t of [...p.tags, ...(p.bodyAreas ?? []), ...(p.goals ?? []), ...(p.activities ?? [])]) set.add(t);
+    }
+    return Array.from(set).sort();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCollectionId, programs]);
+
   // Templates tab — clinical subset
   const filteredClinical =
     activeTab === "templates" && typeFilter !== "global"
       ? programs.filter((p) => {
           if (search && !matchesSearch(p, search)) return false;
-          if (!matchesStatusFilter(p.status, statusFilter)) return false;
+          if (chipFilter === "all" && !matchesStatusFilter(p.status, statusFilter)) return false;
+          if (!matchesChip(p)) return false;
+          if (selectedCollectionId && !(p.collectionIds ?? []).includes(selectedCollectionId)) return false;
+          if (selectedCollectionId && !matchesCollectionTags(p)) return false;
           return true;
         })
       : [];
@@ -554,6 +744,120 @@ export function ProgramListClient({
     }
   }
 
+  async function handleToggleFavorite(id: string, next: boolean) {
+    setTogglingFavoriteId(id);
+    try {
+      const result = await toggleProgramFavoriteAction(id, next);
+      if (result.success) {
+        router.refresh();
+      } else {
+        toast.error(result.error);
+      }
+    } finally {
+      setTogglingFavoriteId(null);
+    }
+  }
+
+  async function handleCreateCollection() {
+    setCreatingCollection(true);
+    try {
+      const result = await createCollectionAction(newCollectionName);
+      if (result.success) {
+        toast.success(`Collection "${result.data.name}" created`);
+        setCreateCollectionOpen(false);
+        setNewCollectionName("");
+        router.refresh();
+      } else {
+        toast.error(result.error);
+      }
+    } finally {
+      setCreatingCollection(false);
+    }
+  }
+
+  function openManageMembers() {
+    if (!selectedCollectionId) return;
+    setMemberSelection(new Set(collectionPrograms.map((p) => p.id)));
+    setMemberSearch("");
+    setManageMembersOpen(true);
+  }
+
+  async function handleSaveMembers() {
+    if (!selectedCollectionId) return;
+    setSavingMembers(true);
+    try {
+      const changed = programs.filter((p) => {
+        const wasIn = (p.collectionIds ?? []).includes(selectedCollectionId);
+        const isIn = memberSelection.has(p.id);
+        return wasIn !== isIn;
+      });
+      const results = await Promise.all(
+        changed.map((p) => {
+          const current = p.collectionIds ?? [];
+          const next = memberSelection.has(p.id)
+            ? [...current, selectedCollectionId]
+            : current.filter((id) => id !== selectedCollectionId);
+          return setProgramCollectionsAction(p.id, next);
+        })
+      );
+      const failed = results.filter((r) => !r.success);
+      if (failed.length > 0) {
+        toast.error(`Failed to update ${failed.length} program${failed.length === 1 ? "" : "s"}`);
+      } else if (changed.length > 0) {
+        toast.success(`Collection updated`);
+      }
+      setManageMembersOpen(false);
+      router.refresh();
+    } finally {
+      setSavingMembers(false);
+    }
+  }
+
+  function openAddToCollections(program: ProgramListItem) {
+    setAddToCollectionsProgram(program);
+    setAddToCollectionsSelection(new Set(program.collectionIds ?? []));
+    setInlineCollectionName("");
+  }
+
+  async function handleSaveProgramCollections() {
+    if (!addToCollectionsProgram) return;
+    setSavingProgramCollections(true);
+    try {
+      const result = await setProgramCollectionsAction(
+        addToCollectionsProgram.id,
+        Array.from(addToCollectionsSelection)
+      );
+      if (result.success) {
+        toast.success(`Updated collections for "${addToCollectionsProgram.name}"`);
+        setAddToCollectionsProgram(null);
+        router.refresh();
+      } else {
+        toast.error(result.error);
+      }
+    } finally {
+      setSavingProgramCollections(false);
+    }
+  }
+
+  async function handleCreateInlineCollection() {
+    const name = inlineCollectionName.trim();
+    if (!name) return;
+    setCreatingInlineCollection(true);
+    try {
+      const result = await createCollectionAction(name);
+      if (result.success) {
+        setExtraCollections((prev) => [...prev, { id: result.data.id, name: result.data.name, programCount: 0 }]);
+        setAddToCollectionsSelection((prev) => new Set(prev).add(result.data.id));
+        setInlineCollectionName("");
+        router.refresh();
+      } else {
+        toast.error(result.error);
+      }
+    } finally {
+      setCreatingInlineCollection(false);
+    }
+  }
+
   const personColumn: "client" | "trainer" = role === "TRAINER" ? "client" : "trainer";
 
   return (
@@ -585,6 +889,102 @@ export function ProgramListClient({
           ))}
         </div>
       )}
+
+      {/* Quick filter chips, Collections grid, Recently Used — Library tab, my own programs only */}
+      {activeTab === "templates" && role === "TRAINER" && typeFilter !== "global" && (
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-center gap-2">
+            {(["all", "recent", "favorites", "templates", "archived"] as const).map((f) => (
+              <button
+                key={f}
+                onClick={() => setChipFilter(f)}
+                className={cn(
+                  "rounded-full px-3 py-1 text-xs font-medium transition-colors",
+                  chipFilter === f
+                    ? "bg-secondary text-secondary-foreground"
+                    : "bg-muted text-muted-foreground hover:bg-muted/80"
+                )}
+              >
+                {f === "all" ? "All" : f === "recent" ? "Recent" : f === "favorites" ? "Favorites" : f === "templates" ? "Templates" : "Archived"}
+              </button>
+            ))}
+          </div>
+
+          {selectedCollectionId ? (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="gap-1.5 -ml-2 text-muted-foreground"
+                    onClick={() => {
+                      setSelectedCollectionId(null);
+                      setCollectionTagFilter(new Set());
+                    }}
+                  >
+                    <ArrowLeft className="h-3.5 w-3.5" />
+                    All Collections
+                  </Button>
+                  <h3 className="font-semibold text-sm">
+                    {collections.find((c) => c.id === selectedCollectionId)?.name}
+                  </h3>
+                </div>
+                <Button variant="outline" size="sm" className="gap-1.5" onClick={openManageMembers}>
+                  <Plus className="h-3.5 w-3.5" />
+                  Add Programs
+                </Button>
+              </div>
+              {collectionTagOptions.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {collectionTagOptions.map((t) => {
+                    const active = collectionTagFilter.has(t);
+                    return (
+                      <button
+                        key={t}
+                        type="button"
+                        onClick={() =>
+                          setCollectionTagFilter((prev) => {
+                            const next = new Set(prev);
+                            if (next.has(t)) next.delete(t);
+                            else next.add(t);
+                            return next;
+                          })
+                        }
+                        className={cn(
+                          "rounded-full border px-2.5 py-1 text-xs font-medium transition-colors",
+                          active
+                            ? "bg-primary text-primary-foreground border-primary"
+                            : "bg-background text-muted-foreground border-border hover:border-primary/60 hover:text-foreground"
+                        )}
+                      >
+                        {t}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          ) : (
+            chipFilter === "all" &&
+            !search && (
+              <>
+                <div className="space-y-2">
+                  <h3 className="text-sm font-semibold text-muted-foreground">Collections</h3>
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                    {collections.map((c) => (
+                      <CollectionCard key={c.id} collection={c} onClick={() => setSelectedCollectionId(c.id)} />
+                    ))}
+                    <CreateCollectionCard onClick={() => setCreateCollectionOpen(true)} />
+                  </div>
+                </div>
+                <RecentlyUsedPrograms programs={programs} />
+              </>
+            )
+          )}
+        </div>
+      )}
+
       {/* Toolbar */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-1 flex-wrap items-center gap-3">
@@ -597,7 +997,8 @@ export function ProgramListClient({
               className="pl-9"
             />
           </div>
-          {(activeTab !== "templates" || typeFilter !== "global") && (
+          {(activeTab !== "templates" || typeFilter !== "global") &&
+            (activeTab !== "templates" || chipFilter === "all") && (
             <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v ?? "all")}>
               <SelectTrigger className="w-36">
                 <SelectValue placeholder="Status">
@@ -767,6 +1168,9 @@ export function ProgramListClient({
                     onRequestHardDelete={(id, name) => setPendingHardDelete({ id, name })}
                     onTogglePublic={handleTogglePublic}
                     togglingPublicId={togglingPublicId}
+                    onToggleFavorite={handleToggleFavorite}
+                    togglingFavoriteId={togglingFavoriteId}
+                    onAddToCollection={openAddToCollections}
                     typeBadge="clinical"
                     search={search}
                     personColumn="client"
@@ -801,6 +1205,193 @@ export function ProgramListClient({
             </Button>
             <Button variant="destructive" onClick={handleConfirmHardDelete} disabled={hardDeleting}>
               {hardDeleting ? "Deleting..." : "Delete Permanently"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={createCollectionOpen} onOpenChange={setCreateCollectionOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create Collection</DialogTitle>
+            <DialogDescription>
+              Group related programs together — a program can belong to more than one collection.
+            </DialogDescription>
+          </DialogHeader>
+          <Input
+            value={newCollectionName}
+            onChange={(e) => setNewCollectionName(e.target.value)}
+            placeholder="e.g., Upper Body"
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && newCollectionName.trim()) handleCreateCollection();
+            }}
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCreateCollectionOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleCreateCollection}
+              disabled={creatingCollection || !newCollectionName.trim()}
+            >
+              {creatingCollection ? "Creating..." : "Create"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={manageMembersOpen} onOpenChange={setManageMembersOpen}>
+        <DialogContent className="max-h-[85vh] flex flex-col sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>
+              Add programs to &quot;{collections.find((c) => c.id === selectedCollectionId)?.name}&quot;
+            </DialogTitle>
+            <DialogDescription>
+              Check any programs from your library that belong in this collection. A program can be in more than one.
+            </DialogDescription>
+          </DialogHeader>
+
+          {programs.length > 0 && (
+            <div className="relative shrink-0">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                value={memberSearch}
+                onChange={(e) => setMemberSearch(e.target.value)}
+                placeholder="Search your library..."
+                className="pl-9"
+              />
+            </div>
+          )}
+
+          <div className="flex-1 space-y-1 overflow-y-auto rounded-lg border border-border/50 p-1.5">
+            {programs.length === 0 && (
+              <div className="py-10 text-center">
+                <Library className="mx-auto h-8 w-8 text-muted-foreground/40" />
+                <p className="mt-2 text-sm text-muted-foreground">Your library is empty — build a program first.</p>
+              </div>
+            )}
+            {programs.length > 0 &&
+              programs.filter((p) => p.name.toLowerCase().includes(memberSearch.toLowerCase())).length === 0 && (
+                <p className="py-10 text-center text-sm text-muted-foreground">No programs match &quot;{memberSearch}&quot;.</p>
+              )}
+            {programs
+              .filter((p) => p.name.toLowerCase().includes(memberSearch.toLowerCase()))
+              .map((p) => {
+                const id = `member-${p.id}`;
+                const status = statusConfig[p.status] ?? { label: p.status, className: "bg-muted text-muted-foreground border-border" };
+                return (
+                  <div key={p.id} className="flex items-center gap-3 rounded-md px-2.5 py-2 hover:bg-muted">
+                    <Checkbox
+                      id={id}
+                      checked={memberSelection.has(p.id)}
+                      onCheckedChange={() =>
+                        setMemberSelection((prev) => {
+                          const next = new Set(prev);
+                          if (next.has(p.id)) next.delete(p.id);
+                          else next.add(p.id);
+                          return next;
+                        })
+                      }
+                    />
+                    <Label htmlFor={id} className="flex flex-1 min-w-0 cursor-pointer items-center justify-between gap-3 font-normal">
+                      <span className="truncate text-sm" title={p.name}>{p.name}</span>
+                      <span className="flex shrink-0 items-center gap-2">
+                        <Badge className={`border text-[10px] font-medium ${status.className}`}>{status.label}</Badge>
+                        <WorkoutCount count={p._count.workouts} />
+                      </span>
+                    </Label>
+                  </div>
+                );
+              })}
+          </div>
+
+          <DialogFooter className="items-center sm:justify-between">
+            <p className="text-xs text-muted-foreground">
+              {memberSelection.size} program{memberSelection.size === 1 ? "" : "s"} selected
+            </p>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setManageMembersOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleSaveMembers} disabled={savingMembers}>
+                {savingMembers ? "Saving..." : "Save"}
+              </Button>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!addToCollectionsProgram} onOpenChange={(open) => !open && setAddToCollectionsProgram(null)}>
+        <DialogContent className="max-h-[85vh] flex flex-col sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="truncate" title={addToCollectionsProgram?.name}>
+              Add &quot;{addToCollectionsProgram?.name}&quot; to collections
+            </DialogTitle>
+            <DialogDescription>
+              Check any collections this program belongs in. It can be in more than one, or none.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex-1 space-y-1 overflow-y-auto">
+            {allCollections.length === 0 && (
+              <div className="py-6 text-center">
+                <Folder className="mx-auto h-8 w-8 text-muted-foreground/40" />
+                <p className="mt-2 text-sm text-muted-foreground">You don&apos;t have any collections yet.</p>
+              </div>
+            )}
+            {allCollections.map((c) => {
+              const id = `program-collection-${c.id}`;
+              return (
+                <div key={c.id} className="flex items-center gap-2.5 rounded-md px-2 py-1.5 hover:bg-muted">
+                  <Checkbox
+                    id={id}
+                    checked={addToCollectionsSelection.has(c.id)}
+                    onCheckedChange={() =>
+                      setAddToCollectionsSelection((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(c.id)) next.delete(c.id);
+                        else next.add(c.id);
+                        return next;
+                      })
+                    }
+                  />
+                  <Label htmlFor={id} className="flex-1 cursor-pointer truncate text-sm font-normal">
+                    {c.name}
+                  </Label>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="flex gap-2 border-t pt-3">
+            <Input
+              value={inlineCollectionName}
+              onChange={(e) => setInlineCollectionName(e.target.value)}
+              placeholder="New collection name..."
+              className="h-8 text-sm"
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && inlineCollectionName.trim()) handleCreateInlineCollection();
+              }}
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8 shrink-0 gap-1.5"
+              disabled={creatingInlineCollection || !inlineCollectionName.trim()}
+              onClick={handleCreateInlineCollection}
+            >
+              <FolderPlus className="h-3.5 w-3.5" />
+              {creatingInlineCollection ? "Creating..." : "Create"}
+            </Button>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAddToCollectionsProgram(null)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveProgramCollections} disabled={savingProgramCollections}>
+              {savingProgramCollections ? "Saving..." : "Save"}
             </Button>
           </DialogFooter>
         </DialogContent>

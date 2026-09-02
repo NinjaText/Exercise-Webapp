@@ -214,8 +214,8 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
       orderIndex: 0,
       blocks: [
         {
-          name: "Main",
-          type: "NORMAL",
+          name: "Warm-up",
+          type: "WARMUP",
           orderIndex: 0,
           rounds: 1,
           exercises: [],
@@ -239,8 +239,8 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
       orderIndex: 0,
       blocks: [
         {
-          name: "Main",
-          type: "NORMAL",
+          name: "Warm-up",
+          type: "WARMUP",
           orderIndex: 0,
           rounds: 1,
           exercises: [],

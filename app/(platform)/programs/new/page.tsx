@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { requireRole } from "@/lib/current-user";
-import { getExercises } from "@/lib/services/exercise.service";
+import { getExercises, getExerciseUsageForTrainer, rankExercisesByUsage } from "@/lib/services/exercise.service";
+import { listCollections } from "@/lib/services/collection.service";
 import { getOrganizationProfile } from "@/actions/organization-actions";
 import { ProgramEditor } from "@/components/programs/program-editor";
 import { ArrowLeft } from "lucide-react";
@@ -16,6 +17,11 @@ export default async function NewProgramPage() {
     getOrganizationProfile().catch(() => null),
   ]);
   const organizationOrgId = sessionOrgId ?? user.clerkOrgId ?? undefined;
+  const [usage, collections] = await Promise.all([
+    getExerciseUsageForTrainer(user.id),
+    listCollections(user.id),
+  ]);
+  const rankedExercises = rankExercisesByUsage(exercises, usage);
 
   return (
     <div>
@@ -30,9 +36,10 @@ export default async function NewProgramPage() {
         description="Build a new training program from scratch or start from a template."
       />
       <ProgramEditor
-        exercises={exercises}
+        exercises={rankedExercises}
         organizationOrganizationId={organizationOrgId}
         exerciseSourcePreference={organizationProfile?.exerciseSourcePreference}
+        collections={collections}
       />
     </div>
   );

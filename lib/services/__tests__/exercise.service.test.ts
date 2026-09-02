@@ -21,7 +21,6 @@ import { prisma } from '@/lib/prisma'
 import {
   getExercises,
   getExercisesForPicker,
-  toggleExercisePublic,
   cloneExerciseToOrganization,
   createExercise,
   updateExercise,
@@ -38,25 +37,19 @@ beforeEach(() => {
 describe('getExercisesForPicker', () => {
   const universalEx = {
     id: '1', name: 'Squat', source: 'UNIVERSAL', organizationId: null,
-    isPublic: true, bodyRegion: 'LOWER_BODY', difficultyLevel: 'BEGINNER',
+    bodyRegion: 'LOWER_BODY', difficultyLevel: 'BEGINNER',
     defaultReps: 10, musclesTargeted: [], description: null,
     videoUrl: null, videoProvider: null, exercisePhases: [],
   }
-  const publicOrganizationEx = {
-    id: '2', name: 'Band Pull', source: 'ORGANIZATION', organizationId: 'org_other',
-    isPublic: true, bodyRegion: 'UPPER_BODY', difficultyLevel: 'BEGINNER',
-    defaultReps: 12, musclesTargeted: [], description: null,
-    videoUrl: null, videoProvider: null, exercisePhases: [],
-  }
-  const privateOrganizationEx = {
+  const myOrganizationEx = {
     id: '3', name: 'Custom Hold', source: 'ORGANIZATION', organizationId: 'org_mine',
-    isPublic: false, bodyRegion: 'CORE', difficultyLevel: 'INTERMEDIATE',
+    bodyRegion: 'CORE', difficultyLevel: 'INTERMEDIATE',
     defaultReps: null, musclesTargeted: [], description: null,
     videoUrl: null, videoProvider: null, exercisePhases: [],
   }
 
-  it('returns all exercises for the calling organization (universal + public + own private)', async () => {
-    mockFindMany.mockResolvedValue([universalEx, publicOrganizationEx, privateOrganizationEx] as any)
+  it('returns universal exercises plus only the calling organization\'s own exercises', async () => {
+    mockFindMany.mockResolvedValue([universalEx, myOrganizationEx] as any)
     const result = await getExercisesForPicker('org_mine')
     expect(mockFindMany).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -64,53 +57,43 @@ describe('getExercisesForPicker', () => {
           isActive: true,
           OR: expect.arrayContaining([
             { source: 'UNIVERSAL' },
-            { source: 'ORGANIZATION', isPublic: true },
             { source: 'ORGANIZATION', organizationId: 'org_mine' },
           ]),
         }),
       })
     )
-    expect(result).toHaveLength(3)
+    expect(result).toHaveLength(2)
   })
 
-  it('works without an organizationId (falls back to universal + public only)', async () => {
-    mockFindMany.mockResolvedValue([universalEx, publicOrganizationEx] as any)
+  it('never includes another organization\'s exercises', async () => {
+    mockFindMany.mockResolvedValue([universalEx, myOrganizationEx] as any)
+    await getExercisesForPicker('org_mine')
+    const call = mockFindMany.mock.calls[0][0] as any
+    expect(call.where.OR).not.toContainEqual({ source: 'ORGANIZATION', organizationId: 'org_other' })
+    expect(call.where.OR).not.toContainEqual(expect.objectContaining({ isPublic: true }))
+  })
+
+  it('works without an organizationId (falls back to universal only)', async () => {
+    mockFindMany.mockResolvedValue([universalEx] as any)
     await getExercisesForPicker()
     expect(mockFindMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
-          OR: expect.arrayContaining([
-            { source: 'UNIVERSAL' },
-            { source: 'ORGANIZATION', isPublic: true },
-          ]),
+          OR: [{ source: 'UNIVERSAL' }],
         }),
       })
     )
   })
 })
 
-describe('toggleExercisePublic', () => {
-  it('flips isPublic from true to false', async () => {
-    mockUpdate.mockResolvedValue({ id: '3', isPublic: false } as any)
-    await toggleExercisePublic('3', false)
-    expect(mockUpdate).toHaveBeenCalledWith({
-      where: { id: '3' },
-      data: { isPublic: false },
-    })
-  })
-})
-
 describe('getExercises', () => {
-  it('includes public ORGANIZATION exercises alongside true UNIVERSAL ones when source is UNIVERSAL', async () => {
+  it('filters strictly to UNIVERSAL exercises when source is UNIVERSAL (no cross-org sharing)', async () => {
     mockFindMany.mockResolvedValue([] as any)
     await getExercises({ source: 'UNIVERSAL' as any })
     expect(mockFindMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
-          OR: [
-            { source: 'UNIVERSAL' },
-            { source: 'ORGANIZATION', isPublic: true },
-          ],
+          source: 'UNIVERSAL',
         }),
       })
     )
@@ -323,7 +306,6 @@ describe('cloneExerciseToOrganization', () => {
         rehabStage: 'LATE_REHAB',
         source: 'ORGANIZATION',
         organizationId: 'org_mine',
-        isPublic: false,
         createdById: 'user_1',
       }),
     })

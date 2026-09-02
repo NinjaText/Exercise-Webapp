@@ -1,5 +1,6 @@
 import { getCurrentUser } from "@/lib/current-user";
 import * as programService from "@/lib/services/program.service";
+import { getCollectionsWithCounts } from "@/lib/services/collection.service";
 import { ProgramListClient } from "@/components/programs/program-list-client";
 import { PageHeader } from "@/components/shared/page-header";
 
@@ -34,6 +35,9 @@ export default async function ProgramsPage({ searchParams }: Props) {
     user.role === "TRAINER" ? programService.getGlobalPrograms(user.clerkOrgId ?? undefined, user.id) : Promise.resolve([]),
   ]);
 
+  const collections =
+    user.role === "TRAINER" ? await getCollectionsWithCounts(user.id) : [];
+
   // For each organization program that came from a global master, check if master has been updated
   const updatableIds = new Set<string>(
     programs
@@ -60,6 +64,7 @@ export default async function ProgramsPage({ searchParams }: Props) {
         programs={programs}
         globalPrograms={globalPrograms}
         updatableIds={[...updatableIds]}
+        collections={collections}
         role={user.role}
       />
     </div>

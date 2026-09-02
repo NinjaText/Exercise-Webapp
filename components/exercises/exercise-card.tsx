@@ -1,16 +1,16 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useTransition } from "react";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useRouter } from "next/navigation";
-import { Edit, PlayCircle, ArrowRight, Globe, Lock, Plus } from "lucide-react";
+import { Edit, PlayCircle, ArrowRight, Plus } from "lucide-react";
 import { ExerciseImage } from "@/components/exercises/exercise-image";
 import { formatBodyRegion, formatDifficulty } from "@/lib/utils/formatting";
-import { toggleExercisePublicAction, adoptUniversalExerciseAction } from "@/actions/exercise-actions";
+import { adoptUniversalExerciseAction } from "@/actions/exercise-actions";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { hasRealVideoUrl } from "@/lib/utils/video";
@@ -28,9 +28,6 @@ interface ExerciseCardProps {
   isActive?: boolean;
   isTrainer?: boolean;
   source?: string;
-  isPublic?: boolean;
-  organizationId?: string | null;
-  organizationOrganizationId?: string | null;
   canAdopt?: boolean;
   selectable?: boolean;
   selected?: boolean;
@@ -54,21 +51,13 @@ const phaseConfig: Record<string, { label: string; className: string }> = {
 export function ExerciseCard({
   id, name, bodyRegion, difficultyLevel, exercisePhases, equipmentRequired,
   description, imageUrl, videoUrl, isActive, isTrainer,
-  source, isPublic: initialIsPublic, organizationId, organizationOrganizationId, canAdopt,
+  source, canAdopt,
   selectable, selected, onToggleSelect,
 }: ExerciseCardProps) {
   const router = useRouter();
-  const [isPublic, setIsPublic] = useState(initialIsPublic ?? true);
-  const [isPending, startTransition] = useTransition();
   const [isAdopting, startAdopting] = useTransition();
 
   const showAdopt = !!canAdopt && source === "UNIVERSAL";
-
-  const isMyOrganizationExercise =
-    source === "ORGANIZATION" &&
-    !!organizationId &&
-    !!organizationOrganizationId &&
-    organizationId === organizationOrganizationId;
 
   const difficulty = difficultyLevel
     ? difficultyConfig[difficultyLevel] ?? {
@@ -86,19 +75,6 @@ export function ExerciseCard({
       if (result.success) {
         toast.success("Added to your organization's library");
         router.push("/exercises?source=ORGANIZATION");
-      } else {
-        toast.error(result.error);
-      }
-    });
-  }
-
-  function handleTogglePublic() {
-    const next = !isPublic;
-    startTransition(async () => {
-      const result = await toggleExercisePublicAction(id, next);
-      if (result.success) {
-        setIsPublic(next);
-        toast.success(next ? "Exercise is now public" : "Exercise is now private");
       } else {
         toast.error(result.error);
       }
@@ -210,24 +186,6 @@ export function ExerciseCard({
               >
                 <Plus className="h-3 w-3" />
                 Add to My Organization
-              </Button>
-            )}
-            {isMyOrganizationExercise && (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className={cn(
-                  "h-7 gap-1 text-xs font-medium shrink-0",
-                  isPublic
-                    ? "text-green-700 border-green-200 hover:bg-green-50"
-                    : "text-muted-foreground border-border hover:bg-muted/50"
-                )}
-                onClick={handleTogglePublic}
-                disabled={isPending}
-              >
-                {isPublic ? <Globe className="h-3 w-3" /> : <Lock className="h-3 w-3" />}
-                {isPublic ? "Public" : "Private"}
               </Button>
             )}
           </div>

@@ -38,7 +38,7 @@ export async function bulkCreateExercisesAction(exercises: BulkExerciseInput[]) 
 
   // Route to org library if the trainer belongs to an org
   const orgData = dbUser.clerkOrgId
-    ? { source: "ORGANIZATION" as const, organizationId: dbUser.clerkOrgId, isPublic: false }
+    ? { source: "ORGANIZATION" as const, organizationId: dbUser.clerkOrgId }
     : {};
 
   try {

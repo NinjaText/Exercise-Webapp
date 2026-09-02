@@ -66,7 +66,6 @@ interface PickerExercise {
   exercisePhases: string[];
   source: string;
   organizationId: string | null;
-  isPublic: boolean;
 }
 
 interface Props {
@@ -506,12 +505,12 @@ export function ProgramBriefUpload({
       entries.forEach(({ key }) => next.set(key, { skip: true }));
       return next;
     });
-    toast.success(`Skipped ${entries.length} exercise${entries.length === 1 ? "" : "s"}`);
+    toast.success(`Deleted ${entries.length} exercise${entries.length === 1 ? "" : "s"}`);
   }
 
   function resolutionLabel(resolution: Resolution | undefined) {
     if (!resolution) return undefined;
-    if ("skip" in resolution) return "Skipped";
+    if ("skip" in resolution) return "Deleted";
     return resolution.exerciseName;
   }
 
@@ -520,7 +519,7 @@ export function ProgramBriefUpload({
     const { resolution, matches, exerciseName } = pendingApplyAll;
     const placement = `${matches.length} other place${matches.length === 1 ? "" : "s"}`;
     if ("skip" in resolution) {
-      return `This will skip "${exerciseName}" here and in ${placement} in this plan.`;
+      return `This will delete "${exerciseName}" here and in ${placement} in this plan.`;
     }
     return `This will resolve "${exerciseName}" to "${resolution.exerciseName}" here and in ${placement} in this plan.`;
   }
@@ -920,7 +919,7 @@ export function ProgramBriefUpload({
                                               className="h-6 text-xs text-muted-foreground"
                                               onClick={() => skipAllInBlock(blockUnresolved)}
                                             >
-                                              Skip all
+                                              Delete all
                                             </Button>
                                           </div>
                                         )}
