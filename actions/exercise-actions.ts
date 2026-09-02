@@ -20,7 +20,6 @@ export async function createExerciseAction(input: {
   videoUrl?: string;
   videoProvider?: string;
   imageUrl?: string;
-  isPublic?: boolean;
   isAssessment?: boolean;
 }) {
     // Use live session orgId first — more reliable than the DB field when user's org was added after onboarding
@@ -48,7 +47,6 @@ export async function createExerciseAction(input: {
         createdById: dbUser.id,
         source: organizationOrgId ? "ORGANIZATION" : "UNIVERSAL",
         organizationId: organizationOrgId ?? undefined,
-        isPublic: parsed.data.isPublic ?? true,
       });
 
       await logAudit({
@@ -101,7 +99,7 @@ export async function updateExerciseAction(
       ? diffFields(
           existing as unknown as Record<string, unknown>,
           parsed.data as unknown as Record<string, unknown>,
-          ["name", "bodyRegion", "difficultyLevel", "isPublic"]
+          ["name", "bodyRegion", "difficultyLevel"]
         )
       : undefined;
     await logAudit({
@@ -312,7 +310,6 @@ export async function createOrganizationExerciseAction(input: {
   bodyRegion?: string[];
   difficultyLevel?: string;
   videoUrl?: string;
-  isPublic: boolean;
   exercisePhases?: string[];
 }) {
   const { userId, orgId: sessionOrgId } = await auth();
@@ -338,7 +335,6 @@ export async function createOrganizationExerciseAction(input: {
       createdById: dbUser.id,
       source: organizationOrgId ? "ORGANIZATION" : "UNIVERSAL",
       organizationId: organizationOrgId ?? undefined,
-      isPublic: input.isPublic,
       exercisePhases: (input.exercisePhases as ExercisePhase[] | undefined) ?? [],
     });
 
@@ -461,33 +457,4 @@ export async function adoptUniversalExercisesAction(exerciseIds: string[]) {
   }
 
   return { success: true as const, successCount: adopted.length, failures };
-}
-
-export async function toggleExercisePublicAction(exerciseId: string, isPublic: boolean) {
-  const { userId, orgId: sessionOrgId } = await auth();
-  if (!userId) return { success: false as const, error: "Unauthorized" };
-
-  const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
-  if (!dbUser) return { success: false as const, error: "User not found" };
-  if (dbUser.role !== "TRAINER") return { success: false as const, error: "Forbidden" };
-
-  const organizationOrgId = sessionOrgId ?? dbUser.clerkOrgId ?? null;
-
-  const exercise = await prisma.exercise.findUnique({ where: { id: exerciseId } });
-  if (!exercise) return { success: false as const, error: "Exercise not found" };
-  if (exercise.source !== "ORGANIZATION") {
-    return { success: false as const, error: "Cannot modify a universal exercise" };
-  }
-  if (exercise.organizationId !== organizationOrgId) {
-    return { success: false as const, error: "You can only modify your organization's exercises" };
-  }
-
-  try {
-    await exerciseService.toggleExercisePublic(exerciseId, isPublic);
-    revalidatePath("/exercises");
-    return { success: true as const };
-  } catch (error) {
-    console.error("Failed to toggle exercise public:", error);
-    return { success: false as const, error: "Failed to update exercise" };
-  }
 }

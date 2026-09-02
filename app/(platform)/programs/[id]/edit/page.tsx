@@ -2,7 +2,8 @@ import { notFound } from "next/navigation";
 import { auth } from "@clerk/nextjs/server";
 import { requireRole } from "@/lib/current-user";
 import * as programService from "@/lib/services/program.service";
-import { getExercises } from "@/lib/services/exercise.service";
+import { getExercises, getExerciseUsageForTrainer, rankExercisesByUsage } from "@/lib/services/exercise.service";
+import { listCollections } from "@/lib/services/collection.service";
 import { getOrganizationProfile } from "@/actions/organization-actions";
 import { ProgramEditor } from "@/components/programs/program-editor";
 import { ArrowLeft } from "lucide-react";
@@ -28,6 +29,12 @@ export default async function EditProgramPage({ params }: Props) {
 
   if (!program || program.trainerId !== user.id) notFound();
 
+  const [usage, collections] = await Promise.all([
+    getExerciseUsageForTrainer(user.id),
+    listCollections(user.id),
+  ]);
+  const rankedExercises = rankExercisesByUsage(exercises, usage);
+
   return (
     <div>
       <Button variant="ghost" size="sm" asChild className="mb-2">
@@ -39,9 +46,10 @@ export default async function EditProgramPage({ params }: Props) {
       <PageHeader title="Edit Program" description={`Modify “${program.name}”`} />
       <ProgramEditor
         program={program as unknown as Record<string, unknown>}
-        exercises={exercises}
+        exercises={rankedExercises}
         organizationOrganizationId={organizationOrgId}
         exerciseSourcePreference={organizationProfile?.exerciseSourcePreference}
+        collections={collections}
       />
     </div>
   );

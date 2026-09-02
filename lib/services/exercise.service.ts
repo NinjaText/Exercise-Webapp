@@ -30,12 +30,7 @@ export async function getExercises(filters: ExerciseFilters = {}) {
       ...(filters.equipment && {
         equipmentRequired: { has: filters.equipment },
       }),
-      // UNIVERSAL: true UNIVERSAL exercises plus any org exercise a trainer has made public —
-      // mirrors getExercisesForPicker so the library page and program-builder picker agree
-      // on what counts as "Universal". Run backfillExerciseSources() once to fix pre-migration docs.
-      ...(filters.source === "UNIVERSAL" && {
-        OR: [{ source: "UNIVERSAL" as const }, { source: "ORGANIZATION" as const, isPublic: true }],
-      }),
+      ...(filters.source === "UNIVERSAL" && { source: "UNIVERSAL" as const }),
       // ORGANIZATION: always filter by source; use impossible sentinel when no orgId to return 0 results
       ...(filters.source === "ORGANIZATION" && {
         source: "ORGANIZATION" as const,
@@ -54,7 +49,6 @@ export async function getExercises(filters: ExerciseFilters = {}) {
       videoUrl: true,
       isActive: true,
       source: true,
-      isPublic: true,
       organizationId: true,
     },
     orderBy: { name: "asc" },
@@ -64,7 +58,6 @@ export async function getExercises(filters: ExerciseFilters = {}) {
 export async function getExercisesForPicker(organizationId?: string) {
   const orClauses: Prisma.ExerciseWhereInput[] = [
     { source: "UNIVERSAL" },
-    { source: "ORGANIZATION", isPublic: true },
   ];
   if (organizationId) {
     orClauses.push({ source: "ORGANIZATION", organizationId });
@@ -89,10 +82,69 @@ export async function getExercisesForPicker(organizationId?: string) {
       exercisePhases: true,
       source: true,
       organizationId: true,
-      isPublic: true,
     },
     orderBy: { name: "asc" },
   });
+}
+
+// How much a single day-old use outweighs an equally-recent extra use of a
+// different exercise — bounded to (0, 1] so recency only ever breaks ties
+// between exercises with similar counts, never overturns a real frequency gap.
+const RECENCY_DECAY_DAYS = 30;
+
+export async function getExerciseUsageForTrainer(trainerId: string) {
+  const rows = await prisma.exerciseUsage.findMany({
+    where: { trainerId },
+    select: { exerciseId: true, count: true, lastUsedAt: true },
+  });
+  return new Map(rows.map((r) => [r.exerciseId, { count: r.count, lastUsedAt: r.lastUsedAt }]));
+}
+
+// Reorders exercises so a coach's most frequently (and recently) programmed
+// ones surface first in the picker. Exercises with no recorded usage keep
+// their existing relative order (Array#sort is stable) after the ranked ones.
+export function rankExercisesByUsage<T extends { id: string }>(
+  exercises: T[],
+  usage: Map<string, { count: number; lastUsedAt: Date }>
+): T[] {
+  if (usage.size === 0) return exercises;
+  const now = Date.now();
+  const score = (ex: T) => {
+    const u = usage.get(ex.id);
+    if (!u) return 0;
+    const daysSince = (now - u.lastUsedAt.getTime()) / (1000 * 60 * 60 * 24);
+    return u.count + Math.exp(-daysSince / RECENCY_DECAY_DAYS);
+  };
+  return [...exercises].sort((a, b) => score(b) - score(a));
+}
+
+// Called after a program is saved (create or update) — counts how many times
+// each exercise appears in the saved workout tree and folds that into the
+// trainer's running usage totals. Deliberately tied to persisted saves rather
+// than transient picker selections, so an unsaved draft never inflates counts.
+export async function recordExerciseUsage(
+  trainerId: string,
+  workouts: { blocks: { exercises: { exerciseId: string }[] }[] }[]
+) {
+  const counts = new Map<string, number>();
+  for (const w of workouts) {
+    for (const b of w.blocks) {
+      for (const e of b.exercises) {
+        counts.set(e.exerciseId, (counts.get(e.exerciseId) ?? 0) + 1);
+      }
+    }
+  }
+  if (counts.size === 0) return;
+
+  await Promise.all(
+    [...counts.entries()].map(([exerciseId, count]) =>
+      prisma.exerciseUsage.upsert({
+        where: { trainerId_exerciseId: { trainerId, exerciseId } },
+        create: { trainerId, exerciseId, count, lastUsedAt: new Date() },
+        update: { count: { increment: count }, lastUsedAt: new Date() },
+      })
+    )
+  );
 }
 
 export async function getExerciseById(id: string) {
@@ -126,7 +178,6 @@ export async function createExercise(data: {
   createdById: string;
   source?: ExerciseSource;
   organizationId?: string;
-  isPublic?: boolean;
   exercisePhases?: ExercisePhase[];
   isAssessment?: boolean;
 }) {
@@ -155,7 +206,6 @@ export async function createExercise(data: {
       createdById: data.createdById,
       source: data.source ?? "UNIVERSAL",
       organizationId: data.organizationId ?? null,
-      isPublic: data.isPublic ?? true,
       exercisePhases: data.exercisePhases ?? [],
       isAssessment: data.isAssessment ?? false,
     },
@@ -165,8 +215,8 @@ export async function createExercise(data: {
 /**
  * Clones a Universal exercise into a new, independently-editable ORGANIZATION
  * exercise for the given org. The result is a copy (not a reference): all
- * descriptive fields are carried over, `source` is forced to ORGANIZATION, and
- * the copy starts private (`isPublic: false`) so the org can review before sharing.
+ * descriptive fields are carried over and `source` is forced to ORGANIZATION —
+ * the copy is private to that org, like every other ORGANIZATION exercise.
  * Callers MUST verify `source.source === 'UNIVERSAL'` before calling.
  */
 export async function cloneExerciseToOrganization(
@@ -216,21 +266,8 @@ export async function cloneExerciseToOrganization(
       isAssessment: source.isAssessment,
       source: "ORGANIZATION",
       organizationId: target.organizationId,
-      isPublic: false,
       createdById: target.createdById,
     },
-  });
-}
-
-/**
- * Flips isPublic for a ORGANIZATION exercise.
- * Callers MUST verify: exercise.source === 'ORGANIZATION' && exercise.organizationId === callerOrgId
- * before calling this — the service performs no ownership check.
- */
-export async function toggleExercisePublic(exerciseId: string, isPublic: boolean) {
-  return prisma.exercise.update({
-    where: { id: exerciseId },
-    data: { isPublic },
   });
 }
 
@@ -248,7 +285,6 @@ export async function updateExercise(
     videoProvider: string;
     imageUrl: string;
     isActive: boolean;
-    isPublic: boolean;
     isAssessment: boolean;
   }>
 ) {
@@ -283,9 +319,9 @@ export async function getProgressionChain(exerciseId: string) {
 }
 
 /**
- * One-time backfill: sets source=UNIVERSAL and isPublic=true on all exercises
- * that were created before the ExerciseSource field was added to the schema.
- * MongoDB doesn't retroactively apply Prisma @default values to existing documents.
+ * One-time backfill: sets source=UNIVERSAL on all exercises that were created
+ * before the ExerciseSource field was added to the schema. MongoDB doesn't
+ * retroactively apply Prisma @default values to existing documents.
  */
 export async function backfillExerciseSources() {
   const result = await prisma.$runCommandRaw({
@@ -293,7 +329,7 @@ export async function backfillExerciseSources() {
     updates: [
       {
         q: { source: { $exists: false } },
-        u: { $set: { source: "UNIVERSAL", isPublic: true } },
+        u: { $set: { source: "UNIVERSAL" } },
         multi: true,
       },
     ],

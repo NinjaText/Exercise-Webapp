@@ -8,7 +8,7 @@ async function main() {
     updates: [
       {
         q: { source: { $exists: false } },
-        u: { $set: { source: "UNIVERSAL", isPublic: true } },
+        u: { $set: { source: "UNIVERSAL" } },
         multi: true,
       },
     ],

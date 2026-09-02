@@ -46,7 +46,7 @@ it('logs EXERCISE_CREATED', async () => {
 })
 
 it('logs EXERCISE_UPDATED with a diff', async () => {
-  mockExerciseFindUnique.mockResolvedValue({ name: 'Squat', bodyRegion: ['LOWER_BODY'], difficultyLevel: 'BEGINNER', isPublic: true, source: 'ORGANIZATION', organizationId: 'org_1' } as never)
+  mockExerciseFindUnique.mockResolvedValue({ name: 'Squat', bodyRegion: ['LOWER_BODY'], difficultyLevel: 'BEGINNER', source: 'ORGANIZATION', organizationId: 'org_1' } as never)
   await updateExerciseAction('ex_1', { name: 'Squat Updated' })
   const call = mockLogAudit.mock.calls[0][0]
   expect(call.action).toBe('EXERCISE_UPDATED')
@@ -54,7 +54,7 @@ it('logs EXERCISE_UPDATED with a diff', async () => {
 })
 
 it('logs EXERCISE_UPDATED with a bodyRegion diff when regions actually change', async () => {
-  mockExerciseFindUnique.mockResolvedValue({ name: 'Squat', bodyRegion: ['LOWER_BODY'], difficultyLevel: 'BEGINNER', isPublic: true, source: 'ORGANIZATION', organizationId: 'org_1' } as never)
+  mockExerciseFindUnique.mockResolvedValue({ name: 'Squat', bodyRegion: ['LOWER_BODY'], difficultyLevel: 'BEGINNER', source: 'ORGANIZATION', organizationId: 'org_1' } as never)
   await updateExerciseAction('ex_1', { bodyRegion: ['LOWER_BODY', 'CORE'] } as never)
   const call = mockLogAudit.mock.calls[0][0]
   expect(call.action).toBe('EXERCISE_UPDATED')
@@ -62,7 +62,7 @@ it('logs EXERCISE_UPDATED with a bodyRegion diff when regions actually change', 
 })
 
 it('does not log a bodyRegion diff when the array is merely reordered', async () => {
-  mockExerciseFindUnique.mockResolvedValue({ name: 'Squat', bodyRegion: ['LOWER_BODY', 'CORE'], difficultyLevel: 'BEGINNER', isPublic: true, source: 'ORGANIZATION', organizationId: 'org_1' } as never)
+  mockExerciseFindUnique.mockResolvedValue({ name: 'Squat', bodyRegion: ['LOWER_BODY', 'CORE'], difficultyLevel: 'BEGINNER', source: 'ORGANIZATION', organizationId: 'org_1' } as never)
   await updateExerciseAction('ex_1', { bodyRegion: ['CORE', 'LOWER_BODY'] } as never)
   const call = mockLogAudit.mock.calls[0][0]
   expect(call.action).toBe('EXERCISE_UPDATED')

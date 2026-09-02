@@ -28,7 +28,6 @@ it('never forwards a rehab/performance context field to the Exercise service', a
     name: 'Squat',
     bodyRegion: ['LOWER_BODY'],
     difficultyLevel: 'BEGINNER',
-    isPublic: true,
     // @ts-expect-error — aiContext is not part of the accepted input type
     aiContext: 'CLINICAL',
   })

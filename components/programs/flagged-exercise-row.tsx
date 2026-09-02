@@ -3,7 +3,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { AlertTriangle, HelpCircle, FileWarning, Check, X } from "lucide-react";
+import { AlertTriangle, HelpCircle, FileWarning, Check, Trash2 } from "lucide-react";
 
 export type ExerciseMatchFlag = "needs_review" | "not_in_library" | "not_in_document";
 
@@ -99,7 +99,7 @@ export function FlaggedExerciseRow({
             Choose exercise
           </Button>
           <Button size="sm" variant="ghost" className="h-7 gap-1 text-xs text-muted-foreground" onClick={onSkip}>
-            <X className="h-3 w-3" /> Skip
+            <Trash2 className="h-3 w-3" /> Delete
           </Button>
         </div>
       )}

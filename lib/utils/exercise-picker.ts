@@ -37,11 +37,9 @@ interface MergeableExercise {
 
 /**
  * Merges the Universal and My Organization exercise lists into the single
- * list the picker now renders. An exercise can satisfy both source filters
- * (e.g. the caller's own public organization exercise), so entries are
- * deduped by id. The caller's own organization exercises are surfaced first
- * since they're the most relevant/actionable (only they can toggle
- * public/private on them); relative order within each group is preserved.
+ * list the picker now renders. Entries are deduped by id. The caller's own
+ * organization exercises are surfaced first since they're the most
+ * relevant/actionable; relative order within each group is preserved.
  */
 export function mergeExercisesForPicker<T extends MergeableExercise>(
   universal: T[],

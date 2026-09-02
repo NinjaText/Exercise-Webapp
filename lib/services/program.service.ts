@@ -60,33 +60,16 @@ const programDetailInclude = {
 
 // --- CRUD ---
 
-export async function createProgram(
-  trainerId: string,
-  data: CreateProgramInput
-) {
-  const { workouts, startDate, organizationIds, ...rest } = data;
-  void organizationIds;
-
-  // Create the program shell, then bulk-insert the workout tree one LEVEL at a
-  // time via createMany. A single deeply-nested `create` (workouts → blocks →
-  // exercises → sets) inserts every descendant in its own round-trip — hundreds
-  // of them for a real program, ~250ms each on a remote DB, minutes total (and
-  // the wrapping transaction can abort). Pre-generating ObjectIds lets each
-  // child row reference its parent, so the whole tree is 4 bulk inserts.
-  const program = await prisma.program.create({
-    data: {
-      ...rest,
-      trainerId,
-      // Must be written explicitly (not omitted) — Prisma's MongoDB filters
-      // for `clientId: null` only match documents where the field is
-      // present and null, not documents where it's absent. Omitting it here
-      // makes the program invisible to both the "Assigned" and "Library"
-      // tab queries in getPrograms.
-      clientId: null,
-      startDate: startDate ? new Date(startDate) : undefined,
-    },
-  });
-
+// Bulk-insert the workout tree one LEVEL at a time via createMany, rather
+// than a single deeply-nested `create`/`update` (workouts → blocks →
+// exercises → sets), which inserts every descendant in its own round-trip —
+// hundreds of them for a real program, ~250ms each on a remote DB, minutes
+// total, and the wrapping transaction can abort/time out on Mongo before it
+// finishes. Pre-generating ObjectIds lets each child row reference its
+// parent, so the whole tree is 4 bulk inserts regardless of size. Shared by
+// createProgram and updateProgram — both build the same tree, just against a
+// new vs. existing programId.
+async function insertWorkoutTree(programId: string, workouts: CreateProgramInput["workouts"]) {
   const workoutRows: Prisma.WorkoutCreateManyInput[] = [];
   const blockRows: Prisma.WorkoutBlockV2CreateManyInput[] = [];
   const exerciseRows: Prisma.BlockExerciseV2CreateManyInput[] = [];
@@ -96,7 +79,7 @@ export async function createProgram(
     const workoutId = newObjectId();
     workoutRows.push({
       id: workoutId,
-      programId: program.id,
+      programId,
       name: w.name,
       description: w.description,
       dayIndex: w.dayIndex,
@@ -155,6 +138,30 @@ export async function createProgram(
   if (blockRows.length) await prisma.workoutBlockV2.createMany({ data: blockRows });
   if (exerciseRows.length) await prisma.blockExerciseV2.createMany({ data: exerciseRows });
   if (setRows.length) await prisma.exerciseSet.createMany({ data: setRows });
+}
+
+export async function createProgram(
+  trainerId: string,
+  data: CreateProgramInput
+) {
+  const { workouts, startDate, organizationIds, ...rest } = data;
+  void organizationIds;
+
+  const program = await prisma.program.create({
+    data: {
+      ...rest,
+      trainerId,
+      // Must be written explicitly (not omitted) — Prisma's MongoDB filters
+      // for `clientId: null` only match documents where the field is
+      // present and null, not documents where it's absent. Omitting it here
+      // makes the program invisible to both the "Assigned" and "Library"
+      // tab queries in getPrograms.
+      clientId: null,
+      startDate: startDate ? new Date(startDate) : undefined,
+    },
+  });
+
+  await insertWorkoutTree(program.id, workouts);
 
   const full = await prisma.program.findUnique({
     where: { id: program.id },
@@ -171,6 +178,8 @@ export async function getProgramById(id: string) {
   });
 }
 
+const RECENT_WINDOW_DAYS = 30;
+
 export async function getPrograms(
   trainerId: string,
   filters: ProgramFilterInput = {}
@@ -183,6 +192,19 @@ export async function getPrograms(
     ...(filters.clientId && { clientId: filters.clientId }),
     ...(filters.hasClient !== undefined && {
       clientId: filters.hasClient ? { not: null } : null,
+    }),
+    ...(filters.isFavorite !== undefined && { isFavorite: filters.isFavorite }),
+    ...(filters.collectionId && { collectionIds: { has: filters.collectionId } }),
+    ...(filters.recentOnly && {
+      updatedAt: { gte: new Date(Date.now() - RECENT_WINDOW_DAYS * 24 * 60 * 60 * 1000) },
+    }),
+    ...(filters.tags?.length && {
+      OR: [
+        { tags: { hasSome: filters.tags } },
+        { bodyAreas: { hasSome: filters.tags } },
+        { goals: { hasSome: filters.tags } },
+        { activities: { hasSome: filters.tags } },
+      ],
     }),
     ...(filters.search && {
       OR: [
@@ -203,83 +225,40 @@ export async function getPrograms(
   });
 }
 
+export async function toggleProgramFavorite(id: string, isFavorite: boolean) {
+  return prisma.program.update({ where: { id }, data: { isFavorite } });
+}
+
+export async function setProgramCollections(id: string, collectionIds: string[]) {
+  return prisma.program.update({ where: { id }, data: { collectionIds } });
+}
+
 export async function updateProgram(
   id: string,
   data: Partial<CreateProgramInput> & { status?: string }
 ) {
   const { workouts, startDate, ...rest } = data;
 
-  if (workouts) {
-    // Delete all existing workouts (cascades to blocks -> exercises -> sets)
-    await prisma.workout.deleteMany({ where: { programId: id } });
-
-    return prisma.program.update({
-      where: { id },
-      data: {
-        ...rest,
-        status: rest.status as PlanStatus | undefined,
-        startDate: startDate ? new Date(startDate) : undefined,
-        workouts: {
-          create: workouts.map((w) => ({
-            name: w.name,
-            description: w.description,
-            dayIndex: w.dayIndex,
-            weekIndex: w.weekIndex,
-            orderIndex: w.orderIndex,
-            estimatedMinutes: w.estimatedMinutes,
-            blocks: {
-              create: w.blocks.map((b) => ({
-                name: b.name,
-                type: b.type,
-                orderIndex: b.orderIndex,
-                rounds: b.rounds,
-                restBetweenRounds: b.restBetweenRounds,
-                timeCap: b.timeCap,
-                notes: b.notes,
-                exercises: {
-                  create: b.exercises.map((e) => ({
-                    exerciseId: e.exerciseId,
-                    orderIndex: e.orderIndex,
-                    activityType: e.activityType,
-                    restSeconds: e.restSeconds,
-                    notes: e.notes,
-                    supersetGroup: e.supersetGroup,
-                    sets: {
-                      create: e.sets.map((s) => ({
-                        orderIndex: s.orderIndex,
-                        setType: s.setType,
-                        targetReps: s.targetReps,
-                        targetWeight: s.targetWeight,
-                        targetDuration: s.targetDuration,
-                        targetDurationUnit: s.targetDurationUnit,
-                        targetDistance: s.targetDistance,
-                        targetPace: s.targetPace,
-                        targetHrZone: s.targetHrZone,
-                        repeatCount: s.repeatCount,
-                        targetRPE: s.targetRPE,
-                        restAfter: s.restAfter,
-                      })),
-                    },
-                  })),
-                },
-              })),
-            },
-          })),
-        },
-      },
-      include: programDetailInclude,
-    });
-  }
-
-  return prisma.program.update({
+  await prisma.program.update({
     where: { id },
     data: {
       ...rest,
       status: rest.status as PlanStatus | undefined,
       startDate: startDate ? new Date(startDate) : undefined,
     },
-    include: programDetailInclude,
   });
+
+  if (workouts) {
+    // Delete all existing workouts (cascades to blocks -> exercises -> sets),
+    // then bulk-rebuild the tree — see insertWorkoutTree for why this isn't a
+    // single nested `update`.
+    await prisma.workout.deleteMany({ where: { programId: id } });
+    await insertWorkoutTree(id, workouts);
+  }
+
+  const full = await prisma.program.findUnique({ where: { id }, include: programDetailInclude });
+  if (!full) throw new Error("Program not found immediately after update");
+  return full;
 }
 
 export async function deleteProgram(id: string) {
@@ -335,19 +314,14 @@ export async function deleteClientProgram(id: string) {
   return prisma.program.delete({ where: { id } });
 }
 
-export async function duplicateProgram(
-  id: string,
-  trainerId: string,
-  asTemplate = false
-) {
-  const source = await getProgramById(id);
-  if (!source) throw new Error("Program not found");
+type ProgramWithDetails = NonNullable<Awaited<ReturnType<typeof getProgramById>>>;
 
-  if (source.trainerId !== trainerId && !source.isPublic && !source.isGlobal) {
-    throw new Error("Unauthorized");
-  }
-
-  const workouts = source.workouts.map((w, wi) => ({
+// Shared by duplicateProgram (template -> new copy) and syncProgramToTemplate
+// (assigned copy -> its master template): re-indexes and strips DB-only
+// fields (ids, timestamps) so the tree can be handed to createProgram/
+// updateProgram's nested-create input.
+function mapWorkoutsForCopy(workouts: ProgramWithDetails["workouts"]) {
+  return workouts.map((w, wi) => ({
     name: w.name,
     description: w.description,
     dayIndex: w.dayIndex,
@@ -386,6 +360,19 @@ export async function duplicateProgram(
       })),
     })),
   }));
+}
+
+export async function duplicateProgram(
+  id: string,
+  trainerId: string,
+  asTemplate = false
+) {
+  const source = await getProgramById(id);
+  if (!source) throw new Error("Program not found");
+
+  if (source.trainerId !== trainerId && !source.isPublic && !source.isGlobal) {
+    throw new Error("Unauthorized");
+  }
 
   return createProgram(trainerId, {
     name: `${source.name} (Copy)`,
@@ -397,7 +384,41 @@ export async function duplicateProgram(
     tags: source.tags,
     equipmentRequired: source.equipmentRequired ?? [],
     organizationIds: [],
-    workouts,
+    workouts: mapWorkoutsForCopy(source.workouts),
+    // Categorization travels with the copy; collection membership doesn't —
+    // a duplicate is a fresh program, not automatically slotted into the
+    // same playlists as its source.
+    collectionIds: [],
+    bodyAreas: source.bodyAreas ?? [],
+    goals: source.goals ?? [],
+    activities: source.activities ?? [],
+    level: source.level as "BEGINNER" | "INTERMEDIATE" | "ADVANCED" | null | undefined,
+  });
+}
+
+// Pushes an assigned program's current workout content (weeks, days,
+// sections, exercises, sets) back onto the master template it was cloned
+// from. Leaves the template's own name/description/programType/tags alone —
+// those are template identity, not workout content, and shouldn't be
+// silently overwritten by a client-specific copy.
+export async function syncProgramToTemplate(id: string, trainerId: string) {
+  const source = await getProgramById(id);
+  if (!source) throw new Error("Program not found");
+  if (source.trainerId !== trainerId) throw new Error("Unauthorized");
+  if (!source.sourceTemplateId) {
+    throw new Error("This program isn't linked to a master template");
+  }
+
+  const template = await prisma.program.findUnique({
+    where: { id: source.sourceTemplateId },
+  });
+  if (!template) throw new Error("The master template no longer exists");
+  if (template.trainerId !== trainerId) throw new Error("Unauthorized");
+
+  return updateProgram(template.id, {
+    workouts: mapWorkoutsForCopy(source.workouts),
+    durationWeeks: source.durationWeeks,
+    daysPerWeek: source.daysPerWeek,
   });
 }
 

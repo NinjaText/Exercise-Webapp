@@ -68,6 +68,11 @@ export const createProgramSchema = z.object({
   organizationIds: z.array(z.string()).default([]),
   startDate: z.string().datetime().optional().nullable(),
   workouts: z.array(workoutSchema).default([]),
+  collectionIds: z.array(z.string()).default([]),
+  bodyAreas: z.array(z.string()).default([]),
+  goals: z.array(z.string()).default([]),
+  activities: z.array(z.string()).default([]),
+  level: z.enum(["BEGINNER", "INTERMEDIATE", "ADVANCED"]).optional().nullable(),
 });
 
 export const updateProgramSchema = createProgramSchema.partial().extend({
@@ -89,6 +94,12 @@ export const programFilterSchema = z.object({
   // programs list into "Assigned" (a client is running it) vs "Library"
   // (not yet given to anyone: drafts and reusable templates alike).
   hasClient: z.boolean().optional(),
+  isFavorite: z.boolean().optional(),
+  collectionId: z.string().optional(),
+  // Recent = updated within the last 30 days.
+  recentOnly: z.boolean().optional(),
+  // Matches a program whose tags/bodyAreas/goals/activities include ANY of these.
+  tags: z.array(z.string()).optional(),
 });
 
 // --- Inferred types ---

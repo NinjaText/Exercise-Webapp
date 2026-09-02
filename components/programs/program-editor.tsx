@@ -26,7 +26,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Dumbbell, Sparkles, X } from "lucide-react";
+import { Dumbbell, Sparkles, Tag, X } from "lucide-react";
 import {
   createProgramSchema,
   type CreateProgramInput,
@@ -35,10 +35,34 @@ import {
 import {
   createProgramAction,
   updateProgramAction,
+  syncProgramToMasterAction,
 } from "@/actions/program-actions";
 import { ProgramBuilder } from "./program-builder";
 import { ClinicVisibilitySelector } from "./clinic-visibility-selector";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { TagListInput } from "./tag-list-input";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { type ExerciseSourcePreference } from "@/lib/utils/exercise-picker";
+
+const BODY_AREA_SUGGESTIONS = ["Shoulder", "Elbow", "Wrist/Hand", "Chest", "Back", "Hip", "Knee", "Ankle/Foot", "Core"];
+const GOAL_SUGGESTIONS = ["Strength", "Mobility", "Endurance", "Weight Loss", "Rehab", "Power"];
+const ACTIVITY_SUGGESTIONS = ["Tennis", "Golf", "Running", "Basketball", "Soccer", "Swimming", "General Fitness"];
+
+// Base UI's <Select.Value> renders the raw value string unless the root is
+// given an items map — without this it shows "PERFORMANCE" / "UNSET" etc.
+// instead of the item's label.
+const PROGRAM_TYPE_ITEMS = {
+  UNSET: "Select program type",
+  PERFORMANCE: "🏋️ Performance / Athletic",
+  CLINICAL: "🩺 Rehab / Clinical",
+};
+const LEVEL_ITEMS = {
+  UNSET: "Select level",
+  BEGINNER: "Beginner",
+  INTERMEDIATE: "Intermediate",
+  ADVANCED: "Advanced",
+};
 
 interface Props {
   program?: Record<string, unknown>;
@@ -59,6 +83,7 @@ interface Props {
   redirectTo?: string;
   organizationOrganizationId?: string;
   clinics?: { id: string; name: string }[];
+  collections?: { id: string; name: string }[];
   exerciseSourcePreference?: ExerciseSourcePreference;
 }
 
@@ -119,9 +144,27 @@ function mapWorkoutToInput(w: Record<string, unknown>): WorkoutInput {
   };
 }
 
-export function ProgramEditor({ program, exercises, onSave, redirectTo, organizationOrganizationId, clinics, exerciseSourcePreference }: Props) {
+export function ProgramEditor({ program, exercises, onSave, redirectTo, organizationOrganizationId, clinics, collections, exerciseSourcePreference }: Props) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
+  const [syncingToMaster, setSyncingToMaster] = useState(false);
+  const [syncConfirmOpen, setSyncConfirmOpen] = useState(false);
+  const isAssignedCopyOfTemplate = !!program?.sourceTemplateId && !!program?.clientId;
+
+  async function handleSyncToMaster() {
+    if (!program?.id) return;
+    setSyncingToMaster(true);
+    try {
+      const result = await syncProgramToMasterAction(program.id as string);
+      if (result.success) {
+        toast.success("Master program updated");
+      } else {
+        toast.error(result.error);
+      }
+    } finally {
+      setSyncingToMaster(false);
+    }
+  }
   const [workouts, setWorkouts] = useState<WorkoutInput[]>(
     program
       ? ((program.workouts as Record<string, unknown>[]) || []).map(
@@ -140,6 +183,16 @@ export function ProgramEditor({ program, exercises, onSave, redirectTo, organiza
   );
   const [equipmentInput, setEquipmentInput] = useState("");
   const equipmentInputRef = useRef<HTMLInputElement>(null);
+
+  // Category fields — pre-populated from saved program or empty
+  const [bodyAreas, setBodyAreas] = useState<string[]>((program?.bodyAreas as string[]) || []);
+  const [goals, setGoals] = useState<string[]>((program?.goals as string[]) || []);
+  const [activities, setActivities] = useState<string[]>((program?.activities as string[]) || []);
+  const [tags, setTags] = useState<string[]>((program?.tags as string[]) || []);
+  const [level, setLevel] = useState<string | null>((program?.level as string | null) || null);
+  const [selectedCollectionIds, setSelectedCollectionIds] = useState<string[]>(
+    (program?.collectionIds as string[]) || []
+  );
 
   const form = useForm<CreateProgramInput>({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -229,6 +282,12 @@ export function ProgramEditor({ program, exercises, onSave, redirectTo, organiza
       data.organizationIds = selectedOrganizationIds;
       data.durationWeeks = scheduleSummary.durationWeeks || null;
       data.daysPerWeek = scheduleSummary.daysPerWeek || null;
+      data.bodyAreas = bodyAreas;
+      data.goals = goals;
+      data.activities = activities;
+      data.tags = tags;
+      data.level = level as CreateProgramInput["level"];
+      data.collectionIds = selectedCollectionIds;
 
       if (onSave) {
         const result = await onSave(data, program?.id as string | undefined);
@@ -296,6 +355,7 @@ export function ProgramEditor({ program, exercises, onSave, redirectTo, organiza
                   <FormLabel>Program Type</FormLabel>
                   <FormControl>
                     <Select
+                      items={PROGRAM_TYPE_ITEMS}
                       value={field.value || "UNSET"}
                       onValueChange={(v) => field.onChange(v === "UNSET" ? null : v)}
                     >
@@ -303,7 +363,7 @@ export function ProgramEditor({ program, exercises, onSave, redirectTo, organiza
                         <SelectValue placeholder="Select..." />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="UNSET">Not set</SelectItem>
+                        <SelectItem value="UNSET">Select program type</SelectItem>
                         <SelectItem value="PERFORMANCE">🏋️ Performance / Athletic</SelectItem>
                         <SelectItem value="CLINICAL">🩺 Rehab / Clinical</SelectItem>
                       </SelectContent>
@@ -373,6 +433,91 @@ export function ProgramEditor({ program, exercises, onSave, redirectTo, organiza
                   value={selectedOrganizationIds}
                   onChange={setSelectedOrganizationIds}
                 />
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Categorization Card */}
+        <Card>
+          <CardHeader className="flex flex-row items-center gap-2 space-y-0">
+            <Tag className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-base">Categorization</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            <div className="grid gap-5 sm:grid-cols-3">
+              <div className="space-y-2">
+                <Label>Body Area</Label>
+                <TagListInput
+                  values={bodyAreas}
+                  onChange={setBodyAreas}
+                  placeholder="Add body area..."
+                  suggestions={BODY_AREA_SUGGESTIONS}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Goal</Label>
+                <TagListInput
+                  values={goals}
+                  onChange={setGoals}
+                  placeholder="Add goal..."
+                  suggestions={GOAL_SUGGESTIONS}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Activity / Sport</Label>
+                <TagListInput
+                  values={activities}
+                  onChange={setActivities}
+                  placeholder="Add activity..."
+                  suggestions={ACTIVITY_SUGGESTIONS}
+                />
+              </div>
+            </div>
+
+            <div className="grid gap-5 sm:grid-cols-3">
+              <div className="space-y-2">
+                <Label>Level</Label>
+                <Select
+                  items={LEVEL_ITEMS}
+                  value={level || "UNSET"}
+                  onValueChange={(v) => setLevel(v === "UNSET" ? null : v)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select level" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="UNSET">Select level</SelectItem>
+                    <SelectItem value="BEGINNER">Beginner</SelectItem>
+                    <SelectItem value="INTERMEDIATE">Intermediate</SelectItem>
+                    <SelectItem value="ADVANCED">Advanced</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2 sm:col-span-2">
+                <Label>Tags</Label>
+                <TagListInput values={tags} onChange={setTags} placeholder="Add a tag..." />
+              </div>
+            </div>
+
+            {collections && collections.length > 0 && (
+              <div className="space-y-2 border-t pt-5">
+                <Label>Collections</Label>
+                <div className="flex flex-wrap gap-x-5 gap-y-2">
+                  {collections.map((c) => (
+                    <label key={c.id} className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
+                      <Checkbox
+                        checked={selectedCollectionIds.includes(c.id)}
+                        onCheckedChange={(checked) =>
+                          setSelectedCollectionIds((prev) =>
+                            checked ? [...prev, c.id] : prev.filter((id) => id !== c.id)
+                          )
+                        }
+                      />
+                      {c.name}
+                    </label>
+                  ))}
+                </div>
               </div>
             )}
           </CardContent>
@@ -457,6 +602,16 @@ export function ProgramEditor({ program, exercises, onSave, redirectTo, organiza
 
         {/* Submit */}
         <div className="flex justify-end gap-3">
+          {isAssignedCopyOfTemplate && (
+            <Button
+              type="button"
+              variant="outline"
+              disabled={syncingToMaster}
+              onClick={() => setSyncConfirmOpen(true)}
+            >
+              {syncingToMaster ? "Saving..." : "Save changes to master program"}
+            </Button>
+          )}
           <Button type="button" variant="outline" onClick={() => router.back()}>
             Cancel
           </Button>
@@ -469,6 +624,19 @@ export function ProgramEditor({ program, exercises, onSave, redirectTo, organiza
           </Button>
         </div>
       </form>
+
+      <ConfirmDialog
+        open={syncConfirmOpen}
+        onOpenChange={setSyncConfirmOpen}
+        title="Save changes to master program?"
+        description="This will overwrite the master template's weeks, days, sections, exercises, and sets with what's currently in this client's program. The template's name, description, and tags won't change. This can't be undone."
+        confirmLabel="Save to master"
+        variant="destructive"
+        onConfirm={() => {
+          setSyncConfirmOpen(false);
+          handleSyncToMaster();
+        }}
+      />
     </Form>
   );
 }

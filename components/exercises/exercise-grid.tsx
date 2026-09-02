@@ -160,9 +160,6 @@ export function ExerciseGrid({ exercises, activeSource, organizationOrgId }: Exe
             isActive={exercise.isActive}
             isTrainer
             source={exercise.source}
-            isPublic={exercise.isPublic}
-            organizationId={exercise.organizationId}
-            organizationOrganizationId={organizationOrgId}
             canAdopt={canAdopt}
             selectable={selectMode && canAdopt}
             selected={selectedIds.has(exercise.id)}

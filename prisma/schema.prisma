@@ -158,6 +158,8 @@ model User {
   clinicalNotesAsClient     ClinicalNote[]       @relation("ClinicalNotesClient")
   clinicalNotesAsTrainer    ClinicalNote[]       @relation("ClinicalNotesTrainer")
   trainerSubscription       TrainerSubscription? @relation("TrainerSubscription")
+  exerciseUsages            ExerciseUsage[]
+  collections               Collection[]
 }
 
 model AuditLog {
@@ -230,7 +232,6 @@ model Exercise {
   isActive           Boolean         @default(true)
   source             ExerciseSource  @default(UNIVERSAL)
   organizationId     String?
-  isPublic           Boolean         @default(true)
   createdById        String?         @db.ObjectId
   createdBy          User?           @relation(fields: [createdById], references: [id])
   createdAt          DateTime        @default(now())
@@ -242,6 +243,24 @@ model Exercise {
   progressionsTo   ExerciseProgression[] @relation("ToExercise")
   media            ExerciseMedia[]
   blockExercisesV2 BlockExerciseV2[]     @relation("BlockExercisesV2")
+  usages           ExerciseUsage[]
+}
+
+// Tracks how often each trainer programs a given exercise, so the exercise
+// picker can rank a coach's frequently-used exercises to the top. Populated
+// when a program is saved (see recordExerciseUsage), not on transient
+// picker selections, so drafts never inflate counts.
+model ExerciseUsage {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  trainerId  String   @db.ObjectId
+  trainer    User     @relation(fields: [trainerId], references: [id], onDelete: Cascade)
+  exerciseId String   @db.ObjectId
+  exercise   Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  count      Int      @default(0)
+  lastUsedAt DateTime @default(now())
+
+  @@unique([trainerId, exerciseId])
+  @@index([trainerId])
 }
 
 model ExerciseProgression {
@@ -452,10 +471,36 @@ model Program {
   updatedAt          DateTime   @updatedAt
   workouts           Workout[]
 
+  // Structured categorization (Programs page redesign) — distinct from the
+  // free-form `tags` above so body area / goal / sport / level stay filterable
+  // as their own facets instead of one flat tag soup.
+  isFavorite    Boolean  @default(false)
+  collectionIds String[] @default([]) @db.ObjectId
+  bodyAreas     String[] @default([])
+  goals         String[] @default([])
+  activities    String[] @default([])
+  level         String?
+
   @@index([trainerId])
   @@index([clientId])
   @@index([isGlobal])
   @@index([isPublic])
+  @@index([collectionIds])
+}
+
+// A trainer-owned grouping of programs (Spotify-playlist model — a program
+// can belong to several collections at once via Program.collectionIds; the
+// collection itself holds no program list, just identity + metadata).
+model Collection {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  trainerId String   @db.ObjectId
+  trainer   User     @relation(fields: [trainerId], references: [id], onDelete: Cascade)
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([trainerId, name])
+  @@index([trainerId])
 }
 
 model Workout {

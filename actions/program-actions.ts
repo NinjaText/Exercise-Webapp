@@ -25,6 +25,7 @@ import { ShareProgramEmail } from "@/lib/email/templates/share-program";
 import { parseShareRecipients } from "./program-share-helpers";
 import { revalidatePath } from "next/cache";
 import * as programService from "@/lib/services/program.service";
+import { recordExerciseUsage } from "@/lib/services/exercise.service";
 import { getR2Client, R2_BUCKET_NAME, R2_PUBLIC_URL } from "@/lib/r2";
 import {
   presignSchema as programBriefPresignSchema,
@@ -207,6 +208,11 @@ export async function createProgramAction(input: CreateProgramInput) {
       targetLabel: program.name,
       orgId: user.clerkOrgId,
     });
+    try {
+      await recordExerciseUsage(user.id, parsed.data.workouts);
+    } catch (error) {
+      console.error("Failed to record exercise usage:", error);
+    }
     revalidatePath("/programs");
     return { success: true as const, data: program };
   } catch (error) {
@@ -253,6 +259,13 @@ export async function updateProgramAction(
       orgId: user.clerkOrgId,
       metadata: diff,
     });
+    if (parsed.data.workouts) {
+      try {
+        await recordExerciseUsage(user.id, parsed.data.workouts);
+      } catch (error) {
+        console.error("Failed to record exercise usage:", error);
+      }
+    }
     revalidatePath("/programs");
     revalidatePath(`/programs/${programId}`);
     return { success: true as const, data: updated };
@@ -439,6 +452,87 @@ export async function assignProgramAction(input: {
   } catch (error) {
     console.error("Failed to assign program:", error);
     return { success: false as const, error: "Failed to assign program" };
+  }
+}
+
+export async function syncProgramToMasterAction(programId: string) {
+  const user = await getTrainerUser();
+  if (!user) return { success: false as const, error: "Unauthorized" };
+
+  const program = await prisma.program.findUnique({
+    where: { id: programId },
+    select: { trainerId: true, sourceTemplateId: true },
+  });
+  if (!program || program.trainerId !== user.id) {
+    return { success: false as const, error: "Forbidden" };
+  }
+  if (!program.sourceTemplateId) {
+    return { success: false as const, error: "This program isn't linked to a master template" };
+  }
+
+  try {
+    const updated = await programService.syncProgramToTemplate(programId, user.id);
+    await logAudit({
+      actorId: user.id,
+      actorType: deriveActorType(user),
+      actorName: `${user.firstName} ${user.lastName}`,
+      action: AUDIT_ACTIONS.PROGRAM_UPDATED,
+      targetType: "Program",
+      targetId: updated.id,
+      targetLabel: updated.name,
+      orgId: user.clerkOrgId,
+      metadata: { syncedFromAssignedProgramId: programId },
+    });
+    revalidatePath("/programs");
+    revalidatePath(`/programs/${updated.id}`);
+    return { success: true as const, data: updated };
+  } catch (error) {
+    console.error("Failed to sync program to master template:", error);
+    return { success: false as const, error: "Failed to save changes to master program" };
+  }
+}
+
+export async function toggleProgramFavoriteAction(programId: string, isFavorite: boolean) {
+  const user = await getTrainerUser();
+  if (!user) return { success: false as const, error: "Unauthorized" };
+
+  const program = await prisma.program.findUnique({
+    where: { id: programId },
+    select: { trainerId: true },
+  });
+  if (!program || program.trainerId !== user.id) {
+    return { success: false as const, error: "Forbidden" };
+  }
+
+  try {
+    const updated = await programService.toggleProgramFavorite(programId, isFavorite);
+    revalidatePath("/programs");
+    return { success: true as const, data: updated };
+  } catch (error) {
+    console.error("Failed to toggle program favorite:", error);
+    return { success: false as const, error: "Failed to update favorite" };
+  }
+}
+
+export async function setProgramCollectionsAction(programId: string, collectionIds: string[]) {
+  const user = await getTrainerUser();
+  if (!user) return { success: false as const, error: "Unauthorized" };
+
+  const program = await prisma.program.findUnique({
+    where: { id: programId },
+    select: { trainerId: true },
+  });
+  if (!program || program.trainerId !== user.id) {
+    return { success: false as const, error: "Forbidden" };
+  }
+
+  try {
+    const updated = await programService.setProgramCollections(programId, collectionIds);
+    revalidatePath("/programs");
+    return { success: true as const, data: updated };
+  } catch (error) {
+    console.error("Failed to update program collections:", error);
+    return { success: false as const, error: "Failed to update collections" };
   }
 }
 

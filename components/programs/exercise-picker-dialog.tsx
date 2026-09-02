@@ -22,13 +22,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  Search, Play, X, Plus, ArrowLeft, Globe, Lock,
+  Search, Play, X, Plus, ArrowLeft,
   ChevronDown, ChevronUp, Trash2, Check, Sparkles, Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { UniversalVideoPlayer } from "@/components/exercises/universal-video-player";
 import { YouTubeVideoSearch } from "@/components/exercises/youtube-video-search";
-import { createOrganizationExerciseAction, toggleExercisePublicAction } from "@/actions/exercise-actions";
+import { createOrganizationExerciseAction } from "@/actions/exercise-actions";
 import { isYouTubeUrl, hasRealVideoUrl, parseYoutubeUrls } from "@/lib/utils/video";
 import { toast } from "sonner";
 import { resolvePickerTabs, mergeExercisesForPicker, type ExerciseSourcePreference } from "@/lib/utils/exercise-picker";
@@ -46,7 +46,6 @@ interface Exercise {
   exercisePhases?: string[];
   source?: string | null;
   organizationId?: string | null;
-  isPublic?: boolean;
 }
 
 interface Props {
@@ -140,44 +139,51 @@ function FilterBar({ search, setSearch, phase, setPhase, bodyRegions, setRegions
 
 interface ExerciseListProps {
   list: Exercise[];
-  organizationOrganizationId?: string | null;
   phase: string;
   setPhase: (v: string) => void;
   bodyRegions: string[];
   setRegions: (v: string[]) => void;
-  onSelect: (ex: Exercise) => void;
-  onClose: () => void;
+  selectedIds: Set<string>;
+  onToggle: (ex: Exercise) => void;
   onPreview: (ex: Exercise) => void;
-  onTogglePublic: (ex: Exercise, next: boolean) => void;
 }
 
 function ExerciseList({
   list,
-  organizationOrganizationId,
   phase,
   setPhase,
   bodyRegions,
   setRegions,
-  onSelect,
-  onClose,
+  selectedIds,
+  onToggle,
   onPreview,
-  onTogglePublic,
 }: ExerciseListProps) {
   return (
     <div className="flex-1 overflow-y-auto px-4 py-2">
       <p className="text-[11px] text-muted-foreground mb-1">{list.length} exercise{list.length !== 1 ? "s" : ""}</p>
       <div className="space-y-0.5">
         {list.map((ex) => {
-          const isMine = ex.source === "ORGANIZATION" && ex.organizationId === organizationOrganizationId;
+          const isSelected = selectedIds.has(ex.id);
           return (
-          <div key={ex.id} role="button" tabIndex={0}
-            className="w-full text-left rounded-lg px-3 py-2.5 hover:bg-muted/70 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            onClick={() => { onSelect(ex); onClose(); }}
+          <div key={ex.id} role="checkbox" aria-checked={isSelected} tabIndex={0}
+            className={cn(
+              "w-full text-left rounded-lg px-3 py-2.5 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              isSelected ? "bg-primary/10 hover:bg-primary/15" : "hover:bg-muted/70"
+            )}
+            onClick={() => onToggle(ex)}
             onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSelect(ex); onClose(); }
+              if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onToggle(ex); }
             }}
           >
             <div className="flex items-start justify-between gap-2">
+              <div
+                className={cn(
+                  "mt-0.5 h-4 w-4 shrink-0 rounded-sm border flex items-center justify-center",
+                  isSelected ? "bg-primary border-primary text-primary-foreground" : "border-input"
+                )}
+              >
+                {isSelected && <Check className="h-3 w-3" />}
+              </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <span className="font-medium text-sm">{ex.name}</span>
@@ -188,21 +194,6 @@ function ExerciseList({
                     >
                       <Play className="h-2.5 w-2.5" /> Video
                     </span>
-                  )}
-                  {isMine && (
-                    <button
-                      type="button"
-                      onClick={(e) => { e.stopPropagation(); onTogglePublic(ex, !ex.isPublic); }}
-                      className={cn(
-                        "inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-sm font-medium border transition-colors",
-                        ex.isPublic
-                          ? "bg-green-50 text-green-700 border-green-200 hover:bg-green-100"
-                          : "bg-muted/50 text-muted-foreground border-border hover:bg-muted"
-                      )}
-                    >
-                      {ex.isPublic ? <Globe className="h-2.5 w-2.5" /> : <Lock className="h-2.5 w-2.5" />}
-                      {ex.isPublic ? "Public" : "Private"}
-                    </button>
                   )}
                 </div>
                 {ex.description && (
@@ -288,7 +279,6 @@ interface ExerciseFormShape {
   difficultyLevel: string;
   exercisePhases: string[];
   videoUrl: string;
-  isPublic: boolean;
 }
 
 function emptyFormShape(): ExerciseFormShape {
@@ -299,7 +289,6 @@ function emptyFormShape(): ExerciseFormShape {
     difficultyLevel: "",
     exercisePhases: [],
     videoUrl: "",
-    isPublic: true,
   };
 }
 
@@ -420,28 +409,6 @@ function CreateExerciseFields({
             />
           </TabsContent>
         </Tabs>
-      </div>
-
-      <div className="flex items-center justify-between rounded-lg border px-3 py-2.5">
-        <div>
-          <p className="text-sm font-medium">Visible to all organizations</p>
-          <p className="text-xs text-muted-foreground">When on, this exercise appears in the Universal tab for all organizations</p>
-        </div>
-        <button
-          type="button"
-          role="switch"
-          aria-checked={form.isPublic}
-          onClick={() => setForm((f) => ({ ...f, isPublic: !f.isPublic }))}
-          className={cn(
-            "relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors",
-            form.isPublic ? "bg-primary" : "bg-input"
-          )}
-        >
-          <span className={cn(
-            "pointer-events-none inline-block h-4 w-4 rounded-full bg-background shadow-lg ring-0 transition-transform",
-            form.isPublic ? "translate-x-4" : "translate-x-0"
-          )} />
-        </button>
       </div>
     </>
   );
@@ -595,13 +562,13 @@ export function ExercisePickerDialog({
   exerciseSourcePreference,
 }: Props) {
   const [search, setSearch]     = useState("");
+  const [selectedExerciseIds, setSelectedExerciseIds] = useState<Set<string>>(new Set());
   const [phase, setPhase]       = useState<string>("all");
   const [bodyRegions, setRegions] = useState<string[]>([]);
   const [videoPreview, setVideoPreview] = useState<Exercise | null>(null);
   const [videoUrlPreview, setVideoUrlPreview] = useState<{ videoId: string; url: string; title: string } | null>(null);
   const [view, setView] = useState<"list" | "create">("list");
   const [localExercises, setLocalExercises] = useState<Exercise[]>([]);
-  const [publicOverrides, setPublicOverrides] = useState<Map<string, boolean>>(new Map());
   const [isPending, startTransition] = useTransition();
   const [createTab, setCreateTab] = useState<"ai" | "manual">("ai");
 
@@ -619,16 +586,12 @@ export function ExercisePickerDialog({
   const [manualDrafts, setManualDrafts] = useState<DraftExercise[]>([makeDraft()]);
 
   const allExercises = useMemo(
-    () => [...exercises, ...localExercises].map((ex) =>
-      publicOverrides.has(ex.id) ? { ...ex, isPublic: publicOverrides.get(ex.id) } : ex
-    ),
-    [exercises, localExercises, publicOverrides]
+    () => [...exercises, ...localExercises],
+    [exercises, localExercises]
   );
 
   const universalExercises = useMemo(
-    () => allExercises.filter(
-      (ex) => ex.source === "UNIVERSAL" || (ex.source === "ORGANIZATION" && ex.isPublic)
-    ),
+    () => allExercises.filter((ex) => ex.source === "UNIVERSAL"),
     [allExercises]
   );
 
@@ -745,7 +708,6 @@ export function ExercisePickerDialog({
           difficultyLevel: d.difficultyLevel ?? "",
           exercisePhases: d.exercisePhases ?? [],
           videoUrl: d.videoUrl ?? url,
-          isPublic: true,
         })]);
         successCount++;
       } catch {
@@ -794,6 +756,7 @@ export function ExercisePickerDialog({
 
   function handleClose() {
     setView("list");
+    setSelectedExerciseIds(new Set());
     setCreateTab("ai");
     setAiContext("CLINICAL");
     setAiVideoMode("search");
@@ -806,19 +769,22 @@ export function ExercisePickerDialog({
     onOpenChange(false);
   }
 
-  function handleTogglePublic(ex: Exercise, next: boolean) {
-    startTransition(async () => {
-      const result = await toggleExercisePublicAction(ex.id, next);
-      if (result.success) {
-        setPublicOverrides((prev) => new Map(prev).set(ex.id, next));
-        setLocalExercises((prev) =>
-          prev.map((e) => e.id === ex.id ? { ...e, isPublic: next } : e)
-        );
-        toast.success(next ? "Exercise is now public" : "Exercise is now private");
-      } else {
-        toast.error(result.error);
-      }
+  function toggleExerciseSelection(ex: Exercise) {
+    setSelectedExerciseIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(ex.id)) next.delete(ex.id);
+      else next.add(ex.id);
+      return next;
     });
+  }
+
+  function handleAddSelected() {
+    const byId = new Map(allExercises.map((ex) => [ex.id, ex]));
+    for (const id of selectedExerciseIds) {
+      const ex = byId.get(id);
+      if (ex) onSelect(ex);
+    }
+    handleClose();
   }
 
   function handleCreateBatch(drafts: DraftExercise[]) {
@@ -837,7 +803,6 @@ export function ExercisePickerDialog({
           difficultyLevel: d.difficultyLevel || undefined,
           exercisePhases: d.exercisePhases,
           videoUrl: d.videoUrl || undefined,
-          isPublic: d.isPublic,
         })
       ));
 
@@ -856,7 +821,6 @@ export function ExercisePickerDialog({
             description: result.data.description ?? null,
             source: "ORGANIZATION",
             organizationId: result.data.organizationId ?? null,
-            isPublic: result.data.isPublic,
           });
         } else {
           failureCount++;
@@ -1085,16 +1049,25 @@ export function ExercisePickerDialog({
               />
               <ExerciseList
                 list={filteredExercises}
-                organizationOrganizationId={organizationOrganizationId}
                 phase={phase}
                 setPhase={setPhase}
                 bodyRegions={bodyRegions}
                 setRegions={setRegions}
-                onSelect={onSelect}
-                onClose={handleClose}
+                selectedIds={selectedExerciseIds}
+                onToggle={toggleExerciseSelection}
                 onPreview={setVideoPreview}
-                onTogglePublic={handleTogglePublic}
               />
+              <div className="flex shrink-0 gap-2 border-t bg-background px-4 py-3">
+                <Button type="button" variant="outline" className="flex-1 h-8 text-xs" onClick={handleClose}>Cancel</Button>
+                <Button
+                  type="button"
+                  className="flex-1 h-8 text-xs"
+                  disabled={selectedExerciseIds.size === 0}
+                  onClick={handleAddSelected}
+                >
+                  Add {selectedExerciseIds.size > 0 ? selectedExerciseIds.size : ""} Exercise{selectedExerciseIds.size === 1 ? "" : "s"}
+                </Button>
+              </div>
             </>
           )}
         </DialogContent>

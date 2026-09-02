@@ -66,7 +66,6 @@ describe('bulkCreateExercisesAction — org routing', () => {
         data: expect.objectContaining({
           source: 'ORGANIZATION',
           organizationId: 'org_abc123',
-          isPublic: false,
         }),
       })
     )
