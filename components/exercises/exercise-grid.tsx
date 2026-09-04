@@ -9,14 +9,15 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ExerciseCard } from "@/components/exercises/exercise-card";
 import { adoptUniversalExercisesAction } from "@/actions/exercise-actions";
-import type { getExercises } from "@/lib/services/exercise.service";
+import type { getExercisesPage } from "@/lib/services/exercise.service";
 
-type ExerciseListItem = Awaited<ReturnType<typeof getExercises>>[number];
+type ExerciseListItem = Awaited<ReturnType<typeof getExercisesPage>>["exercises"][number];
 
 interface ExerciseGridProps {
   exercises: ExerciseListItem[];
   activeSource: "UNIVERSAL" | "ORGANIZATION";
   organizationOrgId?: string;
+  favoriteIds: Set<string>;
 }
 
 // adoptUniversalExercisesAction clones each id sequentially server-side (no
@@ -31,7 +32,7 @@ function chunk<T>(items: T[], size: number): T[][] {
   return chunks;
 }
 
-export function ExerciseGrid({ exercises, activeSource, organizationOrgId }: ExerciseGridProps) {
+export function ExerciseGrid({ exercises, activeSource, organizationOrgId, favoriteIds }: ExerciseGridProps) {
   const router = useRouter();
   const canAdopt = activeSource === "UNIVERSAL" && !!organizationOrgId;
 
@@ -164,6 +165,7 @@ export function ExerciseGrid({ exercises, activeSource, organizationOrgId }: Exe
             selectable={selectMode && canAdopt}
             selected={selectedIds.has(exercise.id)}
             onToggleSelect={() => toggleOne(exercise.id)}
+            isFavorite={favoriteIds.has(exercise.id)}
           />
         ))}
       </div>

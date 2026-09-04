@@ -8,6 +8,9 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { Progress } from "@/components/ui/progress";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { StatCard } from "@/components/shared/stat-card";
 import {
   Table,
   TableBody,
@@ -23,7 +26,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CreateProgramMenu } from "@/components/programs/create-program-menu";
 import {
@@ -56,14 +58,18 @@ import {
   Globe,
   Lock,
   Eye,
-  ChevronDown,
   X,
-  Users,
   Star,
   FolderPlus,
   Folder,
-  ArrowLeft,
-  Clock,
+  SlidersHorizontal,
+  Grid3x3,
+  Users,
+  CalendarClock,
+  PauseCircle,
+  CheckCircle2,
+  ClipboardList,
+  Download,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -75,23 +81,115 @@ import {
   toggleProgramFavoriteAction,
   setProgramCollectionsAction,
 } from "@/actions/program-actions";
-import { createCollectionAction } from "@/actions/collection-actions";
+import {
+  createCollectionAction,
+  renameCollectionAction,
+  deleteCollectionAction,
+} from "@/actions/collection-actions";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
+import type { ProgramProgress } from "@/lib/services/program.service";
 
 const RECENT_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
 
-interface ProgramListItem {
+const SPORT_OPTIONS = ["Tennis", "Golf", "Running", "Basketball", "Soccer", "Swimming", "General Fitness"];
+const BODY_AREA_OPTIONS = ["Shoulder", "Elbow", "Wrist/Hand", "Chest", "Back", "Hip", "Knee", "Ankle/Foot", "Core"];
+const GOAL_OPTIONS = ["Strength", "Mobility", "Endurance", "Weight Loss", "Rehab", "Power"];
+const LEVEL_OPTIONS = [
+  { value: "BEGINNER", label: "Beginner" },
+  { value: "INTERMEDIATE", label: "Intermediate" },
+  { value: "ADVANCED", label: "Advanced" },
+];
+const STATUS_OPTIONS = [
+  { value: "DRAFT", label: "Draft" },
+  { value: "ACTIVE", label: "Active" },
+  { value: "PAUSED", label: "Paused" },
+  { value: "COMPLETED", label: "Completed" },
+  { value: "ARCHIVED", label: "Archived" },
+];
+
+type DurationBucket = "le1" | "2to4" | "5to8" | "9to12" | "gt12";
+const DURATION_OPTIONS: { value: DurationBucket; label: string }[] = [
+  { value: "le1", label: "1 week or less" },
+  { value: "2to4", label: "2-4 weeks" },
+  { value: "5to8", label: "5-8 weeks" },
+  { value: "9to12", label: "9-12 weeks" },
+  { value: "gt12", label: "12+ weeks" },
+];
+
+function matchesDurationBucket(weeks: number | null | undefined, bucket: DurationBucket): boolean {
+  if (weeks == null) return false;
+  switch (bucket) {
+    case "le1": return weeks <= 1;
+    case "2to4": return weeks >= 2 && weeks <= 4;
+    case "5to8": return weeks >= 5 && weeks <= 8;
+    case "9to12": return weeks >= 9 && weeks <= 12;
+    case "gt12": return weeks > 12;
+  }
+}
+
+const VIEW_OPTIONS = [
+  { value: "all", label: "All" },
+  { value: "recent", label: "Recent" },
+  { value: "favorites", label: "Favorites" },
+  { value: "templates", label: "Templates" },
+  { value: "archived", label: "Archived" },
+] as const;
+
+const LIBRARY_SORT_OPTIONS = [
+  { value: "recent", label: "Recently Used" },
+  { value: "name_asc", label: "Name A-Z" },
+  { value: "name_desc", label: "Name Z-A" },
+  { value: "workouts_desc", label: "Most Workouts" },
+  { value: "workouts_asc", label: "Fewest Workouts" },
+] as const;
+type LibrarySort = (typeof LIBRARY_SORT_OPTIONS)[number]["value"];
+
+function sortLibraryPrograms<T extends { name: string; _count: { workouts: number } }>(
+  items: T[],
+  sort: LibrarySort,
+  getUpdatedAt: (item: T) => Date | null | undefined
+): T[] {
+  const sorted = [...items];
+  switch (sort) {
+    case "name_asc":
+      return sorted.sort((a, b) => a.name.localeCompare(b.name));
+    case "name_desc":
+      return sorted.sort((a, b) => b.name.localeCompare(a.name));
+    case "workouts_desc":
+      return sorted.sort((a, b) => b._count.workouts - a._count.workouts);
+    case "workouts_asc":
+      return sorted.sort((a, b) => a._count.workouts - b._count.workouts);
+    case "recent":
+    default:
+      return sorted.sort((a, b) => {
+        const at = getUpdatedAt(a)?.getTime() ?? 0;
+        const bt = getUpdatedAt(b)?.getTime() ?? 0;
+        return bt - at;
+      });
+  }
+}
+
+interface Categorized {
+  tags: string[];
+  bodyAreas?: string[];
+  goals?: string[];
+  activities?: string[];
+  level?: string | null;
+  durationWeeks?: number | null;
+  status: string;
+}
+
+interface ProgramListItem extends Categorized {
   id: string;
   name: string;
-  status: string;
   isTemplate: boolean;
   isGlobal: boolean;
   isPublic: boolean;
   sourceTemplateId?: string | null;
-  tags: string[];
   updatedAt: Date;
   createdAt: Date;
+  startDate?: Date | null;
   clientId?: string | null;
   trainer: { id: string; firstName: string; lastName: string } | null;
   client: { id: string; firstName: string; lastName: string } | null;
@@ -99,9 +197,6 @@ interface ProgramListItem {
   _count: { workouts: number };
   isFavorite?: boolean;
   collectionIds?: string[];
-  bodyAreas?: string[];
-  goals?: string[];
-  activities?: string[];
 }
 
 interface CollectionItem {
@@ -110,11 +205,10 @@ interface CollectionItem {
   programCount: number;
 }
 
-interface GlobalProgramItem {
+interface GlobalProgramItem extends Categorized {
   id: string;
   name: string;
   description?: string | null;
-  tags: string[];
   globalUpdatedAt?: Date | null;
   isGlobal: boolean;
   trainer: { id: string; firstName: string; lastName: string } | null;
@@ -147,11 +241,8 @@ function clientLabel(client: { firstName: string; lastName: string }): string {
   return name || "Unnamed client";
 }
 
-// "all" means "everything except archived" — archived programs only show up
-// once the trainer explicitly filters for them.
-function matchesStatusFilter(status: string, statusFilter: string): boolean {
-  if (statusFilter === "all") return status !== "ARCHIVED";
-  return status === statusFilter;
+function initials(person: { firstName: string; lastName: string }): string {
+  return `${person.firstName[0] ?? ""}${person.lastName[0] ?? ""}`.toUpperCase();
 }
 
 const statusConfig: Record<string, { label: string; className: string }> = {
@@ -161,6 +252,64 @@ const statusConfig: Record<string, { label: string; className: string }> = {
   COMPLETED: { label: "Completed", className: "bg-muted text-muted-foreground border-border" },
   ARCHIVED:  { label: "Archived",  className: "bg-muted text-muted-foreground border-border opacity-70" },
 };
+
+// --- Assigned tab: a derived status distinct from the raw PlanStatus, since
+// "Starting Soon" isn't a real stored value — it's ACTIVE + a future startDate.
+type AssignedStatus = "ACTIVE" | "STARTING_SOON" | "ON_HOLD" | "COMPLETED" | "OTHER";
+
+function deriveAssignedStatus(program: { status: string; startDate?: Date | null }): AssignedStatus {
+  if (program.status === "PAUSED") return "ON_HOLD";
+  if (program.status === "COMPLETED") return "COMPLETED";
+  if (program.status === "ACTIVE") {
+    if (program.startDate && new Date(program.startDate).getTime() > Date.now()) return "STARTING_SOON";
+    return "ACTIVE";
+  }
+  return "OTHER";
+}
+
+const assignedStatusConfig: Record<AssignedStatus, { label: string; className: string; dot: string }> = {
+  ACTIVE:         { label: "Active",        className: "bg-emerald-500/10 text-emerald-700 border-emerald-200", dot: "bg-emerald-500" },
+  STARTING_SOON:  { label: "Starting Soon", className: "bg-blue-500/10 text-blue-700 border-blue-200",         dot: "bg-blue-500" },
+  ON_HOLD:        { label: "On Hold",       className: "bg-amber-500/10 text-amber-700 border-amber-200",     dot: "bg-amber-500" },
+  COMPLETED:      { label: "Completed",     className: "bg-purple-500/10 text-purple-700 border-purple-200",  dot: "bg-purple-500" },
+  OTHER:          { label: "Draft",         className: "bg-muted text-muted-foreground border-border",         dot: "bg-muted-foreground" },
+};
+
+function formatDueLabel(date: Date): string {
+  const now = new Date();
+  const days = Math.round((date.getTime() - now.getTime()) / (24 * 60 * 60 * 1000));
+  if (days < 0) return "Overdue";
+  if (days === 0) return "Due today";
+  if (days === 1) return "Due tomorrow";
+  return `Due in ${days} days`;
+}
+
+type AssignedSort =
+  | "updated_desc" | "client_asc" | "client_desc"
+  | "progress_desc" | "progress_asc" | "start_desc" | "start_asc";
+
+const SORT_OPTIONS: { value: AssignedSort; label: string }[] = [
+  { value: "updated_desc", label: "Recently Updated" },
+  { value: "client_asc", label: "Client Name A-Z" },
+  { value: "client_desc", label: "Client Name Z-A" },
+  { value: "progress_desc", label: "Progress: Highest" },
+  { value: "progress_asc", label: "Progress: Lowest" },
+  { value: "start_desc", label: "Start Date: Newest" },
+  { value: "start_asc", label: "Start Date: Oldest" },
+];
+
+function downloadCsv(filename: string, rows: string[][]) {
+  const csv = rows
+    .map((row) => row.map((cell) => `"${cell.replace(/"/g, '""')}"`).join(","))
+    .join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+}
 
 function WorkoutCount({ count }: { count: number }) {
   return (
@@ -179,10 +328,12 @@ function UpdatedAt({ date }: { date: Date }) {
   );
 }
 
-function ProgramRow({
+// --- Library tab row: Program | Collection | Tags | Workouts | Updated | Actions
+function LibraryProgramRow({
   program,
   role,
   updatableSet,
+  collectionsById,
   onDuplicate,
   onArchive,
   onRequestHardDelete,
@@ -191,80 +342,77 @@ function ProgramRow({
   onToggleFavorite,
   togglingFavoriteId,
   onAddToCollection,
-  typeBadge,
   search,
-  personColumn,
 }: {
   program: ProgramListItem;
   role?: string;
   updatableSet: Set<string>;
+  collectionsById: Map<string, string>;
   onDuplicate: (id: string) => void;
   onArchive: (id: string) => void;
   onRequestHardDelete: (id: string, name: string) => void;
   onTogglePublic: (id: string, isPublic: boolean) => void;
   togglingPublicId: string | null;
-  onToggleFavorite?: (id: string, next: boolean) => void;
-  togglingFavoriteId?: string | null;
-  onAddToCollection?: (program: ProgramListItem) => void;
-  typeBadge?: "clinical";
+  onToggleFavorite: (id: string, next: boolean) => void;
+  togglingFavoriteId: string | null;
+  onAddToCollection: (program: ProgramListItem) => void;
   search?: string;
-  /** Which related person to show — trainers see the assigned client, clients see their trainer. */
-  personColumn: "client" | "trainer";
 }) {
   const router = useRouter();
-  const status = statusConfig[program.status] ?? { label: program.status, className: "bg-muted text-muted-foreground border-border" };
   const matchedWorkoutId = search ? findMatchedWorkoutId(program, search) : null;
   const detailHref = matchedWorkoutId
     ? `/programs/${program.id}?workoutId=${matchedWorkoutId}`
     : `/programs/${program.id}`;
-  const person = personColumn === "client" ? program.client : program.trainer;
+
+  const collectionNames = (program.collectionIds ?? [])
+    .map((id) => collectionsById.get(id))
+    .filter((n): n is string => !!n);
+
+  const allTags = [
+    ...program.tags,
+    ...(program.bodyAreas ?? []),
+    ...(program.goals ?? []),
+    ...(program.activities ?? []),
+  ];
 
   return (
     <TableRow className="group">
       <TableCell className="max-w-64">
-        <Link href={detailHref} className="font-medium hover:text-primary hover:underline truncate block">
-          {program.name}
-        </Link>
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+            <Dumbbell className="h-4 w-4" />
+          </div>
+          <div className="min-w-0">
+            <Link href={detailHref} className="block truncate font-medium hover:text-primary hover:underline">
+              {program.name}
+            </Link>
+            <div className="mt-0.5 flex flex-wrap items-center gap-1">
+              {program.isTemplate && (
+                <Badge variant="outline" className="text-[10px] font-medium">Template</Badge>
+              )}
+              {updatableSet.has(program.id) && (
+                <Badge variant="outline" className="text-[10px] font-medium">Update available</Badge>
+              )}
+            </div>
+          </div>
+        </div>
       </TableCell>
       <TableCell className="text-muted-foreground">
-        {person ? clientLabel(person) : personColumn === "client" ? "Unassigned" : "—"}
+        {collectionNames.length === 0
+          ? "—"
+          : collectionNames.length === 1
+          ? collectionNames[0]
+          : `${collectionNames[0]} +${collectionNames.length - 1}`}
       </TableCell>
       <TableCell>
-        <div className="flex flex-wrap items-center gap-1.5">
-          <Badge className={`border text-[11px] font-medium ${status.className}`}>
-            {status.label}
-          </Badge>
-          {typeBadge === "clinical" && (
-            <Badge variant="outline" className="text-[11px] font-medium">
-              Clinical
-            </Badge>
+        <div className="flex max-w-56 flex-wrap items-center gap-1">
+          {allTags.slice(0, 3).map((t) => (
+            <Badge key={t} variant="secondary" className="text-[10px]">{t}</Badge>
+          ))}
+          {allTags.length > 3 && (
+            <Badge variant="secondary" className="text-[10px]">+{allTags.length - 3}</Badge>
           )}
-          {program.isTemplate && !typeBadge && (
-            <Badge variant="outline" className="text-[11px] font-medium">
-              Template
-            </Badge>
-          )}
-          {updatableSet.has(program.id) && (
-            <Badge variant="outline" className="text-[11px] font-medium">
-              Update available
-            </Badge>
-          )}
-          {role === "TRAINER" && program.isTemplate && !program.clientId && (
-            <button
-              type="button"
-              disabled={togglingPublicId === program.id}
-              onClick={() => onTogglePublic(program.id, !program.isPublic)}
-              className={cn(
-                "inline-flex items-center gap-1 rounded-sm border px-1.5 py-0.5 text-[11px] font-medium transition-colors disabled:opacity-60",
-                program.isPublic
-                  ? "border-green-200 bg-green-50 text-green-700 hover:bg-green-100"
-                  : "border-border bg-muted/50 text-muted-foreground hover:bg-muted"
-              )}
-            >
-              {program.isPublic ? <Globe className="h-3 w-3" /> : <Lock className="h-3 w-3" />}
-              {program.isPublic ? "Public" : "Private"}
-            </button>
-          )}
+          {allTags.length === 0 && <span className="text-muted-foreground">—</span>}
         </div>
       </TableCell>
       <TableCell>
@@ -275,22 +423,20 @@ function ProgramRow({
       </TableCell>
       <TableCell className="text-right">
         <div className="flex items-center justify-end gap-1">
-          {onToggleFavorite && (
-            <button
-              type="button"
-              disabled={togglingFavoriteId === program.id}
-              onClick={() => onToggleFavorite(program.id, !program.isFavorite)}
-              title={program.isFavorite ? "Remove from favorites" : "Add to favorites"}
-              className={cn(
-                "inline-flex h-7 w-7 items-center justify-center rounded-md transition-opacity hover:bg-muted disabled:opacity-60",
-                program.isFavorite
-                  ? "text-amber-500 opacity-100"
-                  : "text-muted-foreground opacity-0 group-hover:opacity-100"
-              )}
-            >
-              <Star className={cn("h-4 w-4", program.isFavorite && "fill-current")} />
-            </button>
-          )}
+          <button
+            type="button"
+            disabled={togglingFavoriteId === program.id}
+            onClick={() => onToggleFavorite(program.id, !program.isFavorite)}
+            title={program.isFavorite ? "Remove from favorites" : "Add to favorites"}
+            className={cn(
+              "inline-flex h-7 w-7 items-center justify-center rounded-md transition-opacity hover:bg-muted disabled:opacity-60",
+              program.isFavorite
+                ? "text-amber-500 opacity-100"
+                : "text-muted-foreground opacity-0 group-hover:opacity-100"
+            )}
+          >
+            <Star className={cn("h-4 w-4", program.isFavorite && "fill-current")} />
+          </button>
           <Link
             href={detailHref}
             className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity hover:bg-muted hover:text-foreground group-hover:opacity-100"
@@ -303,23 +449,23 @@ function ProgramRow({
               <DropdownMenuTrigger className="shrink-0 flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-opacity hover:bg-muted">
                 <MoreVertical className="h-4 w-4" />
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-44">
+              <DropdownMenuContent align="end" className="w-48">
                 <DropdownMenuItem onClick={() => router.push(`/programs/${program.id}/edit`)}>
                   <Pencil className="mr-2 h-4 w-4" /> Edit
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => onDuplicate(program.id)}>
                   <Copy className="mr-2 h-4 w-4" /> Duplicate
                 </DropdownMenuItem>
-                {!program.clientId && (
-                  <DropdownMenuItem onClick={() => router.push(`/programs/${program.id}?assign=true`)}>
-                    <UserPlus className="mr-2 h-4 w-4" /> Assign Client
-                  </DropdownMenuItem>
-                )}
-                {onAddToCollection && !program.clientId && (
-                  <DropdownMenuItem onClick={() => onAddToCollection(program)}>
-                    <Folder className="mr-2 h-4 w-4" /> Add to Collection
-                  </DropdownMenuItem>
-                )}
+                <DropdownMenuItem onClick={() => router.push(`/programs/${program.id}?assign=true`)}>
+                  <UserPlus className="mr-2 h-4 w-4" /> Assign Client
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onAddToCollection(program)}>
+                  <Folder className="mr-2 h-4 w-4" /> Add to Collection
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onTogglePublic(program.id, !program.isPublic)} disabled={togglingPublicId === program.id}>
+                  {program.isPublic ? <Lock className="mr-2 h-4 w-4" /> : <Globe className="mr-2 h-4 w-4" />}
+                  {program.isPublic ? "Make Private" : "Make Public"}
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 {program.status === "ARCHIVED" ? (
                   <DropdownMenuItem
@@ -403,6 +549,122 @@ function GlobalProgramRow({
   );
 }
 
+// --- Assigned tab row: Client | Program | Progress | Next Workout | Status | Updated | Actions
+function AssignedProgramRow({
+  program,
+  progress,
+  onDuplicate,
+  onArchive,
+  onRequestHardDelete,
+}: {
+  program: ProgramListItem;
+  progress?: ProgramProgress;
+  onDuplicate: (id: string) => void;
+  onArchive: (id: string) => void;
+  onRequestHardDelete: (id: string, name: string) => void;
+}) {
+  const router = useRouter();
+  const assignedStatus = assignedStatusConfig[deriveAssignedStatus(program)];
+  const total = progress?.total ?? 0;
+  const completed = progress?.completed ?? 0;
+  const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+  return (
+    <TableRow className="group">
+      <TableCell>
+        {program.client ? (
+          <Link href={`/clients/${program.client.id}`} className="flex items-center gap-2.5 hover:underline">
+            <Avatar size="sm" className="h-8 w-8 shrink-0">
+              <AvatarFallback className="text-xs">{initials(program.client)}</AvatarFallback>
+            </Avatar>
+            <span className="font-medium">{clientLabel(program.client)}</span>
+          </Link>
+        ) : (
+          <span className="text-muted-foreground">Unassigned</span>
+        )}
+      </TableCell>
+      <TableCell className="max-w-52">
+        <Link href={`/programs/${program.id}`} className="block truncate font-medium hover:text-primary hover:underline">
+          {program.name}
+        </Link>
+        {program.durationWeeks != null && (
+          <Badge variant="outline" className="mt-1 text-[10px] font-medium">
+            {program.durationWeeks} week{program.durationWeeks === 1 ? "" : "s"}
+          </Badge>
+        )}
+      </TableCell>
+      <TableCell className="min-w-36">
+        {total === 0 ? (
+          <span className="text-muted-foreground">Not started</span>
+        ) : (
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium">{percent}%</span>
+            </div>
+            <Progress value={percent} className="h-1.5" />
+            <p className="text-[11px] text-muted-foreground">{completed} of {total} workouts</p>
+          </div>
+        )}
+      </TableCell>
+      <TableCell>
+        {progress?.nextSession ? (
+          <div>
+            <p className="truncate text-sm">{progress.nextSession.workoutName}</p>
+            <p className="text-[11px] text-muted-foreground">{formatDueLabel(new Date(progress.nextSession.scheduledDate))}</p>
+          </div>
+        ) : (
+          <span className="text-muted-foreground">—</span>
+        )}
+      </TableCell>
+      <TableCell>
+        <Badge className={`border text-[11px] font-medium ${assignedStatus.className}`}>
+          {assignedStatus.label}
+        </Badge>
+      </TableCell>
+      <TableCell>
+        <UpdatedAt date={program.updatedAt} />
+      </TableCell>
+      <TableCell className="text-right">
+        <div className="flex items-center justify-end gap-1">
+          <Link
+            href={`/programs/${program.id}`}
+            className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity hover:bg-muted hover:text-foreground group-hover:opacity-100"
+            title="View program"
+          >
+            <Eye className="h-4 w-4" />
+          </Link>
+          <DropdownMenu>
+            <DropdownMenuTrigger className="shrink-0 flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-opacity hover:bg-muted">
+              <MoreVertical className="h-4 w-4" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-44">
+              <DropdownMenuItem onClick={() => router.push(`/programs/${program.id}/edit`)}>
+                <Pencil className="mr-2 h-4 w-4" /> Edit
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onDuplicate(program.id)}>
+                <Copy className="mr-2 h-4 w-4" /> Duplicate
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={() => onRequestHardDelete(program.id, program.name)}
+                className="text-destructive focus:text-destructive"
+              >
+                <Trash2 className="mr-2 h-4 w-4" /> Delete Permanently
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => onArchive(program.id)}
+                className="text-destructive focus:text-destructive"
+              >
+                <Archive className="mr-2 h-4 w-4" /> Archive
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </TableCell>
+    </TableRow>
+  );
+}
+
 function ProgramsEmptyState({ title, description, showCreateActions }: { title: string; description: string; showCreateActions: boolean }) {
   return (
     <div className="rounded-xl border border-dashed border-border p-12 text-center">
@@ -429,23 +691,64 @@ function ProgramsEmptyState({ title, description, showCreateActions }: { title: 
   );
 }
 
-function CollectionCard({ collection, onClick }: { collection: CollectionItem; onClick: () => void }) {
+function CollectionTile({
+  label,
+  count,
+  selected,
+  onClick,
+  onRename,
+  onDelete,
+}: {
+  label: string;
+  count: number;
+  selected: boolean;
+  onClick: () => void;
+  onRename?: () => void;
+  onDelete?: () => void;
+}) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="flex items-center gap-3 rounded-xl border border-border/50 p-4 text-left shadow-sm transition-colors hover:border-primary/40 hover:bg-muted/40"
+    <div
+      className={cn(
+        "group relative flex items-center gap-3 rounded-xl border p-4 text-left shadow-sm transition-colors",
+        selected
+          ? "border-primary bg-primary/5"
+          : "border-border/50 hover:border-primary/40 hover:bg-muted/40"
+      )}
     >
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-        <Folder className="h-4.5 w-4.5" />
-      </div>
-      <div className="min-w-0">
-        <p className="truncate font-medium text-sm">{collection.name}</p>
-        <p className="text-xs text-muted-foreground">
-          {collection.programCount} program{collection.programCount === 1 ? "" : "s"}
-        </p>
-      </div>
-    </button>
+      <button type="button" onClick={onClick} className="flex flex-1 min-w-0 items-center gap-3 text-left">
+        <div className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-lg", selected ? "bg-primary/15 text-primary" : "bg-primary/10 text-primary")}>
+          {label === "All Programs" ? <Grid3x3 className="h-4.5 w-4.5" /> : <Folder className="h-4.5 w-4.5" />}
+        </div>
+        <div className="min-w-0">
+          <p className="truncate font-medium text-sm">{label}</p>
+          <p className="text-xs text-muted-foreground">
+            {count} program{count === 1 ? "" : "s"}
+          </p>
+        </div>
+      </button>
+      {(onRename || onDelete) && (
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            className="shrink-0 flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity hover:bg-muted group-hover:opacity-100 data-[state=open]:opacity-100"
+            aria-label="Collection actions"
+          >
+            <MoreVertical className="h-4 w-4" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-40">
+            {onRename && (
+              <DropdownMenuItem onClick={onRename}>
+                <Pencil className="mr-2 h-4 w-4" /> Rename
+              </DropdownMenuItem>
+            )}
+            {onDelete && (
+              <DropdownMenuItem onClick={onDelete} variant="destructive">
+                <Trash2 className="mr-2 h-4 w-4" /> Delete
+              </DropdownMenuItem>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
+    </div>
   );
 }
 
@@ -464,32 +767,165 @@ function CreateCollectionCard({ onClick }: { onClick: () => void }) {
   );
 }
 
-function RecentlyUsedPrograms({ programs }: { programs: ProgramListItem[] }) {
-  const recent = useMemo(
-    () => [...programs].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()).slice(0, 8),
-    [programs]
-  );
-  if (recent.length === 0) return null;
+// --- Filters panel: checkbox-group facets for the Library tab ---
+function CheckboxGroup({
+  options,
+  selected,
+  onToggle,
+  onClear,
+  limit,
+}: {
+  options: (string | { value: string; label: string })[];
+  selected: Set<string>;
+  onToggle: (value: string) => void;
+  onClear: () => void;
+  limit?: number;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const normalized = options.map((opt) => (typeof opt === "string" ? { value: opt, label: opt } : opt));
+  const visible = limit && !expanded ? normalized.slice(0, limit) : normalized;
 
   return (
-    <div className="space-y-2">
-      <h3 className="flex items-center gap-1.5 text-sm font-semibold text-muted-foreground">
-        <Clock className="h-3.5 w-3.5" />
-        Recently Used
-      </h3>
-      <div className="flex gap-3 overflow-x-auto pb-1">
-        {recent.map((p) => (
-          <Link
-            key={p.id}
-            href={`/programs/${p.id}`}
-            className="shrink-0 rounded-lg border border-border/50 px-3.5 py-2.5 text-sm shadow-sm transition-colors hover:border-primary/40 hover:bg-muted/40"
-          >
-            <p className="max-w-40 truncate font-medium">{p.name}</p>
-            <p className="text-xs text-muted-foreground">
-              <UpdatedAt date={p.updatedAt} />
-            </p>
-          </Link>
-        ))}
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+      <label className="flex items-center gap-1.5 text-sm">
+        <Checkbox checked={selected.size === 0} onCheckedChange={() => onClear()} />
+        All
+      </label>
+      {visible.map((opt) => (
+        <label key={opt.value} className="flex items-center gap-1.5 text-sm">
+          <Checkbox checked={selected.has(opt.value)} onCheckedChange={() => onToggle(opt.value)} />
+          {opt.label}
+        </label>
+      ))}
+      {limit != null && normalized.length > limit && (
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          className="text-xs font-medium text-primary hover:underline"
+        >
+          {expanded ? "Show less" : `+ Show more`}
+        </button>
+      )}
+    </div>
+  );
+}
+
+function ProgramFiltersPanel({
+  typeFilter,
+  onTypeFilterChange,
+  sportFilter,
+  onToggleSport,
+  bodyAreaFilter,
+  onToggleBodyArea,
+  goalFilter,
+  onToggleGoal,
+  levelFilter,
+  onToggleLevel,
+  durationFilter,
+  onToggleDuration,
+  statusFilter,
+  onToggleStatus,
+  onReset,
+  onApply,
+}: {
+  typeFilter: "all" | "clinical" | "global";
+  onTypeFilterChange: (v: "all" | "clinical" | "global") => void;
+  sportFilter: Set<string>;
+  onToggleSport: (v: string) => void;
+  bodyAreaFilter: Set<string>;
+  onToggleBodyArea: (v: string) => void;
+  goalFilter: Set<string>;
+  onToggleGoal: (v: string) => void;
+  levelFilter: Set<string>;
+  onToggleLevel: (v: string) => void;
+  durationFilter: Set<DurationBucket>;
+  onToggleDuration: (v: DurationBucket) => void;
+  statusFilter: Set<string>;
+  onToggleStatus: (v: string) => void;
+  onReset: () => void;
+  onApply: () => void;
+}) {
+  return (
+    <div className="space-y-5 rounded-xl border border-border bg-card p-5 shadow-sm">
+      <div className="flex items-center justify-between">
+        <h3 className="font-semibold">Filters</h3>
+        <button type="button" onClick={onReset} className="text-xs font-medium text-primary hover:underline">
+          Clear all
+        </button>
+      </div>
+
+      <div className="space-y-1.5">
+        <p className="flex items-center gap-1.5 text-sm font-medium"><Users className="h-3.5 w-3.5 text-muted-foreground" /> Source</p>
+        <div className="flex flex-wrap items-center gap-4">
+          {(["all", "clinical", "global"] as const).map((v) => (
+            <label key={v} className="flex items-center gap-1.5 text-sm">
+              <input
+                type="radio"
+                name="program-source"
+                checked={typeFilter === v}
+                onChange={() => onTypeFilterChange(v)}
+                className="h-3.5 w-3.5 accent-primary"
+              />
+              {v === "all" ? "All Sources" : v === "clinical" ? "My Programs" : "InMotus Programs"}
+            </label>
+          ))}
+        </div>
+      </div>
+
+      <div className="space-y-1.5">
+        <p className="text-sm font-medium">Sport</p>
+        <CheckboxGroup options={SPORT_OPTIONS} selected={sportFilter} onToggle={onToggleSport} onClear={() => sportFilter.forEach(onToggleSport)} limit={5} />
+      </div>
+
+      <div className="space-y-1.5">
+        <p className="text-sm font-medium">Body Area</p>
+        <CheckboxGroup options={BODY_AREA_OPTIONS} selected={bodyAreaFilter} onToggle={onToggleBodyArea} onClear={() => bodyAreaFilter.forEach(onToggleBodyArea)} limit={5} />
+      </div>
+
+      <div className="space-y-1.5">
+        <p className="text-sm font-medium">Goal</p>
+        <CheckboxGroup options={GOAL_OPTIONS} selected={goalFilter} onToggle={onToggleGoal} onClear={() => goalFilter.forEach(onToggleGoal)} />
+      </div>
+
+      <div className="space-y-1.5">
+        <p className="text-sm font-medium">Level</p>
+        <CheckboxGroup
+          options={LEVEL_OPTIONS}
+          selected={levelFilter}
+          onToggle={onToggleLevel}
+          onClear={() => levelFilter.forEach(onToggleLevel)}
+        />
+      </div>
+
+      <div className="space-y-1.5">
+        <p className="text-sm font-medium">Duration</p>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <label className="flex items-center gap-1.5 text-sm">
+            <Checkbox checked={durationFilter.size === 0} onCheckedChange={() => durationFilter.forEach(onToggleDuration)} />
+            Any Duration
+          </label>
+          {DURATION_OPTIONS.map((opt) => (
+            <label key={opt.value} className="flex items-center gap-1.5 text-sm">
+              <Checkbox checked={durationFilter.has(opt.value)} onCheckedChange={() => onToggleDuration(opt.value)} />
+              {opt.label}
+            </label>
+          ))}
+        </div>
+      </div>
+
+      <div className="space-y-1.5">
+        <p className="text-sm font-medium">Status</p>
+        <CheckboxGroup
+          options={STATUS_OPTIONS}
+          selected={statusFilter}
+          onToggle={onToggleStatus}
+          onClear={() => statusFilter.forEach(onToggleStatus)}
+        />
+      </div>
+
+      <div className="flex justify-end gap-2 border-t border-border pt-4">
+        <Button variant="outline" onClick={onReset}>Reset</Button>
+        <Button onClick={onApply}>Apply Filters</Button>
       </div>
     </div>
   );
@@ -500,35 +936,47 @@ export function ProgramListClient({
   globalPrograms = [],
   updatableIds = [],
   collections = [],
+  progressByProgramId = {},
   role,
 }: {
   programs: ProgramListItem[];
   globalPrograms?: GlobalProgramItem[];
   updatableIds?: string[];
   collections?: CollectionItem[];
+  progressByProgramId?: Record<string, ProgramProgress>;
   role?: string;
 }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
   const updatableSet = new Set(updatableIds);
   const [copying, setCopying] = useState<string | null>(null);
   const [typeFilter, setTypeFilter] = useState<"all" | "clinical" | "global">("all");
+  const [librarySort, setLibrarySort] = useState<LibrarySort>("recent");
   const [pendingHardDelete, setPendingHardDelete] = useState<{ id: string; name: string } | null>(null);
   const [hardDeleting, setHardDeleting] = useState(false);
   const [togglingPublicId, setTogglingPublicId] = useState<string | null>(null);
   const [togglingFavoriteId, setTogglingFavoriteId] = useState<string | null>(null);
-  const [clientFilter, setClientFilter] = useState<Set<string>>(new Set());
 
-  // Library-tab-only: quick state filter chips, and the Collection drill-down.
+  // Library-tab-only: quick View dropdown, the Filters panel, and Collections.
   const [chipFilter, setChipFilter] = useState<"all" | "recent" | "favorites" | "templates" | "archived">("all");
   const [selectedCollectionId, setSelectedCollectionId] = useState<string | null>(null);
-  const [collectionTagFilter, setCollectionTagFilter] = useState<Set<string>>(new Set());
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [sportFilter, setSportFilter] = useState<Set<string>>(new Set());
+  const [bodyAreaFilter, setBodyAreaFilter] = useState<Set<string>>(new Set());
+  const [goalFilter, setGoalFilter] = useState<Set<string>>(new Set());
+  const [levelFilter, setLevelFilter] = useState<Set<string>>(new Set());
+  const [durationFilter, setDurationFilter] = useState<Set<DurationBucket>>(new Set());
+  const [libraryStatusFilter, setLibraryStatusFilter] = useState<Set<string>>(new Set());
   const [createCollectionOpen, setCreateCollectionOpen] = useState(false);
   const [newCollectionName, setNewCollectionName] = useState("");
   const [creatingCollection, setCreatingCollection] = useState(false);
+  const [renamingCollection, setRenamingCollection] = useState<{ id: string; name: string } | null>(null);
+  const [renameCollectionValue, setRenameCollectionValue] = useState("");
+  const [savingCollectionRename, setSavingCollectionRename] = useState(false);
+  const [pendingDeleteCollection, setPendingDeleteCollection] = useState<{ id: string; name: string } | null>(null);
+  const [deletingCollection, setDeletingCollection] = useState(false);
   const [manageMembersOpen, setManageMembersOpen] = useState(false);
   const [memberSelection, setMemberSelection] = useState<Set<string>>(new Set());
   const [savingMembers, setSavingMembers] = useState(false);
@@ -543,12 +991,22 @@ export function ProgramListClient({
   const [inlineCollectionName, setInlineCollectionName] = useState("");
   const [creatingInlineCollection, setCreatingInlineCollection] = useState(false);
 
+  // Assigned-tab-only: status filter, sort, search.
+  const [assignedSearch, setAssignedSearch] = useState("");
+  const [assignedStatusFilter, setAssignedStatusFilter] = useState<"all" | AssignedStatus>("all");
+  const [assignedSort, setAssignedSort] = useState<AssignedSort>("updated_desc");
+
   // collections prop plus any created inline this session that the prop
   // hasn't caught up to yet (router.refresh() is async).
   const allCollections = useMemo(() => {
     const known = new Set(collections.map((c) => c.id));
     return [...collections, ...extraCollections.filter((c) => !known.has(c.id))];
   }, [collections, extraCollections]);
+
+  const collectionsById = useMemo(
+    () => new Map(allCollections.map((c) => [c.id, c.name])),
+    [allCollections]
+  );
 
   const activeTab =
     role === "TRAINER"
@@ -557,52 +1015,7 @@ export function ProgramListClient({
         : "templates"
       : "programs";
 
-  // Clients with at least one assigned program — powers the Assigned tab's client filter.
-  const assignedClients = useMemo(() => {
-    const byId = new Map<string, { id: string; firstName: string; lastName: string }>();
-    for (const p of programs) {
-      if (p.client) byId.set(p.client.id, p.client);
-    }
-    return Array.from(byId.values()).sort((a, b) =>
-      `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`)
-    );
-  }, [programs]);
-
-  function toggleClientFilter(clientId: string) {
-    setClientFilter((prev) => {
-      const next = new Set(prev);
-      if (next.has(clientId)) next.delete(clientId);
-      else next.add(clientId);
-      return next;
-    });
-  }
-
-  const hasActiveFilters =
-    search !== "" ||
-    statusFilter !== "all" ||
-    clientFilter.size > 0 ||
-    (activeTab === "templates" && typeFilter !== "all") ||
-    (activeTab === "templates" && chipFilter !== "all") ||
-    !!selectedCollectionId;
-
-  function handleClearFilters() {
-    setSearch("");
-    setStatusFilter("all");
-    setClientFilter(new Set());
-    setTypeFilter("all");
-    setChipFilter("all");
-    setSelectedCollectionId(null);
-    setCollectionTagFilter(new Set());
-  }
-
   function handleTabChange(nextTab: string) {
-    setTypeFilter("all");
-    setSearch("");
-    setStatusFilter("all");
-    setClientFilter(new Set());
-    setChipFilter("all");
-    setSelectedCollectionId(null);
-    setCollectionTagFilter(new Set());
     const params = new URLSearchParams(searchParams.toString());
     if (nextTab === "templates") {
       params.delete("tab");
@@ -613,69 +1026,152 @@ export function ProgramListClient({
     router.push(nextQuery ? `${pathname}?${nextQuery}` : pathname);
   }
 
-  // Programs tab: non-template programs
-  const filteredPrograms = programs.filter((p) => {
-    if (search && !matchesSearch(p, search)) return false;
-    if (!matchesStatusFilter(p.status, statusFilter)) return false;
-    if (clientFilter.size > 0 && (!p.client || !clientFilter.has(p.client.id))) return false;
-    return true;
-  });
+  // ---------- Assigned tab ----------
+  const assignedPrograms = programs; // page.tsx already scoped this fetch to hasClient:true
 
-  function matchesChip(p: ProgramListItem): boolean {
+  const assignedStatCounts = useMemo(() => {
+    const counts: Record<AssignedStatus, number> = { ACTIVE: 0, STARTING_SOON: 0, ON_HOLD: 0, COMPLETED: 0, OTHER: 0 };
+    for (const p of assignedPrograms) counts[deriveAssignedStatus(p)] += 1;
+    return counts;
+  }, [assignedPrograms]);
+
+  const filteredAssigned = useMemo(() => {
+    let rows = assignedPrograms.filter((p) => {
+      if (assignedSearch) {
+        const clientMatch = p.client && clientLabel(p.client).toLowerCase().includes(assignedSearch.toLowerCase());
+        if (!matchesSearch(p, assignedSearch) && !clientMatch) return false;
+      }
+      if (assignedStatusFilter !== "all" && deriveAssignedStatus(p) !== assignedStatusFilter) return false;
+      return true;
+    });
+
+    rows = [...rows].sort((a, b) => {
+      switch (assignedSort) {
+        case "client_asc":
+          return clientLabel(a.client ?? { firstName: "", lastName: "" }).localeCompare(clientLabel(b.client ?? { firstName: "", lastName: "" }));
+        case "client_desc":
+          return clientLabel(b.client ?? { firstName: "", lastName: "" }).localeCompare(clientLabel(a.client ?? { firstName: "", lastName: "" }));
+        case "progress_desc":
+        case "progress_asc": {
+          const pa = progressByProgramId[a.id];
+          const pb = progressByProgramId[b.id];
+          const percentA = pa && pa.total > 0 ? pa.completed / pa.total : 0;
+          const percentB = pb && pb.total > 0 ? pb.completed / pb.total : 0;
+          return assignedSort === "progress_desc" ? percentB - percentA : percentA - percentB;
+        }
+        case "start_desc":
+          return new Date(b.startDate ?? b.createdAt).getTime() - new Date(a.startDate ?? a.createdAt).getTime();
+        case "start_asc":
+          return new Date(a.startDate ?? a.createdAt).getTime() - new Date(b.startDate ?? b.createdAt).getTime();
+        default:
+          return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+      }
+    });
+
+    return rows;
+  }, [assignedPrograms, assignedSearch, assignedStatusFilter, assignedSort, progressByProgramId]);
+
+  function handleExportAssigned() {
+    const header = ["Client", "Program", "Progress %", "Status", "Last Updated"];
+    const rows = filteredAssigned.map((p) => {
+      const progress = progressByProgramId[p.id];
+      const percent = progress && progress.total > 0 ? Math.round((progress.completed / progress.total) * 100) : 0;
+      return [
+        p.client ? clientLabel(p.client) : "Unassigned",
+        p.name,
+        String(percent),
+        assignedStatusConfig[deriveAssignedStatus(p)].label,
+        new Date(p.updatedAt).toISOString(),
+      ];
+    });
+    downloadCsv(`assigned-programs-${new Date().toISOString().slice(0, 10)}.csv`, [header, ...rows]);
+  }
+
+  // ---------- Library tab ----------
+  function matchesChip(p: Categorized & { isFavorite?: boolean }): boolean {
     if (chipFilter === "archived") return p.status === "ARCHIVED";
     if (p.status === "ARCHIVED") return false;
     switch (chipFilter) {
       case "recent":
-        return Date.now() - new Date(p.updatedAt).getTime() < RECENT_WINDOW_MS;
+        return true; // recency handled separately via updatedAt window below
       case "favorites":
         return !!p.isFavorite;
       case "templates":
-        return p.isTemplate;
+        return true;
       default:
         return true;
     }
   }
 
-  function matchesCollectionTags(p: ProgramListItem): boolean {
-    if (collectionTagFilter.size === 0) return true;
-    const facets = [...p.tags, ...(p.bodyAreas ?? []), ...(p.goals ?? []), ...(p.activities ?? [])];
-    return facets.some((t) => collectionTagFilter.has(t));
+  function matchesRecentWindow(updatedAt: Date): boolean {
+    if (chipFilter !== "recent") return true;
+    return Date.now() - new Date(updatedAt).getTime() < RECENT_WINDOW_MS;
   }
 
-  // Programs shown inside the selected collection (for the tag-filter facet list).
-  const collectionPrograms = selectedCollectionId
-    ? programs.filter((p) => (p.collectionIds ?? []).includes(selectedCollectionId))
-    : [];
-  const collectionTagOptions = useMemo(() => {
-    const set = new Set<string>();
-    for (const p of collectionPrograms) {
-      for (const t of [...p.tags, ...(p.bodyAreas ?? []), ...(p.goals ?? []), ...(p.activities ?? [])]) set.add(t);
-    }
-    return Array.from(set).sort();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedCollectionId, programs]);
+  function matchesFacets(p: Categorized): boolean {
+    if (sportFilter.size > 0 && !(p.activities ?? []).some((a) => sportFilter.has(a))) return false;
+    if (bodyAreaFilter.size > 0 && !(p.bodyAreas ?? []).some((a) => bodyAreaFilter.has(a))) return false;
+    if (goalFilter.size > 0 && !(p.goals ?? []).some((a) => goalFilter.has(a))) return false;
+    if (levelFilter.size > 0 && !(p.level && levelFilter.has(p.level))) return false;
+    if (durationFilter.size > 0 && !Array.from(durationFilter).some((b) => matchesDurationBucket(p.durationWeeks, b))) return false;
+    if (libraryStatusFilter.size > 0 && !libraryStatusFilter.has(p.status)) return false;
+    return true;
+  }
 
-  // Templates tab — clinical subset
-  const filteredClinical =
+  const activeFilterCount =
+    sportFilter.size + bodyAreaFilter.size + goalFilter.size + levelFilter.size +
+    durationFilter.size + libraryStatusFilter.size + (typeFilter !== "all" ? 1 : 0);
+
+  function handleResetFilters() {
+    setTypeFilter("all");
+    setSportFilter(new Set());
+    setBodyAreaFilter(new Set());
+    setGoalFilter(new Set());
+    setLevelFilter(new Set());
+    setDurationFilter(new Set());
+    setLibraryStatusFilter(new Set());
+  }
+
+  function makeToggleSet<T>(setter: React.Dispatch<React.SetStateAction<Set<T>>>) {
+    return (value: T) => {
+      setter((prev) => {
+        const next = new Set(prev);
+        if (next.has(value)) next.delete(value);
+        else next.add(value);
+        return next;
+      });
+    };
+  }
+
+  // Library tab — clinical (my own) programs
+  const filteredClinical = sortLibraryPrograms(
     activeTab === "templates" && typeFilter !== "global"
       ? programs.filter((p) => {
           if (search && !matchesSearch(p, search)) return false;
-          if (chipFilter === "all" && !matchesStatusFilter(p.status, statusFilter)) return false;
           if (!matchesChip(p)) return false;
+          if (!matchesRecentWindow(p.updatedAt)) return false;
+          if (chipFilter === "templates" && !p.isTemplate) return false;
+          if (!matchesFacets(p)) return false;
           if (selectedCollectionId && !(p.collectionIds ?? []).includes(selectedCollectionId)) return false;
-          if (selectedCollectionId && !matchesCollectionTags(p)) return false;
           return true;
         })
-      : [];
+      : [],
+    librarySort,
+    (p) => p.updatedAt
+  );
 
-  // Templates tab — global subset
-  const filteredGlobal =
+  // Library tab — global subset
+  const filteredGlobal = sortLibraryPrograms(
     activeTab === "templates" && typeFilter !== "clinical"
       ? globalPrograms.filter((p) => {
           if (search && !matchesSearch(p, search)) return false;
+          if (!matchesFacets(p)) return false;
           return true;
         })
-      : [];
+      : [],
+    librarySort,
+    (p) => p.globalUpdatedAt
+  );
 
   async function handleDuplicate(id: string) {
     const result = await duplicateProgramAction(id);
@@ -758,6 +1254,46 @@ export function ProgramListClient({
     }
   }
 
+  function openRenameCollection(collection: { id: string; name: string }) {
+    setRenamingCollection(collection);
+    setRenameCollectionValue(collection.name);
+  }
+
+  async function handleRenameCollection() {
+    if (!renamingCollection) return;
+    setSavingCollectionRename(true);
+    try {
+      const result = await renameCollectionAction(renamingCollection.id, renameCollectionValue);
+      if (result.success) {
+        toast.success(`Collection renamed to "${result.data.name}"`);
+        setRenamingCollection(null);
+        router.refresh();
+      } else {
+        toast.error(result.error);
+      }
+    } finally {
+      setSavingCollectionRename(false);
+    }
+  }
+
+  async function handleDeleteCollection() {
+    if (!pendingDeleteCollection) return;
+    setDeletingCollection(true);
+    try {
+      const result = await deleteCollectionAction(pendingDeleteCollection.id);
+      if (result.success) {
+        toast.success(`Collection "${pendingDeleteCollection.name}" deleted`);
+        if (selectedCollectionId === pendingDeleteCollection.id) setSelectedCollectionId(null);
+        setPendingDeleteCollection(null);
+        router.refresh();
+      } else {
+        toast.error(result.error);
+      }
+    } finally {
+      setDeletingCollection(false);
+    }
+  }
+
   async function handleCreateCollection() {
     setCreatingCollection(true);
     try {
@@ -774,6 +1310,10 @@ export function ProgramListClient({
       setCreatingCollection(false);
     }
   }
+
+  const collectionPrograms = selectedCollectionId
+    ? programs.filter((p) => (p.collectionIds ?? []).includes(selectedCollectionId))
+    : [];
 
   function openManageMembers() {
     if (!selectedCollectionId) return;
@@ -858,217 +1398,120 @@ export function ProgramListClient({
     }
   }
 
-  const personColumn: "client" | "trainer" = role === "TRAINER" ? "client" : "trainer";
-
   return (
     <div className="space-y-6">
       {role === "TRAINER" && (
         <Tabs value={activeTab} onValueChange={handleTabChange}>
           <TabsList className="grid w-full max-w-xs grid-cols-2">
-            <TabsTrigger value="programs">Assigned</TabsTrigger>
-            <TabsTrigger value="templates">Library</TabsTrigger>
+            <TabsTrigger value="templates"><Library className="h-3.5 w-3.5" /> Library</TabsTrigger>
+            <TabsTrigger value="programs"><Users className="h-3.5 w-3.5" /> Assigned</TabsTrigger>
           </TabsList>
         </Tabs>
       )}
-      {/* Type filter — only shown in Templates tab */}
-      {activeTab === "templates" && role === "TRAINER" && (
-        <div className="flex items-center gap-2">
-          {(["all", "clinical", "global"] as const).map((f) => (
-            <button
-              key={f}
-              onClick={() => setTypeFilter(f)}
-              className={[
-                "rounded-full px-3 py-1 text-xs font-medium transition-colors",
-                typeFilter === f
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-muted text-muted-foreground hover:bg-muted/80",
-              ].join(" ")}
-            >
-              {f === "all" ? "All" : f === "clinical" ? "Clinical" : "Global"}
-            </button>
-          ))}
-        </div>
-      )}
 
-      {/* Quick filter chips, Collections grid, Recently Used — Library tab, my own programs only */}
-      {activeTab === "templates" && role === "TRAINER" && typeFilter !== "global" && (
-        <div className="space-y-4">
-          <div className="flex flex-wrap items-center gap-2">
-            {(["all", "recent", "favorites", "templates", "archived"] as const).map((f) => (
-              <button
-                key={f}
-                onClick={() => setChipFilter(f)}
-                className={cn(
-                  "rounded-full px-3 py-1 text-xs font-medium transition-colors",
-                  chipFilter === f
-                    ? "bg-secondary text-secondary-foreground"
-                    : "bg-muted text-muted-foreground hover:bg-muted/80"
-                )}
-              >
-                {f === "all" ? "All" : f === "recent" ? "Recent" : f === "favorites" ? "Favorites" : f === "templates" ? "Templates" : "Archived"}
-              </button>
-            ))}
+      {/* ================= LIBRARY TAB ================= */}
+      {activeTab === "templates" && role === "TRAINER" && (
+        <div className="space-y-5">
+          <div className="space-y-2">
+            <h3 className="text-sm font-semibold text-muted-foreground">Collections</h3>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+              <CollectionTile
+                label="All Programs"
+                count={programs.filter((p) => p.status !== "ARCHIVED").length}
+                selected={selectedCollectionId === null}
+                onClick={() => setSelectedCollectionId(null)}
+              />
+              {allCollections.map((c) => (
+                <CollectionTile
+                  key={c.id}
+                  label={c.name}
+                  count={c.programCount}
+                  selected={selectedCollectionId === c.id}
+                  onClick={() => setSelectedCollectionId(c.id)}
+                  onRename={() => openRenameCollection(c)}
+                  onDelete={() => setPendingDeleteCollection(c)}
+                />
+              ))}
+              <CreateCollectionCard onClick={() => setCreateCollectionOpen(true)} />
+            </div>
           </div>
 
-          {selectedCollectionId ? (
-            <div className="space-y-3">
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="gap-1.5 -ml-2 text-muted-foreground"
-                    onClick={() => {
-                      setSelectedCollectionId(null);
-                      setCollectionTagFilter(new Set());
-                    }}
-                  >
-                    <ArrowLeft className="h-3.5 w-3.5" />
-                    All Collections
-                  </Button>
-                  <h3 className="font-semibold text-sm">
-                    {collections.find((c) => c.id === selectedCollectionId)?.name}
-                  </h3>
-                </div>
-                <Button variant="outline" size="sm" className="gap-1.5" onClick={openManageMembers}>
-                  <Plus className="h-3.5 w-3.5" />
-                  Add Programs
-                </Button>
+          {selectedCollectionId && (
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="font-semibold text-sm">
+                {allCollections.find((c) => c.id === selectedCollectionId)?.name} · {collectionPrograms.length} program{collectionPrograms.length === 1 ? "" : "s"}
+              </h3>
+              <Button variant="outline" size="sm" className="gap-1.5" onClick={openManageMembers}>
+                <Plus className="h-3.5 w-3.5" />
+                Add Programs
+              </Button>
+            </div>
+          )}
+
+          {/* Toolbar */}
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-1 flex-wrap items-center gap-3">
+              <div className="relative flex-1 min-w-48 max-w-sm">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search programs..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="pl-9"
+                />
               </div>
-              {collectionTagOptions.length > 0 && (
-                <div className="flex flex-wrap gap-1.5">
-                  {collectionTagOptions.map((t) => {
-                    const active = collectionTagFilter.has(t);
-                    return (
-                      <button
-                        key={t}
-                        type="button"
-                        onClick={() =>
-                          setCollectionTagFilter((prev) => {
-                            const next = new Set(prev);
-                            if (next.has(t)) next.delete(t);
-                            else next.add(t);
-                            return next;
-                          })
-                        }
-                        className={cn(
-                          "rounded-full border px-2.5 py-1 text-xs font-medium transition-colors",
-                          active
-                            ? "bg-primary text-primary-foreground border-primary"
-                            : "bg-background text-muted-foreground border-border hover:border-primary/60 hover:text-foreground"
-                        )}
-                      >
-                        {t}
-                      </button>
-                    );
-                  })}
-                </div>
+              <Select value={chipFilter} onValueChange={(v) => setChipFilter((v as typeof chipFilter) ?? "all")}>
+                <SelectTrigger className="w-40">
+                  <SelectValue>
+                    {(value: string | null) => `View: ${VIEW_OPTIONS.find((o) => o.value === value)?.label ?? "All"}`}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {VIEW_OPTIONS.map((o) => (
+                    <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={librarySort} onValueChange={(v) => setLibrarySort((v as LibrarySort) ?? "recent")}>
+                <SelectTrigger className="w-44">
+                  <SelectValue>
+                    {(value: string | null) => `Sort: ${LIBRARY_SORT_OPTIONS.find((o) => o.value === value)?.label ?? "Recently Used"}`}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {LIBRARY_SORT_OPTIONS.map((o) => (
+                    <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                variant={filtersOpen ? "secondary" : "outline"}
+                className="gap-1.5"
+                onClick={() => setFiltersOpen((v) => !v)}
+              >
+                <SlidersHorizontal className="h-3.5 w-3.5" />
+                Filters
+                {activeFilterCount > 0 && (
+                  <Badge className="ml-0.5 h-5 min-w-5 justify-center border-0 bg-primary px-1.5 text-[10px] font-bold text-primary-foreground">
+                    {activeFilterCount}
+                  </Badge>
+                )}
+              </Button>
+              {(search || activeFilterCount > 0 || chipFilter !== "all") && (
+                <Button
+                  variant="ghost"
+                  className="h-8 gap-1.5 px-2.5 text-muted-foreground hover:text-foreground"
+                  onClick={() => {
+                    setSearch("");
+                    setChipFilter("all");
+                    handleResetFilters();
+                  }}
+                >
+                  <X className="h-3.5 w-3.5" />
+                  Clear filters
+                </Button>
               )}
             </div>
-          ) : (
-            chipFilter === "all" &&
-            !search && (
-              <>
-                <div className="space-y-2">
-                  <h3 className="text-sm font-semibold text-muted-foreground">Collections</h3>
-                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-                    {collections.map((c) => (
-                      <CollectionCard key={c.id} collection={c} onClick={() => setSelectedCollectionId(c.id)} />
-                    ))}
-                    <CreateCollectionCard onClick={() => setCreateCollectionOpen(true)} />
-                  </div>
-                </div>
-                <RecentlyUsedPrograms programs={programs} />
-              </>
-            )
-          )}
-        </div>
-      )}
-
-      {/* Toolbar */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-1 flex-wrap items-center gap-3">
-          <div className="relative flex-1 min-w-48 max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder={activeTab === "templates" ? "Search library or workouts..." : "Search assigned programs or workouts..."}
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-9"
-            />
-          </div>
-          {(activeTab !== "templates" || typeFilter !== "global") &&
-            (activeTab !== "templates" || chipFilter === "all") && (
-            <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v ?? "all")}>
-              <SelectTrigger className="w-36">
-                <SelectValue placeholder="Status">
-                  {(value: string | null) =>
-                    !value || value === "all" ? "All Status" : statusConfig[value]?.label ?? value
-                  }
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="DRAFT">Draft</SelectItem>
-                <SelectItem value="ACTIVE">Active</SelectItem>
-                <SelectItem value="PAUSED">Paused</SelectItem>
-                <SelectItem value="COMPLETED">Completed</SelectItem>
-                <SelectItem value="ARCHIVED">Archived</SelectItem>
-              </SelectContent>
-            </Select>
-          )}
-          {activeTab === "programs" && role === "TRAINER" && assignedClients.length > 0 && (
-            <Popover>
-              <PopoverTrigger render={<Button variant="outline" className="h-8 gap-1.5 px-2.5 font-normal" />}>
-                <Users className="h-3.5 w-3.5 text-muted-foreground" />
-                {clientFilter.size === 0
-                  ? "Client"
-                  : clientFilter.size === 1
-                  ? (() => {
-                      const c = assignedClients.find((client) => clientFilter.has(client.id));
-                      return c ? clientLabel(c) : "1 client";
-                    })()
-                  : `${clientFilter.size} clients`}
-                <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-              </PopoverTrigger>
-              <PopoverContent align="start" className="w-64 p-1.5">
-                <div className="max-h-64 space-y-0.5 overflow-y-auto">
-                  {assignedClients.map((client) => {
-                    const id = `client-filter-${client.id}`;
-                    return (
-                      <div
-                        key={client.id}
-                        className="flex items-center gap-2.5 rounded-md px-2 py-1.5 hover:bg-muted"
-                      >
-                        <Checkbox
-                          id={id}
-                          checked={clientFilter.has(client.id)}
-                          onCheckedChange={() => toggleClientFilter(client.id)}
-                        />
-                        <Label htmlFor={id} className="flex-1 cursor-pointer truncate text-sm font-normal">
-                          {clientLabel(client)}
-                        </Label>
-                      </div>
-                    );
-                  })}
-                </div>
-              </PopoverContent>
-            </Popover>
-          )}
-          {hasActiveFilters && (
-            <Button
-              variant="ghost"
-              className="h-8 gap-1.5 px-2.5 text-muted-foreground hover:text-foreground"
-              onClick={handleClearFilters}
-            >
-              <X className="h-3.5 w-3.5" />
-              Clear filters
-            </Button>
-          )}
-        </div>
-
-        {role === "TRAINER" && (
-          <div className="flex flex-wrap shrink-0 items-center gap-2">
             <CreateProgramMenu
               onUseTemplate={() => handleTabChange("templates")}
               trigger={<Button className="gap-2" />}
@@ -1077,117 +1520,247 @@ export function ProgramListClient({
               Create Program
             </CreateProgramMenu>
           </div>
-        )}
-      </div>
 
-      {/* Programs tab table */}
-      {activeTab === "programs" && (
-        filteredPrograms.length === 0 ? (
-          <ProgramsEmptyState
-            title="No assigned programs"
-            description={
-              role === "TRAINER"
-                ? "Assign a program from your Library to a client to see it here."
-                : "No programs have been assigned to you yet."
-            }
-            showCreateActions={role === "TRAINER"}
-          />
-        ) : (
-          <div className="rounded-xl border border-border/50 shadow-sm">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>{personColumn === "client" ? "Client" : "Trainer"}</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Workouts</TableHead>
-                  <TableHead>Updated</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredPrograms.map((program) => (
-                  <ProgramRow
-                    key={program.id}
-                    program={program}
-                    role={role}
-                    updatableSet={updatableSet}
-                    onDuplicate={handleDuplicate}
-                    onArchive={handleArchive}
-                    onRequestHardDelete={(id, name) => setPendingHardDelete({ id, name })}
-                    onTogglePublic={handleTogglePublic}
-                    togglingPublicId={togglingPublicId}
-                    search={search}
-                    personColumn={personColumn}
-                  />
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        )
+          {filtersOpen && (
+            <ProgramFiltersPanel
+              typeFilter={typeFilter}
+              onTypeFilterChange={setTypeFilter}
+              sportFilter={sportFilter}
+              onToggleSport={makeToggleSet(setSportFilter)}
+              bodyAreaFilter={bodyAreaFilter}
+              onToggleBodyArea={makeToggleSet(setBodyAreaFilter)}
+              goalFilter={goalFilter}
+              onToggleGoal={makeToggleSet(setGoalFilter)}
+              levelFilter={levelFilter}
+              onToggleLevel={makeToggleSet(setLevelFilter)}
+              durationFilter={durationFilter}
+              onToggleDuration={makeToggleSet(setDurationFilter)}
+              statusFilter={libraryStatusFilter}
+              onToggleStatus={makeToggleSet(setLibraryStatusFilter)}
+              onReset={handleResetFilters}
+              onApply={() => setFiltersOpen(false)}
+            />
+          )}
+
+          {filteredClinical.length === 0 && filteredGlobal.length === 0 ? (
+            <ProgramsEmptyState
+              title={typeFilter === "global" ? "No global templates" : "Your library is empty"}
+              description={
+                typeFilter === "global"
+                  ? "Your administrator hasn't added any global programs yet."
+                  : "Build a program here, then assign it to a client when it's ready."
+              }
+              showCreateActions={typeFilter !== "global"}
+            />
+          ) : (
+            <div className="rounded-xl border border-border/50 shadow-sm">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Program</TableHead>
+                    <TableHead>Collection</TableHead>
+                    <TableHead>Tags</TableHead>
+                    <TableHead>Workouts</TableHead>
+                    <TableHead>Updated</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredClinical.map((program) => (
+                    <LibraryProgramRow
+                      key={program.id}
+                      program={program}
+                      role={role}
+                      updatableSet={updatableSet}
+                      collectionsById={collectionsById}
+                      onDuplicate={handleDuplicate}
+                      onArchive={handleArchive}
+                      onRequestHardDelete={(id, name) => setPendingHardDelete({ id, name })}
+                      onTogglePublic={handleTogglePublic}
+                      togglingPublicId={togglingPublicId}
+                      onToggleFavorite={handleToggleFavorite}
+                      togglingFavoriteId={togglingFavoriteId}
+                      onAddToCollection={openAddToCollections}
+                      search={search}
+                    />
+                  ))}
+                  {filteredGlobal.map((prog) => (
+                    <GlobalProgramRow
+                      key={prog.id}
+                      program={prog}
+                      copying={copying}
+                      onCopy={handleCopyGlobal}
+                    />
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </div>
       )}
 
-      {/* Templates tab table — merged clinical + global */}
-      {activeTab === "templates" && (
-        filteredClinical.length === 0 && filteredGlobal.length === 0 ? (
-          <ProgramsEmptyState
-            title={
-              typeFilter === "global"
-                ? "No global templates"
-                : "Your library is empty"
-            }
-            description={
-              typeFilter === "global"
-                ? "Your administrator hasn't added any global programs yet."
-                : "Build a program here, then assign it to a client when it's ready."
-            }
-            showCreateActions={typeFilter !== "global" && role === "TRAINER"}
-          />
-        ) : (
-          <div className="rounded-xl border border-border/50 shadow-sm">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Client</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Workouts</TableHead>
-                  <TableHead>Updated</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredClinical.map((program) => (
-                  <ProgramRow
-                    key={program.id}
-                    program={program}
-                    role={role}
-                    updatableSet={updatableSet}
-                    onDuplicate={handleDuplicate}
-                    onArchive={handleArchive}
-                    onRequestHardDelete={(id, name) => setPendingHardDelete({ id, name })}
-                    onTogglePublic={handleTogglePublic}
-                    togglingPublicId={togglingPublicId}
-                    onToggleFavorite={handleToggleFavorite}
-                    togglingFavoriteId={togglingFavoriteId}
-                    onAddToCollection={openAddToCollections}
-                    typeBadge="clinical"
-                    search={search}
-                    personColumn="client"
-                  />
-                ))}
-                {filteredGlobal.map((prog) => (
-                  <GlobalProgramRow
-                    key={prog.id}
-                    program={prog}
-                    copying={copying}
-                    onCopy={handleCopyGlobal}
-                  />
-                ))}
-              </TableBody>
-            </Table>
+      {/* ================= ASSIGNED TAB ================= */}
+      {activeTab === "programs" && (
+        <div className="space-y-5">
+          {role === "TRAINER" && (
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+              <StatCard label="Active" value={assignedStatCounts.ACTIVE} icon={CheckCircle2} description="Clients in progress" iconClassName="bg-emerald-500/10 text-emerald-600" />
+              <StatCard label="Starting Soon" value={assignedStatCounts.STARTING_SOON} icon={CalendarClock} description="Scheduled to begin" iconClassName="bg-blue-500/10 text-blue-600" />
+              <StatCard label="Total Assigned" value={assignedPrograms.length} icon={ClipboardList} description="All assignments" iconClassName="bg-indigo-500/10 text-indigo-600" />
+              <StatCard label="On Hold" value={assignedStatCounts.ON_HOLD} icon={PauseCircle} description="Paused programs" iconClassName="bg-amber-500/10 text-amber-600" />
+              <StatCard label="Completed" value={assignedStatCounts.COMPLETED} icon={CheckCircle2} description="Finished programs" iconClassName="bg-purple-500/10 text-purple-600" />
+            </div>
+          )}
+
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-1 flex-wrap items-center gap-3">
+              <div className="relative flex-1 min-w-48 max-w-sm">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search client or program..."
+                  value={assignedSearch}
+                  onChange={(e) => setAssignedSearch(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+              <Select value={assignedStatusFilter} onValueChange={(v) => setAssignedStatusFilter((v as typeof assignedStatusFilter) ?? "all")}>
+                <SelectTrigger className="w-40">
+                  <SelectValue>
+                    {(value: string | null) => `Status: ${value && value !== "all" ? assignedStatusConfig[value as AssignedStatus]?.label : "All"}`}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All</SelectItem>
+                  {(["ACTIVE", "STARTING_SOON", "ON_HOLD", "COMPLETED"] as AssignedStatus[]).map((s) => (
+                    <SelectItem key={s} value={s}>
+                      <span className="flex items-center gap-2">
+                        <span className={cn("h-2 w-2 rounded-full", assignedStatusConfig[s].dot)} />
+                        {assignedStatusConfig[s].label}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={assignedSort} onValueChange={(v) => setAssignedSort((v as AssignedSort) ?? "updated_desc")}>
+                <SelectTrigger className="w-52">
+                  <SelectValue>
+                    {(value: string | null) => `Sort by: ${SORT_OPTIONS.find((o) => o.value === value)?.label ?? "Recently Updated"}`}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {SORT_OPTIONS.map((o) => (
+                    <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {role === "TRAINER" && (
+              <div className="flex items-center gap-2">
+                <Button variant="outline" className="gap-1.5" onClick={handleExportAssigned}>
+                  <Download className="h-3.5 w-3.5" />
+                  Export
+                </Button>
+                <CreateProgramMenu
+                  onUseTemplate={() => handleTabChange("templates")}
+                  trigger={<Button className="gap-2" />}
+                >
+                  <Plus className="h-4 w-4" />
+                  Create Program
+                </CreateProgramMenu>
+              </div>
+            )}
           </div>
-        )
+
+          {filteredAssigned.length === 0 ? (
+            <ProgramsEmptyState
+              title="No assigned programs"
+              description={
+                role === "TRAINER"
+                  ? "Assign a program from your Library to a client to see it here."
+                  : "No programs have been assigned to you yet."
+              }
+              showCreateActions={role === "TRAINER"}
+            />
+          ) : role === "TRAINER" ? (
+            <div className="rounded-xl border border-border/50 shadow-sm">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Client</TableHead>
+                    <TableHead>Program</TableHead>
+                    <TableHead>Progress</TableHead>
+                    <TableHead>Next Workout</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Last Updated</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredAssigned.map((program) => (
+                    <AssignedProgramRow
+                      key={program.id}
+                      program={program}
+                      progress={progressByProgramId[program.id]}
+                      onDuplicate={handleDuplicate}
+                      onArchive={handleArchive}
+                      onRequestHardDelete={(id, name) => setPendingHardDelete({ id, name })}
+                    />
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          ) : (
+            // Client role: keep the simpler original table (Name/Trainer/Status/Workouts/Updated)
+            <div className="rounded-xl border border-border/50 shadow-sm">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Trainer</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Workouts</TableHead>
+                    <TableHead>Updated</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredAssigned.map((program) => {
+                    const status = statusConfig[program.status] ?? { label: program.status, className: "bg-muted text-muted-foreground border-border" };
+                    return (
+                      <TableRow key={program.id} className="group">
+                        <TableCell className="max-w-64">
+                          <Link href={`/programs/${program.id}`} className="font-medium hover:text-primary hover:underline truncate block">
+                            {program.name}
+                          </Link>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {program.trainer ? clientLabel(program.trainer) : "—"}
+                        </TableCell>
+                        <TableCell>
+                          <Badge className={`border text-[11px] font-medium ${status.className}`}>{status.label}</Badge>
+                        </TableCell>
+                        <TableCell>
+                          <WorkoutCount count={program._count.workouts} />
+                        </TableCell>
+                        <TableCell>
+                          <UpdatedAt date={program.updatedAt} />
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Link
+                            href={`/programs/${program.id}`}
+                            className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity hover:bg-muted hover:text-foreground group-hover:opacity-100"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Link>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </div>
       )}
 
       <Dialog open={!!pendingHardDelete} onOpenChange={(open) => !open && setPendingHardDelete(null)}>
@@ -1240,11 +1813,58 @@ export function ProgramListClient({
         </DialogContent>
       </Dialog>
 
+      <Dialog open={!!renamingCollection} onOpenChange={(open) => !open && setRenamingCollection(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Rename Collection</DialogTitle>
+          </DialogHeader>
+          <Input
+            value={renameCollectionValue}
+            onChange={(e) => setRenameCollectionValue(e.target.value)}
+            placeholder="e.g., Upper Body"
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && renameCollectionValue.trim()) handleRenameCollection();
+            }}
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRenamingCollection(null)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleRenameCollection}
+              disabled={savingCollectionRename || !renameCollectionValue.trim()}
+            >
+              {savingCollectionRename ? "Saving..." : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!pendingDeleteCollection} onOpenChange={(open) => !open && setPendingDeleteCollection(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete &quot;{pendingDeleteCollection?.name}&quot;?</DialogTitle>
+            <DialogDescription>
+              This removes the collection. Programs in it are not deleted — they just
+              lose this grouping. This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPendingDeleteCollection(null)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleDeleteCollection} disabled={deletingCollection}>
+              {deletingCollection ? "Deleting..." : "Delete"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={manageMembersOpen} onOpenChange={setManageMembersOpen}>
         <DialogContent className="max-h-[85vh] flex flex-col sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>
-              Add programs to &quot;{collections.find((c) => c.id === selectedCollectionId)?.name}&quot;
+              Add programs to &quot;{allCollections.find((c) => c.id === selectedCollectionId)?.name}&quot;
             </DialogTitle>
             <DialogDescription>
               Check any programs from your library that belong in this collection. A program can be in more than one.

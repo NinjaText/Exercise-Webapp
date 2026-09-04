@@ -304,6 +304,23 @@ export async function bulkDeleteExercisesAction(exerciseIds: string[]) {
   return { success: true as const, deletedCount: deleted.length, skipped };
 }
 
+export async function toggleExerciseFavoriteAction(exerciseId: string, isFavorite: boolean) {
+  const { userId } = await auth();
+  if (!userId) return { success: false as const, error: "Unauthorized" };
+
+  const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
+  if (!dbUser) return { success: false as const, error: "User not found" };
+
+  try {
+    await exerciseService.toggleExerciseFavorite(dbUser.id, exerciseId, isFavorite);
+    revalidatePath("/exercises");
+    return { success: true as const };
+  } catch (error) {
+    console.error("Failed to toggle exercise favorite:", error);
+    return { success: false as const, error: "Failed to update favorite" };
+  }
+}
+
 export async function createOrganizationExerciseAction(input: {
   name: string;
   description?: string;

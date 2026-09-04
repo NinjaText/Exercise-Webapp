@@ -21,6 +21,7 @@
     "db:backfill-exercise-phases": "npx tsx lib/db/scripts/backfill-exercise-phases.ts",
     "db:backfill-is-assessment": "npx tsx lib/db/scripts/backfill-is-assessment.ts",
     "db:backfill-schedule-variance": "npx tsx lib/db/scripts/backfill-schedule-variance.ts",
+    "db:backfill-message-is-internal": "npx tsx lib/db/scripts/backfill-message-is-internal.ts",
     "tag-exercises": "npx ts-node --compiler-options '{\"module\":\"CommonJS\"}' lib/db/seed/tag-exercises-ai.ts",
     "postinstall": "prisma generate"
   },

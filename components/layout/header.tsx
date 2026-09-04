@@ -29,7 +29,7 @@ function getPageTitle(pathname: string): string {
     "/programs/generate": "Generate Program",
     "/programs/upload": "Upload Program",
     "/clients": "Clients",
-    "/messages": "Messages",
+    "/messages": "Inbox",
     "/voice-messages": "Voice Messages",
     "/assessments": "Assessments",
     "/assessments/new": "New Assessment",

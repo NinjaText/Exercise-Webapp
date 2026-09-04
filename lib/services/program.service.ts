@@ -229,6 +229,53 @@ export async function toggleProgramFavorite(id: string, isFavorite: boolean) {
   return prisma.program.update({ where: { id }, data: { isFavorite } });
 }
 
+export interface ProgramProgress {
+  completed: number;
+  total: number;
+  nextSession: { workoutName: string; scheduledDate: Date } | null;
+}
+
+/**
+ * Per-program session-completion snapshot for the Assigned tab's Progress and
+ * Next Workout columns. One query across every requested program rather than
+ * N+1 per row — `orderBy: scheduledDate asc` lets a single pass pick each
+ * program's soonest upcoming session as it's encountered.
+ */
+export async function getProgramProgressMap(
+  programIds: string[]
+): Promise<Record<string, ProgramProgress>> {
+  const map: Record<string, ProgramProgress> = {};
+  for (const id of programIds) map[id] = { completed: 0, total: 0, nextSession: null };
+  if (programIds.length === 0) return map;
+
+  const sessions = await prisma.workoutSessionV2.findMany({
+    where: { workout: { programId: { in: programIds } } },
+    select: {
+      status: true,
+      scheduledDate: true,
+      workout: { select: { programId: true, name: true } },
+    },
+    orderBy: { scheduledDate: "asc" },
+  });
+
+  const now = new Date();
+  for (const session of sessions) {
+    const entry = map[session.workout.programId];
+    if (!entry) continue;
+    entry.total += 1;
+    if (session.status === "COMPLETED") entry.completed += 1;
+    if (
+      !entry.nextSession &&
+      (session.status === "SCHEDULED" || session.status === "IN_PROGRESS") &&
+      session.scheduledDate >= now
+    ) {
+      entry.nextSession = { workoutName: session.workout.name, scheduledDate: session.scheduledDate };
+    }
+  }
+
+  return map;
+}
+
 export async function setProgramCollections(id: string, collectionIds: string[]) {
   return prisma.program.update({ where: { id }, data: { collectionIds } });
 }

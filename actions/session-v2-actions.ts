@@ -38,7 +38,7 @@ async function notifyTrainerOnCompletion(
   const programName = session.workout.program.name;
   const programId = session.workout.program.id;
   const appBaseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://inmotusrx.vercel.app";
-  const clientLink = `${appBaseUrl}/programs/${programId}`;
+  const clientLink = `${appBaseUrl}/clients/${client.id}`;
 
   await createNotification({
     userId: trainer.id,

@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/current-user";
 import { getThread, markRead } from "@/lib/services/message.service";
 import { prisma } from "@/lib/prisma";
@@ -17,10 +17,16 @@ export default async function ThreadPage({ params }: Props) {
   const { threadId } = await params;
   const user = await getCurrentUser();
 
+  // Trainers get the full 3-pane Inbox at /messages; this standalone thread
+  // route now only serves the client's simpler conversation view.
+  if (user.role === "TRAINER") {
+    redirect(`/messages?thread=${threadId}`);
+  }
+
   const otherUser = await prisma.user.findUnique({ where: { id: threadId } });
   if (!otherUser || !user.clerkOrgId || otherUser.clerkOrgId !== user.clerkOrgId) notFound();
 
-  const messages = await getThread(user.id, threadId);
+  const messages = await getThread(user.id, threadId, { includeInternal: false });
 
   // Mark as read in DB and notify the sender via Pusher so they get a real-time read receipt
   await markRead(threadId, user.id);
@@ -34,7 +40,7 @@ export default async function ThreadPage({ params }: Props) {
         <Button variant="ghost" size="sm" asChild className="-ml-2">
           <Link href="/messages">
             <ArrowLeft className="mr-1 h-4 w-4" />
-            Back to Messages
+            Back to Inbox
           </Link>
         </Button>
       </div>

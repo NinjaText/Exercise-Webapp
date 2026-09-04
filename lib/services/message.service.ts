@@ -21,6 +21,7 @@ export async function sendMessage(data: {
   planId?: string;
   planExerciseId?: string;
   replyContext?: ReplyContextInput;
+  isInternal?: boolean;
 }) {
   const { replyContext, ...messageData } = data;
 
@@ -88,13 +89,18 @@ export async function sendVoiceMessage(data: {
   });
 }
 
-export async function getThread(userId1: string, userId2: string) {
+export async function getThread(
+  userId1: string,
+  userId2: string,
+  opts?: { includeInternal?: boolean },
+) {
   const messages = await prisma.message.findMany({
     where: {
       OR: [
         { senderId: userId1, recipientId: userId2 },
         { senderId: userId2, recipientId: userId1 },
       ],
+      ...(opts?.includeInternal ? {} : { isInternal: false }),
     },
     include: { sender: true, recipient: true },
     orderBy: { createdAt: "asc" },
@@ -114,23 +120,33 @@ export async function markRead(senderId: string, recipientId: string) {
   });
 }
 
+/** Marks every unread message across every thread addressed to this user as read. */
+export async function markAllRead(recipientId: string) {
+  return prisma.message.updateMany({
+    where: { recipientId, isRead: false },
+    data: { isRead: true, readAt: new Date() },
+  });
+}
+
 export async function getUnreadCount(userId: string) {
   return prisma.message.count({
     where: { recipientId: userId, isRead: false },
   });
 }
 
-export async function getInboxThreads(userId: string) {
+export async function getInboxThreads(userId: string, opts?: { includeInternal?: boolean }) {
+  const internalFilter = opts?.includeInternal ? {} : { isInternal: false };
+
   // Fetch all messages and unread counts in parallel — 2 queries total, not N+1
   const [rawMessages, unreadGroups] = await Promise.all([
     prisma.message.findMany({
-      where: { OR: [{ senderId: userId }, { recipientId: userId }] },
+      where: { OR: [{ senderId: userId }, { recipientId: userId }], ...internalFilter },
       include: { sender: true, recipient: true },
       orderBy: { createdAt: "desc" },
     }),
     prisma.message.groupBy({
       by: ["senderId"],
-      where: { recipientId: userId, isRead: false },
+      where: { recipientId: userId, isRead: false, ...internalFilter },
       _count: { id: true },
     }),
   ]);

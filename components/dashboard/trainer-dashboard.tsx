@@ -4,10 +4,12 @@ import { Button } from "@/components/ui/button";
 import { Sparkles } from "lucide-react";
 import { TodaysPrioritiesCard } from "@/components/dashboard/todays-priorities-card";
 import { WeekWorkoutsCard } from "@/components/dashboard/week-workouts-card";
-import { DashboardActivityCard } from "@/components/dashboard/dashboard-activity-card";
+import { DashboardInboxCard } from "@/components/dashboard/dashboard-inbox-card";
+import { AiInsightsCard } from "@/components/dashboard/ai-insights-card";
+import { ClientProgressOverviewCard } from "@/components/dashboard/client-progress-overview-card";
 import { CreateProgramMenu } from "@/components/programs/create-program-menu";
 import { AddClientDialog } from "@/components/clients/add-client-dialog";
-import type { ClientMetrics, PriorityAlert } from "@/lib/services/dashboard-insights.service";
+import type { ClientMetrics, ClientProgressBreakdown, PriorityAlert } from "@/lib/services/dashboard-insights.service";
 import type { getInboxThreads } from "@/lib/services/message.service";
 
 interface TrainerDashboardProps {
@@ -15,20 +17,6 @@ interface TrainerDashboardProps {
   activePlans: number;
   pendingFeedback: number;
   unreadMessages: number;
-  recentFeedback: {
-    id: string;
-    rating: string;
-    comment: string | null;
-    createdAt: Date;
-    client: { firstName: string; lastName: string };
-    planExercise: { exercise: { name: string } };
-  }[];
-  lowAdherenceClients: {
-    id: string;
-    firstName: string;
-    lastName: string;
-    complianceRate: number;
-  }[];
   activePrograms?: number;
   upcomingSessions?: {
     id: string;
@@ -44,6 +32,7 @@ interface TrainerDashboardProps {
   sessionsDueToday?: number;
   clientMetrics?: Record<string, ClientMetrics>;
   recentMessages?: Awaited<ReturnType<typeof getInboxThreads>>;
+  clientProgress: ClientProgressBreakdown;
 }
 
 const heroStats = (
@@ -68,13 +57,13 @@ function getGreeting(): string {
 export function TrainerDashboard({
   pendingFeedback,
   unreadMessages,
-  recentFeedback,
   upcomingSessions = [],
   priorities = [],
   clientsNeedingAttention = 0,
   sessionsDueToday = 0,
   clientMetrics = {},
   recentMessages = [],
+  clientProgress,
 }: TrainerDashboardProps) {
   const stats = heroStats(clientsNeedingAttention, sessionsDueToday, pendingFeedback, unreadMessages);
 
@@ -118,14 +107,18 @@ export function TrainerDashboard({
         </CardContent>
       </Card>
 
-      {/* Today's Priorities – most prominent */}
-      <TodaysPrioritiesCard priorities={priorities} />
+      {/* Today's Priorities + This Week's Workouts – side by side */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        <TodaysPrioritiesCard priorities={priorities} />
+        <WeekWorkoutsCard sessions={upcomingSessions} clientMetrics={clientMetrics} />
+      </div>
 
-      {/* This Week's Workouts – full width, densest widget */}
-      <WeekWorkoutsCard sessions={upcomingSessions} clientMetrics={clientMetrics} />
-
-      {/* Feedback / Messages / AI Insights – one tabbed card */}
-      <DashboardActivityCard recentFeedback={recentFeedback} recentMessages={recentMessages} />
+      {/* Inbox / AI Insights / Client Progress – one glance at everything else */}
+      <div className="grid gap-6 lg:grid-cols-3">
+        <DashboardInboxCard threads={recentMessages} />
+        <AiInsightsCard />
+        <ClientProgressOverviewCard breakdown={clientProgress} />
+      </div>
     </div>
   );
 }

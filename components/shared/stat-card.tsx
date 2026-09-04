@@ -18,6 +18,8 @@ interface StatCardProps {
   trend?: StatCardTrend;
   href?: string;
   className?: string;
+  /** Overrides the default muted icon badge (e.g. "bg-blue-500/10 text-blue-600"). */
+  iconClassName?: string;
 }
 
 export function StatCard({
@@ -28,6 +30,7 @@ export function StatCard({
   trend,
   href,
   className,
+  iconClassName,
 }: StatCardProps) {
   const isPositiveTrend = trend
     ? trend.direction
@@ -46,7 +49,7 @@ export function StatCard({
     >
       <CardContent className="p-6">
         <div className="flex items-start justify-between">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-muted text-muted-foreground">
+          <div className={cn("flex h-11 w-11 items-center justify-center rounded-xl bg-muted text-muted-foreground", iconClassName)}>
             <Icon className="h-5 w-5" />
           </div>
           {href && (

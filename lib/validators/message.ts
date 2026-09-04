@@ -21,6 +21,7 @@ export const sendMessageSchema = z.object({
   planId: z.string().optional(),
   planExerciseId: z.string().optional(),
   replyContext: replyContextSchema.optional(),
+  isInternal: z.boolean().optional(),
 });
 
 export type SendMessageInput = z.infer<typeof sendMessageSchema>;

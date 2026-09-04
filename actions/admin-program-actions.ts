@@ -133,6 +133,52 @@ export async function deleteAdminProgramAction(programId: string) {
   }
 }
 
+/**
+ * Removes a trainer-marked-public ("Universal") program from cross-trainer
+ * visibility without deleting it — the trainer keeps the program, it just no
+ * longer shows up as a shared template for other trainers.
+ */
+export async function unpublishAdminProgramAction(programId: string) {
+  const admin = await requireSuperAdmin();
+
+  const existing = await prisma.program.findUnique({
+    where: { id: programId },
+    select: { name: true, isGlobal: true, isPublic: true, trainer: { select: { clerkOrgId: true } } },
+  });
+  if (!existing) {
+    return { success: false as const, error: "Program not found" };
+  }
+  if (existing.isGlobal) {
+    return {
+      success: false as const,
+      error: "Use the Global Programs section to edit this program",
+    };
+  }
+  if (!existing.isPublic) {
+    return { success: false as const, error: "Program is not marked Universal" };
+  }
+
+  try {
+    await programService.toggleProgramPublic(programId, false);
+    await logAudit({
+      actorId: admin.id,
+      actorType: "SUPER_ADMIN",
+      actorName: `${admin.firstName} ${admin.lastName}`,
+      action: AUDIT_ACTIONS.PROGRAM_UNPUBLISHED,
+      targetType: "Program",
+      targetId: programId,
+      targetLabel: existing.name,
+      orgId: existing.trainer?.clerkOrgId ?? null,
+    });
+    revalidatePath("/admin/programs");
+    revalidatePath(`/admin/programs/${programId}`);
+    return { success: true as const };
+  } catch (error) {
+    console.error("Failed to remove program from universal (admin):", error);
+    return { success: false as const, error: "Failed to remove program from universal" };
+  }
+}
+
 export async function assignAdminProgramAction(input: {
   programId: string;
   clientId: string;

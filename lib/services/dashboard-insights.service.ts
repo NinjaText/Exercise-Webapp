@@ -58,11 +58,19 @@ export interface ClientMetrics {
   lastCompletedAt: Date | null;
 }
 
+export interface ClientProgressBreakdown {
+  onTrack: number;
+  atRisk: number;
+  offTrack: number;
+  total: number;
+}
+
 export interface DashboardInsights {
   priorities: PriorityAlert[];
   clientsNeedingAttention: number;
   sessionsDueToday: number;
   clientMetrics: Record<string, ClientMetrics>;
+  clientProgress: ClientProgressBreakdown;
 }
 
 const DAY_MS = 1000 * 60 * 60 * 24;
@@ -302,6 +310,37 @@ export function countClientsNeedingAttention(alerts: PriorityAlert[]): number {
   return ids.size;
 }
 
+/**
+ * Buckets every client into On Track / At Risk / Off Track by their worst
+ * active priority-alert severity — "low" alerts (e.g. fully_completed) don't
+ * indicate risk, so a client with only low-severity alerts is On Track.
+ */
+export function computeClientProgressBreakdown(
+  snapshots: ClientSnapshot[],
+  alerts: PriorityAlert[]
+): ClientProgressBreakdown {
+  const worstSeverityByClient = new Map<string, AlertSeverity>();
+  for (const alert of alerts) {
+    if (alert.severity === "low") continue;
+    const current = worstSeverityByClient.get(alert.clientId);
+    if (!current || SEVERITY_RANK[alert.severity] < SEVERITY_RANK[current]) {
+      worstSeverityByClient.set(alert.clientId, alert.severity);
+    }
+  }
+
+  let onTrack = 0;
+  let atRisk = 0;
+  let offTrack = 0;
+  for (const snap of snapshots) {
+    const severity = worstSeverityByClient.get(snap.clientId);
+    if (severity === "high") offTrack += 1;
+    else if (severity === "medium") atRisk += 1;
+    else onTrack += 1;
+  }
+
+  return { onTrack, atRisk, offTrack, total: snapshots.length };
+}
+
 export async function getClientSnapshots(
   trainerId: string,
   now: Date = new Date()
@@ -398,5 +437,6 @@ export async function getDashboardInsights(
     clientsNeedingAttention: countClientsNeedingAttention(allAlerts),
     sessionsDueToday: countSessionsDueToday(snapshots, now),
     clientMetrics,
+    clientProgress: computeClientProgressBreakdown(snapshots, allAlerts),
   };
 }

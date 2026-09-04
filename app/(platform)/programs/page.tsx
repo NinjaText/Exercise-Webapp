@@ -1,3 +1,4 @@
+import type { PlanStatus } from "@prisma/client";
 import { getCurrentUser } from "@/lib/current-user";
 import * as programService from "@/lib/services/program.service";
 import { getCollectionsWithCounts } from "@/lib/services/collection.service";
@@ -26,7 +27,7 @@ export default async function ProgramsPage({ searchParams }: Props) {
     user.role === "TRAINER"
       ? programService.getPrograms(user.id, {
           search: params.search,
-          status: params.status as any,
+          status: params.status as PlanStatus | undefined,
           // "Assigned" = a client is currently running it; "Library" = not
           // yet given to anyone (drafts and reusable templates alike).
           hasClient: tab === "programs",
@@ -37,6 +38,11 @@ export default async function ProgramsPage({ searchParams }: Props) {
 
   const collections =
     user.role === "TRAINER" ? await getCollectionsWithCounts(user.id) : [];
+
+  const progressByProgramId =
+    user.role === "TRAINER" && tab === "programs"
+      ? await programService.getProgramProgressMap(programs.map((p) => p.id))
+      : {};
 
   // For each organization program that came from a global master, check if master has been updated
   const updatableIds = new Set<string>(
@@ -65,6 +71,7 @@ export default async function ProgramsPage({ searchParams }: Props) {
         globalPrograms={globalPrograms}
         updatableIds={[...updatableIds]}
         collections={collections}
+        progressByProgramId={progressByProgramId}
         role={user.role}
       />
     </div>

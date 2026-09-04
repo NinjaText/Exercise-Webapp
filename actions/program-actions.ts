@@ -17,6 +17,10 @@ import {
   type ProgramBriefParsed,
 } from "@/lib/services/program-brief.service";
 import { generatedProgramSchema } from "@/lib/validators/generated-program";
+import {
+  categorizeGeneratedProgram,
+  buildCategorizationContextFromParams,
+} from "@/lib/services/program-categorization.service";
 
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
@@ -76,6 +80,11 @@ async function createProgramFromGeneratedPlan(params: {
   const daysPerWeek =
     typeof aiGenerationParams.daysPerWeek === "number" ? aiGenerationParams.daysPerWeek : null;
 
+  const categorization = await categorizeGeneratedProgram(
+    aiPlan,
+    buildCategorizationContextFromParams(aiGenerationParams)
+  );
+
   // Round 1: program shell only — no nested creates
   const program = await prisma.program.create({
     data: {
@@ -91,6 +100,11 @@ async function createProgramFromGeneratedPlan(params: {
       daysPerWeek,
       startDate: sDate ?? undefined,
       aiGenerationParams: aiGenerationParams as import("@prisma/client").Prisma.InputJsonValue,
+      bodyAreas: categorization.bodyAreas,
+      goals: categorization.goals,
+      activities: categorization.activities,
+      level: categorization.level ?? undefined,
+      tags: categorization.tags,
     },
     select: { id: true },
   });
