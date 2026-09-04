@@ -45,7 +45,7 @@ export default async function ClientDetailPage({ params }: Props) {
       programService.getProgramsForClient(client.id),
       getExercisesForPicker(organizationOrgId),
       sessionService.getClientPastSessions(client.id),
-      messageService.getThread(user.id, client.id),
+      messageService.getThread(user.id, client.id, { includeInternal: true }),
       getOrganizationProfile().catch(() => null),
     ]);
 

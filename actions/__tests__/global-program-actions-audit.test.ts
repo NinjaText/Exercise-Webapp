@@ -8,6 +8,12 @@ vi.mock('@/lib/current-user', () => ({ requireSuperAdmin: vi.fn().mockResolvedVa
 vi.mock('@/lib/prisma', () => ({ prisma: { program: { findUnique: vi.fn() } } }))
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 vi.mock('@/lib/services/ai.service', () => ({ generateProgram: vi.fn() }))
+vi.mock('@/lib/services/program-categorization.service', () => ({
+  categorizeGeneratedProgram: vi.fn().mockResolvedValue({
+    bodyAreas: [], goals: [], activities: [], level: null, tags: [],
+  }),
+  buildCategorizationContextFromParams: vi.fn().mockReturnValue({}),
+}))
 vi.mock('@/lib/services/program.service', () => ({
   createGlobalProgram: vi.fn().mockResolvedValue({ id: 'prog_1', name: 'Global Program' }),
   updateGlobalProgram: vi.fn().mockResolvedValue({ id: 'prog_1', name: 'Updated Global' }),

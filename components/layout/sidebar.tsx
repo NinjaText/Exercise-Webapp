@@ -8,7 +8,7 @@ import {
   Dumbbell,
   ClipboardList,
   Users,
-  MessageSquare,
+  Inbox as InboxIcon,
   Settings,
   Activity,
   Library,
@@ -53,7 +53,7 @@ const trainerLinks: NavLink[] = [
   { href: "/nutrition",   label: "Nutrition",    icon: Apple },
   // { href: "/check-ins",   label: "Check-ins",    icon: ClipboardCheck },
   // { href: "/habits",      label: "Habits",       icon: Flame },
-  { href: "/messages",    label: "Messages",     icon: MessageSquare },
+  { href: "/messages",    label: "Inbox",        icon: InboxIcon },
   // { href: "/assessments", label: "Assessments",  icon: BarChart3 },
   { href: "/analytics",   label: "Analytics",    icon: TrendingUp },
 ];
@@ -65,7 +65,7 @@ const clientLinks: NavLink[] = [
   // { href: "/habits",      label: "Habits",       icon: Flame },
   // { href: "/check-ins",   label: "Check-ins",    icon: ClipboardCheck },
   // { href: "/assessments", label: "Assessments",  icon: TrendingUp },
-  { href: "/messages",    label: "Messages",     icon: MessageSquare },
+  { href: "/messages",    label: "Inbox",        icon: InboxIcon },
 ];
 
 export function Sidebar({

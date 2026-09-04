@@ -11,6 +11,12 @@ vi.mock('@/lib/prisma', () => ({
   },
 }))
 vi.mock('@/lib/services/ai.service', () => ({ generateProgram: vi.fn() }))
+vi.mock('@/lib/services/program-categorization.service', () => ({
+  categorizeGeneratedProgram: vi.fn().mockResolvedValue({
+    bodyAreas: [], goals: [], activities: [], level: null, tags: [],
+  }),
+  buildCategorizationContextFromParams: vi.fn().mockReturnValue({}),
+}))
 
 import { requireSuperAdmin } from '@/lib/current-user'
 import * as programService from '@/lib/services/program.service'

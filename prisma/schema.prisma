@@ -159,6 +159,7 @@ model User {
   clinicalNotesAsTrainer    ClinicalNote[]       @relation("ClinicalNotesTrainer")
   trainerSubscription       TrainerSubscription? @relation("TrainerSubscription")
   exerciseUsages            ExerciseUsage[]
+  exerciseFavorites         ExerciseFavorite[]
   collections               Collection[]
 }
 
@@ -244,6 +245,7 @@ model Exercise {
   media            ExerciseMedia[]
   blockExercisesV2 BlockExerciseV2[]     @relation("BlockExercisesV2")
   usages           ExerciseUsage[]
+  favoritedBy      ExerciseFavorite[]
 }
 
 // Tracks how often each trainer programs a given exercise, so the exercise
@@ -261,6 +263,22 @@ model ExerciseUsage {
 
   @@unique([trainerId, exerciseId])
   @@index([trainerId])
+}
+
+// Per-trainer exercise bookmark. Exercise rows are shared across trainers
+// (and, for UNIVERSAL source, across every organization), so favoriting is
+// modeled as a join row rather than a boolean on Exercise itself — a boolean
+// there would favorite the exercise for every trainer at once.
+model ExerciseFavorite {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId     String   @db.ObjectId
+  exerciseId String   @db.ObjectId
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  exercise   Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@unique([userId, exerciseId])
+  @@index([userId])
 }
 
 model ExerciseProgression {
@@ -441,6 +459,11 @@ model Message {
   replyToSessionExerciseLogId String? @db.ObjectId
   replyToExerciseName         String?
   replyToNoteExcerpt          String?
+
+  // A trainer-only note attached to a thread — never delivered or visible to
+  // the client, regardless of recipientId. See lib/db/scripts/backfill-message-is-internal.ts;
+  // MongoDB does not retroactively apply this default to pre-existing rows.
+  isInternal Boolean @default(false)
 }
 
 // --- Phase 1 Models ---

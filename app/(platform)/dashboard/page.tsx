@@ -22,7 +22,6 @@ export default async function DashboardPage() {
       activePlans,
       pendingFeedback,
       unreadMessages,
-      recentFeedback,
       activePrograms,
       upcomingSessions,
       insights,
@@ -41,15 +40,6 @@ export default async function DashboardPage() {
       prisma.message.count({
         where: { recipientId: user.id, isRead: false },
       }),
-      prisma.exerciseFeedback.findMany({
-        where: { planExercise: { plan: { createdById: user.id } } },
-        include: {
-          planExercise: { include: { exercise: true } },
-          client: true,
-        },
-        orderBy: { createdAt: "desc" },
-        take: 5,
-      }),
       prisma.program.count({
         where: { trainerId: user.id, status: "ACTIVE" },
       }),
@@ -67,8 +57,6 @@ export default async function DashboardPage() {
         activePlans={activePlans}
         pendingFeedback={pendingFeedback}
         unreadMessages={unreadMessages}
-        recentFeedback={recentFeedback}
-        lowAdherenceClients={[]}
         activePrograms={activePrograms}
         upcomingSessions={upcomingSessions}
         priorities={insights.priorities}
@@ -76,6 +64,7 @@ export default async function DashboardPage() {
         sessionsDueToday={insights.sessionsDueToday}
         clientMetrics={insights.clientMetrics}
         recentMessages={inboxThreads.slice(0, 5)}
+        clientProgress={insights.clientProgress}
       />
     );
   }

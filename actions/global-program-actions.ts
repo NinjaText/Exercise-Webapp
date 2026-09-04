@@ -6,6 +6,10 @@ import { createProgramSchema, updateProgramSchema } from "@/lib/validators/progr
 import type { CreateProgramInput, UpdateProgramInput } from "@/lib/validators/program";
 import { revalidatePath } from "next/cache";
 import { generateProgram } from "@/lib/services/ai.service";
+import {
+  categorizeGeneratedProgram,
+  buildCategorizationContextFromParams,
+} from "@/lib/services/program-categorization.service";
 import { prisma } from "@/lib/prisma";
 import type { WeekPlan } from "@/lib/ai/types/program-generation";
 import { logAudit, diffFields, AUDIT_ACTIONS } from "@/lib/services/audit-log.service";
@@ -154,6 +158,11 @@ export async function generateGlobalProgramAction(params: {
   try {
     const aiPlan = await generateProgram(params as Parameters<typeof generateProgram>[0]);
 
+    const categorization = await categorizeGeneratedProgram(
+      aiPlan,
+      buildCategorizationContextFromParams(params)
+    );
+
     // Use the parallel insert pattern — programme shell, then workouts, blocks, exercises, sets
     const program = await prisma.program.create({
       data: {
@@ -165,6 +174,11 @@ export async function generateGlobalProgramAction(params: {
         status: "DRAFT",
         organizationIds: params.organizationIds ?? [],
         aiGenerationParams: params as import("@prisma/client").Prisma.InputJsonValue,
+        bodyAreas: categorization.bodyAreas,
+        goals: categorization.goals,
+        activities: categorization.activities,
+        level: categorization.level ?? undefined,
+        tags: categorization.tags,
       },
       select: { id: true },
     });

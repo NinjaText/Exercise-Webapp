@@ -18,6 +18,12 @@ import { threadChannel, inboxChannel } from "@/lib/pusher-channels";
 type DeliveredMessage = Awaited<ReturnType<typeof messageService.sendMessage>>;
 
 export async function broadcastNewMessage(message: DeliveredMessage) {
+  // Internal notes must never reach the client — the thread/inbox Pusher
+  // channels below are shared with the client's own browser session, so an
+  // internal note is appended optimistically on the sender's side instead
+  // (see message-thread.tsx) rather than broadcast here.
+  if (message.isInternal) return;
+
   const payload = {
     id: message.id,
     senderId: message.senderId,
@@ -88,6 +94,7 @@ export async function sendMessageAction(input: {
     exerciseName: string;
     noteExcerpt: string;
   };
+  isInternal?: boolean;
 }) {
   const { userId } = await auth();
   if (!userId) return { success: false as const, error: "Unauthorized" };
@@ -98,6 +105,12 @@ export async function sendMessageAction(input: {
   const parsed = sendMessageSchema.safeParse(input);
   if (!parsed.success) {
     return { success: false as const, error: parsed.error.issues[0].message };
+  }
+
+  // Only trainers may leave internal notes — a client-originated request
+  // setting this flag is silently downgraded to a normal message.
+  if (parsed.data.isInternal && dbUser.role !== "TRAINER") {
+    parsed.data.isInternal = false;
   }
 
   try {

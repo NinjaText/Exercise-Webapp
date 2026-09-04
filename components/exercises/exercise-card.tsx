@@ -1,16 +1,16 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useRouter } from "next/navigation";
-import { Edit, PlayCircle, ArrowRight, Plus } from "lucide-react";
+import { Edit, PlayCircle, ArrowRight, Plus, Bookmark } from "lucide-react";
 import { ExerciseImage } from "@/components/exercises/exercise-image";
 import { formatBodyRegion, formatDifficulty } from "@/lib/utils/formatting";
-import { adoptUniversalExerciseAction } from "@/actions/exercise-actions";
+import { adoptUniversalExerciseAction, toggleExerciseFavoriteAction } from "@/actions/exercise-actions";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { hasRealVideoUrl } from "@/lib/utils/video";
@@ -32,6 +32,7 @@ interface ExerciseCardProps {
   selectable?: boolean;
   selected?: boolean;
   onToggleSelect?: () => void;
+  isFavorite?: boolean;
 }
 
 const difficultyConfig: Record<string, { label: string; className: string }> = {
@@ -53,11 +54,28 @@ export function ExerciseCard({
   description, imageUrl, videoUrl, isActive, isTrainer,
   source, canAdopt,
   selectable, selected, onToggleSelect,
+  isFavorite,
 }: ExerciseCardProps) {
   const router = useRouter();
   const [isAdopting, startAdopting] = useTransition();
+  const [favorite, setFavorite] = useState(!!isFavorite);
+  const [isTogglingFavorite, startTogglingFavorite] = useTransition();
 
   const showAdopt = !!canAdopt && source === "UNIVERSAL";
+
+  function handleToggleFavorite(e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    const next = !favorite;
+    setFavorite(next);
+    startTogglingFavorite(async () => {
+      const result = await toggleExerciseFavoriteAction(id, next);
+      if (!result.success) {
+        setFavorite(!next);
+        toast.error(result.error);
+      }
+    });
+  }
 
   const difficulty = difficultyLevel
     ? difficultyConfig[difficultyLevel] ?? {
@@ -135,6 +153,18 @@ export function ExerciseCard({
               {name}
             </h3>
           </Link>
+          <button
+            type="button"
+            onClick={handleToggleFavorite}
+            disabled={isTogglingFavorite}
+            title={favorite ? "Remove from favorites" : "Add to favorites"}
+            className={cn(
+              "shrink-0 rounded-md p-0.5 transition-colors disabled:opacity-60",
+              favorite ? "text-amber-500" : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <Bookmark className={cn("h-4 w-4", favorite && "fill-current")} />
+          </button>
           {difficulty && (
             <Badge className={`shrink-0 border text-[10px] font-semibold ${difficulty.className}`}>
               {difficulty.label}

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 
 const TABS = [
-  { href: "/messages", label: "Messages" },
+  { href: "/messages", label: "Inbox" },
   { href: "/voice-messages", label: "Voice Messages" },
 ] as const;
 

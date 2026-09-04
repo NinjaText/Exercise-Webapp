@@ -53,6 +53,7 @@ interface Message {
   deletedAt?: Date | string | null;
   replyToExerciseName?: string | null;
   replyToNoteExcerpt?: string | null;
+  isInternal?: boolean | null;
   sender: { firstName: string; lastName: string; imageUrl: string | null };
 }
 
@@ -64,6 +65,10 @@ interface MessageThreadProps {
   currentUserId: string;
   recipientId: string;
   recipientName: string;
+  /** Renders a "Message" / "Note (internal)" composer switch — trainer-only. */
+  allowInternalNotes?: boolean;
+  /** Extra content rendered on the right side of the thread header. */
+  headerRight?: React.ReactNode;
 }
 
 export function MessageThread({
@@ -71,12 +76,15 @@ export function MessageThread({
   currentUserId,
   recipientId,
   recipientName,
+  allowInternalNotes = false,
+  headerRight,
 }: MessageThreadProps) {
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [content, setContent] = useState("");
   const [sending, setSending] = useState(false);
   const [recipientTyping, setRecipientTyping] = useState(false);
   const [showRecorder, setShowRecorder] = useState(false);
+  const [composeMode, setComposeMode] = useState<"message" | "note">("message");
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const typingClearRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -165,11 +173,20 @@ export function MessageThread({
 
   async function handleSend() {
     if (!content.trim()) return;
+    const isInternal = allowInternalNotes && composeMode === "note";
     setSending(true);
-    const result = await sendMessageAction({ recipientId, content: content.trim() });
+    const result = await sendMessageAction({ recipientId, content: content.trim(), isInternal });
     setSending(false);
     if (result.success) {
       setContent("");
+      // Internal notes are never broadcast over the shared thread channel
+      // (the client is subscribed to it), so append it here instead of
+      // waiting for a Pusher echo that will never arrive.
+      if (isInternal) {
+        setMessages((prev) =>
+          prev.some((m) => m.id === result.data.id) ? prev : [...prev, result.data],
+        );
+      }
     } else {
       toast.error(result.error);
     }
@@ -192,12 +209,13 @@ export function MessageThread({
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="border-b border-border p-4">
+      <div className="flex items-center justify-between gap-3 border-b border-border p-4">
         <h2 className="font-semibold text-foreground">{recipientName}</h2>
+        {headerRight}
       </div>
 
       {/* Messages */}
-      <ScrollArea className="flex-1 p-4">
+      <ScrollArea className="min-h-0 flex-1 p-4">
         <div className="space-y-4">
           {messages.map((msg) => (
             <MessageBubble
@@ -228,6 +246,26 @@ export function MessageThread({
 
       {/* Input */}
       <div className="border-t border-border p-4">
+        {allowInternalNotes && !showRecorder && (
+          <div className="mb-2 flex gap-1">
+            {(["message", "note"] as const).map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                onClick={() => setComposeMode(mode)}
+                className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+                  composeMode === mode
+                    ? mode === "note"
+                      ? "bg-amber-100 text-amber-900"
+                      : "bg-primary/10 text-primary"
+                    : "text-muted-foreground hover:bg-muted"
+                }`}
+              >
+                {mode === "message" ? "Message" : "Note (internal)"}
+              </button>
+            ))}
+          </div>
+        )}
         {showRecorder ? (
           <VoiceMessageRecorder
             recipientId={recipientId}
@@ -243,18 +281,20 @@ export function MessageThread({
                 triggerTyping();
               }}
               onKeyDown={handleKeyDown}
-              placeholder="Type a message..."
+              placeholder={composeMode === "note" ? "Write a note only you can see..." : "Type a message..."}
               rows={1}
-              className="min-h-[2.5rem] resize-none"
+              className={`min-h-[2.5rem] resize-none ${composeMode === "note" ? "border-amber-300 bg-amber-50" : ""}`}
             />
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => setShowRecorder(true)}
-              aria-label="Record a voice note"
-            >
-              <Mic className="h-4 w-4" />
-            </Button>
+            {composeMode === "message" && (
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => setShowRecorder(true)}
+                aria-label="Record a voice note"
+              >
+                <Mic className="h-4 w-4" />
+              </Button>
+            )}
             <Button onClick={handleSend} disabled={sending || !content.trim()} size="icon">
               {sending ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -404,12 +444,23 @@ function MessageBubble({
             <audio src={message.audioUrl ?? undefined} controls className="h-8 max-w-[220px]" />
           </div>
         ) : (
-          <div
-            className={`inline-block rounded-lg px-4 py-2 text-sm ${
-              isOwn ? "bg-blue-600 text-white" : "bg-muted text-foreground"
-            }`}
-          >
-            {message.content}
+          <div>
+            {message.isInternal && (
+              <p className={`mb-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700 ${isOwn ? "text-right" : ""}`}>
+                Internal note
+              </p>
+            )}
+            <div
+              className={`inline-block rounded-lg px-4 py-2 text-sm ${
+                message.isInternal
+                  ? "bg-amber-100 text-amber-950 ring-1 ring-amber-300"
+                  : isOwn
+                    ? "bg-blue-600 text-white"
+                    : "bg-muted text-foreground"
+              }`}
+            >
+              {message.content}
+            </div>
           </div>
         )}
 

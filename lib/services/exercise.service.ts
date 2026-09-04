@@ -6,10 +6,10 @@ import { extractYouTubeId, getYouTubeThumbnail } from "@/lib/utils/video";
 export interface ExerciseFilters {
   search?: string;
   bodyRegions?: BodyRegion[];
-  difficultyLevel?: DifficultyLevel;
+  difficultyLevels?: DifficultyLevel[];
   exercisePhases?: ExercisePhase[];
   muscleGroups?: string[];
-  equipment?: string;
+  equipment?: string[];
   source?: ExerciseSource;
   organizationId?: string;
   isAssessment?: boolean;
@@ -21,14 +21,14 @@ export async function getExercises(filters: ExerciseFilters = {}) {
       isActive: true,
       isAssessment: filters.isAssessment ?? false,
       ...(filters.bodyRegions?.length && { bodyRegion: { hasSome: filters.bodyRegions } }),
-      ...(filters.difficultyLevel && { difficultyLevel: filters.difficultyLevel }),
+      ...(filters.difficultyLevels?.length && { difficultyLevel: { in: filters.difficultyLevels } }),
       ...(filters.exercisePhases?.length && { exercisePhases: { hasSome: filters.exercisePhases } }),
       ...(filters.muscleGroups?.length && { musclesTargeted: { hasSome: filters.muscleGroups } }),
       ...(filters.search && {
         name: { contains: filters.search, mode: "insensitive" as const },
       }),
-      ...(filters.equipment && {
-        equipmentRequired: { has: filters.equipment },
+      ...(filters.equipment?.length && {
+        equipmentRequired: { hasSome: filters.equipment },
       }),
       ...(filters.source === "UNIVERSAL" && { source: "UNIVERSAL" as const }),
       // ORGANIZATION: always filter by source; use impossible sentinel when no orgId to return 0 results
@@ -53,6 +53,96 @@ export async function getExercises(filters: ExerciseFilters = {}) {
     },
     orderBy: { name: "asc" },
   });
+}
+
+export interface ExercisePageFilters extends ExerciseFilters {
+  /** Only exercises with a real, playable video (excludes the YouTube-search fallback link). */
+  hasVideo?: boolean;
+  /** Restricts results to this id set — callers compute this from ExerciseFavorite rows. */
+  favoriteExerciseIds?: string[];
+}
+
+/**
+ * Paginated exercise listing for the Exercise Library page. Kept separate
+ * from `getExercises` (used by pickers that need the full unpaginated list)
+ * rather than adding optional page/pageSize params there, so picker callers
+ * and their tests are unaffected.
+ */
+export async function getExercisesPage(
+  filters: ExercisePageFilters = {},
+  pagination: { page?: number; pageSize?: number; sort?: "name_asc" | "name_desc" } = {}
+) {
+  const page = Math.max(1, pagination.page ?? 1);
+  const pageSize = pagination.pageSize ?? 24;
+  const orderBy: Prisma.ExerciseOrderByWithRelationInput = {
+    name: pagination.sort === "name_desc" ? "desc" : "asc",
+  };
+
+  const where: Prisma.ExerciseWhereInput = {
+    isActive: true,
+    isAssessment: filters.isAssessment ?? false,
+    ...(filters.bodyRegions?.length && { bodyRegion: { hasSome: filters.bodyRegions } }),
+    ...(filters.difficultyLevels?.length && { difficultyLevel: { in: filters.difficultyLevels } }),
+    ...(filters.exercisePhases?.length && { exercisePhases: { hasSome: filters.exercisePhases } }),
+    ...(filters.muscleGroups?.length && { musclesTargeted: { hasSome: filters.muscleGroups } }),
+    ...(filters.search && {
+      name: { contains: filters.search, mode: "insensitive" as const },
+    }),
+    ...(filters.equipment?.length && {
+      equipmentRequired: { hasSome: filters.equipment },
+    }),
+    ...(filters.source === "UNIVERSAL" && { source: "UNIVERSAL" as const }),
+    ...(filters.source === "ORGANIZATION" && {
+      source: "ORGANIZATION" as const,
+      ...(filters.organizationId ? { organizationId: filters.organizationId } : { organizationId: "__none__" }),
+    }),
+    ...(filters.hasVideo === true && {
+      videoUrl: { not: null },
+      NOT: { videoUrl: { contains: "youtube.com/results" } },
+    }),
+    ...(filters.favoriteExerciseIds && { id: { in: filters.favoriteExerciseIds } }),
+  };
+
+  const select = {
+    id: true,
+    name: true,
+    bodyRegion: true,
+    difficultyLevel: true,
+    exercisePhases: true,
+    equipmentRequired: true,
+    description: true,
+    imageUrl: true,
+    videoUrl: true,
+    isActive: true,
+    source: true,
+    organizationId: true,
+  } satisfies Prisma.ExerciseSelect;
+
+  const [exercises, total] = await Promise.all([
+    prisma.exercise.findMany({
+      where,
+      select,
+      orderBy,
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    }),
+    prisma.exercise.count({ where }),
+  ]);
+
+  return { exercises, total, page, pageSize };
+}
+
+/** Distinct equipment values actually present on active exercises, for building the Equipment filter's option list. */
+export async function getDistinctEquipment(): Promise<string[]> {
+  const rows = await prisma.exercise.findMany({
+    where: { isActive: true, equipmentRequired: { isEmpty: false } },
+    select: { equipmentRequired: true },
+  });
+  const set = new Set<string>();
+  for (const row of rows) {
+    for (const item of row.equipmentRequired) set.add(item);
+  }
+  return Array.from(set).sort((a, b) => a.localeCompare(b));
 }
 
 export async function getExercisesForPicker(organizationId?: string) {
@@ -308,6 +398,25 @@ export async function updateExercise(
 
 export async function deleteExercise(id: string) {
   return prisma.exercise.update({ where: { id }, data: { isActive: false } });
+}
+
+export async function toggleExerciseFavorite(userId: string, exerciseId: string, isFavorite: boolean) {
+  if (isFavorite) {
+    return prisma.exerciseFavorite.upsert({
+      where: { userId_exerciseId: { userId, exerciseId } },
+      create: { userId, exerciseId },
+      update: {},
+    });
+  }
+  return prisma.exerciseFavorite.deleteMany({ where: { userId, exerciseId } });
+}
+
+export async function getFavoriteExerciseIds(userId: string): Promise<string[]> {
+  const rows = await prisma.exerciseFavorite.findMany({
+    where: { userId },
+    select: { exerciseId: true },
+  });
+  return rows.map((r) => r.exerciseId);
 }
 
 export async function getProgressionChain(exerciseId: string) {

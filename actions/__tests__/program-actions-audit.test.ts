@@ -10,6 +10,12 @@ vi.mock('@/lib/prisma', () => ({
 }))
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 vi.mock('@/lib/services/ai.service', () => ({ generateProgram: vi.fn() }))
+vi.mock('@/lib/services/program-categorization.service', () => ({
+  categorizeGeneratedProgram: vi.fn().mockResolvedValue({
+    bodyAreas: [], goals: [], activities: [], level: null, tags: [],
+  }),
+  buildCategorizationContextFromParams: vi.fn().mockReturnValue({}),
+}))
 vi.mock('@/lib/services/program-brief.service', () => ({
   extractProgramBriefText: vi.fn(),
   extractBriefMetadata: vi.fn(),
