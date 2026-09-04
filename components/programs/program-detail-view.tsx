@@ -335,6 +335,7 @@ export function ProgramDetailView({
             <ProgramActionsMenu
               programId={program.id as string}
               programName={(program.name as string) ?? "this program"}
+              isPublic={program.isPublic as boolean | undefined}
               redirectTo="/admin/programs"
             />
           </div>

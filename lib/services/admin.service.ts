@@ -279,11 +279,13 @@ export async function getAllPrograms(params: {
   pageSize?: number;
   search?: string;
   status?: string;
+  visibility?: string;
 }) {
-  const { page = 1, pageSize = 25, search, status } = params;
+  const { page = 1, pageSize = 25, search, status, visibility } = params;
 
   const where = {
     ...(status && status !== "ALL" && { status: status as never }),
+    ...(visibility === "UNIVERSAL" && { isPublic: true }),
     ...(search && {
       OR: [
         { name: { contains: search, mode: "insensitive" as const } },

@@ -18,13 +18,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { MoreHorizontal, Trash2 } from "lucide-react";
+import { MoreHorizontal, Trash2, Globe2 } from "lucide-react";
 import { toast } from "sonner";
-import { deleteAdminProgramAction } from "@/actions/admin-program-actions";
+import { deleteAdminProgramAction, unpublishAdminProgramAction } from "@/actions/admin-program-actions";
 
 interface ProgramActionsMenuProps {
   programId: string;
   programName: string;
+  /** Whether the program is trainer-marked public ("Universal"). */
+  isPublic?: boolean;
   /** Where to send the admin after a successful delete (detail pages only). */
   redirectTo?: string;
 }
@@ -32,11 +34,13 @@ interface ProgramActionsMenuProps {
 export function ProgramActionsMenu({
   programId,
   programName,
+  isPublic,
   redirectTo,
 }: ProgramActionsMenuProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showUnpublishDialog, setShowUnpublishDialog] = useState(false);
 
   function handleDelete() {
     startTransition(async () => {
@@ -52,6 +56,19 @@ export function ProgramActionsMenu({
     });
   }
 
+  function handleUnpublish() {
+    startTransition(async () => {
+      const result = await unpublishAdminProgramAction(programId);
+      if (result.success) {
+        toast.success("Program removed from Universal.");
+        setShowUnpublishDialog(false);
+        return;
+      }
+      toast.error(result.error ?? "Failed to remove program from universal.");
+      setShowUnpublishDialog(false);
+    });
+  }
+
   return (
     <>
       <DropdownMenu>
@@ -62,7 +79,16 @@ export function ProgramActionsMenu({
         >
           <MoreHorizontal className="h-4 w-4" />
         </DropdownMenuTrigger>
-        <DropdownMenuContent side="bottom" align="end" className="w-40">
+        <DropdownMenuContent side="bottom" align="end" className="w-48">
+          {isPublic && (
+            <DropdownMenuItem
+              onClick={() => setShowUnpublishDialog(true)}
+              className="gap-2"
+            >
+              <Globe2 className="h-4 w-4" />
+              Remove from Universal
+            </DropdownMenuItem>
+          )}
           <DropdownMenuItem
             onClick={() => setShowDeleteDialog(true)}
             variant="destructive"
@@ -94,6 +120,27 @@ export function ProgramActionsMenu({
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {isPending ? "Deleting…" : "Delete permanently"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={showUnpublishDialog}
+        onOpenChange={(open) => !open && setShowUnpublishDialog(false)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove {programName} from Universal?</AlertDialogTitle>
+            <AlertDialogDescription>
+              The program stays with its trainer, but other trainers will no
+              longer see it as a shared template.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleUnpublish} disabled={isPending}>
+              {isPending ? "Removing…" : "Remove from Universal"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

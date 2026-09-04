@@ -81,7 +81,11 @@ import {
   toggleProgramFavoriteAction,
   setProgramCollectionsAction,
 } from "@/actions/program-actions";
-import { createCollectionAction } from "@/actions/collection-actions";
+import {
+  createCollectionAction,
+  renameCollectionAction,
+  deleteCollectionAction,
+} from "@/actions/collection-actions";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
 import type { ProgramProgress } from "@/lib/services/program.service";
@@ -692,33 +696,59 @@ function CollectionTile({
   count,
   selected,
   onClick,
+  onRename,
+  onDelete,
 }: {
   label: string;
   count: number;
   selected: boolean;
   onClick: () => void;
+  onRename?: () => void;
+  onDelete?: () => void;
 }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
+    <div
       className={cn(
-        "flex items-center gap-3 rounded-xl border p-4 text-left shadow-sm transition-colors",
+        "group relative flex items-center gap-3 rounded-xl border p-4 text-left shadow-sm transition-colors",
         selected
           ? "border-primary bg-primary/5"
           : "border-border/50 hover:border-primary/40 hover:bg-muted/40"
       )}
     >
-      <div className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-lg", selected ? "bg-primary/15 text-primary" : "bg-primary/10 text-primary")}>
-        {label === "All Programs" ? <Grid3x3 className="h-4.5 w-4.5" /> : <Folder className="h-4.5 w-4.5" />}
-      </div>
-      <div className="min-w-0">
-        <p className="truncate font-medium text-sm">{label}</p>
-        <p className="text-xs text-muted-foreground">
-          {count} program{count === 1 ? "" : "s"}
-        </p>
-      </div>
-    </button>
+      <button type="button" onClick={onClick} className="flex flex-1 min-w-0 items-center gap-3 text-left">
+        <div className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-lg", selected ? "bg-primary/15 text-primary" : "bg-primary/10 text-primary")}>
+          {label === "All Programs" ? <Grid3x3 className="h-4.5 w-4.5" /> : <Folder className="h-4.5 w-4.5" />}
+        </div>
+        <div className="min-w-0">
+          <p className="truncate font-medium text-sm">{label}</p>
+          <p className="text-xs text-muted-foreground">
+            {count} program{count === 1 ? "" : "s"}
+          </p>
+        </div>
+      </button>
+      {(onRename || onDelete) && (
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            className="shrink-0 flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity hover:bg-muted group-hover:opacity-100 data-[state=open]:opacity-100"
+            aria-label="Collection actions"
+          >
+            <MoreVertical className="h-4 w-4" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-40">
+            {onRename && (
+              <DropdownMenuItem onClick={onRename}>
+                <Pencil className="mr-2 h-4 w-4" /> Rename
+              </DropdownMenuItem>
+            )}
+            {onDelete && (
+              <DropdownMenuItem onClick={onDelete} variant="destructive">
+                <Trash2 className="mr-2 h-4 w-4" /> Delete
+              </DropdownMenuItem>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
+    </div>
   );
 }
 
@@ -942,6 +972,11 @@ export function ProgramListClient({
   const [createCollectionOpen, setCreateCollectionOpen] = useState(false);
   const [newCollectionName, setNewCollectionName] = useState("");
   const [creatingCollection, setCreatingCollection] = useState(false);
+  const [renamingCollection, setRenamingCollection] = useState<{ id: string; name: string } | null>(null);
+  const [renameCollectionValue, setRenameCollectionValue] = useState("");
+  const [savingCollectionRename, setSavingCollectionRename] = useState(false);
+  const [pendingDeleteCollection, setPendingDeleteCollection] = useState<{ id: string; name: string } | null>(null);
+  const [deletingCollection, setDeletingCollection] = useState(false);
   const [manageMembersOpen, setManageMembersOpen] = useState(false);
   const [memberSelection, setMemberSelection] = useState<Set<string>>(new Set());
   const [savingMembers, setSavingMembers] = useState(false);
@@ -1219,6 +1254,46 @@ export function ProgramListClient({
     }
   }
 
+  function openRenameCollection(collection: { id: string; name: string }) {
+    setRenamingCollection(collection);
+    setRenameCollectionValue(collection.name);
+  }
+
+  async function handleRenameCollection() {
+    if (!renamingCollection) return;
+    setSavingCollectionRename(true);
+    try {
+      const result = await renameCollectionAction(renamingCollection.id, renameCollectionValue);
+      if (result.success) {
+        toast.success(`Collection renamed to "${result.data.name}"`);
+        setRenamingCollection(null);
+        router.refresh();
+      } else {
+        toast.error(result.error);
+      }
+    } finally {
+      setSavingCollectionRename(false);
+    }
+  }
+
+  async function handleDeleteCollection() {
+    if (!pendingDeleteCollection) return;
+    setDeletingCollection(true);
+    try {
+      const result = await deleteCollectionAction(pendingDeleteCollection.id);
+      if (result.success) {
+        toast.success(`Collection "${pendingDeleteCollection.name}" deleted`);
+        if (selectedCollectionId === pendingDeleteCollection.id) setSelectedCollectionId(null);
+        setPendingDeleteCollection(null);
+        router.refresh();
+      } else {
+        toast.error(result.error);
+      }
+    } finally {
+      setDeletingCollection(false);
+    }
+  }
+
   async function handleCreateCollection() {
     setCreatingCollection(true);
     try {
@@ -1353,6 +1428,8 @@ export function ProgramListClient({
                   count={c.programCount}
                   selected={selectedCollectionId === c.id}
                   onClick={() => setSelectedCollectionId(c.id)}
+                  onRename={() => openRenameCollection(c)}
+                  onDelete={() => setPendingDeleteCollection(c)}
                 />
               ))}
               <CreateCollectionCard onClick={() => setCreateCollectionOpen(true)} />
@@ -1731,6 +1808,53 @@ export function ProgramListClient({
               disabled={creatingCollection || !newCollectionName.trim()}
             >
               {creatingCollection ? "Creating..." : "Create"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!renamingCollection} onOpenChange={(open) => !open && setRenamingCollection(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Rename Collection</DialogTitle>
+          </DialogHeader>
+          <Input
+            value={renameCollectionValue}
+            onChange={(e) => setRenameCollectionValue(e.target.value)}
+            placeholder="e.g., Upper Body"
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && renameCollectionValue.trim()) handleRenameCollection();
+            }}
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRenamingCollection(null)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleRenameCollection}
+              disabled={savingCollectionRename || !renameCollectionValue.trim()}
+            >
+              {savingCollectionRename ? "Saving..." : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!pendingDeleteCollection} onOpenChange={(open) => !open && setPendingDeleteCollection(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete &quot;{pendingDeleteCollection?.name}&quot;?</DialogTitle>
+            <DialogDescription>
+              This removes the collection. Programs in it are not deleted — they just
+              lose this grouping. This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPendingDeleteCollection(null)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleDeleteCollection} disabled={deletingCollection}>
+              {deletingCollection ? "Deleting..." : "Delete"}
             </Button>
           </DialogFooter>
         </DialogContent>
