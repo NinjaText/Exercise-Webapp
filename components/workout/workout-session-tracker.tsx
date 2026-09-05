@@ -543,7 +543,7 @@ export function WorkoutSessionTracker({
               </div>
             )}
           </div>
-          <div className="bg-card p-6">
+          <div className="bg-card p-4 sm:p-6">
             <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
               Session Overview
             </p>
@@ -650,7 +650,7 @@ export function WorkoutSessionTracker({
       {currentItem?.kind === "rest" && (
         <Card className="overflow-hidden border-0 shadow-md ring-1 ring-border/50">
           <div className="h-1 w-full bg-amber-400" />
-          <CardContent className="p-6 text-center space-y-4">
+          <CardContent className="p-4 sm:p-6 text-center space-y-4">
             <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-50">
               <Timer className="h-8 w-8 text-amber-500" />
             </div>

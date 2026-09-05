@@ -374,7 +374,7 @@ export default function LandingPage() {
             <div className="relative rounded-2xl border border-white/10 bg-white/5 p-2 shadow-2xl backdrop-blur-sm">
               {/* Glow */}
               <div className="absolute inset-0 rounded-2xl bg-linear-to-br from-blue-500/10 via-transparent to-indigo-500/10" />
-              <div className="relative rounded-xl bg-[#f8fafc] p-6 shadow-inner">
+              <div className="relative rounded-xl bg-[#f8fafc] p-4 sm:p-6 shadow-inner">
                 {/* Window chrome */}
                 <div className="mb-5 flex items-center gap-2">
                   <div className="h-3 w-3 rounded-full bg-red-400/80" />

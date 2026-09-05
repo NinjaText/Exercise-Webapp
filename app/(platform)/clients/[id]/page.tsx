@@ -79,7 +79,7 @@ export default async function ClientDetailPage({ params }: Props) {
 
       {/* Client info */}
       <Card className="shadow-sm ring-1 ring-border/50">
-        <CardContent className="flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:gap-6">
+        <CardContent className="flex flex-col gap-4 p-4 sm:p-6 sm:flex-row sm:items-center sm:gap-6">
           <Avatar className="h-16 w-16 shrink-0">
             <AvatarImage src={client.imageUrl || undefined} />
             <AvatarFallback className="text-lg">

@@ -218,11 +218,19 @@ export async function getPrograms(
     }),
   };
 
-  return prisma.program.findMany({
+  const programs = await prisma.program.findMany({
     where,
     include: programListInclude,
     orderBy: { updatedAt: "desc" },
   });
+
+  // Filter out single-workout wrapper programs created by calendar actions
+  // (createAdHocWorkout, duplicateWorkoutToDateAction) — these exist only to
+  // satisfy Workout.programId and should never surface as a real program.
+  // Done in-memory rather than via a `tags` where-clause because many older
+  // Program documents predate the `tags` field and have no value stored for
+  // it at all, which Mongo's array `NOT`/`has` filters incorrectly exclude.
+  return programs.filter((p) => !p.tags.includes("ad-hoc"));
 }
 
 export async function toggleProgramFavorite(id: string, isFavorite: boolean) {
@@ -498,11 +506,20 @@ export async function assignProgram(
 }
 
 export async function getProgramsForClient(clientId: string) {
-  return prisma.program.findMany({
+  const programs = await prisma.program.findMany({
     where: { clientId, status: { in: ["ACTIVE", "PAUSED"] } },
     include: programListInclude,
     orderBy: { updatedAt: "desc" },
   });
+
+  // Filter out single-workout wrapper programs created by calendar actions
+  // (createAdHocWorkout, duplicateWorkoutToDateAction) — these exist only to
+  // satisfy Workout.programId and should never surface as a real "Assigned
+  // Program". Done in-memory rather than via a `tags` where-clause because
+  // many older Program documents predate the `tags` field and have no value
+  // stored for it at all, which Mongo's array `NOT`/`has` filters incorrectly
+  // exclude.
+  return programs.filter((p) => !p.tags.includes("ad-hoc"));
 }
 
 export async function getTemplates(trainerId: string) {

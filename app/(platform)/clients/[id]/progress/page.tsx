@@ -48,7 +48,7 @@ export default async function ClientProgressPage({ params }: Props) {
 
       {/* Client header */}
       <Card className="border-0 shadow-sm ring-1 ring-border/50">
-        <CardContent className="flex items-center gap-5 p-6">
+        <CardContent className="flex items-center gap-5 p-4 sm:p-6">
           <Avatar className="h-14 w-14">
             <AvatarImage src={client.imageUrl ?? undefined} />
             <AvatarFallback className="text-base">

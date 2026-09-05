@@ -88,7 +88,7 @@ export function NutritionTargetForm({ clientId, role, target, onSaved }: Nutriti
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {NUTRITION_TARGET_FIELDS.map((field) => {
           const meta = FIELD_META[field];
           const editable = fieldEditableByMe(field);

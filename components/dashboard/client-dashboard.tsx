@@ -175,7 +175,7 @@ export function ClientDashboard({
 
       {/* Workout hero — always reflects today (or the next upcoming session), regardless of calendar selection */}
       {todayWorkout ? (
-        <div className="relative overflow-hidden rounded-2xl bg-muted p-6 shadow-sm">
+        <div className="relative overflow-hidden rounded-2xl bg-muted p-4 sm:p-6 shadow-sm">
           <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <Badge className="mb-3 border-border bg-background text-foreground text-xs font-medium uppercase tracking-wide">
@@ -199,7 +199,7 @@ export function ClientDashboard({
           </div>
         </div>
       ) : nextFutureSession ? (
-        <div className="relative overflow-hidden rounded-2xl bg-muted p-6 shadow-sm">
+        <div className="relative overflow-hidden rounded-2xl bg-muted p-4 sm:p-6 shadow-sm">
           <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <Badge className="mb-3 border-border bg-background text-foreground text-xs font-medium uppercase tracking-wide">
@@ -222,7 +222,7 @@ export function ClientDashboard({
           </div>
         </div>
       ) : (
-        <div className="relative overflow-hidden rounded-2xl bg-muted p-6 shadow-sm text-center">
+        <div className="relative overflow-hidden rounded-2xl bg-muted p-4 sm:p-6 shadow-sm text-center">
           <CalendarX className="mx-auto mb-2 h-6 w-6 text-muted-foreground" />
           <h2 className="text-lg font-bold text-foreground">Nothing Scheduled Right Now</h2>
           <p className="mt-2 text-xs text-muted-foreground italic">{quote}</p>
@@ -289,7 +289,7 @@ export function ClientDashboard({
 
       {/* Weekly Progress */}
       <Card>
-        <CardContent className="p-6">
+        <CardContent className="p-4 sm:p-6">
           <div className="mb-4 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-50">

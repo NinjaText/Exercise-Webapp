@@ -30,7 +30,7 @@ export function ClientAdherenceSummary({
 
   return (
     <Card className="shadow-sm ring-1 ring-border/50">
-      <CardContent className="p-6">
+      <CardContent className="p-4 sm:p-6">
         <div className="mb-4 flex items-center justify-between">
           <p className="flex items-center gap-1.5 text-base font-semibold">
             <Activity className="h-4 w-4 text-muted-foreground" />

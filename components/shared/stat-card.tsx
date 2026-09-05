@@ -47,7 +47,7 @@ export function StatCard({
         className,
       )}
     >
-      <CardContent className="p-6">
+      <CardContent className="p-4 sm:p-6">
         <div className="flex items-start justify-between">
           <div className={cn("flex h-11 w-11 items-center justify-center rounded-xl bg-muted text-muted-foreground", iconClassName)}>
             <Icon className="h-5 w-5" />

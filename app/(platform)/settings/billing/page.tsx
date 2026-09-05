@@ -113,12 +113,12 @@ export default async function BillingSettingsPage() {
 
       {/* What's included callout */}
       <Card>
-        <CardContent className="p-6">
+        <CardContent className="p-4 sm:p-6">
           <div className="flex items-center gap-2 mb-3">
             <CreditCard className="h-4 w-4 text-muted-foreground" />
             <p className="text-sm font-semibold text-muted-foreground">All plans include</p>
           </div>
-          <ul className="grid grid-cols-2 gap-x-8 gap-y-1.5 text-sm text-muted-foreground">
+          <ul className="grid grid-cols-1 gap-x-8 gap-y-1.5 text-sm text-muted-foreground sm:grid-cols-2">
             <li>✓ AI workout generation</li>
             <li>✓ Client progress tracking</li>
             <li>✓ Assessments &amp; check-ins</li>

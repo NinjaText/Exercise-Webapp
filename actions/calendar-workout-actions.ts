@@ -47,6 +47,10 @@ export async function createAdHocWorkout(
   try {
     // Create an ad-hoc program, workout, default block, and session in a transaction
     const result = await prisma.$transaction(async (tx) => {
+      // Workout.programId is required, so a Program row must exist even for a
+      // single ad-hoc workout. The "ad-hoc" tag is load-bearing: it's what
+      // getProgramsForClient/getPrograms use to exclude this wrapper from
+      // showing up as a real assigned program.
       const program = await tx.program.create({
         data: {
           name: workoutName,
@@ -1131,6 +1135,10 @@ export async function duplicateWorkoutToDateAction(
     if (!clientId) return { success: false, error: "No client associated" };
 
     const newSession = await prisma.$transaction(async (tx) => {
+      // Workout.programId is required, so a Program row must exist even for a
+      // single duplicated workout. The "ad-hoc" tag is load-bearing: it's what
+      // getProgramsForClient/getPrograms use to exclude this wrapper from
+      // showing up as a real assigned program.
       const program = await tx.program.create({
         data: {
           name: workout.name,

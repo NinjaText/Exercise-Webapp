@@ -10,10 +10,12 @@ import { BroadcastMessageDialog } from "@/components/messages/broadcast-message-
 import { MessagesInboxClient } from "@/components/messages/messages-inbox-client";
 import { InboxList } from "@/components/messages/inbox-list";
 import { ClientContextPanel } from "@/components/messages/client-context-panel";
+import { ClientContextSheet } from "@/components/messages/client-context-sheet";
 import { MarkAllReadButton } from "@/components/messages/mark-all-read-button";
 import { MessageThread } from "@/components/messages/message-thread";
 import { PageHeader } from "@/components/shared/page-header";
-import { MessageSquare } from "lucide-react";
+import { MessageSquare, ArrowLeft } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface Props {
   searchParams: Promise<{ thread?: string }>;
@@ -74,6 +76,11 @@ async function TrainerInbox({
   const selectedThread =
     (threadParam && threads.find((t) => t.otherUser.id === threadParam)) || threads[0] || null;
   const selectedId = selectedThread?.otherUser.id ?? null;
+  // `selectedId` always falls back to the first thread (for a sane desktop
+  // default), so the mobile list/thread toggle below must key off whether a
+  // thread was explicitly requested via ?thread= — otherwise "Back to Inbox"
+  // could never show the list again once a thread had been opened.
+  const isExplicitSelection = Boolean(threadParam);
 
   let threadData = null;
   if (selectedId) {
@@ -129,21 +136,33 @@ async function TrainerInbox({
           </div>
         </div>
       ) : (
-        <div className="grid min-h-0 flex-1 grid-cols-[300px_1fr] overflow-hidden rounded-xl border border-border bg-card shadow-sm xl:grid-cols-[300px_1fr_300px]">
-          <div className="min-h-0 border-r border-border">
+        <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden rounded-xl border border-border bg-card shadow-sm md:grid-cols-[280px_1fr] xl:grid-cols-[300px_1fr_300px]">
+          <div className={cn("min-h-0 border-r border-border", isExplicitSelection ? "hidden md:block" : "block")}>
             <InboxList threads={threads} currentUserId={trainerId} selectedId={selectedId} />
           </div>
 
-          <div className="min-h-0">
+          <div className={cn("min-h-0", isExplicitSelection ? "flex flex-col" : "hidden md:flex md:flex-col")}>
             {selectedThread && threadData ? (
-              <MessageThread
-                key={selectedId}
-                messages={threadData.messages}
-                currentUserId={trainerId}
-                recipientId={selectedThread.otherUser.id}
-                recipientName={`${selectedThread.otherUser.firstName} ${selectedThread.otherUser.lastName}`}
-                allowInternalNotes
-              />
+              <>
+                <Link
+                  href="/messages"
+                  scroll={false}
+                  className="flex shrink-0 items-center gap-2 border-b border-border px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground md:hidden"
+                >
+                  <ArrowLeft className="h-4 w-4" /> Back to Inbox
+                </Link>
+                <div className="min-h-0 flex-1">
+                  <MessageThread
+                    key={selectedId}
+                    messages={threadData.messages}
+                    currentUserId={trainerId}
+                    recipientId={selectedThread.otherUser.id}
+                    recipientName={`${selectedThread.otherUser.firstName} ${selectedThread.otherUser.lastName}`}
+                    allowInternalNotes
+                    headerRight={<ClientContextSheet client={selectedThread.otherUser} data={threadData} />}
+                  />
+                </div>
+              </>
             ) : (
               <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
                 Select a conversation

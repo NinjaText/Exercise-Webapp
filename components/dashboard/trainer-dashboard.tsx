@@ -76,7 +76,7 @@ export function TrainerDashboard({
           background: "linear-gradient(135deg, var(--primary), oklch(0.36 0.19 264))",
         }}
       >
-        <CardContent className="p-6">
+        <CardContent className="p-4 sm:p-6">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
             <div>
               <h1 className="text-3xl font-bold tracking-tight text-white">{getGreeting()} 👋</h1>

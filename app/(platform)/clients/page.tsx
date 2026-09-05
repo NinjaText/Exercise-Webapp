@@ -113,7 +113,7 @@ export default async function ClientsPage({ searchParams }: Props) {
                       className="absolute inset-0 z-0"
                       aria-label={`View ${client.firstName} ${client.lastName}`}
                     />
-                    <CardContent className="relative z-[1] flex items-center gap-4 p-6 pointer-events-none">
+                    <CardContent className="relative z-[1] flex items-center gap-4 p-4 sm:p-6 pointer-events-none">
                       <Avatar className="h-12 w-12 shrink-0 ring-2 ring-white shadow-md">
                         <AvatarImage src={client.imageUrl || undefined} />
                         <AvatarFallback

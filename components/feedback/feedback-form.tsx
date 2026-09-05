@@ -62,7 +62,7 @@ export function FeedbackForm({ planExerciseId, exerciseName, onSuccess }: Feedba
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label>How did this exercise feel? *</Label>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               {FEEDBACK_RATINGS.map((r) => (
                 <button
                   key={r.value}
