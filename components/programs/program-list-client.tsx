@@ -227,12 +227,14 @@ function findMatchedWorkoutId(
 }
 
 function matchesSearch(
-  program: { name: string; workouts: { id: string; name: string }[] },
+  program: { name: string; workouts: { id: string; name: string }[]; tags?: string[] },
   search: string
 ) {
+  const query = search.toLowerCase();
   return (
-    program.name.toLowerCase().includes(search.toLowerCase()) ||
-    findMatchedWorkoutId(program, search) !== null
+    program.name.toLowerCase().includes(query) ||
+    findMatchedWorkoutId(program, search) !== null ||
+    (program.tags ?? []).some((tag) => tag.toLowerCase().includes(query))
   );
 }
 
