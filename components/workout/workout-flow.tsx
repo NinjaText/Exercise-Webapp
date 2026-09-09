@@ -266,24 +266,24 @@ function GuidedWorkoutFlow({
           </div>
         </div>
 
-        <div className="p-8 max-w-2xl mx-auto space-y-6">
+        <div className="p-4 sm:p-8 max-w-2xl mx-auto space-y-6">
           <div className="text-center">
-            <h2 className="text-3xl font-bold text-foreground">{activeExercise.name}</h2>
-            <div className="flex items-center justify-center gap-4 mt-6">
+            <h2 className="text-2xl sm:text-3xl font-bold text-foreground">{activeExercise.name}</h2>
+            <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4 mt-6">
               {activeExercise.reps && (
-                <div className="bg-blue-50 text-blue-800 px-6 py-4 rounded-2xl flex flex-col items-center min-w-[120px]">
+                <div className="bg-blue-50 text-blue-800 px-4 py-3 sm:px-6 sm:py-4 rounded-2xl flex flex-col items-center min-w-[100px] sm:min-w-[120px]">
                   <span className="text-sm font-medium opacity-80 uppercase tracking-widest mb-1">Sets</span>
                   <span className="text-3xl font-black">{activeExercise.sets || 1}</span>
                 </div>
               )}
               {activeExercise.reps && (
-                <div className="bg-blue-50 text-blue-800 px-6 py-4 rounded-2xl flex flex-col items-center min-w-[120px]">
+                <div className="bg-blue-50 text-blue-800 px-4 py-3 sm:px-6 sm:py-4 rounded-2xl flex flex-col items-center min-w-[100px] sm:min-w-[120px]">
                   <span className="text-sm font-medium opacity-80 uppercase tracking-widest mb-1">Reps</span>
                   <span className="text-3xl font-black">{activeExercise.reps}</span>
                 </div>
               )}
               {activeExercise.durationSeconds && (
-                <div className="bg-orange-50 text-orange-800 px-6 py-4 rounded-2xl flex flex-col items-center min-w-[120px]">
+                <div className="bg-orange-50 text-orange-800 px-4 py-3 sm:px-6 sm:py-4 rounded-2xl flex flex-col items-center min-w-[100px] sm:min-w-[120px]">
                   <span className="text-sm font-medium opacity-80 uppercase tracking-widest mb-1">Duration</span>
                   <span className="text-3xl font-black">{activeExercise.durationSeconds}s</span>
                 </div>

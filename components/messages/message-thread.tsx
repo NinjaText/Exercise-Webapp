@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -13,7 +14,12 @@ import {
 } from "@/actions/message-actions";
 import { formatRelativeTime } from "@/lib/utils/formatting";
 import { toast } from "sonner";
-import { Send, Loader2, Check, CheckCheck, Mic, MoreVertical, Pencil, Trash2 } from "lucide-react";
+import { Send, Loader2, Check, CheckCheck, Mic, MoreVertical, Pencil, Trash2, Dumbbell } from "lucide-react";
+import type {
+  ThreadItem,
+  ThreadMessage,
+  ThreadVoiceNoteItem,
+} from "@/lib/types/thread-item";
 import { getPusherClient } from "@/lib/pusher-client";
 import { threadChannel } from "@/lib/pusher-channels";
 import { VoiceMessageRecorder } from "./voice-message-recorder";
@@ -40,28 +46,23 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-interface Message {
-  id: string;
-  senderId: string;
-  content: string;
-  audioUrl?: string | null;
-  audioDurationSec?: number | null;
-  createdAt: Date;
-  isRead?: boolean;
-  readAt?: Date | string | null;
-  editedAt?: Date | string | null;
-  deletedAt?: Date | string | null;
-  replyToExerciseName?: string | null;
-  replyToNoteExcerpt?: string | null;
-  isInternal?: boolean | null;
-  sender: { firstName: string; lastName: string; imageUrl: string | null };
-}
+type Message = ThreadMessage;
 
 /** Fields a realtime edit/delete event can change on an already-rendered message. */
 type MessagePatch = Pick<Message, "content" | "editedAt" | "deletedAt">;
 
+/** Segmented filter above the thread — purely local view state, no URL param. */
+type ItemFilter = "all" | "messages" | "voice_notes";
+
+const ITEM_FILTERS: { key: ItemFilter; label: string }[] = [
+  { key: "all", label: "All" },
+  { key: "messages", label: "Messages" },
+  { key: "voice_notes", label: "Voice Notes" },
+];
+
 interface MessageThreadProps {
-  messages: Message[];
+  /** Chat messages and workout voice notes, already interleaved by createdAt. */
+  items: ThreadItem[];
   currentUserId: string;
   recipientId: string;
   recipientName: string;
@@ -72,14 +73,15 @@ interface MessageThreadProps {
 }
 
 export function MessageThread({
-  messages: initialMessages,
+  items: initialItems,
   currentUserId,
   recipientId,
   recipientName,
   allowInternalNotes = false,
   headerRight,
 }: MessageThreadProps) {
-  const [messages, setMessages] = useState<Message[]>(initialMessages);
+  const [items, setItems] = useState<ThreadItem[]>(initialItems);
+  const [filter, setFilter] = useState<ItemFilter>("all");
   const [content, setContent] = useState("");
   const [sending, setSending] = useState(false);
   const [recipientTyping, setRecipientTyping] = useState(false);
@@ -90,12 +92,36 @@ export function MessageThread({
   const typingClearRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const typingDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const visibleItems = useMemo(() => {
+    if (filter === "all") return items;
+    const wanted = filter === "messages" ? "message" : "voice_note";
+    return items.filter((item) => item.kind === wanted);
+  }, [items, filter]);
+
+  const hasVoiceNotes = useMemo(
+    () => items.some((item) => item.kind === "voice_note"),
+    [items],
+  );
+
   useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages.length, recipientTyping]);
+  }, [visibleItems.length, recipientTyping]);
 
+  /** Applies a realtime patch to one message item, leaving voice notes untouched. */
   const patchMessage = useCallback((id: string, patch: Partial<MessagePatch>) => {
-    setMessages((prev) => prev.map((m) => (m.id === id ? { ...m, ...patch } : m)));
+    setItems((prev) =>
+      prev.map((item) =>
+        item.kind === "message" && item.id === id ? { ...item, ...patch } : item,
+      ),
+    );
+  }, []);
+
+  const appendMessage = useCallback((message: Message) => {
+    setItems((prev) =>
+      prev.some((item) => item.kind === "message" && item.id === message.id)
+        ? prev
+        : [...prev, { kind: "message" as const, ...message }],
+    );
   }, []);
 
   useEffect(() => {
@@ -106,9 +132,7 @@ export function MessageThread({
       "new-message",
       (data: Omit<Message, "createdAt"> & { createdAt: string }) => {
         const msg: Message = { ...data, createdAt: new Date(data.createdAt) };
-        setMessages((prev) =>
-          prev.some((m) => m.id === msg.id) ? prev : [...prev, msg],
-        );
+        appendMessage(msg);
         setRecipientTyping(false);
         if (typingClearRef.current) clearTimeout(typingClearRef.current);
 
@@ -122,29 +146,22 @@ export function MessageThread({
     channel.bind(
       "message-updated",
       (data: { id: string; content: string; editedAt: string | null; deletedAt: string | null }) => {
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.id === data.id
-              ? {
-                  ...m,
-                  content: data.content,
-                  editedAt: data.editedAt ? new Date(data.editedAt) : null,
-                  deletedAt: data.deletedAt ? new Date(data.deletedAt) : null,
-                }
-              : m,
-          ),
-        );
+        patchMessage(data.id, {
+          content: data.content,
+          editedAt: data.editedAt ? new Date(data.editedAt) : null,
+          deletedAt: data.deletedAt ? new Date(data.deletedAt) : null,
+        });
       },
     );
 
     channel.bind("messages-read", (data: { readByUserId: string }) => {
       if (data.readByUserId !== recipientId) return;
       const now = new Date();
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.senderId === currentUserId && !m.isRead
-            ? { ...m, isRead: true, readAt: now }
-            : m,
+      setItems((prev) =>
+        prev.map((item) =>
+          item.kind === "message" && item.senderId === currentUserId && !item.isRead
+            ? { ...item, isRead: true, readAt: now }
+            : item,
         ),
       );
     });
@@ -161,7 +178,7 @@ export function MessageThread({
       if (typingDebounceRef.current) clearTimeout(typingDebounceRef.current);
       pusher.unsubscribe(threadChannel(currentUserId, recipientId));
     };
-  }, [currentUserId, recipientId]);
+  }, [currentUserId, recipientId, appendMessage, patchMessage]);
 
   const triggerTyping = useCallback(() => {
     if (typingDebounceRef.current) clearTimeout(typingDebounceRef.current);
@@ -183,9 +200,7 @@ export function MessageThread({
       // (the client is subscribed to it), so append it here instead of
       // waiting for a Pusher echo that will never arrive.
       if (isInternal) {
-        setMessages((prev) =>
-          prev.some((m) => m.id === result.data.id) ? prev : [...prev, result.data],
-        );
+        appendMessage(result.data);
       }
     } else {
       toast.error(result.error);
@@ -214,17 +229,53 @@ export function MessageThread({
         {headerRight}
       </div>
 
+      {/* Filter: chat messages vs. voice notes left against a workout.
+          Only offered once the thread actually contains both kinds. */}
+      {hasVoiceNotes && (
+        <div className="flex shrink-0 gap-1 border-b border-border px-4 py-2">
+          {ITEM_FILTERS.map((option) => (
+            <button
+              key={option.key}
+              type="button"
+              onClick={() => setFilter(option.key)}
+              aria-pressed={filter === option.key}
+              className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+                filter === option.key
+                  ? "bg-primary/10 text-primary"
+                  : "text-muted-foreground hover:bg-muted"
+              }`}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Messages */}
       <ScrollArea className="min-h-0 flex-1 p-4">
         <div className="space-y-4">
-          {messages.map((msg) => (
-            <MessageBubble
-              key={msg.id}
-              message={msg}
-              isOwn={msg.senderId === currentUserId}
-              onPatch={patchMessage}
-            />
-          ))}
+          {visibleItems.length === 0 && (
+            <p className="py-8 text-center text-sm text-muted-foreground">
+              Nothing to show for this filter.
+            </p>
+          )}
+
+          {visibleItems.map((item) =>
+            item.kind === "voice_note" ? (
+              <VoiceNoteBubble
+                key={`voice-${item.id}`}
+                item={item}
+                isOwn={item.authorId === currentUserId}
+              />
+            ) : (
+              <MessageBubble
+                key={item.id}
+                message={item}
+                isOwn={item.senderId === currentUserId}
+                onPatch={patchMessage}
+              />
+            ),
+          )}
 
           {/* Typing indicator */}
           {recipientTyping && (
@@ -304,6 +355,69 @@ export function MessageThread({
             </Button>
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * A `VoiceMemo` recorded against a workout. Visually mirrors the in-thread
+ * voice-message bubble so the thread reads consistently, but is labelled and
+ * deep-linked to the session it belongs to — these are workout notes, not chat.
+ */
+function VoiceNoteBubble({ item, isOwn }: { item: ThreadVoiceNoteItem; isOwn: boolean }) {
+  const initials = item.author
+    ? `${item.author.firstName[0] ?? ""}${item.author.lastName[0] ?? ""}`
+    : "?";
+
+  return (
+    <div className={`flex gap-3 ${isOwn ? "flex-row-reverse" : ""}`}>
+      <Avatar className="h-8 w-8 flex-shrink-0">
+        <AvatarImage src={item.author?.imageUrl || undefined} />
+        <AvatarFallback className="text-xs">{initials}</AvatarFallback>
+      </Avatar>
+
+      <div className={`max-w-[70%] ${isOwn ? "text-right" : ""}`}>
+        <div
+          className={`inline-block rounded-lg px-3 py-2 text-left ${
+            isOwn ? "bg-blue-600 text-white" : "bg-muted text-foreground"
+          }`}
+        >
+          <p
+            className={`mb-1 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide ${
+              isOwn ? "text-white/80" : "text-muted-foreground"
+            }`}
+          >
+            <Dumbbell className="h-3 w-3 shrink-0" />
+            Session Voice Note
+          </p>
+          <p className={`mb-1.5 text-xs ${isOwn ? "text-white/90" : "text-muted-foreground"}`}>
+            {item.workoutName}
+          </p>
+          <div className="flex items-center gap-2">
+            <Mic className={`h-3.5 w-3.5 shrink-0 ${isOwn ? "text-white" : "text-muted-foreground"}`} />
+            <audio src={item.audioUrl} controls className="h-8 max-w-[220px]" />
+          </div>
+          {item.sessionId && (
+            <Link
+              href={`/sessions/${item.sessionId}`}
+              className={`mt-1.5 inline-block text-xs font-medium underline underline-offset-2 ${
+                isOwn ? "text-white/90 hover:text-white" : "text-primary hover:text-primary/80"
+              }`}
+            >
+              View workout
+            </Link>
+          )}
+        </div>
+
+        <div
+          className={`mt-1 flex items-center gap-1 text-xs text-muted-foreground/60 ${
+            isOwn ? "justify-end" : ""
+          }`}
+        >
+          <span>{formatRelativeTime(item.createdAt)}</span>
+          {isOwn && <ReadIndicator isRead={item.isRead} />}
+        </div>
       </div>
     </div>
   );

@@ -55,7 +55,15 @@ export const workoutSchema = z.object({
 });
 
 // --- Program schema ---
-export const createProgramSchema = z.object({
+
+/**
+ * SCHEDULED programs run on dates and pre-generate sessions. ON_DEMAND
+ * ("Resources": warm-ups, mobility, recovery) have no schedule at all, so
+ * startDate/daysPerWeek are meaningless for them.
+ */
+export const programSchedulingTypeSchema = z.enum(["SCHEDULED", "ON_DEMAND"]);
+
+const createProgramBaseSchema = z.object({
   name: z.string().min(1, "Name is required").max(200),
   description: z.string().max(5000).optional().nullable(),
   isTemplate: z.boolean().default(false),
@@ -73,16 +81,46 @@ export const createProgramSchema = z.object({
   goals: z.array(z.string()).default([]),
   activities: z.array(z.string()).default([]),
   level: z.enum(["BEGINNER", "INTERMEDIATE", "ADVANCED"]).optional().nullable(),
+  schedulingType: programSchedulingTypeSchema.default("SCHEDULED"),
 });
 
-export const updateProgramSchema = createProgramSchema.partial().extend({
+/**
+ * The schedule fields stay optional for SCHEDULED programs (a library program
+ * or draft legitimately has no start date until it's assigned), but they are
+ * outright invalid on an ON_DEMAND program — a Resource has no schedule, and
+ * storing one would make the Programs UI and the adherence maths lie.
+ */
+export const createProgramSchema = createProgramBaseSchema.superRefine((data, ctx) => {
+  if (data.schedulingType !== "ON_DEMAND") return;
+
+  if (data.startDate) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["startDate"],
+      message: "On-demand resources don't have a start date",
+    });
+  }
+  if (data.daysPerWeek != null) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["daysPerWeek"],
+      message: "On-demand resources don't have a weekly schedule",
+    });
+  }
+});
+
+export const updateProgramSchema = createProgramBaseSchema.partial().extend({
   status: z.enum(["DRAFT", "ACTIVE", "PAUSED", "COMPLETED", "ARCHIVED"]).optional(),
 });
 
+// startDate is intentionally optional here: this schema can't know whether the
+// target program is Scheduled (start date required) or On-Demand (no schedule
+// at all), so assignProgramAction resolves the program first and enforces the
+// requirement itself.
 export const assignProgramSchema = z.object({
   programId: z.string().min(1),
   clientId: z.string().min(1),
-  startDate: z.string().datetime(),
+  startDate: z.string().datetime().optional().nullable(),
 });
 
 export const programFilterSchema = z.object({

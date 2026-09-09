@@ -455,10 +455,10 @@ function SortableExercise({
             />
           </div>
 
-          <div className="space-y-1">
+          <div className="space-y-1 overflow-x-auto">
             {/* Minimal Set Headers */}
             {exercise.sets.length > 0 && (
-              <div className="grid grid-cols-[1.5rem_1.5fr_1.5fr_1fr_1.5rem] gap-2 text-[10px] font-medium text-muted-foreground uppercase tracking-wider px-1 mb-1">                                        
+              <div className="grid min-w-[340px] grid-cols-[1.5rem_minmax(80px,1.5fr)_minmax(80px,1.5fr)_minmax(60px,1fr)_1.5rem] gap-2 text-[10px] font-medium text-muted-foreground uppercase tracking-wider px-1 mb-1">
                 <span className="text-center">Set</span>
                 <span>Reps / Dur</span>
                 <span>Load / %</span>
@@ -475,7 +475,7 @@ function SortableExercise({
               return (
               <div
                 key={set.id}
-                className="grid grid-cols-[1.5rem_1.5fr_1.5fr_1fr_1.5rem] gap-2 items-center group/set border rounded-sm p-1 bg-background/50 hover:bg-accent/20 transition-colors"                                                                
+                className="grid min-w-[340px] grid-cols-[1.5rem_minmax(80px,1.5fr)_minmax(80px,1.5fr)_minmax(60px,1fr)_1.5rem] gap-2 items-center group/set border rounded-sm p-1 bg-background/50 hover:bg-accent/20 transition-colors"
               >
                 <div className="text-xs font-medium text-muted-foreground text-center relative">                                                                               
                   {setIndex + 1}
@@ -1295,7 +1295,7 @@ export function WorkoutEditorPanel({
           showCloseButton={false}
         >
           {/* Header */}
-          <DialogHeader className="border-b px-6 py-4 shrink-0">
+          <DialogHeader className="border-b px-4 py-4 shrink-0 sm:px-6">
             <div className="flex items-center justify-between">
               <div className="flex-1 min-w-0">
                 <DialogTitle className="sr-only">
@@ -1394,7 +1394,7 @@ export function WorkoutEditorPanel({
 
           {/* Body */}
           <div className="flex-1 min-h-0 overflow-y-auto">
-            <div className="px-6 py-5 space-y-4">
+            <div className="px-4 py-5 space-y-4 sm:px-6">
               {loading ? (
                 <div className="flex items-center justify-center py-20">        
                   <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />                                                                            
@@ -1410,7 +1410,7 @@ export function WorkoutEditorPanel({
                     <button
                       onClick={handleCreateWorkout}
                       disabled={saving || !workoutName.trim()}
-                      className="group flex flex-col items-center gap-3 rounded-xl border-2 border-border bg-background p-6 text-left transition-all hover:border-blue-400 hover:bg-blue-50/50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="group flex flex-col items-center gap-3 rounded-xl border-2 border-border bg-background p-4 sm:p-6 text-left transition-all hover:border-blue-400 hover:bg-blue-50/50 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <div className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-100 text-blue-600 group-hover:bg-blue-200 transition-colors">
                         {saving ? (
@@ -1435,7 +1435,7 @@ export function WorkoutEditorPanel({
                           panelState.mode === "creating" ? panelState.date : new Date()
                         );
                       }}
-                      className="group flex flex-col items-center gap-3 rounded-xl border-2 border-border bg-background p-6 text-left transition-all hover:border-violet-400 hover:bg-violet-50/50"
+                      className="group flex flex-col items-center gap-3 rounded-xl border-2 border-border bg-background p-4 sm:p-6 text-left transition-all hover:border-violet-400 hover:bg-violet-50/50"
                     >
                       <div className="flex h-12 w-12 items-center justify-center rounded-full bg-violet-100 text-violet-600 group-hover:bg-violet-200 transition-colors">
                         <Sparkles className="h-5 w-5" />
@@ -1664,7 +1664,7 @@ export function WorkoutEditorPanel({
 
           {/* Footer */}
           {session && nameChanged && (
-            <DialogFooter className="border-t px-6 py-3 m-0 bg-transparent rounded-none shrink-0 sm:justify-end">
+            <DialogFooter className="border-t px-4 py-3 m-0 bg-transparent rounded-none shrink-0 sm:justify-end sm:px-6">
               <Button
                 onClick={handleSaveName}
                 disabled={saving}

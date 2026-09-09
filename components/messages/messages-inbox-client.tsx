@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { formatRelativeTime } from "@/lib/utils/formatting";
 import { getPusherClient } from "@/lib/pusher-client";
 import { inboxChannel } from "@/lib/pusher-channels";
+import { getDisplayName, getInitials } from "@/lib/utils/display-name";
 
 
 interface Thread {
@@ -14,11 +15,14 @@ interface Thread {
     id: string;
     firstName: string;
     lastName: string;
+    email: string;
     imageUrl: string | null;
     role: string;
   };
   lastMessage: { content: string; createdAt: Date; deletedAt?: Date | null };
   unreadCount: number;
+  /** The newest item is a workout voice note rather than a chat message. */
+  lastItemIsVoiceNote?: boolean;
 }
 
 interface MessagesInboxClientProps {
@@ -50,6 +54,7 @@ export function MessagesInboxClient({
           updated[idx] = {
             ...updated[idx],
             lastMessage: { content: data.content, createdAt: new Date(data.createdAt), deletedAt: null },
+            lastItemIsVoiceNote: false,
             unreadCount: updated[idx].unreadCount + 1,
           };
           return [updated[idx], ...updated.filter((_, i) => i !== idx)];
@@ -93,8 +98,8 @@ export function MessagesInboxClient({
     <div className="overflow-hidden rounded-xl border border-border/60 bg-card shadow-sm">
       {threads.map((thread, i) => {
         const hasUnread = thread.unreadCount > 0;
-        const fullName = `${thread.otherUser.firstName} ${thread.otherUser.lastName}`;
-        const initials = `${thread.otherUser.firstName[0]}${thread.otherUser.lastName[0]}`;
+        const fullName = getDisplayName(thread.otherUser);
+        const initials = getInitials(thread.otherUser);
         const isOnline = onlineUsers.has(thread.otherUser.id);
 
         return (

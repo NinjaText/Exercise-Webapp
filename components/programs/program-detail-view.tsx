@@ -66,10 +66,12 @@ interface ProgramDetailViewProps {
   adminMode?: boolean;
   editHref?: string;
   initialWorkoutId?: string;
+  // startDate is optional because an on-demand Resource has no schedule —
+  // the action resolves the program's type and enforces the requirement.
   assignAction?: (input: {
     programId: string;
     clientId: string;
-    startDate: string;
+    startDate?: string | null;
   }) => Promise<{ success: boolean; error?: string; data?: unknown }>;
 }
 
@@ -579,6 +581,7 @@ export function ProgramDetailView({
         clients={clients}
         open={assignOpen}
         onOpenChange={setAssignOpen}
+        schedulingType={program.schedulingType as string | null | undefined}
         assignAction={assignAction}
       />
 

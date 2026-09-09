@@ -7,6 +7,7 @@ import type { UpdateProgramInput } from "@/lib/validators/program";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { logAudit, diffFields, AUDIT_ACTIONS } from "@/lib/services/audit-log.service";
+import { getProgramSchedulingType } from "@/lib/utils/program-scheduling";
 
 export async function updateAdminProgramAction(
   programId: string,
@@ -182,7 +183,7 @@ export async function unpublishAdminProgramAction(programId: string) {
 export async function assignAdminProgramAction(input: {
   programId: string;
   clientId: string;
-  startDate: string;
+  startDate?: string | null;
 }) {
   await requireSuperAdmin();
 
@@ -193,7 +194,7 @@ export async function assignAdminProgramAction(input: {
 
   const existing = await prisma.program.findUnique({
     where: { id: parsed.data.programId },
-    select: { isGlobal: true, trainerId: true },
+    select: { isGlobal: true, trainerId: true, schedulingType: true },
   });
   if (!existing) {
     return { success: false as const, error: "Program not found" };
@@ -208,6 +209,14 @@ export async function assignAdminProgramAction(input: {
     return { success: false as const, error: "Program has no owning trainer" };
   }
 
+  // assignProgramSchema can't know the program's type, so the "is a start date
+  // required" rule lives here: Scheduled programs need one, on-demand
+  // Resources have no schedule at all.
+  const isOnDemand = getProgramSchedulingType(existing) === "ON_DEMAND";
+  if (!isOnDemand && !parsed.data.startDate) {
+    return { success: false as const, error: "A start date is required" };
+  }
+
   try {
     // Never mutate the source program in place — clone it so the original
     // (which may be a reusable template) stays assignable to other clients.
@@ -216,11 +225,13 @@ export async function assignAdminProgramAction(input: {
       existing.trainerId,
       false
     );
-    const result = await programService.assignProgram(
-      copy.id,
-      parsed.data.clientId,
-      new Date(parsed.data.startDate)
-    );
+    const result = isOnDemand
+      ? await programService.assignOnDemandProgram(copy.id, parsed.data.clientId)
+      : await programService.assignProgram(
+          copy.id,
+          parsed.data.clientId,
+          new Date(parsed.data.startDate!)
+        );
     revalidatePath("/admin/programs");
     revalidatePath(`/admin/programs/${parsed.data.programId}`);
     revalidatePath(`/clients/${parsed.data.clientId}`);

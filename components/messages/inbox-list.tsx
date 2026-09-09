@@ -8,7 +8,12 @@ import { Input } from "@/components/ui/input";
 import { formatRelativeTime } from "@/lib/utils/formatting";
 import { getPusherClient } from "@/lib/pusher-client";
 import { inboxChannel } from "@/lib/pusher-channels";
-import { getMessageCategory, MESSAGE_CATEGORY_LABEL } from "@/lib/utils/message-category";
+import {
+  getMessageCategory,
+  MESSAGE_CATEGORY_LABEL,
+  type MessageCategory,
+} from "@/lib/utils/message-category";
+import { getDisplayName, getInitials } from "@/lib/utils/display-name";
 import { Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -27,6 +32,7 @@ interface Thread {
     id: string;
     firstName: string;
     lastName: string;
+    email: string;
     imageUrl: string | null;
     role: string;
   };
@@ -39,6 +45,11 @@ interface Thread {
     isInternal?: boolean | null;
   };
   unreadCount: number;
+  /**
+   * The newest item is a workout voice note rather than a chat message — the
+   * preview text and timestamp above already describe that memo.
+   */
+  lastItemIsVoiceNote?: boolean;
 }
 
 export function InboxList({
@@ -73,6 +84,9 @@ export function InboxList({
           updated[idx] = {
             ...updated[idx],
             lastMessage: { ...updated[idx].lastMessage, content: data.content, createdAt: new Date(data.createdAt), deletedAt: null },
+            // A live chat message is now the newest item, superseding any
+            // voice note that was previously driving this row's preview.
+            lastItemIsVoiceNote: false,
             unreadCount: updated[idx].otherUser.id === selectedId ? updated[idx].unreadCount : updated[idx].unreadCount + 1,
           };
           return [updated[idx], ...updated.filter((_, i) => i !== idx)];
@@ -111,7 +125,7 @@ export function InboxList({
     const q = search.trim().toLowerCase();
     if (!q) return threads;
     return threads.filter((t) => {
-      const name = `${t.otherUser.firstName} ${t.otherUser.lastName}`.toLowerCase();
+      const name = getDisplayName(t.otherUser).toLowerCase();
       return name.includes(q) || t.lastMessage.content.toLowerCase().includes(q);
     });
   }, [threads, search]);
@@ -137,10 +151,12 @@ export function InboxList({
           filtered.map((thread, i) => {
             const hasUnread = thread.unreadCount > 0;
             const isSelected = thread.otherUser.id === selectedId;
-            const fullName = `${thread.otherUser.firstName} ${thread.otherUser.lastName}`;
-            const initials = `${thread.otherUser.firstName[0]}${thread.otherUser.lastName[0]}`;
+            const fullName = getDisplayName(thread.otherUser);
+            const initials = getInitials(thread.otherUser);
             const isOnline = onlineUsers.has(thread.otherUser.id);
-            const category = getMessageCategory(thread.lastMessage);
+            const category: MessageCategory = thread.lastItemIsVoiceNote
+              ? "voice_note"
+              : getMessageCategory(thread.lastMessage);
 
             return (
               <Link key={thread.otherUser.id} href={`/messages?thread=${thread.otherUser.id}`} scroll={false}>

@@ -145,7 +145,7 @@ export function WorkoutModeWrapper({ session, initialMode }: Props) {
 
   return (
     <div className="mx-auto max-w-lg space-y-5">
-      <div className="overflow-hidden rounded-2xl bg-muted p-6 shadow-sm">
+      <div className="overflow-hidden rounded-2xl bg-muted p-4 sm:p-6 shadow-sm">
         <div className="relative">
           {isReturning && (
             <Badge variant="outline" className="mb-3 text-xs">
@@ -171,7 +171,7 @@ export function WorkoutModeWrapper({ session, initialMode }: Props) {
         Select Your Workout Experience
       </h3>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <button
           type="button"
           onClick={() => enterMode("checklist")}

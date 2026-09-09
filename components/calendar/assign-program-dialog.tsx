@@ -23,6 +23,7 @@ import { Label } from "@/components/ui/label";
 import { getProgramsAction, getProgramAction } from "@/actions/program-actions";
 import { scheduleProgramForClientAction } from "@/actions/calendar-actions";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { getProgramSchedulingType } from "@/lib/utils/program-scheduling";
 
 export function AssignProgramDialog({
   clientId,
@@ -68,7 +69,14 @@ export function AssignProgramDialog({
       getProgramsAction({ isTemplate: true })
         .then((res) => {
           if (res.success && res.data) {
-            setPrograms(res.data.map(p => ({ id: p.id, name: p.name })));
+            // This dialog is purely a scheduling UI (start date, weekdays,
+            // per-workout dates) — an On-Demand resource has no schedule to
+            // represent here, so it's excluded from the picker.
+            setPrograms(
+              res.data
+                .filter((p) => getProgramSchedulingType(p) !== "ON_DEMAND")
+                .map((p) => ({ id: p.id, name: p.name }))
+            );
           }
         })
         .catch(console.error);

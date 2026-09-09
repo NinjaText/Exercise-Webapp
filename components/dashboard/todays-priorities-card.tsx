@@ -1,3 +1,6 @@
+"use client";
+
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -28,6 +31,7 @@ const severityBadge: Record<AlertSeverity, string> = {
   low: "bg-success/10 text-success",
 };
 
+/** High → Medium → Low. Also the order the "expand all" affordance reveals groups in. */
 const SEVERITY_ORDER: AlertSeverity[] = ["high", "medium", "low"];
 
 type ActionKey = "view_client" | "message" | "create_next_program";
@@ -52,31 +56,66 @@ const ACTION_CONFIG: Record<ActionKey, { label: string; href: (alert: PriorityAl
   },
 };
 
-export function TodaysPrioritiesCard({ priorities }: { priorities: PriorityAlert[] }) {
-  const groups = SEVERITY_ORDER.map((severity) => ({
-    severity,
-    alerts: priorities.filter((alert) => alert.severity === severity),
-  })).filter((group) => group.alerts.length > 0);
+interface TodaysPrioritiesCardProps {
+  priorities: PriorityAlert[];
+  /**
+   * Bumped by the dashboard wrapper (e.g. when arriving at `?focus=priorities`)
+   * to force every severity group open. A counter rather than a boolean so
+   * repeated triggers still re-expand after the trainer has collapsed a group.
+   */
+  expandSignal?: number;
+}
+
+export function TodaysPrioritiesCard({ priorities, expandSignal = 0 }: TodaysPrioritiesCardProps) {
+  const groups = useMemo(
+    () =>
+      SEVERITY_ORDER.map((severity) => ({
+        severity,
+        alerts: priorities.filter((alert) => alert.severity === severity),
+      })).filter((group) => group.alerts.length > 0),
+    [priorities]
+  );
+
+  // Controlled so an external "expand all" can force every group open. Starts
+  // fully collapsed, matching the card's original uncontrolled behaviour.
+  const [openGroups, setOpenGroups] = useState<AlertSeverity[]>([]);
+  const [handledSignal, setHandledSignal] = useState(expandSignal);
+
+  // Adjusting state during render (rather than in an effect) is React's
+  // recommended way to react to a changed prop: it re-renders before the
+  // browser paints, so the groups never flash closed on arrival.
+  if (expandSignal !== handledSignal) {
+    setHandledSignal(expandSignal);
+    if (expandSignal > 0) {
+      setOpenGroups(groups.map((group) => group.severity));
+    }
+  }
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between pb-3">
+    <Card className="h-full">
+      <CardHeader className="flex flex-row items-center justify-between pb-2">
         <div className="flex items-center gap-2">
           <ListChecks className="h-4.5 w-4.5 text-primary" />
           <CardTitle className="text-base font-semibold">Today&apos;s Priorities</CardTitle>
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="pt-0">
         {priorities.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-8 text-center">
-            <CircleCheck className="h-10 w-10 text-success/40" />
-            <p className="mt-3 text-sm font-medium text-muted-foreground">You&apos;re all caught up</p>
+          <div className="flex flex-col items-center justify-center py-6 text-center">
+            <CircleCheck className="h-9 w-9 text-success/40" />
+            <p className="mt-2.5 text-sm font-medium text-muted-foreground">
+              You&apos;re all caught up
+            </p>
             <p className="mt-1 text-xs text-muted-foreground/60">
               No clients need attention right now
             </p>
           </div>
         ) : (
-          <Accordion multiple>
+          <Accordion
+            multiple
+            value={openGroups}
+            onValueChange={(value) => setOpenGroups(value as AlertSeverity[])}
+          >
             {groups.map(({ severity, alerts }) => (
               <AccordionItem key={severity} value={severity}>
                 <AccordionTrigger>
@@ -95,7 +134,7 @@ export function TodaysPrioritiesCard({ priorities }: { priorities: PriorityAlert
                     {alerts.map((alert, i) => (
                       <div
                         key={`${alert.clientId}-${i}`}
-                        className="rounded-xl border border-border/60 bg-muted/20 p-3"
+                        className="rounded-xl border border-border/60 bg-muted/20 p-2.5"
                       >
                         <div className="flex items-start gap-2.5">
                           <span

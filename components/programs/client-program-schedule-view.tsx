@@ -76,8 +76,75 @@ export function ClientProgramScheduleView({ rawSessions }: Props) {
         </button>
       </div>
 
-      <div className="overflow-x-auto pb-1">
-        <div className="grid min-w-[700px] grid-cols-7 gap-2 sm:min-w-0">
+      {/* Mobile: vertical day-by-day agenda list */}
+      <div className="flex flex-col gap-2 sm:hidden">
+        {days.map((day) => {
+          const key = format(day, "yyyy-MM-dd");
+          const session = sessionsByDay.get(key);
+          const statusCfg = session ? STATUS_CONFIG[session.status] ?? STATUS_CONFIG.SCHEDULED : null;
+          const exerciseCount = session
+            ? session.workout.blocks.reduce((sum, b) => sum + b.exercises.length, 0)
+            : 0;
+          const today = isToday(day);
+
+          return (
+            <div
+              key={key}
+              className={cn(
+                "flex items-stretch gap-3 rounded-lg border bg-card p-2.5",
+                today ? "border-primary/50 ring-1 ring-primary/30" : "border-border"
+              )}
+            >
+              <div className="flex w-12 shrink-0 flex-col items-center justify-center rounded-md bg-muted/40 py-1.5">
+                <span className={cn("text-[10px] font-semibold uppercase tracking-wide", today ? "text-primary" : "text-muted-foreground")}>
+                  {format(day, "EEE")}
+                </span>
+                <span className={cn("text-base font-bold", today ? "text-primary" : "text-foreground")}>
+                  {format(day, "d")}
+                </span>
+              </div>
+
+              {session ? (
+                <button
+                  onClick={() => setSelectedSession(session)}
+                  className="flex flex-1 items-center gap-2 rounded-md border border-border/70 bg-muted/30 p-2 text-left transition-colors hover:border-foreground/30 hover:bg-muted/50"
+                >
+                  <span
+                    className="h-2 w-2 shrink-0 rounded-full"
+                    style={{ backgroundColor: statusCfg!.dot }}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold leading-snug text-foreground">
+                      {session.workout.name}
+                    </p>
+                    <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
+                      {session.workout.estimatedMinutes && (
+                        <span className="flex items-center gap-1">
+                          <Clock className="h-2.5 w-2.5" />
+                          ~{session.workout.estimatedMinutes} min
+                        </span>
+                      )}
+                      <span>
+                        {exerciseCount} exercise{exerciseCount !== 1 ? "s" : ""}
+                      </span>
+                      <span className="font-medium">{statusCfg!.label}</span>
+                    </div>
+                  </div>
+                </button>
+              ) : (
+                <div className="flex flex-1 items-center justify-center gap-1.5 rounded-md border border-dashed border-border/60 text-muted-foreground/50">
+                  <Moon className="h-3.5 w-3.5" />
+                  <span className="text-xs">Rest day</span>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Desktop/tablet: 7-column week grid */}
+      <div className="hidden overflow-x-auto pb-1 sm:block">
+        <div className="grid min-w-[700px] grid-cols-7 gap-2">
           {days.map((day) => {
             const key = format(day, "yyyy-MM-dd");
             const session = sessionsByDay.get(key);

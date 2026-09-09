@@ -31,9 +31,10 @@ interface AdminSidebarProps {
   userName: string;
   userEmail: string;
   userImageUrl?: string | null;
+  mobileMode?: boolean;
 }
 
-export function AdminSidebar({ userName, userEmail }: AdminSidebarProps) {
+export function AdminSidebar({ userName, userEmail, mobileMode = false }: AdminSidebarProps) {
   const pathname = usePathname();
 
   const navItem = (href: string, label: string, Icon: React.ElementType, exact = false) => {
@@ -62,7 +63,7 @@ export function AdminSidebar({ userName, userEmail }: AdminSidebarProps) {
   };
 
   return (
-    <aside className="hidden w-64 flex-col bg-sidebar lg:flex">
+    <aside className={cn("w-64 flex-col bg-sidebar", mobileMode ? "flex" : "hidden lg:flex")}>
       {/* Logo */}
       <div className="flex h-16 items-center gap-3 border-b border-sidebar-border/60 px-5">
         <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-muted shadow-sm">

@@ -137,6 +137,63 @@ export async function getSessionsForClient(
   });
 }
 
+/** How many months either side of "now" the client's calendar view spans. */
+const CALENDAR_WINDOW_MONTHS = 1;
+
+/**
+ * The month range the client's schedule surfaces load. Shared by the dashboard
+ * (week strip + "next workout" hero) and the /calendar month view so the two
+ * can never disagree about which sessions exist.
+ */
+export function getClientCalendarWindow(now: Date): { from: Date; to: Date } {
+  return {
+    from: new Date(now.getFullYear(), now.getMonth() - CALENDAR_WINDOW_MONTHS, 1),
+    to: new Date(now.getFullYear(), now.getMonth() + CALENDAR_WINDOW_MONTHS + 1, 0, 23, 59, 59),
+  };
+}
+
+export type ClientCalendarSession = Awaited<
+  ReturnType<typeof getClientCalendarSessions>
+>[number];
+
+/**
+ * Sessions for a client's own calendar/schedule widgets. Selects only what a
+ * day cell needs (date, status, workout label, exercise count) — full session
+ * detail is loaded per-session via getSessionById when one is actually opened.
+ *
+ * Includes On-Demand ("Resource") sessions on purpose: once a client has
+ * actually started one it belongs on their calendar. Only *compliance*
+ * calculations exclude Resources (see dashboard-insights.service.ts).
+ */
+export async function getClientCalendarSessions(
+  clientId: string,
+  window: { from: Date; to: Date }
+) {
+  return prisma.workoutSessionV2.findMany({
+    where: {
+      clientId,
+      scheduledDate: { gte: window.from, lte: window.to },
+    },
+    select: {
+      id: true,
+      scheduledDate: true,
+      status: true,
+      workout: {
+        select: {
+          name: true,
+          dayIndex: true,
+          weekIndex: true,
+          estimatedMinutes: true,
+          blocks: {
+            select: { exercises: { select: { id: true } } },
+          },
+        },
+      },
+    },
+    orderBy: { scheduledDate: "asc" },
+  });
+}
+
 export async function getSessionById(sessionId: string) {
   return prisma.workoutSessionV2.findUnique({
     where: { id: sessionId },
@@ -285,10 +342,12 @@ export async function getSessionsForTrainer(
         : {}),
     },
     include: {
-      client: { select: { id: true, firstName: true, lastName: true } },
+      client: { select: { id: true, firstName: true, lastName: true, email: true } },
       workout: {
         include: {
-          program: { select: { id: true, name: true } },
+          // `schedulingType` lets callers drop On-Demand ("Resource") sessions,
+          // which have no schedule and must not read as scheduled work.
+          program: { select: { id: true, name: true, schedulingType: true } },
         },
       },
     },

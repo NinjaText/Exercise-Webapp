@@ -15,8 +15,6 @@ interface HeaderProps {
   unreadMessageCount: number;
   unreadNotificationCount: number;
   initialNotifications: Notification[];
-  unreadVoiceCount?: number;
-  trainerClerkId?: string;
 }
 
 function getPageTitle(pathname: string): string {
@@ -29,8 +27,8 @@ function getPageTitle(pathname: string): string {
     "/programs/generate": "Generate Program",
     "/programs/upload": "Upload Program",
     "/clients": "Clients",
+    "/calendar": "My Calendar",
     "/messages": "Inbox",
-    "/voice-messages": "Voice Messages",
     "/assessments": "Assessments",
     "/assessments/new": "New Assessment",
     "/check-ins": "Check-ins",
@@ -65,15 +63,13 @@ export function Header({
   unreadMessageCount,
   unreadNotificationCount,
   initialNotifications,
-  unreadVoiceCount = 0,
-  trainerClerkId,
 }: HeaderProps) {
   const pathname = usePathname();
   const pageTitle = getPageTitle(pathname);
   const { setOpen: openSearch } = useSearch();
 
   return (
-    <header className="flex h-16 items-center gap-4 border-b border-border bg-card px-6">
+    <header className="flex h-16 items-center gap-4 border-b border-border bg-card px-4 sm:px-6">
       {/* Mobile menu */}
       <Sheet>
         <SheetTrigger
@@ -91,8 +87,6 @@ export function Header({
             userEmail={user.email}
             userImageUrl={user.imageUrl}
             mobileMode
-            unreadVoiceCount={unreadVoiceCount}
-            trainerClerkId={trainerClerkId}
           />
         </SheetContent>
       </Sheet>

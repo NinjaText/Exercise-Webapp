@@ -94,7 +94,7 @@ export default async function SessionPage({
       </Button>
       {(trainerMemo || clientMemo) && (
         <Card>
-          <CardContent className="space-y-2 p-6">
+          <CardContent className="space-y-2 p-4 sm:p-6">
             <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
               Voice Notes
             </p>

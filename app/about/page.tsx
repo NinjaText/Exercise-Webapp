@@ -84,10 +84,10 @@ export default function AboutPage() {
 
             <FadeUp delay={0.1} className="mt-12 overflow-hidden rounded-2xl border border-slate-200">
               <div className="grid grid-cols-2">
-                <div className="border-b border-slate-200 bg-slate-50 px-6 py-4 text-center text-sm font-semibold text-slate-500">
+                <div className="border-b border-slate-200 bg-slate-50 px-3 py-4 text-center text-sm font-semibold text-slate-500 sm:px-6">
                   Other Training Apps
                 </div>
-                <div className="border-b border-slate-200 bg-linear-to-r from-blue-500 to-indigo-500 px-6 py-4 text-center text-sm font-semibold text-white">
+                <div className="border-b border-slate-200 bg-linear-to-r from-blue-500 to-indigo-500 px-3 py-4 text-center text-sm font-semibold text-white sm:px-6">
                   INMOTUS RX
                 </div>
               </div>
@@ -96,11 +96,11 @@ export default function AboutPage() {
                   key={row.theirs}
                   className={`grid grid-cols-2 ${i !== COMPARISON_ROWS.length - 1 ? "border-b border-slate-100" : ""}`}
                 >
-                  <div className="flex items-center gap-3 px-6 py-4 text-slate-500">
+                  <div className="flex items-center gap-2 px-3 py-4 text-slate-500 sm:gap-3 sm:px-6">
                     <X className="h-4 w-4 shrink-0 text-slate-300" />
                     <span className="text-sm">{row.theirs}</span>
                   </div>
-                  <div className="flex items-center gap-3 bg-blue-50/50 px-6 py-4 text-slate-900">
+                  <div className="flex items-center gap-2 bg-blue-50/50 px-3 py-4 text-slate-900 sm:gap-3 sm:px-6">
                     <Check className="h-4 w-4 shrink-0 text-emerald-600" />
                     <span className="text-sm font-medium">{row.ours}</span>
                   </div>

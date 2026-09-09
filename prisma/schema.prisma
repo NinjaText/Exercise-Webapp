@@ -161,6 +161,9 @@ model User {
   exerciseUsages            ExerciseUsage[]
   exerciseFavorites         ExerciseFavorite[]
   collections               Collection[]
+
+  pendingProgramAssignments PendingProgramAssignment[] @relation("PendingProgramAssignments")
+  dismissedInsights         DismissedInsight[]         @relation("DismissedInsights")
 }
 
 model AuditLog {
@@ -483,6 +486,13 @@ model Program {
   client             User?      @relation("ProgramsAssigned", fields: [clientId], references: [id])
   status             PlanStatus @default(DRAFT)
   programType        String?
+  // Scheduled = a normal dated program with pre-generated sessions.
+  // ON_DEMAND = an anytime "Resource" (warm-up, mobility, recovery) with no
+  // schedule; sessions are created lazily when the client actually starts one
+  // so the mark-missed-sessions cron can never flag them as non-compliance.
+  // Optional (no @default) on purpose: Mongo has no migrations, so existing
+  // documents simply lack the key — read them via getProgramSchedulingType().
+  schedulingType     ProgramSchedulingType?
   durationWeeks      Int?
   daysPerWeek        Int?
   tags               String[]
@@ -509,6 +519,12 @@ model Program {
   @@index([isGlobal])
   @@index([isPublic])
   @@index([collectionIds])
+  @@index([schedulingType])
+}
+
+enum ProgramSchedulingType {
+  SCHEDULED
+  ON_DEMAND
 }
 
 // A trainer-owned grouping of programs (Spotify-playlist model — a program
@@ -521,6 +537,10 @@ model Collection {
   name      String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  // Touched whenever a trainer opens this collection (and on creation), so
+  // the Library grid can surface the 4 most-recently-opened collections
+  // first instead of just the busiest ones.
+  lastViewedAt DateTime?
 
   @@unique([trainerId, name])
   @@index([trainerId])
@@ -1005,4 +1025,38 @@ model ProgramPurchase {
 
   @@index([trainerId, createdAt])
   @@index([buyerEmail])
+}
+
+/// A program a trainer chose to assign to someone they have only *invited*.
+/// No `User` row exists for an invitee until they accept the Clerk invitation,
+/// so the assignment is parked here (keyed by the invited email) and applied by
+/// the Clerk webhook the moment their account is created.
+model PendingProgramAssignment {
+  id           String    @id @default(auto()) @map("_id") @db.ObjectId
+  trainerId    String    @db.ObjectId
+  trainer      User      @relation("PendingProgramAssignments", fields: [trainerId], references: [id])
+  invitedEmail String
+  programId    String    @db.ObjectId
+  startDate    DateTime?
+  status       String    @default("PENDING") // PENDING | APPLIED | FAILED
+  createdAt    DateTime  @default(now())
+  appliedAt    DateTime?
+
+  @@index([invitedEmail, status])
+  @@index([trainerId])
+}
+
+/// A dashboard AI insight a trainer explicitly dismissed. Suppresses the same
+/// (client, kind) pairing for a fixed window so a dismissed insight doesn't
+/// immediately reappear on the next regeneration.
+model DismissedInsight {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  trainerId   String   @db.ObjectId
+  trainer     User     @relation("DismissedInsights", fields: [trainerId], references: [id])
+  clientId    String   @db.ObjectId
+  kind        String
+  dismissedAt DateTime @default(now())
+
+  @@unique([trainerId, clientId, kind])
+  @@index([trainerId, dismissedAt])
 }

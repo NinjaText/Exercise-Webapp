@@ -184,7 +184,7 @@ export function AiGenerateProgramDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-2xl flex flex-col p-0 max-h-[90vh] overflow-hidden">
-        <DialogHeader className="px-6 pt-6 pb-4 border-b shrink-0">
+        <DialogHeader className="px-4 pt-6 pb-4 border-b shrink-0 sm:px-6">
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="h-4 w-4 text-violet-600" />
             Generate Program with AI
@@ -198,7 +198,7 @@ export function AiGenerateProgramDialog({
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto min-h-0">
-          <div className="px-6 py-5 space-y-5">
+          <div className="px-4 py-5 space-y-5 sm:px-6">
             {/* Program Goals */}
             <div className="space-y-2">
               <Label>Program Goals *</Label>
@@ -459,7 +459,7 @@ export function AiGenerateProgramDialog({
           </div>
         </div>
 
-        <DialogFooter className="px-6 py-4 border-t shrink-0">
+        <DialogFooter className="px-4 py-4 border-t shrink-0 sm:px-6">
           <Button
             variant="outline"
             onClick={() => onOpenChange(false)}

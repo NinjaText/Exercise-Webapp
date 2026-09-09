@@ -41,9 +41,14 @@ import { ProgramBuilder } from "./program-builder";
 import { ClinicVisibilitySelector } from "./clinic-visibility-selector";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { TagListInput } from "./tag-list-input";
+import { SchedulingTypeSelector } from "./scheduling-type-selector";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { type ExerciseSourcePreference } from "@/lib/utils/exercise-picker";
+import {
+  getProgramSchedulingType,
+  type ProgramSchedulingTypeValue,
+} from "@/lib/utils/program-scheduling";
 
 const BODY_AREA_SUGGESTIONS = ["Shoulder", "Elbow", "Wrist/Hand", "Chest", "Back", "Hip", "Knee", "Ankle/Foot", "Core"];
 const GOAL_SUGGESTIONS = ["Strength", "Mobility", "Endurance", "Weight Loss", "Rehab", "Power"];
@@ -193,6 +198,14 @@ export function ProgramEditor({ program, exercises, onSave, redirectTo, organiza
   const [selectedCollectionIds, setSelectedCollectionIds] = useState<string[]>(
     (program?.collectionIds as string[]) || []
   );
+  // Scheduled = dated program with generated sessions; On-Demand = an anytime
+  // "Resource" with no schedule (see lib/utils/program-scheduling.ts).
+  const [schedulingType, setSchedulingType] = useState<ProgramSchedulingTypeValue>(
+    getProgramSchedulingType({
+      schedulingType: program?.schedulingType as string | null | undefined,
+    })
+  );
+  const isOnDemand = schedulingType === "ON_DEMAND";
 
   const form = useForm<CreateProgramInput>({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -280,8 +293,12 @@ export function ProgramEditor({ program, exercises, onSave, redirectTo, organiza
       data.workouts = cleanWorkouts;
       data.equipmentRequired = equipment;
       data.organizationIds = selectedOrganizationIds;
+      data.schedulingType = schedulingType;
       data.durationWeeks = scheduleSummary.durationWeeks || null;
-      data.daysPerWeek = scheduleSummary.daysPerWeek || null;
+      // A resource has no weekly cadence and no start date — leaving stale
+      // schedule values on it would make the Programs UI and adherence lie.
+      data.daysPerWeek = isOnDemand ? null : scheduleSummary.daysPerWeek || null;
+      if (isOnDemand) data.startDate = null;
       data.bodyAreas = bodyAreas;
       data.goals = goals;
       data.activities = activities;
@@ -391,26 +408,32 @@ export function ProgramEditor({ program, exercises, onSave, redirectTo, organiza
               )}
             />
             <FormItem className="sm:col-span-2">
-              <FormLabel>Schedule</FormLabel>
-              <div className="flex flex-wrap items-center gap-2">
-                {scheduleSummary.durationWeeks > 0 ? (
-                  <>
-                    <Badge variant="secondary" className="text-sm">
-                      {scheduleSummary.durationWeeks} week
-                      {scheduleSummary.durationWeeks !== 1 ? "s" : ""}
-                    </Badge>
-                    <Badge variant="secondary" className="text-sm">
-                      up to {scheduleSummary.daysPerWeek} day
-                      {scheduleSummary.daysPerWeek !== 1 ? "s" : ""}/week
-                    </Badge>
-                  </>
-                ) : (
-                  <p className="text-sm text-muted-foreground">
-                    Add weeks and days in the builder below to set the schedule.
-                  </p>
-                )}
-              </div>
+              <FormLabel>Scheduling</FormLabel>
+              <SchedulingTypeSelector value={schedulingType} onChange={setSchedulingType} />
             </FormItem>
+            {!isOnDemand && (
+              <FormItem className="sm:col-span-2">
+                <FormLabel>Schedule</FormLabel>
+                <div className="flex flex-wrap items-center gap-2">
+                  {scheduleSummary.durationWeeks > 0 ? (
+                    <>
+                      <Badge variant="secondary" className="text-sm">
+                        {scheduleSummary.durationWeeks} week
+                        {scheduleSummary.durationWeeks !== 1 ? "s" : ""}
+                      </Badge>
+                      <Badge variant="secondary" className="text-sm">
+                        up to {scheduleSummary.daysPerWeek} day
+                        {scheduleSummary.daysPerWeek !== 1 ? "s" : ""}/week
+                      </Badge>
+                    </>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      Add weeks and days in the builder below to set the schedule.
+                    </p>
+                  )}
+                </div>
+              </FormItem>
+            )}
             <FormField
               control={form.control}
               name="isTemplate"

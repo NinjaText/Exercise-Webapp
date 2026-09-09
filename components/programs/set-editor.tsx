@@ -56,69 +56,71 @@ export function SetEditor({ sets, activityType = "STRENGTH", onChange }: Props) 
 
   if (activityType === "RUN") {
     return (
-      <div className="space-y-1.5">
-        <div className="grid grid-cols-[minmax(70px,1fr)_minmax(110px,1.4fr)_minmax(90px,1fr)_minmax(80px,1fr)_minmax(60px,1fr)_40px] gap-2 text-xs text-muted-foreground font-medium px-1">
-          <span>Distance</span>
-          <span>Duration</span>
-          <span>Pace</span>
-          <span>HR Zone</span>
-          <span>RPE</span>
-          <span></span>
-        </div>
-        {sets.map((set, si) => (
-          <div key={si} className="grid grid-cols-[minmax(70px,1fr)_minmax(110px,1.4fr)_minmax(90px,1fr)_minmax(80px,1fr)_minmax(60px,1fr)_40px] gap-2 items-center">
-            <Input
-              type="number"
-              value={set.targetDistance ?? ""}
-              onChange={(e) => updateSet(si, "targetDistance", e.target.value ? parseFloat(e.target.value) : null)}
-              className="h-8 text-xs"
-              placeholder="mi"
-              min={0}
-              step={0.1}
-            />
-            <div className="flex gap-1">
+      <div className="space-y-1.5 overflow-x-auto">
+        <div className="min-w-[560px] space-y-1.5">
+          <div className="grid grid-cols-[minmax(70px,1fr)_minmax(110px,1.4fr)_minmax(90px,1fr)_minmax(80px,1fr)_minmax(60px,1fr)_40px] gap-2 text-xs text-muted-foreground font-medium px-1">
+            <span>Distance</span>
+            <span>Duration</span>
+            <span>Pace</span>
+            <span>HR Zone</span>
+            <span>RPE</span>
+            <span></span>
+          </div>
+          {sets.map((set, si) => (
+            <div key={si} className="grid grid-cols-[minmax(70px,1fr)_minmax(110px,1.4fr)_minmax(90px,1fr)_minmax(80px,1fr)_minmax(60px,1fr)_40px] gap-2 items-center">
               <Input
                 type="number"
-                value={set.targetDuration ?? ""}
-                onChange={(e) => updateSet(si, "targetDuration", e.target.value ? parseInt(e.target.value) : null)}
-                className="h-8 text-xs w-full"
-                placeholder="Duration"
+                value={set.targetDistance ?? ""}
+                onChange={(e) => updateSet(si, "targetDistance", e.target.value ? parseFloat(e.target.value) : null)}
+                className="h-8 text-xs"
+                placeholder="mi"
                 min={0}
+                step={0.1}
               />
-              <Select value={set.targetDurationUnit || "SEC"} onValueChange={(v) => updateSet(si, "targetDurationUnit", v)}>
-                <SelectTrigger className="h-8 text-xs w-16 shrink-0"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="SEC">sec</SelectItem>
-                  <SelectItem value="MIN">min</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="flex gap-1">
+                <Input
+                  type="number"
+                  value={set.targetDuration ?? ""}
+                  onChange={(e) => updateSet(si, "targetDuration", e.target.value ? parseInt(e.target.value) : null)}
+                  className="h-8 text-xs w-full"
+                  placeholder="Duration"
+                  min={0}
+                />
+                <Select value={set.targetDurationUnit || "SEC"} onValueChange={(v) => updateSet(si, "targetDurationUnit", v)}>
+                  <SelectTrigger className="h-8 text-xs w-16 shrink-0"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="SEC">sec</SelectItem>
+                    <SelectItem value="MIN">min</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <Input
+                value={set.targetPace ?? ""}
+                onChange={(e) => updateSet(si, "targetPace", e.target.value || null)}
+                className="h-8 text-xs"
+                placeholder="9:30/mi"
+              />
+              <Input
+                value={set.targetHrZone ?? ""}
+                onChange={(e) => updateSet(si, "targetHrZone", e.target.value || null)}
+                className="h-8 text-xs"
+                placeholder="Zone 2"
+              />
+              <Input
+                type="number"
+                value={set.targetRPE ?? ""}
+                onChange={(e) => updateSet(si, "targetRPE", e.target.value ? parseInt(e.target.value) : null)}
+                className="h-8 text-xs"
+                placeholder="RPE"
+                min={1}
+                max={10}
+              />
+              <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => removeSet(si)} disabled={sets.length <= 1}>
+                <Trash2 className="h-3 w-3" />
+              </Button>
             </div>
-            <Input
-              value={set.targetPace ?? ""}
-              onChange={(e) => updateSet(si, "targetPace", e.target.value || null)}
-              className="h-8 text-xs"
-              placeholder="9:30/mi"
-            />
-            <Input
-              value={set.targetHrZone ?? ""}
-              onChange={(e) => updateSet(si, "targetHrZone", e.target.value || null)}
-              className="h-8 text-xs"
-              placeholder="Zone 2"
-            />
-            <Input
-              type="number"
-              value={set.targetRPE ?? ""}
-              onChange={(e) => updateSet(si, "targetRPE", e.target.value ? parseInt(e.target.value) : null)}
-              className="h-8 text-xs"
-              placeholder="RPE"
-              min={1}
-              max={10}
-            />
-            <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => removeSet(si)} disabled={sets.length <= 1}>
-              <Trash2 className="h-3 w-3" />
-            </Button>
-          </div>
-        ))}
+          ))}
+        </div>
         <Button variant="ghost" size="sm" onClick={addSet} className="text-xs h-7">
           <Plus className="mr-1 h-3 w-3" /> Add Set
         </Button>
@@ -127,118 +129,120 @@ export function SetEditor({ sets, activityType = "STRENGTH", onChange }: Props) 
   }
 
   return (
-    <div className="space-y-1.5">
-      {/* Header row */}
-      <div className="grid grid-cols-[100px_minmax(70px,1fr)_minmax(70px,1fr)_minmax(110px,1.4fr)_minmax(60px,1fr)_40px] gap-2 text-xs text-muted-foreground font-medium px-1">
-        <span>Type</span>
-        <span>Reps</span>
-        <span>Weight</span>
-        <span>Duration</span>
-        <span>RPE</span>
-        <span></span>
-      </div>
-      {sets.map((set, si) => (
-        <div
-          key={si}
-          className="grid grid-cols-[100px_minmax(70px,1fr)_minmax(70px,1fr)_minmax(110px,1.4fr)_minmax(60px,1fr)_40px] gap-2 items-center"
-        >
-          <Select
-            value={set.setType}
-            onValueChange={(v) => updateSet(si, "setType", v)}
+    <div className="space-y-1.5 overflow-x-auto">
+      <div className="min-w-[520px] space-y-1.5">
+        {/* Header row */}
+        <div className="grid grid-cols-[100px_minmax(70px,1fr)_minmax(70px,1fr)_minmax(110px,1.4fr)_minmax(60px,1fr)_40px] gap-2 text-xs text-muted-foreground font-medium px-1">
+          <span>Type</span>
+          <span>Reps</span>
+          <span>Weight</span>
+          <span>Duration</span>
+          <span>RPE</span>
+          <span></span>
+        </div>
+        {sets.map((set, si) => (
+          <div
+            key={si}
+            className="grid grid-cols-[100px_minmax(70px,1fr)_minmax(70px,1fr)_minmax(110px,1.4fr)_minmax(60px,1fr)_40px] gap-2 items-center"
           >
-            <SelectTrigger className="h-8 text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="NORMAL">Normal</SelectItem>
-              <SelectItem value="WARMUP">Warmup</SelectItem>
-              <SelectItem value="DROP_SET">Drop</SelectItem>
-              <SelectItem value="FAILURE">Failure</SelectItem>
-            </SelectContent>
-          </Select>
-          <Input
-            type="number"
-            value={set.targetReps ?? ""}
-            onChange={(e) =>
-              updateSet(
-                si,
-                "targetReps",
-                e.target.value ? parseInt(e.target.value) : null
-              )
-            }
-            className="h-8 text-xs"
-            placeholder="Reps"
-            min={0}
-          />
-          <Input
-            type="number"
-            value={set.targetWeight ?? ""}
-            onChange={(e) =>
-              updateSet(
-                si,
-                "targetWeight",
-                e.target.value ? parseFloat(e.target.value) : null
-              )
-            }
-            className="h-8 text-xs"
-            placeholder="lbs"
-            min={0}
-            step={2.5}
-          />
-          <div className="flex gap-1">
-            <Input
-              type="number"
-              value={set.targetDuration ?? ""}
-              onChange={(e) =>
-                updateSet(
-                  si,
-                  "targetDuration",
-                  e.target.value ? parseInt(e.target.value) : null
-                )
-              }
-              className="h-8 text-xs w-full"
-              placeholder="Duration"
-              min={0}
-            />
             <Select
-              value={set.targetDurationUnit || "SEC"}
-              onValueChange={(v) => updateSet(si, "targetDurationUnit", v)}
+              value={set.setType}
+              onValueChange={(v) => updateSet(si, "setType", v)}
             >
-              <SelectTrigger className="h-8 text-xs w-16 shrink-0">
+              <SelectTrigger className="h-8 text-xs">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="SEC">sec</SelectItem>
-                <SelectItem value="MIN">min</SelectItem>
+                <SelectItem value="NORMAL">Normal</SelectItem>
+                <SelectItem value="WARMUP">Warmup</SelectItem>
+                <SelectItem value="DROP_SET">Drop</SelectItem>
+                <SelectItem value="FAILURE">Failure</SelectItem>
               </SelectContent>
             </Select>
+            <Input
+              type="number"
+              value={set.targetReps ?? ""}
+              onChange={(e) =>
+                updateSet(
+                  si,
+                  "targetReps",
+                  e.target.value ? parseInt(e.target.value) : null
+                )
+              }
+              className="h-8 text-xs"
+              placeholder="Reps"
+              min={0}
+            />
+            <Input
+              type="number"
+              value={set.targetWeight ?? ""}
+              onChange={(e) =>
+                updateSet(
+                  si,
+                  "targetWeight",
+                  e.target.value ? parseFloat(e.target.value) : null
+                )
+              }
+              className="h-8 text-xs"
+              placeholder="lbs"
+              min={0}
+              step={2.5}
+            />
+            <div className="flex gap-1">
+              <Input
+                type="number"
+                value={set.targetDuration ?? ""}
+                onChange={(e) =>
+                  updateSet(
+                    si,
+                    "targetDuration",
+                    e.target.value ? parseInt(e.target.value) : null
+                  )
+                }
+                className="h-8 text-xs w-full"
+                placeholder="Duration"
+                min={0}
+              />
+              <Select
+                value={set.targetDurationUnit || "SEC"}
+                onValueChange={(v) => updateSet(si, "targetDurationUnit", v)}
+              >
+                <SelectTrigger className="h-8 text-xs w-16 shrink-0">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="SEC">sec</SelectItem>
+                  <SelectItem value="MIN">min</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <Input
+              type="number"
+              value={set.targetRPE ?? ""}
+              onChange={(e) =>
+                updateSet(
+                  si,
+                  "targetRPE",
+                  e.target.value ? parseInt(e.target.value) : null
+                )
+              }
+              className="h-8 text-xs"
+              placeholder="RPE"
+              min={1}
+              max={10}
+            />
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 text-muted-foreground hover:text-destructive"
+              onClick={() => removeSet(si)}
+              disabled={sets.length <= 1}
+            >
+              <Trash2 className="h-3 w-3" />
+            </Button>
           </div>
-          <Input
-            type="number"
-            value={set.targetRPE ?? ""}
-            onChange={(e) =>
-              updateSet(
-                si,
-                "targetRPE",
-                e.target.value ? parseInt(e.target.value) : null
-              )
-            }
-            className="h-8 text-xs"
-            placeholder="RPE"
-            min={1}
-            max={10}
-          />
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7 text-muted-foreground hover:text-destructive"
-            onClick={() => removeSet(si)}
-            disabled={sets.length <= 1}
-          >
-            <Trash2 className="h-3 w-3" />
-          </Button>
-        </div>
-      ))}
+        ))}
+      </div>
       <Button variant="ghost" size="sm" onClick={addSet} className="text-xs h-7">
         <Plus className="mr-1 h-3 w-3" /> Add Set
       </Button>

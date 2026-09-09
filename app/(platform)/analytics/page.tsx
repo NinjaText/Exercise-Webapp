@@ -70,7 +70,7 @@ export default async function AnalyticsPage() {
       />
 
       {!metrics.hasOrganization && (
-        <div className="rounded-2xl border border-dashed border-border p-6 text-sm text-muted-foreground">
+        <div className="rounded-2xl border border-dashed border-border p-4 sm:p-6 text-sm text-muted-foreground">
           Your account isn&apos;t linked to an organization yet, so there&apos;s no data to
           report. Metrics will populate once your organization is set up.
         </div>

@@ -37,7 +37,7 @@ export default async function AdminAnalyticsPage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div className="rounded-2xl border border-border bg-card p-5">
           <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">New Users (6 mo)</p>
           <p className="mt-1.5 text-3xl font-bold tabular-nums text-foreground">{totalNewUsers}</p>
