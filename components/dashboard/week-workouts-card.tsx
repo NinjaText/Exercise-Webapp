@@ -2,10 +2,9 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { format } from "date-fns";
+import { endOfDay, isSameDay, startOfDay, startOfWeek } from "date-fns";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
@@ -14,28 +13,28 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { CalendarDays, ChevronRight, Flame } from "lucide-react";
-import { formatRelativeTime, formatSessionStatus } from "@/lib/utils/formatting";
+import { CalendarDays, ChevronRight } from "lucide-react";
+import {
+  WeekWorkoutClientRow,
+  type DayDotStatus,
+  type WeekDayDot,
+  type WeekWorkoutClientRowData,
+} from "@/components/dashboard/week-workout-client-row";
 import type { ClientMetrics } from "@/lib/services/dashboard-insights.service";
+import { getDisplayName } from "@/lib/utils/display-name";
 
 interface WeekSession {
   id: string;
   scheduledDate: Date;
   status: string;
-  client?: { id: string; firstName: string; lastName: string } | null;
+  client?: { id: string; firstName: string; lastName: string; email: string } | null;
   workout?: {
     program?: { id: string; name: string } | null;
   } | null;
 }
 
-const sessionStatusColors: Record<string, string> = {
-  SCHEDULED: "bg-blue-100 text-blue-700",
-  IN_PROGRESS: "bg-amber-100 text-amber-700",
-  COMPLETED: "bg-success/15 text-success",
-  MISSED: "bg-red-100 text-red-700",
-};
-
-type StatusFilter = "all" | "due" | "completed" | "missed";
+export type StatusFilter = "all" | "due" | "completed" | "missed";
+export type DateScope = "week" | "today";
 
 const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
   { value: "all", label: "All" },
@@ -43,6 +42,11 @@ const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
   { value: "completed", label: "Completed" },
   { value: "missed", label: "Missed" },
 ];
+
+/** The dashboard fetches a Monday-start week, so the dot strip must match. */
+const WEEK_STARTS_ON = 1;
+const DAYS_IN_WEEK = 7;
+const DEFAULT_VISIBLE_ROWS = 3;
 
 function matchesStatusFilter(status: string, filter: StatusFilter): boolean {
   switch (filter) {
@@ -57,39 +61,145 @@ function matchesStatusFilter(status: string, filter: StatusFilter): boolean {
   }
 }
 
+function toDayDotStatus(sessions: WeekSession[]): DayDotStatus {
+  if (sessions.length === 0) return "none";
+  if (sessions.some((s) => s.status === "COMPLETED")) return "completed";
+  if (sessions.some((s) => s.status === "MISSED" || s.status === "ABANDONED")) return "missed";
+  return "scheduled";
+}
+
+function buildWeekDays(sessions: WeekSession[], now: Date): WeekDayDot[] {
+  const weekStart = startOfWeek(now, { weekStartsOn: WEEK_STARTS_ON });
+  return Array.from({ length: DAYS_IN_WEEK }, (_, offset) => {
+    const date = new Date(weekStart);
+    date.setDate(date.getDate() + offset);
+    const onDay = sessions.filter((s) => isSameDay(new Date(s.scheduledDate), date));
+    return { date, status: toDayDotStatus(onDay) };
+  });
+}
+
+interface WeekWorkoutsCardProps {
+  sessions: WeekSession[];
+  clientMetrics: Record<string, ClientMetrics>;
+  /** Controlled status filter. Falls back to internal state when omitted, so the card still works standalone. */
+  statusFilter?: StatusFilter;
+  onStatusFilterChange?: (filter: StatusFilter) => void;
+  /** Controlled client filter, same fallback behaviour as `statusFilter`. */
+  clientFilter?: string;
+  onClientFilterChange?: (clientId: string) => void;
+  /** `"today"` narrows the rendered sessions to today only; the week dot strip always shows the full week. */
+  dateScope?: DateScope;
+}
+
 export function WeekWorkoutsCard({
   sessions,
   clientMetrics,
-}: {
-  sessions: WeekSession[];
-  clientMetrics: Record<string, ClientMetrics>;
-}) {
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
-  const [clientFilter, setClientFilter] = useState<string>("all");
+  statusFilter: controlledStatusFilter,
+  onStatusFilterChange,
+  clientFilter: controlledClientFilter,
+  onClientFilterChange,
+  dateScope = "week",
+}: WeekWorkoutsCardProps) {
+  const [internalStatusFilter, setInternalStatusFilter] = useState<StatusFilter>("all");
+  const [internalClientFilter, setInternalClientFilter] = useState<string>("all");
+  const [expanded, setExpanded] = useState(false);
+
+  const statusFilter = controlledStatusFilter ?? internalStatusFilter;
+  const clientFilter = controlledClientFilter ?? internalClientFilter;
+
+  function setStatusFilter(next: StatusFilter) {
+    if (onStatusFilterChange) onStatusFilterChange(next);
+    else setInternalStatusFilter(next);
+  }
+
+  function setClientFilter(next: string) {
+    if (onClientFilterChange) onClientFilterChange(next);
+    else setInternalClientFilter(next);
+  }
 
   const clients = useMemo(() => {
     const map = new Map<string, string>();
     for (const session of sessions) {
       if (session.client) {
-        map.set(session.client.id, `${session.client.firstName} ${session.client.lastName}`);
+        map.set(session.client.id, getDisplayName(session.client));
       }
     }
     return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
   }, [sessions]);
 
-  const filteredSessions = sessions.filter((session) => {
-    if (!matchesStatusFilter(session.status, statusFilter)) return false;
-    if (clientFilter !== "all" && session.client?.id !== clientFilter) return false;
-    return true;
-  });
+  const rows = useMemo<WeekWorkoutClientRowData[]>(() => {
+    const now = new Date();
+    const todayStart = startOfDay(now).getTime();
+    const todayEnd = endOfDay(now).getTime();
+
+    // One row per client. The dot strip is built from *every* session that
+    // client has this week (an unfiltered view of the week is the point of the
+    // strip), while the filters decide which clients appear at all.
+    const byClient = new Map<string, { client: NonNullable<WeekSession["client"]>; all: WeekSession[]; matching: WeekSession[] }>();
+
+    for (const session of sessions) {
+      if (!session.client) continue;
+      if (clientFilter !== "all" && session.client.id !== clientFilter) continue;
+
+      const entry = byClient.get(session.client.id) ?? {
+        client: session.client,
+        all: [],
+        matching: [],
+      };
+      entry.all.push(session);
+
+      const scheduledAt = new Date(session.scheduledDate).getTime();
+      const inScope =
+        dateScope === "week" || (scheduledAt >= todayStart && scheduledAt <= todayEnd);
+      if (inScope && matchesStatusFilter(session.status, statusFilter)) {
+        entry.matching.push(session);
+      }
+      byClient.set(session.client.id, entry);
+    }
+
+    return Array.from(byClient.values())
+      .filter((entry) => entry.matching.length > 0)
+      .map((entry) => {
+        const chronological = [...entry.all].sort(
+          (a, b) => new Date(a.scheduledDate).getTime() - new Date(b.scheduledDate).getTime()
+        );
+        const upcoming = chronological.find(
+          (s) =>
+            new Date(s.scheduledDate).getTime() >= todayStart &&
+            (s.status === "SCHEDULED" || s.status === "IN_PROGRESS")
+        );
+        const mostRecent = chronological[chronological.length - 1];
+
+        return {
+          client: entry.client,
+          programName: entry.matching[0]?.workout?.program?.name ?? "Workout",
+          days: buildWeekDays(entry.all, now),
+          nextSessionDate: upcoming ? new Date(upcoming.scheduledDate) : null,
+          displayStatus: upcoming?.status ?? mostRecent?.status ?? null,
+          metrics: clientMetrics[entry.client.id],
+        };
+      })
+      .sort((a, b) => {
+        // Clients with something still coming up sort first, then by name.
+        const aNext = a.nextSessionDate?.getTime() ?? Number.MAX_SAFE_INTEGER;
+        const bNext = b.nextSessionDate?.getTime() ?? Number.MAX_SAFE_INTEGER;
+        if (aNext !== bNext) return aNext - bNext;
+        return a.client.firstName.localeCompare(b.client.firstName);
+      });
+  }, [sessions, clientMetrics, statusFilter, clientFilter, dateScope]);
+
+  const visibleRows = expanded ? rows : rows.slice(0, DEFAULT_VISIBLE_ROWS);
+  const hiddenCount = rows.length - visibleRows.length;
 
   return (
-    <Card>
-      <CardHeader className="flex flex-col gap-3 pb-3">
+    <Card className="h-full">
+      <CardHeader className="flex flex-col gap-2 pb-2">
         <div className="flex flex-row items-center justify-between">
           <div className="flex items-center gap-2">
             <CalendarDays className="h-4.5 w-4.5 text-primary" />
-            <CardTitle className="text-base font-semibold">This Week&apos;s Workouts</CardTitle>
+            <CardTitle className="text-base font-semibold">
+              {dateScope === "today" ? "Today's Workouts" : "This Week's Workouts"}
+            </CardTitle>
           </div>
           <Button
             variant="ghost"
@@ -104,12 +214,12 @@ export function WeekWorkoutsCard({
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Tabs value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatusFilter)}>
-            <TabsList className="gap-0.5 rounded-full border border-border bg-muted/60 p-1">
+            <TabsList className="gap-0.5 rounded-full border border-border bg-muted/60 p-0.5">
               {STATUS_FILTERS.map((filter) => (
                 <TabsTrigger
                   key={filter.value}
                   value={filter.value}
-                  className="rounded-full px-3 text-xs data-active:bg-primary data-active:text-primary-foreground data-active:shadow-none"
+                  className="rounded-full px-2.5 text-xs data-active:bg-primary data-active:text-primary-foreground data-active:shadow-none"
                 >
                   {filter.label}
                 </TabsTrigger>
@@ -139,77 +249,36 @@ export function WeekWorkoutsCard({
           )}
         </div>
       </CardHeader>
-      <CardContent>
-        {filteredSessions.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-10 text-center">
-            <CalendarDays className="h-10 w-10 text-muted-foreground/30" />
-            <p className="mt-3 text-sm font-medium text-muted-foreground">
+      <CardContent className="pt-0">
+        {rows.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-8 text-center">
+            <CalendarDays className="h-9 w-9 text-muted-foreground/30" />
+            <p className="mt-2.5 text-sm font-medium text-muted-foreground">
               {sessions.length === 0 ? "No workouts this week" : "No workouts match these filters"}
             </p>
             <p className="mt-1 text-xs text-muted-foreground/60">
               {sessions.length === 0
                 ? "Assign programs to your clients to get started"
-                : "Try a different status or client filter"}
+                : "Try a different status, client, or date filter"}
             </p>
           </div>
         ) : (
           <div className="space-y-2">
-            {filteredSessions.slice(0, 8).map((session) => {
-              const metrics = session.client ? clientMetrics[session.client.id] : undefined;
-              const detailParts: string[] = [];
-              if (metrics?.programWeek) {
-                detailParts.push(`Week ${metrics.programWeek.current} of ${metrics.programWeek.total}`);
-              }
-              if (metrics?.lastCompletedAt) {
-                detailParts.push(`Last ${formatRelativeTime(metrics.lastCompletedAt)}`);
-              }
-              return (
-                <div
-                  key={session.id}
-                  className="flex items-center gap-3 rounded-xl border border-border/60 bg-muted/20 p-3 transition-colors hover:bg-muted/40"
-                >
-                  {session.client && (
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground font-medium text-xs">
-                      {session.client.firstName[0]}
-                      {session.client.lastName[0]}
-                    </div>
-                  )}
-                  <div className="min-w-0 flex-1">
-                    {session.client && (
-                      <p className="truncate text-sm font-semibold">
-                        {session.client.firstName} {session.client.lastName}
-                      </p>
-                    )}
-                    <p className="truncate text-xs text-muted-foreground">
-                      {session.workout?.program?.name || "Workout"}
-                    </p>
-                    {detailParts.length > 0 && (
-                      <p className="mt-0.5 truncate text-[11px] text-muted-foreground/70">
-                        {detailParts.join(" · ")}
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex flex-col items-end gap-1 shrink-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-muted-foreground">
-                        {format(new Date(session.scheduledDate), "EEE, MMM d")}
-                      </span>
-                      <Badge
-                        className={`text-xs font-medium border-0 ${sessionStatusColors[session.status] || "bg-muted text-muted-foreground"}`}
-                      >
-                        {formatSessionStatus(session.status)}
-                      </Badge>
-                    </div>
-                    {metrics && metrics.streak > 1 && (
-                      <span className="flex items-center gap-0.5 text-[11px] font-medium text-amber-600">
-                        <Flame className="h-3 w-3" />
-                        {metrics.streak} streak
-                      </span>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
+            {visibleRows.map((row) => (
+              <WeekWorkoutClientRow key={row.client.id} row={row} />
+            ))}
+            {(hiddenCount > 0 || expanded) && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 w-full text-xs text-muted-foreground hover:text-foreground"
+                onClick={() => setExpanded((prev) => !prev)}
+              >
+                {expanded
+                  ? "Show fewer clients"
+                  : `Show ${hiddenCount} more client${hiddenCount === 1 ? "" : "s"}`}
+              </Button>
+            )}
           </div>
         )}
       </CardContent>

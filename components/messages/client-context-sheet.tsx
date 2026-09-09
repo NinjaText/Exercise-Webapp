@@ -7,7 +7,7 @@ import { ClientContextPanel } from "./client-context-panel";
 import type { InboxThreadData } from "@/lib/services/inbox.service";
 
 interface ClientContextSheetProps {
-  client: { id: string; firstName: string; lastName: string };
+  client: { id: string; firstName: string; lastName: string; email: string };
   data: InboxThreadData;
 }
 

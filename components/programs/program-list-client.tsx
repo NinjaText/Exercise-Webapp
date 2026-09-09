@@ -70,6 +70,8 @@ import {
   CheckCircle2,
   ClipboardList,
   Download,
+  Info,
+  Repeat,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -85,12 +87,22 @@ import {
   createCollectionAction,
   renameCollectionAction,
   deleteCollectionAction,
+  touchCollectionViewedAction,
 } from "@/actions/collection-actions";
 import { cn } from "@/lib/utils";
-import { formatDistanceToNow } from "date-fns";
-import type { ProgramProgress } from "@/lib/services/program.service";
+import { format, formatDistanceToNow } from "date-fns";
+import { getProgramSchedulingType } from "@/lib/utils/program-scheduling";
+import { getProgramStatusConfig } from "@/lib/utils/program-status";
+import { getDisplayName, getInitials } from "@/lib/utils/display-name";
+import type { ProgramProgress, ProgramUsage } from "@/lib/services/program.service";
 
 const RECENT_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
+
+// Collections grid shows the 4 most recently opened up front — together with
+// "All Programs", "View All Collections" (when needed) and "Create
+// Collection" that's up to 6-7 tiles, sized to fit in one row. The rest sit
+// behind the "View All Collections" tile.
+const TOP_COLLECTIONS_LIMIT = 4;
 
 const SPORT_OPTIONS = ["Tennis", "Golf", "Running", "Basketball", "Soccer", "Swimming", "General Fitness"];
 const BODY_AREA_OPTIONS = ["Shoulder", "Elbow", "Wrist/Hand", "Chest", "Back", "Hip", "Knee", "Ankle/Foot", "Core"];
@@ -178,6 +190,97 @@ interface Categorized {
   level?: string | null;
   durationWeeks?: number | null;
   status: string;
+  /** null/absent on programs written before the field existed — read it via getProgramSchedulingType. */
+  schedulingType?: string | null;
+}
+
+// --- Scheduled vs. Resource (on-demand) secondary filter ---
+type SchedulingPill = "all" | "scheduled" | "resources";
+
+const SCHEDULING_PILLS: { value: SchedulingPill; label: string }[] = [
+  { value: "all", label: "All Programs" },
+  { value: "scheduled", label: "Scheduled" },
+  { value: "resources", label: "Resources" },
+];
+
+function isResource(program: { schedulingType?: string | null }): boolean {
+  return getProgramSchedulingType(program) === "ON_DEMAND";
+}
+
+function matchesSchedulingPill(
+  program: { schedulingType?: string | null },
+  pill: SchedulingPill
+): boolean {
+  if (pill === "all") return true;
+  return pill === "resources" ? isResource(program) : !isResource(program);
+}
+
+function SchedulingPillFilter({
+  value,
+  onChange,
+}: {
+  value: SchedulingPill;
+  onChange: (next: SchedulingPill) => void;
+}) {
+  return (
+    <div className="inline-flex items-center gap-1 rounded-lg border border-border/60 bg-muted/40 p-1">
+      {SCHEDULING_PILLS.map((pill) => (
+        <button
+          key={pill.value}
+          type="button"
+          aria-pressed={value === pill.value}
+          onClick={() => onChange(pill.value)}
+          className={cn(
+            "rounded-md px-3 py-1 text-xs font-medium transition-colors",
+            value === pill.value
+              ? "bg-background text-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground"
+          )}
+        >
+          {pill.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function ResourcesCallout({ onDismiss }: { onDismiss: () => void }) {
+  return (
+    <div className="flex items-start gap-3 rounded-lg border border-violet-200 bg-violet-500/5 p-3 text-sm">
+      <Info className="mt-0.5 h-4 w-4 shrink-0 text-violet-600" />
+      <p className="flex-1 text-muted-foreground">
+        <span className="font-medium text-foreground">What are Resources?</span>{" "}
+        Resources are on-demand programs (warm-ups, mobility routines, recovery,
+        etc.) that clients can use anytime. They do not have a schedule, do not
+        appear as required workouts, and do not affect adherence or AI insights.
+      </p>
+      <button
+        type="button"
+        onClick={onDismiss}
+        aria-label="Dismiss"
+        className="shrink-0 rounded-md p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+      >
+        <X className="h-3.5 w-3.5" />
+      </button>
+    </div>
+  );
+}
+
+function SchedulingTypeBadge({ program }: { program: { schedulingType?: string | null } }) {
+  const resource = isResource(program);
+  return (
+    <Badge
+      variant="outline"
+      className={cn(
+        "text-[10px] font-medium",
+        resource
+          ? "border-violet-200 bg-violet-500/10 text-violet-700"
+          : "border-border bg-muted text-muted-foreground"
+      )}
+    >
+      {resource ? "Resource" : "Scheduled"}
+    </Badge>
+  );
 }
 
 interface ProgramListItem extends Categorized {
@@ -192,7 +295,7 @@ interface ProgramListItem extends Categorized {
   startDate?: Date | null;
   clientId?: string | null;
   trainer: { id: string; firstName: string; lastName: string } | null;
-  client: { id: string; firstName: string; lastName: string } | null;
+  client: { id: string; firstName: string; lastName: string; email: string } | null;
   workouts: { id: string; name: string }[];
   _count: { workouts: number };
   isFavorite?: boolean;
@@ -203,6 +306,7 @@ interface CollectionItem {
   id: string;
   name: string;
   programCount: number;
+  lastViewedAt?: Date | string | null;
 }
 
 interface GlobalProgramItem extends Categorized {
@@ -238,22 +342,13 @@ function matchesSearch(
   );
 }
 
-function clientLabel(client: { firstName: string; lastName: string }): string {
-  const name = `${client.firstName} ${client.lastName}`.trim();
-  return name || "Unnamed client";
+function clientLabel(client: { firstName: string; lastName: string; email?: string | null }): string {
+  return getDisplayName(client);
 }
 
-function initials(person: { firstName: string; lastName: string }): string {
-  return `${person.firstName[0] ?? ""}${person.lastName[0] ?? ""}`.toUpperCase();
+function initials(person: { firstName: string; lastName: string; email?: string | null }): string {
+  return getInitials(person);
 }
-
-const statusConfig: Record<string, { label: string; className: string }> = {
-  ACTIVE:    { label: "Active",    className: "bg-emerald-500/10 text-emerald-700 border-emerald-200" },
-  DRAFT:     { label: "Draft",     className: "bg-muted text-muted-foreground border-border" },
-  PAUSED:    { label: "Paused",    className: "bg-amber-500/10 text-amber-700 border-amber-200" },
-  COMPLETED: { label: "Completed", className: "bg-muted text-muted-foreground border-border" },
-  ARCHIVED:  { label: "Archived",  className: "bg-muted text-muted-foreground border-border opacity-70" },
-};
 
 // --- Assigned tab: a derived status distinct from the raw PlanStatus, since
 // "Starting Soon" isn't a real stored value — it's ACTIVE + a future startDate.
@@ -333,7 +428,6 @@ function UpdatedAt({ date }: { date: Date }) {
 // --- Library tab row: Program | Collection | Tags | Workouts | Updated | Actions
 function LibraryProgramRow({
   program,
-  role,
   updatableSet,
   collectionsById,
   onDuplicate,
@@ -347,7 +441,6 @@ function LibraryProgramRow({
   search,
 }: {
   program: ProgramListItem;
-  role?: string;
   updatableSet: Set<string>;
   collectionsById: Map<string, string>;
   onDuplicate: (id: string) => void;
@@ -399,6 +492,9 @@ function LibraryProgramRow({
           </div>
         </div>
       </TableCell>
+      <TableCell>
+        <SchedulingTypeBadge program={program} />
+      </TableCell>
       <TableCell className="text-muted-foreground">
         {collectionNames.length === 0
           ? "—"
@@ -446,47 +542,45 @@ function LibraryProgramRow({
           >
             <Eye className="h-4 w-4" />
           </Link>
-          {role === "TRAINER" && (
-            <DropdownMenu>
-              <DropdownMenuTrigger className="shrink-0 flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-opacity hover:bg-muted">
-                <MoreVertical className="h-4 w-4" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem onClick={() => router.push(`/programs/${program.id}/edit`)}>
-                  <Pencil className="mr-2 h-4 w-4" /> Edit
+          <DropdownMenu>
+            <DropdownMenuTrigger className="shrink-0 flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-opacity hover:bg-muted">
+              <MoreVertical className="h-4 w-4" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem onClick={() => router.push(`/programs/${program.id}/edit`)}>
+                <Pencil className="mr-2 h-4 w-4" /> Edit
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onDuplicate(program.id)}>
+                <Copy className="mr-2 h-4 w-4" /> Duplicate
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => router.push(`/programs/${program.id}?assign=true`)}>
+                <UserPlus className="mr-2 h-4 w-4" /> Assign Client
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onAddToCollection(program)}>
+                <Folder className="mr-2 h-4 w-4" /> Add to Collection
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onTogglePublic(program.id, !program.isPublic)} disabled={togglingPublicId === program.id}>
+                {program.isPublic ? <Lock className="mr-2 h-4 w-4" /> : <Globe className="mr-2 h-4 w-4" />}
+                {program.isPublic ? "Make Private" : "Make Public"}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              {program.status === "ARCHIVED" ? (
+                <DropdownMenuItem
+                  onClick={() => onRequestHardDelete(program.id, program.name)}
+                  className="text-destructive focus:text-destructive"
+                >
+                  <Trash2 className="mr-2 h-4 w-4" /> Delete Permanently
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onDuplicate(program.id)}>
-                  <Copy className="mr-2 h-4 w-4" /> Duplicate
+              ) : (
+                <DropdownMenuItem
+                  onClick={() => onArchive(program.id)}
+                  className="text-destructive focus:text-destructive"
+                >
+                  <Archive className="mr-2 h-4 w-4" /> Archive
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => router.push(`/programs/${program.id}?assign=true`)}>
-                  <UserPlus className="mr-2 h-4 w-4" /> Assign Client
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onAddToCollection(program)}>
-                  <Folder className="mr-2 h-4 w-4" /> Add to Collection
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onTogglePublic(program.id, !program.isPublic)} disabled={togglingPublicId === program.id}>
-                  {program.isPublic ? <Lock className="mr-2 h-4 w-4" /> : <Globe className="mr-2 h-4 w-4" />}
-                  {program.isPublic ? "Make Private" : "Make Public"}
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                {program.status === "ARCHIVED" ? (
-                  <DropdownMenuItem
-                    onClick={() => onRequestHardDelete(program.id, program.name)}
-                    className="text-destructive focus:text-destructive"
-                  >
-                    <Trash2 className="mr-2 h-4 w-4" /> Delete Permanently
-                  </DropdownMenuItem>
-                ) : (
-                  <DropdownMenuItem
-                    onClick={() => onArchive(program.id)}
-                    className="text-destructive focus:text-destructive"
-                  >
-                    <Archive className="mr-2 h-4 w-4" /> Archive
-                  </DropdownMenuItem>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </TableCell>
     </TableRow>
@@ -514,6 +608,9 @@ function GlobalProgramRow({
             )}
           </div>
         </div>
+      </TableCell>
+      <TableCell>
+        <SchedulingTypeBadge program={program} />
       </TableCell>
       <TableCell className="text-muted-foreground">—</TableCell>
       <TableCell>
@@ -555,12 +652,14 @@ function GlobalProgramRow({
 function AssignedProgramRow({
   program,
   progress,
+  usage,
   onDuplicate,
   onArchive,
   onRequestHardDelete,
 }: {
   program: ProgramListItem;
   progress?: ProgramProgress;
+  usage?: ProgramUsage;
   onDuplicate: (id: string) => void;
   onArchive: (id: string) => void;
   onRequestHardDelete: (id: string, name: string) => void;
@@ -570,6 +669,10 @@ function AssignedProgramRow({
   const total = progress?.total ?? 0;
   const completed = progress?.completed ?? 0;
   const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
+  // A resource has no schedule, so a progress bar and a "due" label are both
+  // meaningless — how often it's been used is the only real signal.
+  const resource = isResource(program);
+  const usageCount = usage?.count ?? 0;
 
   return (
     <TableRow className="group">
@@ -589,35 +692,56 @@ function AssignedProgramRow({
         <Link href={`/programs/${program.id}`} className="block truncate font-medium hover:text-primary hover:underline">
           {program.name}
         </Link>
-        {program.durationWeeks != null && (
+        {!resource && program.durationWeeks != null && (
           <Badge variant="outline" className="mt-1 text-[10px] font-medium">
             {program.durationWeeks} week{program.durationWeeks === 1 ? "" : "s"}
           </Badge>
         )}
       </TableCell>
-      <TableCell className="min-w-36">
-        {total === 0 ? (
-          <span className="text-muted-foreground">Not started</span>
-        ) : (
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-medium">{percent}%</span>
-            </div>
-            <Progress value={percent} className="h-1.5" />
-            <p className="text-[11px] text-muted-foreground">{completed} of {total} workouts</p>
-          </div>
-        )}
-      </TableCell>
       <TableCell>
-        {progress?.nextSession ? (
-          <div>
-            <p className="truncate text-sm">{progress.nextSession.workoutName}</p>
-            <p className="text-[11px] text-muted-foreground">{formatDueLabel(new Date(progress.nextSession.scheduledDate))}</p>
-          </div>
-        ) : (
-          <span className="text-muted-foreground">—</span>
-        )}
+        <SchedulingTypeBadge program={program} />
       </TableCell>
+      {resource ? (
+        <TableCell colSpan={2} className="min-w-44">
+          <div className="flex items-center gap-1.5 text-sm">
+            <Repeat className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+            <span className="font-medium">
+              Used {usageCount} time{usageCount === 1 ? "" : "s"}
+            </span>
+          </div>
+          <p className="text-[11px] text-muted-foreground">
+            {usage?.lastUsedAt
+              ? `Last used ${format(new Date(usage.lastUsedAt), "d MMM yyyy")}`
+              : "Not used yet"}
+          </p>
+        </TableCell>
+      ) : (
+        <>
+          <TableCell className="min-w-36">
+            {total === 0 ? (
+              <span className="text-muted-foreground">Not started</span>
+            ) : (
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium">{percent}%</span>
+                </div>
+                <Progress value={percent} className="h-1.5" />
+                <p className="text-[11px] text-muted-foreground">{completed} of {total} workouts</p>
+              </div>
+            )}
+          </TableCell>
+          <TableCell>
+            {progress?.nextSession ? (
+              <div>
+                <p className="truncate text-sm">{progress.nextSession.workoutName}</p>
+                <p className="text-[11px] text-muted-foreground">{formatDueLabel(new Date(progress.nextSession.scheduledDate))}</p>
+              </div>
+            ) : (
+              <span className="text-muted-foreground">—</span>
+            )}
+          </TableCell>
+        </>
+      )}
       <TableCell>
         <Badge className={`border text-[11px] font-medium ${assignedStatus.className}`}>
           {assignedStatus.label}
@@ -751,6 +875,36 @@ function CollectionTile({
         </DropdownMenu>
       )}
     </div>
+  );
+}
+
+function ViewAllCollectionsCard({
+  expanded,
+  hiddenCount,
+  onClick,
+}: {
+  expanded: boolean;
+  hiddenCount: number;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex items-center gap-3 rounded-xl border border-border/50 p-4 text-left shadow-sm transition-colors hover:border-primary/40 hover:bg-muted/40"
+    >
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+        <Grid3x3 className="h-4.5 w-4.5" />
+      </div>
+      <div className="min-w-0">
+        <p className="truncate text-sm font-medium">
+          {expanded ? "Show Fewer" : "View All Collections"}
+        </p>
+        <p className="text-xs text-muted-foreground">
+          {expanded ? "Back to the top collections" : `${hiddenCount} more`}
+        </p>
+      </div>
+    </button>
   );
 }
 
@@ -933,20 +1087,27 @@ function ProgramFiltersPanel({
   );
 }
 
+/**
+ * The trainer's Programs page (Library + Assigned tabs).
+ *
+ * Trainer-only by construction: app/(platform)/programs/page.tsx branches on
+ * role and renders ClientProgramsView for clients, so this component no longer
+ * carries any client-role conditionals.
+ */
 export function ProgramListClient({
   programs,
   globalPrograms = [],
   updatableIds = [],
   collections = [],
   progressByProgramId = {},
-  role,
+  usageByProgramId = {},
 }: {
   programs: ProgramListItem[];
   globalPrograms?: GlobalProgramItem[];
   updatableIds?: string[];
   collections?: CollectionItem[];
   progressByProgramId?: Record<string, ProgramProgress>;
-  role?: string;
+  usageByProgramId?: Record<string, ProgramUsage>;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -993,10 +1154,17 @@ export function ProgramListClient({
   const [inlineCollectionName, setInlineCollectionName] = useState("");
   const [creatingInlineCollection, setCreatingInlineCollection] = useState(false);
 
-  // Assigned-tab-only: status filter, sort, search.
+  // Assigned-tab-only: sort and search. The status filter is URL-driven (see
+  // assignedStatusFilter below) so the summary StatCards can link into it.
   const [assignedSearch, setAssignedSearch] = useState("");
-  const [assignedStatusFilter, setAssignedStatusFilter] = useState<"all" | AssignedStatus>("all");
   const [assignedSort, setAssignedSort] = useState<AssignedSort>("updated_desc");
+
+  // Collections grid shows only the most recently opened few by default.
+  const [showAllCollections, setShowAllCollections] = useState(false);
+  const [resourcesCalloutDismissed, setResourcesCalloutDismissed] = useState(false);
+  // Optimistic "just opened" timestamps, keyed by collection id, so clicking a
+  // tile reorders the grid immediately instead of waiting on the server write.
+  const [viewedOverrides, setViewedOverrides] = useState<Record<string, number>>({});
 
   // collections prop plus any created inline this session that the prop
   // hasn't caught up to yet (router.refresh() is async).
@@ -1010,22 +1178,92 @@ export function ProgramListClient({
     [allCollections]
   );
 
-  const activeTab =
-    role === "TRAINER"
-      ? searchParams.get("tab") === "programs"
-        ? "programs"
-        : "templates"
-      : "programs";
+  function lastViewedTime(c: CollectionItem): number {
+    const override = viewedOverrides[c.id];
+    if (override) return override;
+    return c.lastViewedAt ? new Date(c.lastViewedAt).getTime() : 0;
+  }
 
-  function handleTabChange(nextTab: string) {
+  function handleSelectCollection(id: string | null) {
+    setSelectedCollectionId(id);
+    if (id) {
+      setViewedOverrides((prev) => ({ ...prev, [id]: Date.now() }));
+      touchCollectionViewedAction(id).catch(() => {
+        // Best-effort — the tile already reordered locally, and the next
+        // real page load falls back to whatever the server has on file.
+      });
+    }
+  }
+
+  // The grid leads with whichever collections were opened most recently; the
+  // rest are behind the "View All Collections" tile so the tab doesn't open
+  // on a wall of folders. Never-viewed collections (pre-dating this feature)
+  // sort last, by name.
+  const sortedCollections = useMemo(
+    () =>
+      [...allCollections].sort(
+        (a, b) => lastViewedTime(b) - lastViewedTime(a) || a.name.localeCompare(b.name)
+      ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [allCollections, viewedOverrides]
+  );
+  const visibleCollections = useMemo(() => {
+    if (showAllCollections) return sortedCollections;
+    const top = sortedCollections.slice(0, TOP_COLLECTIONS_LIMIT);
+    // Keep the active collection on screen even if it isn't in the top slice,
+    // otherwise the selected tile vanishes and the filtered list looks broken.
+    if (selectedCollectionId && !top.some((c) => c.id === selectedCollectionId)) {
+      const selected = sortedCollections.find((c) => c.id === selectedCollectionId);
+      if (selected) return [...top, selected];
+    }
+    return top;
+  }, [showAllCollections, sortedCollections, selectedCollectionId]);
+  const hasHiddenCollections = sortedCollections.length > TOP_COLLECTIONS_LIMIT;
+
+  const activeTab = searchParams.get("tab") === "programs" ? "programs" : "templates";
+
+  // Search-param helpers — the tab, the Scheduled/Resources pill and the
+  // Assigned status filter all live in the URL so they survive a refresh and
+  // can be linked to (the summary StatCards link into the status filter).
+  function hrefWithParams(updates: Record<string, string | null>): string {
     const params = new URLSearchParams(searchParams.toString());
-    if (nextTab === "templates") {
-      params.delete("tab");
-    } else {
-      params.set("tab", nextTab);
+    for (const [key, value] of Object.entries(updates)) {
+      if (value === null) params.delete(key);
+      else params.set(key, value);
     }
     const nextQuery = params.toString();
-    router.push(nextQuery ? `${pathname}?${nextQuery}` : pathname);
+    return nextQuery ? `${pathname}?${nextQuery}` : pathname;
+  }
+
+  function pushParams(updates: Record<string, string | null>) {
+    router.push(hrefWithParams(updates));
+  }
+
+  function handleTabChange(nextTab: string) {
+    // `status` is Assigned-tab-only (its values include the derived
+    // "STARTING_SOON"), so it must not leak into the Library tab.
+    pushParams({ tab: nextTab === "templates" ? null : nextTab, status: null });
+  }
+
+  const typeParam = searchParams.get("type");
+  const schedulingPill: SchedulingPill =
+    typeParam === "scheduled" || typeParam === "resources" ? typeParam : "all";
+
+  function handleSchedulingPillChange(next: SchedulingPill) {
+    pushParams({ type: next === "all" ? null : next });
+  }
+
+  const statusParam = searchParams.get("status");
+  const assignedStatusFilter: "all" | AssignedStatus =
+    statusParam === "ACTIVE" ||
+    statusParam === "STARTING_SOON" ||
+    statusParam === "ON_HOLD" ||
+    statusParam === "COMPLETED"
+      ? statusParam
+      : "all";
+
+  function handleAssignedStatusChange(next: string | null) {
+    pushParams({ status: !next || next === "all" ? null : next });
   }
 
   // ---------- Assigned tab ----------
@@ -1044,6 +1282,7 @@ export function ProgramListClient({
         if (!matchesSearch(p, assignedSearch) && !clientMatch) return false;
       }
       if (assignedStatusFilter !== "all" && deriveAssignedStatus(p) !== assignedStatusFilter) return false;
+      if (!matchesSchedulingPill(p, schedulingPill)) return false;
       return true;
     });
 
@@ -1071,16 +1310,17 @@ export function ProgramListClient({
     });
 
     return rows;
-  }, [assignedPrograms, assignedSearch, assignedStatusFilter, assignedSort, progressByProgramId]);
+  }, [assignedPrograms, assignedSearch, assignedStatusFilter, schedulingPill, assignedSort, progressByProgramId]);
 
   function handleExportAssigned() {
-    const header = ["Client", "Program", "Progress %", "Status", "Last Updated"];
+    const header = ["Client", "Program", "Type", "Progress %", "Status", "Last Updated"];
     const rows = filteredAssigned.map((p) => {
       const progress = progressByProgramId[p.id];
       const percent = progress && progress.total > 0 ? Math.round((progress.completed / progress.total) * 100) : 0;
       return [
         p.client ? clientLabel(p.client) : "Unassigned",
         p.name,
+        isResource(p) ? "Resource" : "Scheduled",
         String(percent),
         assignedStatusConfig[deriveAssignedStatus(p)].label,
         new Date(p.updatedAt).toISOString(),
@@ -1153,6 +1393,7 @@ export function ProgramListClient({
           if (!matchesChip(p)) return false;
           if (!matchesRecentWindow(p.updatedAt)) return false;
           if (chipFilter === "templates" && !p.isTemplate) return false;
+          if (!matchesSchedulingPill(p, schedulingPill)) return false;
           if (!matchesFacets(p)) return false;
           if (selectedCollectionId && !(p.collectionIds ?? []).includes(selectedCollectionId)) return false;
           return true;
@@ -1167,6 +1408,7 @@ export function ProgramListClient({
     activeTab === "templates" && typeFilter !== "clinical"
       ? globalPrograms.filter((p) => {
           if (search && !matchesSearch(p, search)) return false;
+          if (!matchesSchedulingPill(p, schedulingPill)) return false;
           if (!matchesFacets(p)) return false;
           return true;
         })
@@ -1402,38 +1644,43 @@ export function ProgramListClient({
 
   return (
     <div className="space-y-6">
-      {role === "TRAINER" && (
-        <Tabs value={activeTab} onValueChange={handleTabChange}>
-          <TabsList className="grid w-full max-w-xs grid-cols-2">
-            <TabsTrigger value="templates"><Library className="h-3.5 w-3.5" /> Library</TabsTrigger>
-            <TabsTrigger value="programs"><Users className="h-3.5 w-3.5" /> Assigned</TabsTrigger>
-          </TabsList>
-        </Tabs>
-      )}
+      <Tabs value={activeTab} onValueChange={handleTabChange}>
+        <TabsList className="grid w-full max-w-xs grid-cols-2">
+          <TabsTrigger value="templates"><Library className="h-3.5 w-3.5" /> Library</TabsTrigger>
+          <TabsTrigger value="programs"><Users className="h-3.5 w-3.5" /> Assigned</TabsTrigger>
+        </TabsList>
+      </Tabs>
 
       {/* ================= LIBRARY TAB ================= */}
-      {activeTab === "templates" && role === "TRAINER" && (
+      {activeTab === "templates" && (
         <div className="space-y-5">
           <div className="space-y-2">
             <h3 className="text-sm font-semibold text-muted-foreground">Collections</h3>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
               <CollectionTile
                 label="All Programs"
                 count={programs.filter((p) => p.status !== "ARCHIVED").length}
                 selected={selectedCollectionId === null}
                 onClick={() => setSelectedCollectionId(null)}
               />
-              {allCollections.map((c) => (
+              {visibleCollections.map((c) => (
                 <CollectionTile
                   key={c.id}
                   label={c.name}
                   count={c.programCount}
                   selected={selectedCollectionId === c.id}
-                  onClick={() => setSelectedCollectionId(c.id)}
+                  onClick={() => handleSelectCollection(c.id)}
                   onRename={() => openRenameCollection(c)}
                   onDelete={() => setPendingDeleteCollection(c)}
                 />
               ))}
+              {hasHiddenCollections && (
+                <ViewAllCollectionsCard
+                  expanded={showAllCollections}
+                  hiddenCount={sortedCollections.length - TOP_COLLECTIONS_LIMIT}
+                  onClick={() => setShowAllCollections((v) => !v)}
+                />
+              )}
               <CreateCollectionCard onClick={() => setCreateCollectionOpen(true)} />
             </div>
           </div>
@@ -1448,6 +1695,12 @@ export function ProgramListClient({
                 Add Programs
               </Button>
             </div>
+          )}
+
+          <SchedulingPillFilter value={schedulingPill} onChange={handleSchedulingPillChange} />
+
+          {schedulingPill === "resources" && !resourcesCalloutDismissed && (
+            <ResourcesCallout onDismiss={() => setResourcesCalloutDismissed(true)} />
           )}
 
           {/* Toolbar */}
@@ -1560,6 +1813,7 @@ export function ProgramListClient({
                 <TableHeader>
                   <TableRow>
                     <TableHead>Program</TableHead>
+                    <TableHead>Type</TableHead>
                     <TableHead>Collection</TableHead>
                     <TableHead>Tags</TableHead>
                     <TableHead>Workouts</TableHead>
@@ -1572,7 +1826,6 @@ export function ProgramListClient({
                     <LibraryProgramRow
                       key={program.id}
                       program={program}
-                      role={role}
                       updatableSet={updatableSet}
                       collectionsById={collectionsById}
                       onDuplicate={handleDuplicate}
@@ -1604,14 +1857,18 @@ export function ProgramListClient({
       {/* ================= ASSIGNED TAB ================= */}
       {activeTab === "programs" && (
         <div className="space-y-5">
-          {role === "TRAINER" && (
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-              <StatCard label="Active" value={assignedStatCounts.ACTIVE} icon={CheckCircle2} description="Clients in progress" iconClassName="bg-emerald-500/10 text-emerald-600" />
-              <StatCard label="Starting Soon" value={assignedStatCounts.STARTING_SOON} icon={CalendarClock} description="Scheduled to begin" iconClassName="bg-blue-500/10 text-blue-600" />
-              <StatCard label="Total Assigned" value={assignedPrograms.length} icon={ClipboardList} description="All assignments" iconClassName="bg-indigo-500/10 text-indigo-600" />
-              <StatCard label="On Hold" value={assignedStatCounts.ON_HOLD} icon={PauseCircle} description="Paused programs" iconClassName="bg-amber-500/10 text-amber-600" />
-              <StatCard label="Completed" value={assignedStatCounts.COMPLETED} icon={CheckCircle2} description="Finished programs" iconClassName="bg-purple-500/10 text-purple-600" />
-            </div>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+            <StatCard size="compact" label="Active" value={assignedStatCounts.ACTIVE} icon={CheckCircle2} href={hrefWithParams({ status: "ACTIVE" })} iconClassName="bg-emerald-500/10 text-emerald-600" />
+            <StatCard size="compact" label="Starting Soon" value={assignedStatCounts.STARTING_SOON} icon={CalendarClock} href={hrefWithParams({ status: "STARTING_SOON" })} iconClassName="bg-blue-500/10 text-blue-600" />
+            <StatCard size="compact" label="Total Assigned" value={assignedPrograms.length} icon={ClipboardList} href={hrefWithParams({ status: null })} iconClassName="bg-indigo-500/10 text-indigo-600" />
+            <StatCard size="compact" label="On Hold" value={assignedStatCounts.ON_HOLD} icon={PauseCircle} href={hrefWithParams({ status: "ON_HOLD" })} iconClassName="bg-amber-500/10 text-amber-600" />
+            <StatCard size="compact" label="Completed" value={assignedStatCounts.COMPLETED} icon={CheckCircle2} href={hrefWithParams({ status: "COMPLETED" })} iconClassName="bg-purple-500/10 text-purple-600" />
+          </div>
+
+          <SchedulingPillFilter value={schedulingPill} onChange={handleSchedulingPillChange} />
+
+          {schedulingPill === "resources" && !resourcesCalloutDismissed && (
+            <ResourcesCallout onDismiss={() => setResourcesCalloutDismissed(true)} />
           )}
 
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -1625,7 +1882,7 @@ export function ProgramListClient({
                   className="pl-9"
                 />
               </div>
-              <Select value={assignedStatusFilter} onValueChange={(v) => setAssignedStatusFilter((v as typeof assignedStatusFilter) ?? "all")}>
+              <Select value={assignedStatusFilter} onValueChange={handleAssignedStatusChange}>
                 <SelectTrigger className="w-40">
                   <SelectValue>
                     {(value: string | null) => `Status: ${value && value !== "all" ? assignedStatusConfig[value as AssignedStatus]?.label : "All"}`}
@@ -1656,40 +1913,35 @@ export function ProgramListClient({
                 </SelectContent>
               </Select>
             </div>
-            {role === "TRAINER" && (
-              <div className="flex items-center gap-2">
-                <Button variant="outline" className="gap-1.5" onClick={handleExportAssigned}>
-                  <Download className="h-3.5 w-3.5" />
-                  Export
-                </Button>
-                <CreateProgramMenu
-                  onUseTemplate={() => handleTabChange("templates")}
-                  trigger={<Button className="gap-2" />}
-                >
-                  <Plus className="h-4 w-4" />
-                  Create Program
-                </CreateProgramMenu>
-              </div>
-            )}
+            <div className="flex items-center gap-2">
+              <Button variant="outline" className="gap-1.5" onClick={handleExportAssigned}>
+                <Download className="h-3.5 w-3.5" />
+                Export
+              </Button>
+              <CreateProgramMenu
+                onUseTemplate={() => handleTabChange("templates")}
+                trigger={<Button className="gap-2" />}
+              >
+                <Plus className="h-4 w-4" />
+                Create Program
+              </CreateProgramMenu>
+            </div>
           </div>
 
           {filteredAssigned.length === 0 ? (
             <ProgramsEmptyState
               title="No assigned programs"
-              description={
-                role === "TRAINER"
-                  ? "Assign a program from your Library to a client to see it here."
-                  : "No programs have been assigned to you yet."
-              }
-              showCreateActions={role === "TRAINER"}
+              description="Assign a program from your Library to a client to see it here."
+              showCreateActions
             />
-          ) : role === "TRAINER" ? (
+          ) : (
             <div className="rounded-xl border border-border/50 shadow-sm">
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Client</TableHead>
                     <TableHead>Program</TableHead>
+                    <TableHead>Type</TableHead>
                     <TableHead>Progress</TableHead>
                     <TableHead>Next Workout</TableHead>
                     <TableHead>Status</TableHead>
@@ -1703,61 +1955,12 @@ export function ProgramListClient({
                       key={program.id}
                       program={program}
                       progress={progressByProgramId[program.id]}
+                      usage={usageByProgramId[program.id]}
                       onDuplicate={handleDuplicate}
                       onArchive={handleArchive}
                       onRequestHardDelete={(id, name) => setPendingHardDelete({ id, name })}
                     />
                   ))}
-                </TableBody>
-              </Table>
-            </div>
-          ) : (
-            // Client role: keep the simpler original table (Name/Trainer/Status/Workouts/Updated)
-            <div className="rounded-xl border border-border/50 shadow-sm">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Trainer</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Workouts</TableHead>
-                    <TableHead>Updated</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredAssigned.map((program) => {
-                    const status = statusConfig[program.status] ?? { label: program.status, className: "bg-muted text-muted-foreground border-border" };
-                    return (
-                      <TableRow key={program.id} className="group">
-                        <TableCell className="max-w-64">
-                          <Link href={`/programs/${program.id}`} className="font-medium hover:text-primary hover:underline truncate block">
-                            {program.name}
-                          </Link>
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">
-                          {program.trainer ? clientLabel(program.trainer) : "—"}
-                        </TableCell>
-                        <TableCell>
-                          <Badge className={`border text-[11px] font-medium ${status.className}`}>{status.label}</Badge>
-                        </TableCell>
-                        <TableCell>
-                          <WorkoutCount count={program._count.workouts} />
-                        </TableCell>
-                        <TableCell>
-                          <UpdatedAt date={program.updatedAt} />
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Link
-                            href={`/programs/${program.id}`}
-                            className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity hover:bg-muted hover:text-foreground group-hover:opacity-100"
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Link>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
                 </TableBody>
               </Table>
             </div>
@@ -1900,7 +2103,7 @@ export function ProgramListClient({
               .filter((p) => p.name.toLowerCase().includes(memberSearch.toLowerCase()))
               .map((p) => {
                 const id = `member-${p.id}`;
-                const status = statusConfig[p.status] ?? { label: p.status, className: "bg-muted text-muted-foreground border-border" };
+                const status = getProgramStatusConfig(p.status);
                 return (
                   <div key={p.id} className="flex items-center gap-3 rounded-md px-2.5 py-2 hover:bg-muted">
                     <Checkbox

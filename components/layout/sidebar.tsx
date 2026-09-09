@@ -20,23 +20,22 @@ import {
   History,
   Apple,
   Building2,
+  CalendarDays,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { VoiceMessagesNavBadge } from "@/components/voice-memo/VoiceMessagesNavBadge";
 
 interface SidebarProps {
   role: "TRAINER" | "CLIENT";
   currentPath: string;
+  /** Unread chat messages plus unread workout voice notes — one combined badge. */
   unreadMessageCount: number;
   userName: string;
   userEmail: string;
   userImageUrl?: string | null;
   mobileMode?: boolean;
   isAdmin?: boolean;
-  unreadVoiceCount?: number;
-  trainerClerkId?: string;
 }
 
 interface NavLink {
@@ -61,6 +60,9 @@ const trainerLinks: NavLink[] = [
 const clientLinks: NavLink[] = [
   { href: "/dashboard",   label: "Dashboard",    icon: LayoutDashboard },
   { href: "/programs",    label: "My Programs",  icon: ClipboardList },
+  // The month calendar moved off the dashboard onto its own page, so it needs
+  // a nav entry of its own to stay discoverable.
+  { href: "/calendar",    label: "Calendar",     icon: CalendarDays },
   { href: "/nutrition",   label: "Nutrition",    icon: Apple },
   // { href: "/habits",      label: "Habits",       icon: Flame },
   // { href: "/check-ins",   label: "Check-ins",    icon: ClipboardCheck },
@@ -75,8 +77,6 @@ export function Sidebar({
   userEmail,
   mobileMode = false,
   isAdmin = false,
-  unreadVoiceCount = 0,
-  trainerClerkId,
 }: SidebarProps) {
   const pathname = usePathname();
   const links = role === "TRAINER" ? trainerLinks : clientLinks;
@@ -152,31 +152,15 @@ export function Sidebar({
         </div>
         <nav className="space-y-0.5">
           {links.map((link) => {
-            let badge: React.ReactNode = undefined;
-            if (link.href === "/messages") {
-              const showUnreadCount = unreadMessageCount > 0;
-              const showVoiceBadge = role === "TRAINER" && !!trainerClerkId;
-              if (showUnreadCount || showVoiceBadge) {
-                badge = (
-                  <span className="flex items-center gap-1">
-                    {showUnreadCount && (
-                      <Badge
-                        variant="destructive"
-                        className="h-5 min-w-5 justify-center px-1 text-[10px] font-bold"
-                      >
-                        {unreadMessageCount > 99 ? "99+" : unreadMessageCount}
-                      </Badge>
-                    )}
-                    {showVoiceBadge && (
-                      <VoiceMessagesNavBadge
-                        initialUnread={unreadVoiceCount}
-                        trainerClerkId={trainerClerkId!}
-                      />
-                    )}
-                  </span>
-                );
-              }
-            }
+            const badge =
+              link.href === "/messages" && unreadMessageCount > 0 ? (
+                <Badge
+                  variant="destructive"
+                  className="h-5 min-w-5 justify-center px-1 text-[10px] font-bold"
+                >
+                  {unreadMessageCount > 99 ? "99+" : unreadMessageCount}
+                </Badge>
+              ) : undefined;
 
             return navItem(link.href, link.label, link.icon, badge);
           })}

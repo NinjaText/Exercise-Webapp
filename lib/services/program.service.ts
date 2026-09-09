@@ -2,6 +2,16 @@ import { randomBytes } from "crypto";
 import { prisma } from "@/lib/prisma";
 import type { PlanStatus, Prisma } from "@prisma/client";
 
+// Canonical implementation lives in lib/utils so client components can use it
+// without pulling Prisma into the browser bundle. Re-exported here so server
+// callers can keep reaching it through the program service.
+export {
+  getProgramSchedulingType,
+  getProgramSchedulingLabel,
+  type ProgramSchedulingTypeValue,
+} from "@/lib/utils/program-scheduling";
+import { getProgramSchedulingType } from "@/lib/utils/program-scheduling";
+
 export function computeDurationWeeksFromWorkouts(
   workouts: { weekIndex: number }[]
 ): number | null {
@@ -23,7 +33,7 @@ import type {
 // --- Include presets ---
 const programListInclude = {
   trainer: { select: { id: true, firstName: true, lastName: true } },
-  client: { select: { id: true, firstName: true, lastName: true } },
+  client: { select: { id: true, firstName: true, lastName: true, email: true } },
   workouts: { select: { id: true, name: true } },
   _count: { select: { workouts: true } },
 } satisfies Prisma.ProgramInclude;
@@ -35,6 +45,7 @@ const programDetailInclude = {
       id: true,
       firstName: true,
       lastName: true,
+      email: true,
       clientProfile: true,
     },
   },
@@ -237,17 +248,27 @@ export async function toggleProgramFavorite(id: string, isFavorite: boolean) {
   return prisma.program.update({ where: { id }, data: { isFavorite } });
 }
 
+export interface ProgramNextSession {
+  /** The WorkoutSessionV2 id — the client's "Continue Workout" CTA links to /sessions/{id}. */
+  sessionId: string;
+  workoutName: string;
+  scheduledDate: Date;
+  estimatedMinutes: number | null;
+  exerciseCount: number;
+}
+
 export interface ProgramProgress {
   completed: number;
   total: number;
-  nextSession: { workoutName: string; scheduledDate: Date } | null;
+  nextSession: ProgramNextSession | null;
 }
 
 /**
- * Per-program session-completion snapshot for the Assigned tab's Progress and
- * Next Workout columns. One query across every requested program rather than
- * N+1 per row — `orderBy: scheduledDate asc` lets a single pass pick each
- * program's soonest upcoming session as it's encountered.
+ * Per-program session-completion snapshot for the trainer's Assigned tab
+ * (Progress / Next Workout columns) and the client's program cards. One query
+ * across every requested program rather than N+1 per row — `orderBy:
+ * scheduledDate asc` lets a single pass pick each program's soonest upcoming
+ * session as it's encountered.
  */
 export async function getProgramProgressMap(
   programIds: string[]
@@ -259,14 +280,28 @@ export async function getProgramProgressMap(
   const sessions = await prisma.workoutSessionV2.findMany({
     where: { workout: { programId: { in: programIds } } },
     select: {
+      id: true,
       status: true,
       scheduledDate: true,
-      workout: { select: { programId: true, name: true } },
+      workout: {
+        select: {
+          programId: true,
+          name: true,
+          estimatedMinutes: true,
+          blocks: { select: { exercises: { select: { id: true } } } },
+        },
+      },
     },
     orderBy: { scheduledDate: "asc" },
   });
 
-  const now = new Date();
+  // scheduledDate is UTC-midnight-anchored (see lib/utils/calendar-date.ts), so
+  // comparing against the current instant would drop a session that is due
+  // *today* the moment the day starts. Anchor to the start of today instead, so
+  // today's still-pending workout is the one offered as "next".
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+
   for (const session of sessions) {
     const entry = map[session.workout.programId];
     if (!entry) continue;
@@ -275,9 +310,15 @@ export async function getProgramProgressMap(
     if (
       !entry.nextSession &&
       (session.status === "SCHEDULED" || session.status === "IN_PROGRESS") &&
-      session.scheduledDate >= now
+      session.scheduledDate >= todayStart
     ) {
-      entry.nextSession = { workoutName: session.workout.name, scheduledDate: session.scheduledDate };
+      entry.nextSession = {
+        sessionId: session.id,
+        workoutName: session.workout.name,
+        scheduledDate: session.scheduledDate,
+        estimatedMinutes: session.workout.estimatedMinutes,
+        exerciseCount: session.workout.blocks.reduce((n, b) => n + b.exercises.length, 0),
+      };
     }
   }
 
@@ -434,6 +475,10 @@ export async function duplicateProgram(
     description: source.description,
     isTemplate: asTemplate,
     sourceTemplateId: source.id,
+    // A Resource stays a Resource when copied — otherwise assigning an
+    // On-Demand template (which assigns a clone) would silently produce a
+    // Scheduled program.
+    schedulingType: getProgramSchedulingType(source),
     durationWeeks: source.durationWeeks,
     daysPerWeek: source.daysPerWeek,
     tags: source.tags,
@@ -503,6 +548,66 @@ export async function assignProgram(
   }
 
   return program;
+}
+
+/**
+ * Attaches an On-Demand ("Resource") program to a client.
+ *
+ * Mirrors assignProgram's attach step but deliberately writes no startDate and
+ * pre-generates no WorkoutSessionV2 rows. The mark-missed-sessions cron flips
+ * any SCHEDULED session older than 24h to MISSED with no program-type
+ * awareness, so a Resource must never own a SCHEDULED row — its session is
+ * created lazily, as IN_PROGRESS, the moment the client actually starts it.
+ */
+export async function assignOnDemandProgram(programId: string, clientId: string) {
+  return prisma.program.update({
+    where: { id: programId },
+    data: { clientId, status: "ACTIVE" },
+    select: { id: true },
+  });
+}
+
+/**
+ * How many times each of the given (program, client) pairs has been used.
+ *
+ * Powers the Assigned tab's "Used N times / Last used …" column for Resources,
+ * which have no schedule and therefore no meaningful progress bar. One query
+ * for every requested program rather than N+1 per row.
+ */
+export interface ProgramUsage {
+  count: number;
+  lastUsedAt: Date | null;
+}
+
+export async function getProgramUsageMap(
+  programIds: string[]
+): Promise<Record<string, ProgramUsage>> {
+  const map: Record<string, ProgramUsage> = {};
+  for (const id of programIds) map[id] = { count: 0, lastUsedAt: null };
+  if (programIds.length === 0) return map;
+
+  const sessions = await prisma.workoutSessionV2.findMany({
+    where: {
+      workout: { programId: { in: programIds } },
+      status: { in: ["IN_PROGRESS", "COMPLETED"] },
+    },
+    select: {
+      startedAt: true,
+      completedAt: true,
+      scheduledDate: true,
+      workout: { select: { programId: true } },
+    },
+  });
+
+  for (const session of sessions) {
+    const entry = map[session.workout.programId];
+    if (!entry) continue;
+    entry.count += 1;
+    const usedAt = session.completedAt ?? session.startedAt ?? session.scheduledDate;
+    if (!entry.lastUsedAt || usedAt > entry.lastUsedAt) entry.lastUsedAt = usedAt;
+  }
+
+  return map;
 }
 
 export async function getProgramsForClient(clientId: string) {

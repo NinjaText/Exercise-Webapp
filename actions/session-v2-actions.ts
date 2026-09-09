@@ -8,6 +8,7 @@ import { createNotification, NOTIFICATION_TYPES } from "@/lib/services/notificat
 import { getResend } from "@/lib/email/resend";
 import { SessionCompletedEmail } from "@/lib/email/templates/session-completed";
 import { computeScheduleVariance } from "@/lib/services/session.service";
+import { getProgramSchedulingType } from "@/lib/services/program.service";
 
 async function notifyTrainerOnCompletion(
   sessionId: string,
@@ -133,6 +134,93 @@ export async function startSessionV2Action(sessionId: string) {
   } catch (error) {
     console.error(error);
     return { success: false, error: "Failed to start session" };
+  }
+}
+
+/**
+ * Opens an On-Demand ("Resource") workout for the signed-in client.
+ *
+ * Resources are assigned without any pre-generated WorkoutSessionV2 rows —
+ * the mark-missed-sessions cron flips every SCHEDULED session older than 24h
+ * to MISSED with no program-type awareness, so a pre-generated row would make
+ * an anytime resource show up as non-compliance. The session row is therefore
+ * created here, lazily, at the moment the client actually starts the workout,
+ * straight into IN_PROGRESS with scheduledDate = startedAt = now.
+ *
+ * A resource is meant to be repeatable, so an already-finished run (COMPLETED
+ * /MISSED/SKIPPED) is left alone and a fresh session is started instead; only
+ * a still-open run is resumed.
+ *
+ * Scheduled programs are untouched by this path: their sessions are always
+ * pre-generated at assignment time, so this action refuses to create one.
+ */
+export async function startOnDemandWorkoutAction(workoutId: string) {
+  const { userId } = await auth();
+  if (!userId) return { success: false as const, error: "Unauthorized" };
+
+  try {
+    const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
+    if (!dbUser) return { success: false as const, error: "User not found" };
+
+    const workout = await prisma.workout.findUnique({
+      where: { id: workoutId },
+      select: {
+        id: true,
+        program: { select: { clientId: true, schedulingType: true } },
+      },
+    });
+    if (!workout) return { success: false as const, error: "Workout not found" };
+    if (workout.program.clientId !== dbUser.id) {
+      return { success: false as const, error: "Forbidden" };
+    }
+
+    // Resume a run that's still open rather than stacking duplicate rows.
+    const openSession = await prisma.workoutSessionV2.findFirst({
+      where: {
+        workoutId,
+        clientId: dbUser.id,
+        status: { in: ["SCHEDULED", "IN_PROGRESS"] },
+      },
+      orderBy: { scheduledDate: "desc" },
+    });
+
+    if (openSession) {
+      const session =
+        openSession.status === "IN_PROGRESS"
+          ? openSession
+          : await prisma.workoutSessionV2.update({
+              where: { id: openSession.id },
+              data: { status: "IN_PROGRESS", startedAt: new Date() },
+            });
+      revalidatePath("/dashboard");
+      revalidatePath("/sessions/" + session.id);
+      return { success: true as const, data: session };
+    }
+
+    if (getProgramSchedulingType(workout.program) !== "ON_DEMAND") {
+      return {
+        success: false as const,
+        error: "This workout isn't scheduled for you",
+      };
+    }
+
+    const now = new Date();
+    const session = await prisma.workoutSessionV2.create({
+      data: {
+        workoutId,
+        clientId: dbUser.id,
+        scheduledDate: now,
+        startedAt: now,
+        status: "IN_PROGRESS",
+      },
+    });
+
+    revalidatePath("/dashboard");
+    revalidatePath("/sessions/" + session.id);
+    return { success: true as const, data: session };
+  } catch (error) {
+    console.error("Failed to start on-demand workout:", error);
+    return { success: false as const, error: "Failed to start workout" };
   }
 }
 

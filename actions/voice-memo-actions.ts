@@ -26,18 +26,6 @@ export type VoiceMemoData = {
   createdAt: Date
 }
 
-export type FeedItem = {
-  memoId: string
-  clientClerkId: string
-  clientName: string
-  clientImageUrl: string | null
-  workoutId: string
-  workoutName: string
-  sessionId: string
-  isRead: boolean
-  createdAt: Date
-}
-
 async function getAuthedUser() {
   const { userId: clerkId } = await auth()
   if (!clerkId) return null
@@ -264,6 +252,42 @@ export async function markVoiceMemoRead(
   }
 }
 
+/**
+ * Marks every voice memo in one trainer/client conversation as read for the
+ * caller. Called when a thread is opened, alongside the equivalent
+ * message-level markRead, so the merged Inbox badge clears in one go.
+ *
+ * A memo has no participant ids of its own — authorization goes through
+ * `Workout → Program.{trainerId, clientId}` — and a caller never "reads" their
+ * own recording.
+ */
+export async function markAllVoiceMemosReadForThread(
+  trainerId: string,
+  clientId: string
+): Promise<{ success: boolean; count?: number; error?: string }> {
+  try {
+    const user = await getAuthedUser()
+    if (!user) return { success: false, error: "Unauthorized" }
+    if (user.id !== trainerId && user.id !== clientId) {
+      return { success: false, error: "Forbidden" }
+    }
+
+    const { count } = await prisma.voiceMemo.updateMany({
+      where: {
+        isRead: false,
+        authorId: { not: user.id },
+        workout: { program: { trainerId, clientId } },
+      },
+      data: { isRead: true },
+    })
+
+    return { success: true, count }
+  } catch (err) {
+    console.error("[voice-memo] markAllReadForThread error:", err)
+    return { success: false, error: "Failed to mark voice notes as read" }
+  }
+}
+
 export async function getWorkoutVoiceMemos(workoutId: string): Promise<{
   success: boolean
   data?: { trainer: VoiceMemoData | null; client: VoiceMemoData | null }
@@ -294,68 +318,5 @@ export async function getWorkoutVoiceMemos(workoutId: string): Promise<{
   } catch (err) {
     console.error("[voice-memo] getWorkoutMemos error:", err)
     return { success: false, error: "Failed to fetch memos" }
-  }
-}
-
-export async function getTrainerVoiceMessageFeed(): Promise<{
-  success: boolean
-  data?: FeedItem[]
-  error?: string
-}> {
-  try {
-    const user = await getAuthedUser()
-    if (!user || user.role !== "TRAINER") return { success: false, error: "Unauthorized" }
-
-    const programs = await prisma.program.findMany({
-      where: { trainerId: user.id, clientId: { not: null } },
-      include: {
-        client: {
-          select: { id: true, clerkId: true, firstName: true, lastName: true, imageUrl: true },
-        },
-        workouts: {
-          include: {
-            voiceMemos: {
-              where: { authorRole: "CLIENT" },
-              orderBy: { createdAt: "desc" },
-              take: 1,
-            },
-            sessions: {
-              where: { status: "COMPLETED" },
-              orderBy: { completedAt: "desc" },
-              take: 1,
-              select: { id: true },
-            },
-          },
-        },
-      },
-    })
-
-    const feed: FeedItem[] = []
-    for (const program of programs) {
-      if (!program.client) continue
-      const clientName = `${program.client.firstName} ${program.client.lastName}`
-      for (const workout of program.workouts) {
-        const memo = workout.voiceMemos[0]
-        if (!memo) continue
-        const session = workout.sessions[0]
-        feed.push({
-          memoId: memo.id,
-          clientClerkId: program.client.clerkId,
-          clientName,
-          clientImageUrl: program.client.imageUrl ?? null,
-          workoutId: workout.id,
-          workoutName: workout.name,
-          sessionId: session?.id ?? "",
-          isRead: memo.isRead,
-          createdAt: memo.createdAt,
-        })
-      }
-    }
-
-    feed.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
-    return { success: true, data: feed }
-  } catch (err) {
-    console.error("[voice-memo] feed error:", err)
-    return { success: false, error: "Failed to fetch feed" }
   }
 }

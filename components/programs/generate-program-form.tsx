@@ -28,6 +28,8 @@ import {
   type ClientSummary,
 } from "@/components/programs/client-details-panel";
 import { mapClientEquipmentToOptions } from "@/lib/utils/program-equipment";
+import { SchedulingTypeSelector } from "@/components/programs/scheduling-type-selector";
+import type { ProgramSchedulingTypeValue } from "@/lib/utils/program-scheduling";
 import type { ClinicalPlan, ProgramMode } from "@/lib/ai/types/program-generation";
 
 export type { ClientSummary };
@@ -66,6 +68,7 @@ export type GenerateExercisesHandler = (params: {
   difficultyLevel: string;
   weekPlan: unknown[];
   organizationIds?: string[];
+  schedulingType?: ProgramSchedulingTypeValue;
 }) => Promise<{ success: boolean; error?: string; data?: string }>;
 
 interface GenerateProgramFormProps {
@@ -103,6 +106,11 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
   const [equipmentOptions, setEquipmentOptions] = useState<string[]>([]);
   const [equipmentOpen, setEquipmentOpen] = useState(false);
   const [startDate, setStartDate] = useState("");
+  // Scheduled = a dated program with generated sessions; On-Demand = an
+  // anytime "Resource" with no schedule at all.
+  const [schedulingType, setSchedulingType] =
+    useState<ProgramSchedulingTypeValue>("SCHEDULED");
+  const isOnDemand = schedulingType === "ON_DEMAND";
   const [difficulty, setDifficulty] = useState("BEGINNER");
   const [duration, setDuration] = useState(25);
   const [daysPerWeek, setDaysPerWeek] = useState(3);
@@ -116,6 +124,11 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
     { id: "2", name: "Main Circuit", focusType: "FULL_BODY", exerciseCount: 6, rounds: 3, restBetweenRounds: 60 },
     { id: "3", name: "Cool Down", focusType: "COOLDOWN", exerciseCount: 3, rounds: 1, restBetweenRounds: null },
   ]);
+
+  // A resource is a single anytime session, so the AI planner is always asked
+  // for one week / one day regardless of what the (hidden) schedule inputs say.
+  const effectiveDurationWeeks = isOnDemand ? 1 : durationWeeks;
+  const effectiveDaysPerWeek = isOnDemand ? 1 : daysPerWeek;
 
   useEffect(() => {
     getDistinctEquipmentAction().then(res => {
@@ -237,11 +250,13 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
       toast.error('Please select at least one program goal');
       return;
     }
-    if (selectedClient && !startDate) {
+    // A resource has no schedule, so neither a start date nor training days
+    // apply — even when a client is pre-selected.
+    if (!isOnDemand && selectedClient && !startDate) {
       toast.error('Please select a start date for this client');
       return;
     }
-    if (selectedWeekdays.length === 0) {
+    if (!isOnDemand && selectedWeekdays.length === 0) {
       toast.error('Please select at least one training day');
       return;
     }
@@ -263,13 +278,13 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
           programMode,
           programGoals: selectedGoals,
           availableEquipment: selectedEquipment,
-          durationWeeks,
-          daysPerWeek,
+          durationWeeks: effectiveDurationWeeks,
+          daysPerWeek: effectiveDaysPerWeek,
           difficultyLevel: difficulty,
           circuits: circuits.map(({ name, focusType, exerciseCount, rounds, restBetweenRounds }) => ({
             name, focusType, exerciseCount, rounds, restBetweenRounds,
           })),
-          preferredWeekdays: selectedWeekdays,
+          preferredWeekdays: isOnDemand ? [] : selectedWeekdays,
           subjective: (formData.get('subjective') as string) || undefined,
           trainerPrompt: (formData.get('trainerPrompt') as string) || undefined,
           additionalNotes: (formData.get('notes') as string) || undefined,
@@ -292,16 +307,17 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
     const genParams = {
       clientId: selectedClient || null,
       programMode,
+      schedulingType,
       programGoals: selectedGoals,
       availableEquipment: selectedEquipment,
-      startDate: selectedClient ? startDate : null,
+      startDate: selectedClient && !isOnDemand ? startDate : null,
       durationMinutes: duration,
-      daysPerWeek,
-      durationWeeks,
+      daysPerWeek: effectiveDaysPerWeek,
+      durationWeeks: effectiveDurationWeeks,
       circuits: circuits.map(({ name, focusType, exerciseCount, rounds, restBetweenRounds }) => ({
         name, focusType, exerciseCount, rounds, restBetweenRounds,
       })),
-      preferredWeekdays: selectedWeekdays,
+      preferredWeekdays: isOnDemand ? [] : selectedWeekdays,
       difficultyLevel: difficulty,
       weekPlan: approvedPlan.weeklyPlan,
       clinicalAssessment: approvedPlan.clinicalAssessment,
@@ -417,6 +433,12 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
                 </p>
               </div>
 
+              {/* Scheduling — Scheduled program vs. anytime Resource */}
+              <div className="space-y-2">
+                <Label>Scheduling</Label>
+                <SchedulingTypeSelector value={schedulingType} onChange={setSchedulingType} />
+              </div>
+
               {/* Clinic visibility — shown only in admin/global context (clinics provided) */}
               {clinics && (
                 <ClinicVisibilitySelector
@@ -426,8 +448,8 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
                 />
               )}
 
-              {/* Start Date — shown only when a client is selected */}
-              {selectedClient && (
+              {/* Start Date — shown only for a scheduled program with a client */}
+              {selectedClient && !isOnDemand && (
                 <div className="space-y-2">
                   <Label htmlFor="startDate">
                     Program Start Date <span className="text-destructive">*</span>
@@ -456,25 +478,28 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
                     ))}
                   </select>
                 </div>
-                <div className="space-y-2">
-                  <Label>Days Per Week</Label>
-                  <select
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                    value={daysPerWeek}
-                    onChange={(e) => {
-                      const val = Number(e.target.value);
-                      setDaysPerWeek(val);
-                      setSelectedWeekdays(prev => prev.slice(0, val));
-                    }}
-                  >
-                    {[1, 2, 3, 4, 5, 6, 7].map((d) => (
-                      <option key={d} value={d}>{d} {d === 1 ? "day" : "days"}</option>
-                    ))}
-                  </select>
-                </div>
+                {!isOnDemand && (
+                  <div className="space-y-2">
+                    <Label>Days Per Week</Label>
+                    <select
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                      value={daysPerWeek}
+                      onChange={(e) => {
+                        const val = Number(e.target.value);
+                        setDaysPerWeek(val);
+                        setSelectedWeekdays(prev => prev.slice(0, val));
+                      }}
+                    >
+                      {[1, 2, 3, 4, 5, 6, 7].map((d) => (
+                        <option key={d} value={d}>{d} {d === 1 ? "day" : "days"}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
               </div>
 
-              {/* Program Duration */}
+              {/* Program Duration — cosmetic for a resource, which has no schedule */}
+              {!isOnDemand && (
               <div className="space-y-2">
                 <Label>Program Duration</Label>
                 <div className="flex items-center gap-2 flex-wrap">
@@ -505,6 +530,7 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
                   </div>
                 </div>
               </div>
+              )}
 
               {/* Program Goals */}
               <div className="space-y-2">
@@ -764,26 +790,28 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
                 </div>
               </div>
 
-              {/* Training Days */}
-              <div className="space-y-2">
-                <Label>Training Days</Label>
-                <div className="flex flex-wrap gap-2">
-                  {weekDays.map((day) => (
-                    <Button
-                      key={day}
-                      type="button"
-                      variant={selectedWeekdays.includes(day) ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => toggleWeekday(day)}
-                    >
-                      {day.slice(0, 3)}
-                    </Button>
-                  ))}
+              {/* Training Days — a resource has no weekly cadence */}
+              {!isOnDemand && (
+                <div className="space-y-2">
+                  <Label>Training Days</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {weekDays.map((day) => (
+                      <Button
+                        key={day}
+                        type="button"
+                        variant={selectedWeekdays.includes(day) ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => toggleWeekday(day)}
+                      >
+                        {day.slice(0, 3)}
+                      </Button>
+                    ))}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Select exactly {daysPerWeek} day{daysPerWeek === 1 ? "" : "s"}.
+                  </p>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Select exactly {daysPerWeek} day{daysPerWeek === 1 ? "" : "s"}.
-                </p>
-              </div>
+              )}
 
               {/* Subjective */}
               <div className="space-y-2">

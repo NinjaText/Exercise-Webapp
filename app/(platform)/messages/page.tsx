@@ -1,7 +1,11 @@
 import Link from "next/link";
 import { getCurrentUser } from "@/lib/current-user";
-import { getInboxThreads, markRead } from "@/lib/services/message.service";
-import { getInboxThreadData } from "@/lib/services/inbox.service";
+import { markRead } from "@/lib/services/message.service";
+import {
+  getInboxThreadData,
+  getInboxThreadsWithVoiceNotes,
+} from "@/lib/services/inbox.service";
+import { markAllVoiceMemosReadForThread } from "@/actions/voice-memo-actions";
 import { getClientsForTrainer, getTrainersForClient } from "@/lib/services/client.service";
 import { pusherServer } from "@/lib/pusher";
 import { threadChannel } from "@/lib/pusher-channels";
@@ -14,11 +18,18 @@ import { ClientContextSheet } from "@/components/messages/client-context-sheet";
 import { MarkAllReadButton } from "@/components/messages/mark-all-read-button";
 import { MessageThread } from "@/components/messages/message-thread";
 import { PageHeader } from "@/components/shared/page-header";
-import { MessageSquare, ArrowLeft } from "lucide-react";
+import { MessageSquare, ArrowLeft, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getDisplayName } from "@/lib/utils/display-name";
+
+interface MessagesSearchParams {
+  thread?: string;
+  /** `filter=unread` narrows the trainer's thread list to conversations with unread items. */
+  filter?: string;
+}
 
 interface Props {
-  searchParams: Promise<{ thread?: string }>;
+  searchParams: Promise<MessagesSearchParams>;
 }
 
 export default async function MessagesPage({ searchParams }: Props) {
@@ -28,7 +39,7 @@ export default async function MessagesPage({ searchParams }: Props) {
     return <TrainerInbox trainerId={user.id} searchParams={searchParams} />;
   }
 
-  const threads = await getInboxThreads(user.id);
+  const threads = await getInboxThreadsWithVoiceNotes(user.id);
   const contacts = await getTrainersForClient(user.id);
 
   return (
@@ -65,13 +76,18 @@ async function TrainerInbox({
   searchParams,
 }: {
   trainerId: string;
-  searchParams: Promise<{ thread?: string }>;
+  searchParams: Promise<MessagesSearchParams>;
 }) {
-  const [threads, contacts, { thread: threadParam }] = await Promise.all([
-    getInboxThreads(trainerId, { includeInternal: true }),
+  const [allThreads, contacts, { thread: threadParam, filter }] = await Promise.all([
+    getInboxThreadsWithVoiceNotes(trainerId, { includeInternal: true }),
     getClientsForTrainer(trainerId),
     searchParams,
   ]);
+
+  // The unread filter is applied AFTER the voice-note enrichment above, so an
+  // unread workout voice note keeps its thread in the filtered list.
+  const unreadOnly = filter === "unread";
+  const threads = unreadOnly ? allThreads.filter((t) => t.unreadCount > 0) : allThreads;
 
   const selectedThread =
     (threadParam && threads.find((t) => t.otherUser.id === threadParam)) || threads[0] || null;
@@ -85,7 +101,12 @@ async function TrainerInbox({
   let threadData = null;
   if (selectedId) {
     if (selectedThread!.unreadCount > 0) {
-      await markRead(selectedId, trainerId);
+      // The thread's unread badge covers both chat messages and workout voice
+      // notes, so opening it has to clear both sources.
+      await Promise.all([
+        markRead(selectedId, trainerId),
+        markAllVoiceMemosReadForThread(trainerId, selectedId),
+      ]);
       pusherServer
         .trigger(threadChannel(selectedId, trainerId), "messages-read", { readByUserId: trainerId })
         .catch((err) => console.error("[pusher] messages-read trigger failed:", err));
@@ -97,7 +118,9 @@ async function TrainerInbox({
     threadData = await getInboxThreadData(trainerId, selectedId);
   }
 
-  const unreadCount = threads.reduce((sum, t) => sum + t.unreadCount, 0);
+  // Counted across every thread, not just the filtered view, so the header
+  // badge keeps meaning the same thing whether or not the filter is on.
+  const unreadCount = allThreads.reduce((sum, t) => sum + t.unreadCount, 0);
 
   return (
     <div className="flex h-[calc(100dvh-7rem)] flex-col">
@@ -112,12 +135,19 @@ async function TrainerInbox({
             )}
           </div>
           <p className="mt-1 text-sm text-muted-foreground">All messages, workout comments, and exercise feedback</p>
+          {unreadOnly && (
+            <Link
+              href="/messages"
+              scroll={false}
+              className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/20"
+            >
+              Unread only
+              <X className="h-3 w-3" />
+            </Link>
+          )}
         </div>
         <div className="flex items-center gap-4">
           <MarkAllReadButton />
-          <Link href="/voice-messages" className="text-sm font-medium text-muted-foreground hover:text-foreground">
-            Voice Messages
-          </Link>
           <BroadcastMessageDialog contacts={contacts} />
           <NewMessageDialog contacts={contacts} />
         </div>
@@ -129,10 +159,22 @@ async function TrainerInbox({
             <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-muted">
               <MessageSquare className="h-8 w-8 text-muted-foreground/50" />
             </div>
-            <h3 className="mt-5 text-lg font-semibold">No messages yet</h3>
-            <p className="mx-auto mt-2 max-w-sm text-sm text-muted-foreground">
-              Start a conversation by clicking <strong>New Message</strong> above.
-            </p>
+            <h3 className="mt-5 text-lg font-semibold">
+              {unreadOnly ? "No unread messages" : "No messages yet"}
+            </h3>
+            {unreadOnly ? (
+              <p className="mx-auto mt-2 max-w-sm text-sm text-muted-foreground">
+                You&apos;re all caught up.{" "}
+                <Link href="/messages" scroll={false} className="font-medium text-primary hover:underline">
+                  View all conversations
+                </Link>
+                .
+              </p>
+            ) : (
+              <p className="mx-auto mt-2 max-w-sm text-sm text-muted-foreground">
+                Start a conversation by clicking <strong>New Message</strong> above.
+              </p>
+            )}
           </div>
         </div>
       ) : (
@@ -154,10 +196,10 @@ async function TrainerInbox({
                 <div className="min-h-0 flex-1">
                   <MessageThread
                     key={selectedId}
-                    messages={threadData.messages}
+                    items={threadData.items}
                     currentUserId={trainerId}
                     recipientId={selectedThread.otherUser.id}
-                    recipientName={`${selectedThread.otherUser.firstName} ${selectedThread.otherUser.lastName}`}
+                    recipientName={getDisplayName(selectedThread.otherUser)}
                     allowInternalNotes
                     headerRight={<ClientContextSheet client={selectedThread.otherUser} data={threadData} />}
                   />

@@ -1,14 +1,4 @@
-import Link from "next/link";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Sparkles } from "lucide-react";
-import { TodaysPrioritiesCard } from "@/components/dashboard/todays-priorities-card";
-import { WeekWorkoutsCard } from "@/components/dashboard/week-workouts-card";
-import { DashboardInboxCard } from "@/components/dashboard/dashboard-inbox-card";
-import { AiInsightsCard } from "@/components/dashboard/ai-insights-card";
-import { ClientProgressOverviewCard } from "@/components/dashboard/client-progress-overview-card";
-import { CreateProgramMenu } from "@/components/programs/create-program-menu";
-import { AddClientDialog } from "@/components/clients/add-client-dialog";
+import { TrainerDashboardClient } from "@/components/dashboard/trainer-dashboard-client";
 import type { ClientMetrics, ClientProgressBreakdown, PriorityAlert } from "@/lib/services/dashboard-insights.service";
 import type { getInboxThreads } from "@/lib/services/message.service";
 
@@ -22,7 +12,7 @@ interface TrainerDashboardProps {
     id: string;
     scheduledDate: Date;
     status: string;
-    client?: { id: string; firstName: string; lastName: string } | null;
+    client?: { id: string; firstName: string; lastName: string; email: string } | null;
     workout?: {
       program?: { id: string; name: string } | null;
     } | null;
@@ -35,18 +25,6 @@ interface TrainerDashboardProps {
   clientProgress: ClientProgressBreakdown;
 }
 
-const heroStats = (
-  clientsNeedingAttention: number,
-  sessionsDueToday: number,
-  pendingFeedback: number,
-  unreadMessages: number,
-) => [
-  { label: "Clients Needing Attention", value: clientsNeedingAttention, href: "/clients" },
-  { label: "Sessions Due Today", value: sessionsDueToday, href: "/programs" },
-  { label: "Pending Feedback", value: pendingFeedback, href: "/clients" },
-  { label: "Unread Messages", value: unreadMessages, href: "/messages" },
-];
-
 function getGreeting(): string {
   const hour = new Date().getHours();
   if (hour < 12) return "Good morning";
@@ -54,6 +32,13 @@ function getGreeting(): string {
   return "Good evening";
 }
 
+/**
+ * Server-side entry point for the trainer dashboard.
+ *
+ * Data fetching stays in the page/server layer; everything interactive (which
+ * card is expanded, which filters are applied, which slide-over is open) lives
+ * in `TrainerDashboardClient`.
+ */
 export function TrainerDashboard({
   pendingFeedback,
   unreadMessages,
@@ -65,60 +50,18 @@ export function TrainerDashboard({
   recentMessages = [],
   clientProgress,
 }: TrainerDashboardProps) {
-  const stats = heroStats(clientsNeedingAttention, sessionsDueToday, pendingFeedback, unreadMessages);
-
   return (
-    <div className="space-y-8">
-      {/* Hero – greeting + compact stats over a gradient */}
-      <Card
-        className="border-0 text-white shadow-sm"
-        style={{
-          background: "linear-gradient(135deg, var(--primary), oklch(0.36 0.19 264))",
-        }}
-      >
-        <CardContent className="p-4 sm:p-6">
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
-            <div>
-              <h1 className="text-3xl font-bold tracking-tight text-white">{getGreeting()} 👋</h1>
-              <p className="mt-1 text-sm text-white/80">
-                Here&apos;s what&apos;s happening with your clients today.
-              </p>
-              <div className="mt-4 flex flex-wrap items-center gap-2">
-                <CreateProgramMenu
-                  trigger={<Button className="bg-white text-primary hover:bg-white/90 [a]:hover:bg-white/90" />}
-                >
-                  <Sparkles className="mr-2 h-4 w-4" />
-                  Generate Program
-                </CreateProgramMenu>
-                <AddClientDialog triggerClassName="bg-transparent text-white border border-white/40 hover:bg-white/10" />
-              </div>
-            </div>
-            <div className="flex flex-wrap gap-x-8 gap-y-4 lg:justify-end">
-              {stats.map((stat) => (
-                <Link key={stat.label} href={stat.href} className="group min-w-24">
-                  <p className="text-3xl font-bold tabular-nums leading-none">{stat.value}</p>
-                  <p className="mt-1.5 max-w-32 text-xs font-medium text-white/70 transition-colors group-hover:text-white">
-                    {stat.label}
-                  </p>
-                </Link>
-              ))}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Today's Priorities + This Week's Workouts – side by side */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        <TodaysPrioritiesCard priorities={priorities} />
-        <WeekWorkoutsCard sessions={upcomingSessions} clientMetrics={clientMetrics} />
-      </div>
-
-      {/* Inbox / AI Insights / Client Progress – one glance at everything else */}
-      <div className="grid gap-6 lg:grid-cols-3">
-        <DashboardInboxCard threads={recentMessages} />
-        <AiInsightsCard />
-        <ClientProgressOverviewCard breakdown={clientProgress} />
-      </div>
-    </div>
+    <TrainerDashboardClient
+      greeting={getGreeting()}
+      pendingFeedback={pendingFeedback}
+      unreadMessages={unreadMessages}
+      clientsNeedingAttention={clientsNeedingAttention}
+      sessionsDueToday={sessionsDueToday}
+      upcomingSessions={upcomingSessions}
+      priorities={priorities}
+      clientMetrics={clientMetrics}
+      recentMessages={recentMessages}
+      clientProgress={clientProgress}
+    />
   );
 }

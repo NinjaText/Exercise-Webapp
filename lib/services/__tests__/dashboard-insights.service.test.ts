@@ -47,26 +47,26 @@ function snapshot(overrides: Partial<ClientSnapshot>): ClientSnapshot {
 describe("computeProgramWeek", () => {
   it("returns null when start date or duration is missing", () => {
     expect(computeProgramWeek(null, NOW)).toBeNull();
-    expect(computeProgramWeek({ name: "P", startDate: null, durationWeeks: 12 }, NOW)).toBeNull();
-    expect(computeProgramWeek({ name: "P", startDate: daysAgo(7), durationWeeks: null }, NOW)).toBeNull();
+    expect(computeProgramWeek({ id: "prog_p", name: "P", startDate: null, durationWeeks: 12 }, NOW)).toBeNull();
+    expect(computeProgramWeek({ id: "prog_p", name: "P", startDate: daysAgo(7), durationWeeks: null }, NOW)).toBeNull();
   });
 
   it("computes the current week from elapsed time (1-indexed)", () => {
-    expect(computeProgramWeek({ name: "P", startDate: daysAgo(14), durationWeeks: 12 }, NOW)).toEqual({
+    expect(computeProgramWeek({ id: "prog_p", name: "P", startDate: daysAgo(14), durationWeeks: 12 }, NOW)).toEqual({
       current: 3,
       total: 12,
     });
   });
 
   it("clamps the current week to the total duration", () => {
-    expect(computeProgramWeek({ name: "P", startDate: daysAgo(200), durationWeeks: 12 }, NOW)).toEqual({
+    expect(computeProgramWeek({ id: "prog_p", name: "P", startDate: daysAgo(200), durationWeeks: 12 }, NOW)).toEqual({
       current: 12,
       total: 12,
     });
   });
 
   it("returns week 1 for a program that has not started yet", () => {
-    expect(computeProgramWeek({ name: "P", startDate: daysAhead(3), durationWeeks: 8 }, NOW)).toEqual({
+    expect(computeProgramWeek({ id: "prog_p", name: "P", startDate: daysAhead(3), durationWeeks: 8 }, NOW)).toEqual({
       current: 1,
       total: 8,
     });
@@ -171,7 +171,7 @@ describe("getLastActivityAt / getLastCompletedAt", () => {
 });
 
 describe("buildPriorityAlerts", () => {
-  const activeProgram = { name: "Knee Rehab", startDate: daysAgo(7), durationWeeks: 12 };
+  const activeProgram = { id: "prog_1", name: "Knee Rehab", startDate: daysAgo(7), durationWeeks: 12 };
 
   it("flags recent pain feedback as high severity", () => {
     const alerts = buildPriorityAlerts(
@@ -211,13 +211,13 @@ describe("buildPriorityAlerts", () => {
   });
 
   it("does not flag 'hasn't started' when the program's start date is in the future", () => {
-    const futureProgram = { name: "Knee Rehab", startDate: daysAhead(3), durationWeeks: 12 };
+    const futureProgram = { id: "prog_2", name: "Knee Rehab", startDate: daysAhead(3), durationWeeks: 12 };
     const alerts = buildPriorityAlerts([snapshot({ activeProgram: futureProgram, sessions: [] })], NOW);
     expect(alerts.some((a) => /hasn't started/i.test(a.message))).toBe(false);
   });
 
   it("flags low completion and program ending soon as medium severity", () => {
-    const endingProgram = { name: "P", startDate: daysAgo(11 * 7), durationWeeks: 12 };
+    const endingProgram = { id: "prog_3", name: "P", startDate: daysAgo(11 * 7), durationWeeks: 12 };
     const alerts = buildPriorityAlerts(
       [
         snapshot({

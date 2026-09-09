@@ -93,6 +93,37 @@ export function formatRelativeTime(date: Date | string): string {
   return formatDate(date);
 }
 
+/**
+ * Long-form day-granularity relative label — "today", "yesterday", "3 days ago".
+ *
+ * Distinct from `formatRelativeTime`, which is deliberately terse ("3d ago")
+ * for dense timestamp columns. This one reads as prose inside a sentence, e.g.
+ * "Active 3 days ago" on the dashboard's per-client workout rows.
+ */
+export function formatDaysAgoLong(date: Date | string | null | undefined): string {
+  if (!date) return "no activity yet";
+
+  const target = new Date(date);
+  if (Number.isNaN(target.getTime())) return "no activity yet";
+
+  const startOfTargetDay = new Date(
+    target.getFullYear(),
+    target.getMonth(),
+    target.getDate()
+  );
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+  const days = Math.round(
+    (startOfToday.getTime() - startOfTargetDay.getTime()) / 86400000
+  );
+
+  if (days <= 0) return "today";
+  if (days === 1) return "yesterday";
+  if (days < 30) return `${days} days ago`;
+  return formatDate(target);
+}
+
 export function formatAssessmentType(type: string): string {
   return type
     .replace(/_/g, " ")

@@ -49,6 +49,47 @@ export async function submitFeedbackAction(input: {
   }
 }
 
+export interface PendingFeedbackItem {
+  id: string;
+  rating: string;
+  comment: string | null;
+  trainerResponse: string | null;
+  createdAt: Date;
+  exerciseName: string;
+  clientName: string;
+}
+
+/**
+ * Every unanswered piece of exercise feedback across the trainer's clients,
+ * flattened to the shape `<FeedbackList />` renders. Powers the dashboard's
+ * Pending Feedback slide-over, which loads on open rather than on page render.
+ */
+export async function getPendingFeedbackAction() {
+  const { userId } = await auth();
+  if (!userId) return { success: false as const, error: "Unauthorized" };
+
+  const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
+  if (!dbUser) return { success: false as const, error: "User not found" };
+  if (dbUser.role !== "TRAINER") return { success: false as const, error: "Forbidden" };
+
+  try {
+    const feedback = await feedbackService.getPendingFeedbackForTrainer(dbUser.id);
+    const data: PendingFeedbackItem[] = feedback.map((item) => ({
+      id: item.id,
+      rating: item.rating,
+      comment: item.comment,
+      trainerResponse: item.trainerResponse,
+      createdAt: item.createdAt,
+      exerciseName: item.planExercise.exercise.name,
+      clientName: `${item.client.firstName} ${item.client.lastName}`,
+    }));
+    return { success: true as const, data };
+  } catch (error) {
+    console.error("Failed to fetch pending feedback:", error);
+    return { success: false as const, error: "Failed to load pending feedback" };
+  }
+}
+
 export async function respondToFeedbackAction(input: {
   feedbackId: string;
   trainerResponse: string;

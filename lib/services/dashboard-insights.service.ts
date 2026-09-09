@@ -1,6 +1,30 @@
 import { prisma } from "@/lib/prisma";
+import type { Prisma } from "@prisma/client";
 import { getClientsForTrainer } from "@/lib/services/client.service";
+import { getDisplayName } from "@/lib/utils/display-name";
 import { startOfDay, endOfDay } from "date-fns";
+
+/**
+ * Matches only Scheduled programs — i.e. everything that is NOT an On-Demand
+ * "Resource".
+ *
+ * Resources have no schedule and are explicitly excluded from every adherence
+ * signal on the dashboard: they must never read as "missed", never drag a
+ * completion rate down, never trigger "Clients Needing Attention", and never
+ * be counted in "Sessions Due Today".
+ *
+ * `schedulingType` is optional in the schema (Mongo has no migrations), so
+ * programs written before the field existed read back as null/unset. Both of
+ * those mean "Scheduled", mirroring `getProgramSchedulingType`'s legacy-safe
+ * default — hence the three-way OR rather than a plain equality check.
+ */
+export const SCHEDULED_PROGRAM_WHERE: Prisma.ProgramWhereInput = {
+  OR: [
+    { schedulingType: "SCHEDULED" },
+    { schedulingType: null },
+    { schedulingType: { isSet: false } },
+  ],
+};
 
 export type AlertSeverity = "high" | "medium" | "low";
 
@@ -39,6 +63,8 @@ export interface VarianceBreakdown {
 }
 
 export interface ClientActiveProgram {
+  /** Needed so consumers (AI insights, priority actions) can link to /programs/{id}. */
+  id: string;
   name: string;
   startDate: Date | null;
   durationWeeks: number | null;
@@ -354,7 +380,13 @@ export async function getClientSnapshots(
 
   const [sessions, activePrograms, recentFeedback] = await Promise.all([
     prisma.workoutSessionV2.findMany({
-      where: { clientId: { in: clientIds }, scheduledDate: { gte: historyStart } },
+      where: {
+        clientId: { in: clientIds },
+        scheduledDate: { gte: historyStart },
+        // On-Demand resources are excluded from every adherence signal built
+        // from these sessions (streaks, completion rate, variance, due-today).
+        workout: { program: SCHEDULED_PROGRAM_WHERE },
+      },
       select: {
         clientId: true,
         status: true,
@@ -365,8 +397,14 @@ export async function getClientSnapshots(
       },
     }),
     prisma.program.findMany({
-      where: { clientId: { in: clientIds }, status: "ACTIVE" },
-      select: { clientId: true, name: true, startDate: true, durationWeeks: true },
+      // A client's "active program" for dashboard purposes is their Scheduled
+      // program — an assigned Resource is not a plan they can fall behind on.
+      where: {
+        clientId: { in: clientIds },
+        status: "ACTIVE",
+        AND: [SCHEDULED_PROGRAM_WHERE],
+      },
+      select: { id: true, clientId: true, name: true, startDate: true, durationWeeks: true },
       orderBy: { startDate: "desc" },
     }),
     prisma.exerciseFeedback.findMany({
@@ -393,6 +431,7 @@ export async function getClientSnapshots(
   for (const p of activePrograms) {
     if (p.clientId && !programByClient.has(p.clientId)) {
       programByClient.set(p.clientId, {
+        id: p.id,
         name: p.name,
         startDate: p.startDate,
         durationWeeks: p.durationWeeks,
@@ -409,7 +448,7 @@ export async function getClientSnapshots(
 
   return clients.map((c) => ({
     clientId: c.id,
-    clientName: `${c.firstName} ${c.lastName}`,
+    clientName: getDisplayName(c),
     sessions: sessionsByClient.get(c.id) ?? [],
     activeProgram: programByClient.get(c.id) ?? null,
     recentFeedback: feedbackByClient.get(c.id) ?? [],

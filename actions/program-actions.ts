@@ -47,6 +47,7 @@ import type {
 import type { WeekPlan } from "@/lib/ai/types/program-generation";
 import { logAudit, diffFields, deriveActorType, AUDIT_ACTIONS } from "@/lib/services/audit-log.service";
 import { getClientIdsForTrainer } from "@/lib/services/client.service";
+import { getProgramSchedulingType } from "@/lib/utils/program-scheduling";
 
 async function getTrainerUser() {
   const { userId } = await auth();
@@ -64,21 +65,30 @@ async function createProgramFromGeneratedPlan(params: {
   aiGenerationParams: Record<string, unknown>;
   clientId?: string | null;
   startDate?: string | null;
+  schedulingType?: string | null;
 }) {
   const { aiPlan, trainerId, isTemplate, aiGenerationParams, clientId, startDate } = params;
+  const schedulingType = getProgramSchedulingType(params);
+  const isOnDemand = schedulingType === "ON_DEMAND";
 
   const validation = generatedProgramSchema.safeParse(aiPlan);
   if (!validation.success) {
     throw new Error(`Invalid generated program: ${validation.error.issues[0].message}`);
   }
 
-  const sDate = startDate
-    ? (() => { const [y, m, d] = startDate.split("-").map(Number); return new Date(y, m - 1, d); })()
-    : null;
+  // A resource has no schedule: no start date, no weekly cadence, and (below)
+  // no pre-generated sessions — those would be flipped to MISSED by the
+  // mark-missed-sessions cron.
+  const sDate =
+    startDate && !isOnDemand
+      ? (() => { const [y, m, d] = startDate.split("-").map(Number); return new Date(y, m - 1, d); })()
+      : null;
 
   const durationWeeks = programService.computeDurationWeeksFromWorkouts(aiPlan.workouts);
   const daysPerWeek =
-    typeof aiGenerationParams.daysPerWeek === "number" ? aiGenerationParams.daysPerWeek : null;
+    !isOnDemand && typeof aiGenerationParams.daysPerWeek === "number"
+      ? aiGenerationParams.daysPerWeek
+      : null;
 
   const categorization = await categorizeGeneratedProgram(
     aiPlan,
@@ -96,6 +106,7 @@ async function createProgramFromGeneratedPlan(params: {
       clientId: clientId ?? null,
       status: clientId ? "ACTIVE" : "DRAFT",
       programType: typeof aiGenerationParams.programMode === "string" ? aiGenerationParams.programMode : null,
+      schedulingType,
       durationWeeks,
       daysPerWeek,
       startDate: sDate ?? undefined,
@@ -420,7 +431,7 @@ export async function duplicateProgramAction(
 export async function assignProgramAction(input: {
   programId: string;
   clientId: string;
-  startDate: string;
+  startDate?: string | null;
 }) {
   const user = await getTrainerUser();
   if (!user) return { success: false as const, error: "Unauthorized" };
@@ -432,7 +443,7 @@ export async function assignProgramAction(input: {
 
   const program = await prisma.program.findUnique({
     where: { id: parsed.data.programId },
-    select: { trainerId: true },
+    select: { trainerId: true, schedulingType: true },
   });
   if (!program || program.trainerId !== user.id) {
     return { success: false as const, error: "Forbidden" };
@@ -441,6 +452,14 @@ export async function assignProgramAction(input: {
   const clientIds = await getClientIdsForTrainer(user.id);
   if (!clientIds.includes(parsed.data.clientId)) {
     return { success: false as const, error: "Forbidden" };
+  }
+
+  // assignProgramSchema can't know the program's type, so the "is a start date
+  // required" rule lives here: Scheduled programs need one, Resources have no
+  // schedule at all.
+  const isOnDemand = getProgramSchedulingType(program) === "ON_DEMAND";
+  if (!isOnDemand && !parsed.data.startDate) {
+    return { success: false as const, error: "A start date is required" };
   }
 
   try {
@@ -453,11 +472,13 @@ export async function assignProgramAction(input: {
       user.id,
       false
     );
-    const result = await programService.assignProgram(
-      copy.id,
-      parsed.data.clientId,
-      new Date(parsed.data.startDate)
-    );
+    const result = isOnDemand
+      ? await programService.assignOnDemandProgram(copy.id, parsed.data.clientId)
+      : await programService.assignProgram(
+          copy.id,
+          parsed.data.clientId,
+          new Date(parsed.data.startDate!)
+        );
     revalidatePath("/programs");
     revalidatePath(`/programs/${parsed.data.programId}`);
     revalidatePath(`/clients/${parsed.data.clientId}`);
@@ -610,6 +631,42 @@ export async function getProgramsAction(filters?: {
   }
 }
 
+export interface AssignableProgramOption {
+  id: string;
+  name: string;
+  schedulingType: string | null;
+}
+
+/**
+ * A minimal id/name/schedulingType list of the trainer's own programs, for
+ * program pickers. Deliberately narrower than `getProgramsAction`, which
+ * returns the full list shape (workouts, counts, categorization) that a picker
+ * has no use for.
+ */
+export async function getAssignableProgramsAction() {
+  const user = await getTrainerUser();
+  if (!user) return { success: false as const, error: "Unauthorized" };
+
+  try {
+    const programs = await prisma.program.findMany({
+      where: { trainerId: user.id, isGlobal: { not: true } },
+      select: { id: true, name: true, schedulingType: true, tags: true },
+      orderBy: { updatedAt: "desc" },
+    });
+
+    // Same "ad-hoc" exclusion getPrograms applies: single-workout wrapper
+    // programs created by calendar actions are not real, assignable programs.
+    const data: AssignableProgramOption[] = programs
+      .filter((p) => !p.tags.includes("ad-hoc"))
+      .map(({ id, name, schedulingType }) => ({ id, name, schedulingType }));
+
+    return { success: true as const, data };
+  } catch (error) {
+    console.error("Failed to fetch assignable programs:", error);
+    return { success: false as const, error: "Failed to fetch programs" };
+  }
+}
+
 export async function getProgramAction(programId: string) {
   const { userId } = await auth();
   if (!userId) return { success: false as const, error: "Unauthorized" };
@@ -638,6 +695,7 @@ export async function generateProgramAction(
   params: {
     clientId?: string | null;
     startDate?: string | null;
+    schedulingType?: string | null;
     durationWeeks?: number;          // NEW
     weekPlan?: WeekPlan[];           // NEW
     [key: string]: unknown;
@@ -665,6 +723,7 @@ export async function generateProgramAction(
       isTemplate: false,
       aiGenerationParams: params,
       clientId: params.clientId || null,
+      schedulingType: params.schedulingType,
       startDate: params.clientId
         ? (params.startDate ?? new Date().toISOString().split("T")[0])
         : null,

@@ -65,6 +65,24 @@ export async function renameCollectionAction(collectionId: string, name: string)
   }
 }
 
+/**
+ * Fire-and-forget from the client when a collection tile is opened — no
+ * `revalidatePath` here, the caller updates its own local state optimistically
+ * so the reorder is instant instead of waiting on a server round trip.
+ */
+export async function touchCollectionViewedAction(collectionId: string) {
+  const user = await getTrainerUser();
+  if (!user) return { success: false as const, error: "Unauthorized" };
+
+  try {
+    await collectionService.touchCollectionViewed(collectionId, user.id);
+    return { success: true as const };
+  } catch (error) {
+    console.error("Failed to record collection view:", error);
+    return { success: false as const, error: "Failed to record collection view" };
+  }
+}
+
 export async function deleteCollectionAction(collectionId: string) {
   const user = await getTrainerUser();
   if (!user) return { success: false as const, error: "Unauthorized" };

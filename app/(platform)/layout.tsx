@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { isSuperAdmin } from "@/lib/current-user";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
-import { getTrainerVoiceMessageFeed } from "@/actions/voice-memo-actions";
+import { getUnreadVoiceNoteCount } from "@/lib/services/inbox.service";
 import { SearchProvider } from "@/components/search/search-provider";
 import { CommandPalette } from "@/components/search/command-palette";
 
@@ -40,26 +40,31 @@ export default async function PlatformLayout({ children }: { children: React.Rea
     if (isPaymentFailed) redirect("/billing?reason=payment_failed");
   }
 
-  const [unreadMessageCount, unreadNotificationCount, initialNotifications, adminAccess] =
-    await Promise.all([
-      prisma.message.count({
-        where: { recipientId: user.id, isRead: false },
-      }),
-      prisma.notification.count({
-        where: { userId: user.id, isRead: false },
-      }),
-      prisma.notification.findMany({
-        where: { userId: user.id },
-        orderBy: { createdAt: "desc" },
-        take: 20,
-      }),
-      isSuperAdmin(),
-    ]);
+  const [
+    unreadChatCount,
+    unreadVoiceNoteCount,
+    unreadNotificationCount,
+    initialNotifications,
+    adminAccess,
+  ] = await Promise.all([
+    prisma.message.count({
+      where: { recipientId: user.id, isRead: false },
+    }),
+    getUnreadVoiceNoteCount(user.id, user.role),
+    prisma.notification.count({
+      where: { userId: user.id, isRead: false },
+    }),
+    prisma.notification.findMany({
+      where: { userId: user.id },
+      orderBy: { createdAt: "desc" },
+      take: 20,
+    }),
+    isSuperAdmin(),
+  ]);
 
-  const unreadVoiceCount = user.role === "TRAINER"
-    ? (await getTrainerVoiceMessageFeed()).data?.filter((i) => !i.isRead).length ?? 0
-    : 0;
-  const trainerClerkId = user.role === "TRAINER" ? user.clerkId : undefined;
+  // Workout voice notes now live inside the normal message threads, so the nav
+  // shows one combined unread badge rather than a second voice-only badge.
+  const unreadMessageCount = unreadChatCount + unreadVoiceNoteCount;
 
   return (
     <SearchProvider>
@@ -72,8 +77,6 @@ export default async function PlatformLayout({ children }: { children: React.Rea
           userEmail={user.email}
           userImageUrl={user.imageUrl}
           isAdmin={adminAccess}
-          unreadVoiceCount={unreadVoiceCount}
-          trainerClerkId={trainerClerkId}
         />
         <div className="flex flex-1 flex-col overflow-hidden">
           <Header
@@ -81,8 +84,6 @@ export default async function PlatformLayout({ children }: { children: React.Rea
             unreadMessageCount={unreadMessageCount}
             unreadNotificationCount={unreadNotificationCount}
             initialNotifications={initialNotifications}
-            unreadVoiceCount={unreadVoiceCount}
-            trainerClerkId={trainerClerkId}
           />
           <main className="flex-1 overflow-y-auto p-4 sm:p-6">
             <div className="page-enter">{children}</div>

@@ -23,11 +23,23 @@ export async function getCollectionsWithCounts(trainerId: string) {
 }
 
 export async function createCollection(trainerId: string, name: string) {
-  return prisma.collection.create({ data: { trainerId, name: name.trim() } });
+  // Creating a collection counts as "opening" it, so a brand-new collection
+  // starts at the front of the recently-viewed order rather than the back.
+  return prisma.collection.create({
+    data: { trainerId, name: name.trim(), lastViewedAt: new Date() },
+  });
 }
 
 export async function renameCollection(id: string, name: string) {
   return prisma.collection.update({ where: { id }, data: { name: name.trim() } });
+}
+
+/** Marks a collection as just-opened so it sorts to the front of the Library grid. */
+export async function touchCollectionViewed(id: string, trainerId: string) {
+  return prisma.collection.updateMany({
+    where: { id, trainerId },
+    data: { lastViewedAt: new Date() },
+  });
 }
 
 // Deleting a collection removes it from every program's collectionIds so no

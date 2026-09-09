@@ -163,7 +163,14 @@ export async function getInboxThreads(userId: string, opts?: { includeInternal?:
   const threadMap = new Map<
     string,
     {
-      otherUser: { id: string; firstName: string; lastName: string; imageUrl: string | null; role: string };
+      otherUser: {
+        id: string;
+        firstName: string;
+        lastName: string;
+        email: string;
+        imageUrl: string | null;
+        role: string;
+      };
       lastMessage: typeof messages[0];
       unreadCount: number;
     }
@@ -179,6 +186,7 @@ export async function getInboxThreads(userId: string, opts?: { includeInternal?:
           id: otherUser.id,
           firstName: otherUser.firstName,
           lastName: otherUser.lastName,
+          email: otherUser.email,
           imageUrl: otherUser.imageUrl,
           role: otherUser.role,
         },

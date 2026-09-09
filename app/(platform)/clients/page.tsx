@@ -16,6 +16,7 @@ import { ClientActionsMenu } from "@/components/clients/client-actions-menu";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
 import { InvitationsTable } from "@/components/shared/invitations-table";
+import { getDisplayName, getInitials } from "@/lib/utils/display-name";
 
 interface Props {
   searchParams: Promise<{ q?: string; archived?: string }>;
@@ -99,8 +100,9 @@ export default async function ClientsPage({ searchParams }: Props) {
           ) : (
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
               {clients.map((client) => {
-                const gradient = getAvatarGradient(client.firstName);
-                const initials = `${client.firstName[0]}${client.lastName[0]}`;
+                const displayName = getDisplayName(client);
+                const gradient = getAvatarGradient(displayName);
+                const initials = getInitials(client);
                 const isActive = client.isActive !== false;
 
                 return (
@@ -111,7 +113,7 @@ export default async function ClientsPage({ searchParams }: Props) {
                     <Link
                       href={`/clients/${client.id}`}
                       className="absolute inset-0 z-0"
-                      aria-label={`View ${client.firstName} ${client.lastName}`}
+                      aria-label={`View ${displayName}`}
                     />
                     <CardContent className="relative z-[1] flex items-center gap-4 p-4 sm:p-6 pointer-events-none">
                       <Avatar className="h-12 w-12 shrink-0 ring-2 ring-white shadow-md">
@@ -125,7 +127,7 @@ export default async function ClientsPage({ searchParams }: Props) {
 
                       <div className="min-w-0 flex-1">
                         <p className={`truncate font-semibold leading-tight transition-colors group-hover:text-primary ${!isActive ? "italic" : ""}`}>
-                          {client.firstName} {client.lastName}
+                          {displayName}
                         </p>
                         <p className="mt-0.5 flex items-center gap-1.5 truncate text-xs text-muted-foreground">
                           <Mail className="h-3 w-3 shrink-0" />

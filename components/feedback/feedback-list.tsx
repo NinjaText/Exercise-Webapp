@@ -23,6 +23,8 @@ interface FeedbackItem {
 interface FeedbackListProps {
   items: FeedbackItem[];
   isTrainer: boolean;
+  /** Overrides the empty-state copy — the default reads oddly in a "pending only" context. */
+  emptyMessage?: string;
 }
 
 const ratingColors: Record<string, string> = {
@@ -32,7 +34,11 @@ const ratingColors: Record<string, string> = {
   UNSURE_HOW_TO_PERFORM: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
 };
 
-export function FeedbackList({ items, isTrainer }: FeedbackListProps) {
+export function FeedbackList({
+  items,
+  isTrainer,
+  emptyMessage = "No feedback submitted yet",
+}: FeedbackListProps) {
   const [respondingTo, setRespondingTo] = useState<string | null>(null);
   const [responseText, setResponseText] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -58,9 +64,7 @@ export function FeedbackList({ items, isTrainer }: FeedbackListProps) {
 
   if (items.length === 0) {
     return (
-      <p className="text-muted-foreground text-sm text-center py-8">
-        No feedback submitted yet
-      </p>
+      <p className="text-muted-foreground text-sm text-center py-8">{emptyMessage}</p>
     );
   }
 

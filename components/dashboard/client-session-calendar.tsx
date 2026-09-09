@@ -19,6 +19,12 @@ import { Badge } from "@/components/ui/badge";
 import { Calendar, ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toLocalCalendarDate } from "@/lib/utils/calendar-date";
+import {
+  SESSION_STATUS_LEGEND,
+  getSessionStatusBadge,
+  getSessionStatusDot,
+  getSessionStatusLabel,
+} from "@/lib/constants/session-status";
 
 interface CalendarSession {
   id: string;
@@ -35,26 +41,6 @@ interface Props {
   selectedDate: Date | null;
   onSelectDate: (date: Date | null) => void;
 }
-
-const STATUS_DOT: Record<string, string> = {
-  COMPLETED: "bg-emerald-500",
-  IN_PROGRESS: "bg-amber-500",
-  SCHEDULED: "bg-blue-500",
-  MISSED: "bg-slate-400",
-};
-
-const SESSION_STATUS_BADGE: Record<string, string> = {
-  COMPLETED: "bg-emerald-100 text-emerald-700",
-  IN_PROGRESS: "bg-amber-100 text-amber-700",
-  SCHEDULED: "bg-blue-100 text-blue-700",
-  MISSED: "bg-slate-100 text-slate-700",
-};
-const SESSION_STATUS_LABEL: Record<string, string> = {
-  COMPLETED: "Completed",
-  IN_PROGRESS: "In Progress",
-  SCHEDULED: "Scheduled",
-  MISSED: "Missed",
-};
 
 export function ClientSessionCalendar({ sessions, selectedDate, onSelectDate }: Props) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -125,10 +111,10 @@ export function ClientSessionCalendar({ sessions, selectedDate, onSelectDate }: 
                   <Badge
                     className={cn(
                       "shrink-0 border-0 text-[10px]",
-                      isSelected ? "bg-primary-foreground/20 text-primary-foreground" : SESSION_STATUS_BADGE[s.status] ?? "bg-blue-100 text-blue-700"
+                      isSelected ? "bg-primary-foreground/20 text-primary-foreground" : getSessionStatusBadge(s.status)
                     )}
                   >
-                    {SESSION_STATUS_LABEL[s.status] ?? "Scheduled"}
+                    {getSessionStatusLabel(s.status)}
                   </Badge>
                 </button>
               );
@@ -194,7 +180,7 @@ export function ClientSessionCalendar({ sessions, selectedDate, onSelectDate }: 
                         key={s.id}
                         className={cn(
                           "h-2 w-2 rounded-full ring-1 ring-white/60",
-                          isSelected ? "bg-primary-foreground/80" : STATUS_DOT[s.status] ?? "bg-muted-foreground"
+                          isSelected ? "bg-primary-foreground/80" : getSessionStatusDot(s.status)
                         )}
                       />
                     ))}
@@ -208,15 +194,10 @@ export function ClientSessionCalendar({ sessions, selectedDate, onSelectDate }: 
 
         {/* Legend */}
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 pt-1">
-          {[
-            { color: "bg-blue-500", label: "Scheduled" },
-            { color: "bg-amber-500", label: "In Progress" },
-            { color: "bg-emerald-500", label: "Completed" },
-            { color: "bg-slate-400", label: "Missed" },
-          ].map((l) => (
-            <div key={l.label} className="flex items-center gap-1.5">
-              <div className={cn("h-2 w-2 rounded-full", l.color)} />
-              <span className="text-[10px] text-muted-foreground">{l.label}</span>
+          {SESSION_STATUS_LEGEND.map((entry) => (
+            <div key={entry.status} className="flex items-center gap-1.5">
+              <div className={cn("h-2 w-2 rounded-full", entry.dot)} />
+              <span className="text-[10px] text-muted-foreground">{entry.label}</span>
             </div>
           ))}
         </div>

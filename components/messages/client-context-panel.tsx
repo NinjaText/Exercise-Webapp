@@ -3,11 +3,12 @@ import { Button } from "@/components/ui/button";
 import { PlanStatusBadge } from "@/components/workout/plan-status-badge";
 import { formatRelativeTime } from "@/lib/utils/formatting";
 import { getMessageCategory, MESSAGE_CATEGORY_LABEL } from "@/lib/utils/message-category";
+import { getDisplayName } from "@/lib/utils/display-name";
 import { MessageSquare, Dumbbell, TrendingUp } from "lucide-react";
 import type { InboxThreadData } from "@/lib/services/inbox.service";
 
 interface ClientContextPanelProps {
-  client: { id: string; firstName: string; lastName: string };
+  client: { id: string; firstName: string; lastName: string; email: string };
   data: InboxThreadData;
 }
 
@@ -48,7 +49,7 @@ export function ClientContextPanel({ client, data }: ClientContextPanelProps) {
           </Link>
         </div>
         <p className="mb-3 text-sm font-semibold text-foreground">
-          {client.firstName} {client.lastName}
+          {getDisplayName(client)}
         </p>
         <dl className="space-y-2 text-sm">
           <div className="flex items-center justify-between">

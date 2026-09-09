@@ -5,7 +5,7 @@ import { requireRole } from "@/lib/current-user";
 import { getClientDetail, getClientIdsForTrainer } from "@/lib/services/client.service";
 import * as sessionService from "@/lib/services/session.service";
 import * as programService from "@/lib/services/program.service";
-import * as messageService from "@/lib/services/message.service";
+import { getThreadItems } from "@/lib/services/inbox.service";
 import { getExercisesForPicker } from "@/lib/services/exercise.service";
 import { getOrganizationProfile } from "@/actions/organization-actions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,13 +19,28 @@ import { ClientCalendar } from "@/components/calendar/client-calendar";
 import { AssignedProgramsList } from "@/components/clients/assigned-programs-list";
 import { ClientAdherenceSummary } from "@/components/clients/client-adherence-summary";
 import { MessageThread } from "@/components/messages/message-thread";
+import { getDisplayName, getInitials } from "@/lib/utils/display-name";
+
+/** Tabs that `?tab=` may select. Anything else falls back to the Calendar default. */
+const CLIENT_DETAIL_TABS = ["calendar", "programs", "messages"] as const;
+type ClientDetailTab = (typeof CLIENT_DETAIL_TABS)[number];
+
+function resolveInitialTab(tab: string | undefined): ClientDetailTab {
+  return CLIENT_DETAIL_TABS.includes(tab as ClientDetailTab)
+    ? (tab as ClientDetailTab)
+    : "calendar";
+}
 
 interface Props {
   params: Promise<{ id: string }>;
+  /** `?tab=` lets deep links (e.g. an AI insight's "Review Program") open a specific tab. */
+  searchParams?: Promise<{ tab?: string }>;
 }
 
-export default async function ClientDetailPage({ params }: Props) {
+export default async function ClientDetailPage({ params, searchParams }: Props) {
   const { id } = await params;
+  const { tab } = (await searchParams) ?? {};
+  const initialTab = resolveInitialTab(tab);
   const [user, { orgId: sessionOrgId }] = await Promise.all([
     requireRole("TRAINER"),
     auth(),
@@ -39,13 +54,13 @@ export default async function ClientDetailPage({ params }: Props) {
 
   // Fetch V2 sessions, programs, exercise library, adherence history, and the
   // trainer↔client message thread for the tabs on this page.
-  const [v2Sessions, assignedPrograms, exerciseLibrary, pastSessions, threadMessages, organizationProfile] =
+  const [v2Sessions, assignedPrograms, exerciseLibrary, pastSessions, threadItems, organizationProfile] =
     await Promise.all([
       sessionService.getSessionsForClient(client.id),
       programService.getProgramsForClient(client.id),
       getExercisesForPicker(organizationOrgId),
       sessionService.getClientPastSessions(client.id),
-      messageService.getThread(user.id, client.id, { includeInternal: true }),
+      getThreadItems(user.id, client.id, { includeInternal: true }),
       getOrganizationProfile().catch(() => null),
     ]);
 
@@ -83,12 +98,12 @@ export default async function ClientDetailPage({ params }: Props) {
           <Avatar className="h-16 w-16 shrink-0">
             <AvatarImage src={client.imageUrl || undefined} />
             <AvatarFallback className="text-lg">
-              {client.firstName[0]}{client.lastName[0]}
+              {getInitials(client)}
             </AvatarFallback>
           </Avatar>
           <div className="min-w-0 flex-1">
             <h2 className="text-2xl font-bold tracking-tight">
-              {client.firstName} {client.lastName}
+              {getDisplayName(client)}
             </h2>
             <p className="text-muted-foreground truncate">{client.email}</p>
             {client.dateOfBirth && (
@@ -249,7 +264,7 @@ export default async function ClientDetailPage({ params }: Props) {
       />
 
       {/* Tabbed content: Calendar (default), Programs, Messages */}
-      <Tabs defaultValue="calendar">
+      <Tabs defaultValue={initialTab}>
         <TabsList>
           <TabsTrigger value="calendar">Calendar</TabsTrigger>
           <TabsTrigger value="programs">Programs ({assignedPrograms.length})</TabsTrigger>
@@ -282,10 +297,10 @@ export default async function ClientDetailPage({ params }: Props) {
           <Card className="overflow-hidden p-0 shadow-sm ring-1 ring-border/50">
             <div className="h-[70dvh] max-h-[640px]">
               <MessageThread
-                messages={threadMessages}
+                items={threadItems}
                 currentUserId={user.id}
                 recipientId={client.id}
-                recipientName={`${client.firstName} ${client.lastName}`}
+                recipientName={getDisplayName(client)}
               />
             </div>
           </Card>
