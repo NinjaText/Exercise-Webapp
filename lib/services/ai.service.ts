@@ -777,7 +777,7 @@ PROGRAM DESIGN RULES:
 7. NOTES: Write 1-2 specific technique cues per exercise relevant to the program goal and client profile.
 8. TIME: Total session time within 5 minutes of the requested duration.
 9. GENERATE exercises for ALL ${params.daysPerWeek} days — do not stop after the first day.
-10. CONTEXT-DRIVEN: If a diagnosis or subjective is provided, let it guide exercise selection and cue language. If athletic performance context is implied (plyometrics, power, sport-specific), adopt strength & conditioning principles rather than clinical rehab rules.
+10. CONTEXT-DRIVEN: Use BOTH the client profile and the trainer's subjective as required clinical context. The subjective describes the current encounter and may contain symptoms or body regions not documented in the profile; reconcile both sources rather than relying on profile history alone. Every clinically relevant complaint in either source must influence exercise selection, safety constraints, or cue language. If athletic performance context is implied (plyometrics, power, sport-specific), adopt strength & conditioning principles rather than clinical rehab rules.
 
 Respond with valid JSON only. No markdown, no explanation.`;
 

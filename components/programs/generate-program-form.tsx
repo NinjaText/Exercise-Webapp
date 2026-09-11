@@ -119,6 +119,9 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
     "Wednesday",
     "Friday",
   ]);
+  const [subjective, setSubjective] = useState("");
+  const [trainerPrompt, setTrainerPrompt] = useState("");
+  const [additionalNotes, setAdditionalNotes] = useState("");
   const [circuits, setCircuits] = useState<CircuitConfig[]>([
     { id: "1", name: "Warm Up", focusType: "WARMUP", exerciseCount: 4, rounds: 1, restBetweenRounds: null },
     { id: "2", name: "Main Circuit", focusType: "FULL_BODY", exerciseCount: 6, rounds: 3, restBetweenRounds: 60 },
@@ -267,8 +270,6 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
     }
 
     setGenerateState('PLANNING');
-    const formData = new FormData(e.currentTarget);
-
     try {
       const res = await fetch('/api/ai/generate-clinical-plan', {
         method: 'POST',
@@ -285,9 +286,9 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
             name, focusType, exerciseCount, rounds, restBetweenRounds,
           })),
           preferredWeekdays: isOnDemand ? [] : selectedWeekdays,
-          subjective: (formData.get('subjective') as string) || undefined,
-          trainerPrompt: (formData.get('trainerPrompt') as string) || undefined,
-          additionalNotes: (formData.get('notes') as string) || undefined,
+          subjective: subjective || undefined,
+          trainerPrompt: trainerPrompt || undefined,
+          additionalNotes: additionalNotes || undefined,
         }),
       });
 
@@ -321,6 +322,9 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
       difficultyLevel: difficulty,
       weekPlan: approvedPlan.weeklyPlan,
       clinicalAssessment: approvedPlan.clinicalAssessment,
+      subjective: subjective || undefined,
+      trainerPrompt: trainerPrompt || undefined,
+      additionalNotes: additionalNotes || undefined,
       organizationIds: selectedOrganizationIds,
     };
 
@@ -821,6 +825,8 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
                   name="subjective"
                   rows={6}
                   placeholder="Paste the full subjective report (pain behavior, aggravating factors, functional limits, goals, etc.)"
+                  value={subjective}
+                  onChange={(e) => setSubjective(e.target.value)}
                 />
               </div>
 
@@ -832,6 +838,8 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
                   name="trainerPrompt"
                   rows={3}
                   placeholder='Example: "Focus on progressive overload for a 4-week marathon build-up" or "Act as a DPT and create a 3-day PT progression for this subjective."'
+                  value={trainerPrompt}
+                  onChange={(e) => setTrainerPrompt(e.target.value)}
                 />
               </div>
 
@@ -843,6 +851,8 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
                   name="notes"
                   rows={3}
                   placeholder="Any specific requirements, modifications, or goals..."
+                  value={additionalNotes}
+                  onChange={(e) => setAdditionalNotes(e.target.value)}
                 />
               </div>
 
