@@ -34,6 +34,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { duplicateProgramAction } from "@/actions/program-actions";
+import { startOnDemandWorkoutAction } from "@/actions/session-v2-actions";
 import { ProgramActionsMenu } from "@/components/admin/program-actions-menu";
 import { AssignProgramDialog } from "@/components/programs/assign-program-dialog";
 import { SellProgramDialog } from "@/components/programs/sell-program-dialog";
@@ -54,6 +55,7 @@ import { VoiceMemoPlayer } from "@/components/voice-memo/VoiceMemoPlayer";
 import { getWorkoutVoiceMemos } from "@/actions/voice-memo-actions";
 import type { VoiceMemoData } from "@/actions/voice-memo-actions";
 import { cn } from "@/lib/utils";
+import { getProgramSchedulingType } from "@/lib/utils/program-scheduling";
 
 
 interface ProgramDetailViewProps {
@@ -91,7 +93,9 @@ export function ProgramDetailView({
   const [assignOpen, setAssignOpen] = useState(showAssignDialog);
   const [sellOpen, setSellOpen] = useState(false);
   const [detailExercise, setDetailExercise] = useState<Record<string, unknown> | null>(null);
+  const [startingWorkoutId, setStartingWorkoutId] = useState<string | null>(null);
   const workouts = (program.workouts as Record<string, unknown>[]) || [];
+  const isResource = getProgramSchedulingType(program) === "ON_DEMAND";
 
   const trainerData = program.trainer as { firstName?: string; lastName?: string } | null;
   const trainerName = trainerNameProp ?? (trainerData ? `${trainerData.firstName ?? ""} ${trainerData.lastName ?? ""}`.trim() : "Trainer");
@@ -200,6 +204,23 @@ export function ProgramDetailView({
   const [voiceMemoWorkout, setVoiceMemoWorkout] = useState<{ id: string; name: string } | null>(null);
   const [trainerMemo, setTrainerMemo] = useState<VoiceMemoData | null>(null);
   const [memoLoading, setMemoLoading] = useState(false);
+
+  async function handleStartResourceWorkout(workoutId: string) {
+    if (!isResource || isTrainer || startingWorkoutId) return;
+    setStartingWorkoutId(workoutId);
+    try {
+      const result = await startOnDemandWorkoutAction(workoutId);
+      if (result.success) {
+        router.push(`/sessions/${result.data.id}`);
+        return;
+      }
+      toast.error(result.error);
+    } catch {
+      toast.error("Could not start this resource. Please try again.");
+    } finally {
+      setStartingWorkoutId(null);
+    }
+  }
 
   useEffect(() => {
     if (!voiceMemoWorkout) return;
@@ -380,31 +401,33 @@ export function ProgramDetailView({
                 const weekWorkouts = weekGroups[weekIdx].slice().sort(
                   (a, b) => ((a.dayIndex as number) ?? 0) - ((b.dayIndex as number) ?? 0)
                 );
-                const isWeekExpanded = expandedWeeks.has(weekIdx);
+                const isSingleWeek = weekNumbers.length === 1;
+                const isWeekExpanded = isSingleWeek || expandedWeeks.has(weekIdx);
                 const sessionCount = weekWorkouts.length;
 
                 return (
                   <div key={weekIdx} className="rounded-xl border bg-card overflow-hidden">
-                    {/* Week header */}
-                    <button
-                      type="button"
-                      className="w-full flex items-center gap-3 px-5 py-4 hover:bg-muted/40 transition-colors text-left"
-                      onClick={() => toggleWeek(weekIdx)}
-                    >
-                      {isWeekExpanded ? (
-                        <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
-                      ) : (
-                        <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
-                      )}
-                      <span className="font-semibold text-base">Week {weekIdx + 1}</span>
-                      <span className="text-sm text-muted-foreground">
-                        {sessionCount} session{sessionCount !== 1 ? "s" : ""}
-                      </span>
-                    </button>
+                    {!isSingleWeek && (
+                      <button
+                        type="button"
+                        className="w-full flex items-center gap-3 px-5 py-4 hover:bg-muted/40 transition-colors text-left"
+                        onClick={() => toggleWeek(weekIdx)}
+                      >
+                        {isWeekExpanded ? (
+                          <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
+                        ) : (
+                          <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                        )}
+                        <span className="font-semibold text-base">Week {weekIdx + 1}</span>
+                        <span className="text-sm text-muted-foreground">
+                          {sessionCount} session{sessionCount !== 1 ? "s" : ""}
+                        </span>
+                      </button>
+                    )}
 
                     {/* Workouts for this week */}
                     {isWeekExpanded && (
-                      <div className="border-t divide-y">
+                      <div className={cn(!isSingleWeek && "border-t", "divide-y")}>
                         {weekWorkouts.map((workout, dayPos) => {
                           const wId = workout.id as string;
                           const isExpanded = expandedWorkouts.has(wId);
@@ -456,6 +479,21 @@ export function ProgramDetailView({
                                     </span>
                                   </div>
                                 </button>
+                                {isResource && !isTrainer && (
+                                  <Button
+                                    size="sm"
+                                    className="mr-4 font-semibold"
+                                    disabled={startingWorkoutId !== null}
+                                    onClick={() => void handleStartResourceWorkout(wId)}
+                                  >
+                                    {startingWorkoutId === wId ? (
+                                      <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                                    ) : (
+                                      <Play className="mr-1.5 h-3.5 w-3.5 fill-current" />
+                                    )}
+                                    {startingWorkoutId === wId ? "Starting..." : "Start Resource Session"}
+                                  </Button>
+                                )}
                                 {isTrainer && (
                                   <button
                                     type="button"

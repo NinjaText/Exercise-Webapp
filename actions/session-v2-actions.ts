@@ -173,6 +173,12 @@ export async function startOnDemandWorkoutAction(workoutId: string) {
     if (workout.program.clientId !== dbUser.id) {
       return { success: false as const, error: "Forbidden" };
     }
+    if (getProgramSchedulingType(workout.program) !== "ON_DEMAND") {
+      return {
+        success: false as const,
+        error: "This workout isn't a resource",
+      };
+    }
 
     // Resume a run that's still open rather than stacking duplicate rows.
     const openSession = await prisma.workoutSessionV2.findFirst({
@@ -195,13 +201,6 @@ export async function startOnDemandWorkoutAction(workoutId: string) {
       revalidatePath("/dashboard");
       revalidatePath("/sessions/" + session.id);
       return { success: true as const, data: session };
-    }
-
-    if (getProgramSchedulingType(workout.program) !== "ON_DEMAND") {
-      return {
-        success: false as const,
-        error: "This workout isn't scheduled for you",
-      };
     }
 
     const now = new Date();

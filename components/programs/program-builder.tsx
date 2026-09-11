@@ -32,10 +32,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { GripVertical, Plus, Trash2, Play, X, ChevronDown, ChevronRight } from "lucide-react";
+import { GripVertical, Plus, Trash2, Play, X, ChevronDown, ChevronRight, Sparkles, Loader2 } from "lucide-react";
 import { ExercisePickerDialog } from "./exercise-picker-dialog";
 import { SetEditor } from "./set-editor";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { UniversalVideoPlayer } from "@/components/exercises/universal-video-player";
 import type {
   WorkoutInput,
@@ -48,6 +55,7 @@ import { useBuilderKeyboard } from "@/hooks/use-builder-keyboard";
 import { toast } from "sonner";
 import { type ExerciseSourcePreference } from "@/lib/utils/exercise-picker";
 import { hasRealVideoUrl } from "@/lib/utils/video";
+import { suggestExerciseReplacementsAction } from "@/actions/ai-program-actions";
 
 interface Props {
   workouts: WorkoutInput[];
@@ -138,6 +146,9 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
   const [hoveredPasteTarget, setHoveredPasteTarget] = useState<string | null>(null);
   const [collapsedWeeks, setCollapsedWeeks] = useState<Set<number>>(new Set());
   const [collapsedDays, setCollapsedDays] = useState<Set<string>>(new Set());
+  const [aiRevisionOpen, setAiRevisionOpen] = useState(false);
+  const [aiRevisionInstructions, setAiRevisionInstructions] = useState("");
+  const [aiRevisionLoading, setAiRevisionLoading] = useState(false);
   const { clipboard, copy } = useClipboard();
 
   function dayKey(weekIndex: number, dayIndex: number) {
@@ -494,6 +505,44 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
     }
   }
 
+  async function handleAiRevision() {
+    if (selection.level !== "exercises" || selection.workoutIdx === null || selection.blockIdx === null) return;
+    const selectedExercises = Array.from(selection.exerciseIdxs).sort((a, b) => a - b).map((index) => {
+      const exercise = workouts[selection.workoutIdx!].blocks[selection.blockIdx!].exercises[index];
+      const libraryExercise = exerciseLibrary.find((item) => item.id === exercise.exerciseId);
+      return { id: exercise.exerciseId, name: libraryExercise?.name ?? "Unknown Exercise" };
+    });
+
+    setAiRevisionLoading(true);
+    const result = await suggestExerciseReplacementsAction({
+      selectedExercises,
+      exerciseLibrary: exerciseLibrary.map((exercise) => ({
+        id: exercise.id,
+        name: exercise.name,
+        bodyRegion: exercise.bodyRegion,
+      })),
+      coachInstructions: aiRevisionInstructions,
+    });
+    setAiRevisionLoading(false);
+    if (!result.success) {
+      toast.error(result.error);
+      return;
+    }
+
+    const replacements = new Map(result.data.map((item) => [item.selectedExerciseId, item.replacementExerciseId]));
+    const next = [...workouts];
+    const block = next[selection.workoutIdx].blocks[selection.blockIdx];
+    block.exercises = block.exercises.map((exercise) => {
+      const replacementId = replacements.get(exercise.exerciseId);
+      return replacementId ? { ...exercise, exerciseId: replacementId } : exercise;
+    });
+    onChange(next);
+    setAiRevisionOpen(false);
+    setAiRevisionInstructions("");
+    setSelection(DEFAULT_SELECTION);
+    toast.success("Exercises revised. Review the changes before saving.");
+  }
+
   function handlePaste() {
     if (!clipboard) return;
 
@@ -635,6 +684,51 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
           </p>
         </div>
       </div>
+
+      {selection.level === "exercises" && selection.exerciseIdxs.size > 0 && (
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3">
+          <p className="text-sm font-medium text-blue-950">
+            {selection.exerciseIdxs.size} exercise{selection.exerciseIdxs.size === 1 ? "" : "s"} selected
+          </p>
+          <Button
+            type="button"
+            size="sm"
+            onClick={() => setAiRevisionOpen(true)}
+          >
+            <Sparkles className="mr-2 h-4 w-4" />
+            Revise with AI
+          </Button>
+        </div>
+      )}
+
+      <Dialog open={aiRevisionOpen} onOpenChange={(open) => {
+        if (!aiRevisionLoading) setAiRevisionOpen(open);
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Revise selected exercises</DialogTitle>
+            <DialogDescription>
+              AI will suggest one replacement for each selected exercise using your exercise library. Your sets, reps, rest, and notes will be kept.
+            </DialogDescription>
+          </DialogHeader>
+          <Textarea
+            value={aiRevisionInstructions}
+            onChange={(event) => setAiRevisionInstructions(event.target.value)}
+            placeholder="Example: Avoid loaded spinal flexion because this client has low-back pain. Prefer supported core work and low-impact options."
+            rows={5}
+            autoFocus
+          />
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setAiRevisionOpen(false)} disabled={aiRevisionLoading}>
+              Cancel
+            </Button>
+            <Button type="button" onClick={handleAiRevision} disabled={aiRevisionLoading || !aiRevisionInstructions.trim()}>
+              {aiRevisionLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+              {aiRevisionLoading ? "Revising..." : "Suggest replacements"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {weekGroups.length === 0 && (
         <div className="rounded-lg border-2 border-dashed p-10 text-center text-muted-foreground">

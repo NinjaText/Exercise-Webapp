@@ -30,15 +30,27 @@ export function PlanReviewStep({ plan, onConfirm, onBack, isGenerating }: PlanRe
   const [weeklyPlan, setWeeklyPlan] = useState<WeekPlan[]>(plan.weeklyPlan)
   const [editingWeek, setEditingWeek] = useState<number | null>(null)
   const [editGuidance, setEditGuidance] = useState('')
+  const [editGoal, setEditGoal] = useState('')
+  const [editAvoid, setEditAvoid] = useState('')
 
   function startEdit(week: WeekPlan) {
     setEditingWeek(week.week)
     setEditGuidance(week.clinicalGuidance)
+    setEditGoal(week.progressionGoal)
+    setEditAvoid(week.contraindicationsThisWeek.join(', '))
   }
 
   function saveEdit(weekNumber: number) {
     setWeeklyPlan(prev =>
-      prev.map(w => w.week === weekNumber ? { ...w, clinicalGuidance: editGuidance } : w)
+      prev.map(w => w.week === weekNumber ? {
+        ...w,
+        clinicalGuidance: editGuidance,
+        progressionGoal: editGoal,
+        contraindicationsThisWeek: editAvoid
+          .split(/[\n,]/)
+          .map(value => value.trim())
+          .filter(Boolean),
+      } : w)
     )
     setEditingWeek(null)
   }
@@ -74,11 +86,30 @@ export function PlanReviewStep({ plan, onConfirm, onBack, isGenerating }: PlanRe
 
                     {isEditing ? (
                       <div className="mt-2 space-y-2">
+                        <label className="text-xs font-medium text-muted-foreground">Clinical guidance</label>
                         <Textarea
                           value={editGuidance}
                           onChange={e => setEditGuidance(e.target.value)}
                           rows={3}
                           className="text-sm"
+                        />
+                        <label className="text-xs font-medium text-muted-foreground">Goal</label>
+                        <Textarea
+                          value={editGoal}
+                          onChange={e => setEditGoal(e.target.value)}
+                          rows={2}
+                          className="text-sm"
+                          placeholder="Goal"
+                          aria-label="Goal"
+                        />
+                        <label className="text-xs font-medium text-muted-foreground">What to avoid</label>
+                        <Textarea
+                          value={editAvoid}
+                          onChange={e => setEditAvoid(e.target.value)}
+                          rows={2}
+                          className="text-sm"
+                          placeholder="What to avoid"
+                          aria-label="What to avoid"
                         />
                         <Button size="sm" variant="outline" onClick={() => saveEdit(week.week)}>
                           <Check className="h-3 w-3 mr-1" /> Save
@@ -92,11 +123,10 @@ export function PlanReviewStep({ plan, onConfirm, onBack, isGenerating }: PlanRe
                       <span className="font-medium text-foreground">Goal:</span> {week.progressionGoal}
                     </p>
 
-                    {week.contraindicationsThisWeek.length > 0 && (
-                      <p className="text-xs text-red-600 mt-1">
-                        <span className="font-medium">{week.programMode === 'PERFORMANCE' ? 'Watch:' : 'Avoid:'}</span> {week.contraindicationsThisWeek.join(', ')}
-                      </p>
-                    )}
+                    <p className="text-xs text-red-600 mt-1">
+                      <span className="font-medium">{week.programMode === 'PERFORMANCE' ? 'Watch:' : 'Avoid:'}</span>{' '}
+                      {week.contraindicationsThisWeek.length > 0 ? week.contraindicationsThisWeek.join(', ') : 'None specified'}
+                    </p>
                   </div>
 
                   {!isEditing && (

@@ -2,7 +2,6 @@
 
 import { useMemo, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -17,7 +16,6 @@ import {
   Play,
   X,
 } from "lucide-react";
-import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { toLocalCalendarDate } from "@/lib/utils/calendar-date";
 import { getProgramSchedulingType } from "@/lib/utils/program-scheduling";
@@ -25,7 +23,6 @@ import { getProgramStatusConfig } from "@/lib/utils/program-status";
 import { getProgramCategoryVisual } from "@/lib/utils/program-visual";
 import { formatWorkoutMetaLine } from "@/lib/utils/workout-format";
 import { getDailyQuickTip } from "@/lib/constants/motivation";
-import { startOnDemandWorkoutAction } from "@/actions/session-v2-actions";
 import type { ProgramProgress } from "@/lib/services/program.service";
 
 export type ClientProgramsTab = "programs" | "resources";
@@ -258,31 +255,7 @@ function ResourcesTab({ resources }: { resources: ClientProgramCard[] }) {
 }
 
 function ResourceCard({ resource }: { resource: ClientProgramCard }) {
-  const router = useRouter();
-  const [starting, setStarting] = useState(false);
   const { icon: Icon, label } = getProgramCategoryVisual(resource);
-
-  // A single-workout Resource can be started in one tap. Anything with more
-  // than one workout needs the client to pick which, so it opens the program
-  // detail view (which already renders a client-readable workout list).
-  const soleWorkoutId = resource.workouts.length === 1 ? resource.workouts[0].id : null;
-
-  async function handleStart() {
-    if (!soleWorkoutId) return;
-    setStarting(true);
-    try {
-      const result = await startOnDemandWorkoutAction(soleWorkoutId);
-      if (result.success) {
-        router.push(`/sessions/${result.data.id}`);
-      } else {
-        toast.error(result.error);
-        setStarting(false);
-      }
-    } catch {
-      toast.error("Could not start this workout. Please try again.");
-      setStarting(false);
-    }
-  }
 
   return (
     <div className="flex flex-col gap-3 rounded-2xl border border-border/60 bg-card p-4 shadow-sm">
@@ -309,24 +282,12 @@ function ResourceCard({ resource }: { resource: ClientProgramCard }) {
         <p className="line-clamp-2 text-xs text-muted-foreground">{resource.description}</p>
       )}
 
-      {soleWorkoutId ? (
-        <Button
-          size="sm"
-          className="mt-auto w-full font-semibold"
-          disabled={starting}
-          onClick={handleStart}
-        >
-          <Play className="mr-1.5 h-3.5 w-3.5 fill-current" />
-          {starting ? "Starting…" : "Start Anytime"}
-        </Button>
-      ) : (
-        <Button size="sm" variant="outline" className="mt-auto w-full font-semibold" asChild>
-          <Link href={`/programs/${resource.id}`}>
-            Start Anytime
-            <ChevronRight className="ml-1.5 h-3.5 w-3.5" />
-          </Link>
-        </Button>
-      )}
+      <Button size="sm" variant="outline" className="mt-auto w-full font-semibold" asChild>
+        <Link href={`/programs/${resource.id}`}>
+          View Resource
+          <ChevronRight className="ml-1.5 h-3.5 w-3.5" />
+        </Link>
+      </Button>
     </div>
   );
 }
