@@ -98,11 +98,11 @@ import type { ProgramProgress, ProgramUsage } from "@/lib/services/program.servi
 
 const RECENT_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
 
-// Collections grid shows the 4 most recently opened up front — together with
+// Collections grid shows the 3 most recently opened up front — together with
 // "All Programs", "View All Collections" (when needed) and "Create
-// Collection" that's up to 6-7 tiles, sized to fit in one row. The rest sit
+// Collection" that's up to 6 tiles, sized to fit in one row. The rest sit
 // behind the "View All Collections" tile.
-const TOP_COLLECTIONS_LIMIT = 4;
+const TOP_COLLECTIONS_LIMIT = 3;
 
 const SPORT_OPTIONS = ["Tennis", "Golf", "Running", "Basketball", "Soccer", "Swimming", "General Fitness"];
 const BODY_AREA_OPTIONS = ["Shoulder", "Elbow", "Wrist/Hand", "Chest", "Back", "Hip", "Knee", "Ankle/Foot", "Core"];
@@ -223,24 +223,18 @@ function SchedulingPillFilter({
   onChange: (next: SchedulingPill) => void;
 }) {
   return (
-    <div className="inline-flex items-center gap-1 rounded-lg border border-border/60 bg-muted/40 p-1">
-      {SCHEDULING_PILLS.map((pill) => (
-        <button
-          key={pill.value}
-          type="button"
-          aria-pressed={value === pill.value}
-          onClick={() => onChange(pill.value)}
-          className={cn(
-            "rounded-md px-3 py-1 text-xs font-medium transition-colors",
-            value === pill.value
-              ? "bg-background text-foreground shadow-sm"
-              : "text-muted-foreground hover:text-foreground"
-          )}
-        >
-          {pill.label}
-        </button>
-      ))}
-    </div>
+    <Select value={value} onValueChange={(v) => onChange((v as SchedulingPill) ?? "all")}>
+      <SelectTrigger className="w-44">
+        <SelectValue>
+          {(v: string | null) => SCHEDULING_PILLS.find((o) => o.value === v)?.label ?? "All Programs"}
+        </SelectValue>
+      </SelectTrigger>
+      <SelectContent>
+        {SCHEDULING_PILLS.map((pill) => (
+          <SelectItem key={pill.value} value={pill.value}>{pill.label}</SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }
 
@@ -1700,12 +1694,6 @@ export function ProgramListClient({
             </div>
           )}
 
-          <SchedulingPillFilter value={schedulingPill} onChange={handleSchedulingPillChange} />
-
-          {schedulingPill === "resources" && !resourcesCalloutDismissed && (
-            <ResourcesCallout onDismiss={() => setResourcesCalloutDismissed(true)} />
-          )}
-
           {/* Toolbar */}
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex flex-1 flex-wrap items-center gap-3">
@@ -1718,6 +1706,7 @@ export function ProgramListClient({
                   className="pl-9"
                 />
               </div>
+              <SchedulingPillFilter value={schedulingPill} onChange={handleSchedulingPillChange} />
               <Select value={chipFilter} onValueChange={(v) => setChipFilter((v as typeof chipFilter) ?? "all")}>
                 <SelectTrigger className="w-40">
                   <SelectValue>
@@ -1778,6 +1767,10 @@ export function ProgramListClient({
               Create Program
             </CreateProgramMenu>
           </div>
+
+          {schedulingPill === "resources" && !resourcesCalloutDismissed && (
+            <ResourcesCallout onDismiss={() => setResourcesCalloutDismissed(true)} />
+          )}
 
           {filtersOpen && (
             <ProgramFiltersPanel
@@ -1868,12 +1861,6 @@ export function ProgramListClient({
             <StatCard size="compact" label="Completed" value={assignedStatCounts.COMPLETED} icon={CheckCircle2} href={hrefWithParams({ status: "COMPLETED" })} iconClassName="bg-purple-500/10 text-purple-600" />
           </div>
 
-          <SchedulingPillFilter value={schedulingPill} onChange={handleSchedulingPillChange} />
-
-          {schedulingPill === "resources" && !resourcesCalloutDismissed && (
-            <ResourcesCallout onDismiss={() => setResourcesCalloutDismissed(true)} />
-          )}
-
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex flex-1 flex-wrap items-center gap-3">
               <div className="relative flex-1 min-w-48 max-w-sm">
@@ -1885,6 +1872,7 @@ export function ProgramListClient({
                   className="pl-9"
                 />
               </div>
+              <SchedulingPillFilter value={schedulingPill} onChange={handleSchedulingPillChange} />
               <Select value={assignedStatusFilter} onValueChange={handleAssignedStatusChange}>
                 <SelectTrigger className="w-40">
                   <SelectValue>
@@ -1930,6 +1918,10 @@ export function ProgramListClient({
               </CreateProgramMenu>
             </div>
           </div>
+
+          {schedulingPill === "resources" && !resourcesCalloutDismissed && (
+            <ResourcesCallout onDismiss={() => setResourcesCalloutDismissed(true)} />
+          )}
 
           {filteredAssigned.length === 0 ? (
             <ProgramsEmptyState

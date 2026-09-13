@@ -36,10 +36,13 @@ function insightKey(insight: CoachingInsight): string {
   return `${insight.clientId}:${insight.kind}`;
 }
 
+const DEFAULT_VISIBLE_INSIGHTS = 3;
+
 export function AiInsightsList() {
   const [insights, setInsights] = useState<CoachingInsight[]>([]);
   const [loading, setLoading] = useState(true);
   const [dismissingKey, setDismissingKey] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState(false);
   const [, startTransition] = useTransition();
 
   useEffect(() => {
@@ -99,9 +102,12 @@ export function AiInsightsList() {
     );
   }
 
+  const visibleInsights = expanded ? insights : insights.slice(0, DEFAULT_VISIBLE_INSIGHTS);
+  const hiddenCount = insights.length - DEFAULT_VISIBLE_INSIGHTS;
+
   return (
     <div className="space-y-2.5">
-      {insights.map((insight) => {
+      {visibleInsights.map((insight) => {
         const style = typeStyles[insight.type] ?? typeStyles.suggestion;
         const Icon = style.icon;
         const key = insightKey(insight);
@@ -155,6 +161,18 @@ export function AiInsightsList() {
           </div>
         );
       })}
+      {(hiddenCount > 0 || expanded) && (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-7 w-full text-xs text-muted-foreground hover:text-foreground"
+          onClick={() => setExpanded((prev) => !prev)}
+        >
+          {expanded
+            ? "Show fewer insights"
+            : `View ${hiddenCount} more insight${hiddenCount === 1 ? "" : "s"}`}
+        </Button>
+      )}
     </div>
   );
 }
