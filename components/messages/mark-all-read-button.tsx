@@ -25,10 +25,12 @@ export function MarkAllReadButton() {
       type="button"
       onClick={handleClick}
       disabled={isPending || done}
-      className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline disabled:opacity-50"
+      aria-label="Mark all as read"
+      className="inline-flex items-center gap-1.5 whitespace-nowrap text-sm font-medium text-primary hover:underline disabled:opacity-50"
     >
       {isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCheck className="h-3.5 w-3.5" />}
-      Mark all as read
+      <span className="hidden sm:inline">Mark all as read</span>
+      <span className="sm:hidden">Mark read</span>
     </button>
   );
 }

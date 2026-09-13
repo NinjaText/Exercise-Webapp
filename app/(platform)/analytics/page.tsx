@@ -76,7 +76,7 @@ export default async function AnalyticsPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-6 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-5 lg:gap-6">
         {statCards.map((card) => (
           <StatCard
             key={card.label}

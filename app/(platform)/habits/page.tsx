@@ -68,8 +68,8 @@ async function ClientHabitsView({ clientId }: { clientId: string }) {
   return (
     <div className="space-y-8">
       {/* ── Header ───────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between gap-4">
-        <div>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
           <h2 className="text-2xl font-bold tracking-tight">My Habits</h2>
           <p className="text-muted-foreground">{getTodayLabel()}</p>
         </div>
@@ -191,8 +191,8 @@ async function TrainerHabitsView({ trainerId }: { trainerId: string }) {
   return (
     <div className="space-y-8">
       {/* ── Header ───────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between gap-4">
-        <div>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
           <h2 className="text-2xl font-bold tracking-tight">Client Habits</h2>
           <p className="text-muted-foreground">
             {totalHabits > 0

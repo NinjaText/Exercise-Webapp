@@ -18,6 +18,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Megaphone, Loader2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface Contact {
   id: string;
@@ -92,9 +93,12 @@ export function BroadcastMessageDialog({ contacts }: BroadcastMessageDialogProps
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger className={buttonVariants({ variant: "outline" })}>
-        <Megaphone className="mr-2 h-4 w-4" />
-        Broadcast
+      <DialogTrigger
+        className={cn(buttonVariants({ variant: "outline" }), "gap-1.5 px-2.5 sm:px-3")}
+        aria-label="Broadcast message"
+      >
+        <Megaphone className="h-4 w-4" />
+        <span className="hidden sm:inline">Broadcast</span>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>

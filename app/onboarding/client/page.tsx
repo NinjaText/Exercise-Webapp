@@ -12,7 +12,7 @@ export default async function ClientOnboardingPage() {
   // from the invitation URL and complete account creation inline.
   if (!userId) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-blue-50">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-blue-50 px-4 py-12">
         <SignUp routing="hash" forceRedirectUrl="/onboarding/client" />
       </div>
     );

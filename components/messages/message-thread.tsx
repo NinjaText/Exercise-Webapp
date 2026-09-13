@@ -224,8 +224,8 @@ export function MessageThread({
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between gap-3 border-b border-border p-4">
-        <h2 className="font-semibold text-foreground">{recipientName}</h2>
+      <div className="flex items-center justify-between gap-3 border-b border-border p-3 sm:p-4">
+        <h2 className="min-w-0 truncate font-semibold text-foreground">{recipientName}</h2>
         {headerRight}
       </div>
 

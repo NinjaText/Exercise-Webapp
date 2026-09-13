@@ -492,17 +492,17 @@ function LibraryProgramRow({
           </div>
         </div>
       </TableCell>
-      <TableCell>
+      <TableCell className="hidden sm:table-cell">
         <SchedulingTypeBadge program={program} />
       </TableCell>
-      <TableCell className="text-muted-foreground">
+      <TableCell className="hidden md:table-cell text-muted-foreground">
         {collectionNames.length === 0
           ? "—"
           : collectionNames.length === 1
           ? collectionNames[0]
           : `${collectionNames[0]} +${collectionNames.length - 1}`}
       </TableCell>
-      <TableCell>
+      <TableCell className="hidden lg:table-cell">
         <div className="flex max-w-56 flex-wrap items-center gap-1">
           {allTags.slice(0, 3).map((t) => (
             <Badge key={t} variant="secondary" className="text-[10px]">{t}</Badge>
@@ -513,10 +513,10 @@ function LibraryProgramRow({
           {allTags.length === 0 && <span className="text-muted-foreground">—</span>}
         </div>
       </TableCell>
-      <TableCell>
+      <TableCell className="hidden sm:table-cell">
         <WorkoutCount count={program._count.workouts} />
       </TableCell>
-      <TableCell>
+      <TableCell className="hidden md:table-cell">
         <UpdatedAt date={program.updatedAt} />
       </TableCell>
       <TableCell className="text-right">
@@ -609,11 +609,11 @@ function GlobalProgramRow({
           </div>
         </div>
       </TableCell>
-      <TableCell>
+      <TableCell className="hidden sm:table-cell">
         <SchedulingTypeBadge program={program} />
       </TableCell>
-      <TableCell className="text-muted-foreground">—</TableCell>
-      <TableCell>
+      <TableCell className="hidden md:table-cell text-muted-foreground">—</TableCell>
+      <TableCell className="hidden lg:table-cell">
         <div className="flex flex-wrap items-center gap-1.5">
           <Badge variant="secondary" className="text-[11px] font-medium">
             {program.isGlobal ? "Global" : "Community"}
@@ -628,10 +628,10 @@ function GlobalProgramRow({
           ))}
         </div>
       </TableCell>
-      <TableCell>
+      <TableCell className="hidden sm:table-cell">
         <WorkoutCount count={program._count.workouts} />
       </TableCell>
-      <TableCell className="text-muted-foreground">
+      <TableCell className="hidden md:table-cell text-muted-foreground">
         {program.globalUpdatedAt ? formatDistanceToNow(new Date(program.globalUpdatedAt), { addSuffix: true }) : "—"}
       </TableCell>
       <TableCell className="text-right">
@@ -676,13 +676,13 @@ function AssignedProgramRow({
 
   return (
     <TableRow className="group">
-      <TableCell>
+      <TableCell className="max-w-36 sm:max-w-none">
         {program.client ? (
-          <Link href={`/clients/${program.client.id}`} className="flex items-center gap-2.5 hover:underline">
+          <Link href={`/clients/${program.client.id}`} className="flex min-w-0 items-center gap-2.5 hover:underline">
             <Avatar size="sm" className="h-8 w-8 shrink-0">
               <AvatarFallback className="text-xs">{initials(program.client)}</AvatarFallback>
             </Avatar>
-            <span className="font-medium">{clientLabel(program.client)}</span>
+            <span className="truncate font-medium">{clientLabel(program.client)}</span>
           </Link>
         ) : (
           <span className="text-muted-foreground">Unassigned</span>
@@ -698,23 +698,26 @@ function AssignedProgramRow({
           </Badge>
         )}
       </TableCell>
-      <TableCell>
+      <TableCell className="hidden md:table-cell">
         <SchedulingTypeBadge program={program} />
       </TableCell>
       {resource ? (
-        <TableCell colSpan={2} className="min-w-44">
-          <div className="flex items-center gap-1.5 text-sm">
-            <Repeat className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-            <span className="font-medium">
-              Used {usageCount} time{usageCount === 1 ? "" : "s"}
-            </span>
-          </div>
-          <p className="text-[11px] text-muted-foreground">
-            {usage?.lastUsedAt
-              ? `Last used ${format(new Date(usage.lastUsedAt), "d MMM yyyy")}`
-              : "Not used yet"}
-          </p>
-        </TableCell>
+        <>
+          <TableCell className="min-w-44">
+            <div className="flex items-center gap-1.5 text-sm">
+              <Repeat className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+              <span className="font-medium">
+                Used {usageCount} time{usageCount === 1 ? "" : "s"}
+              </span>
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              {usage?.lastUsedAt
+                ? `Last used ${format(new Date(usage.lastUsedAt), "d MMM yyyy")}`
+                : "Not used yet"}
+            </p>
+          </TableCell>
+          <TableCell className="hidden sm:table-cell" />
+        </>
       ) : (
         <>
           <TableCell className="min-w-36">
@@ -730,7 +733,7 @@ function AssignedProgramRow({
               </div>
             )}
           </TableCell>
-          <TableCell>
+          <TableCell className="hidden sm:table-cell">
             {progress?.nextSession ? (
               <div>
                 <p className="truncate text-sm">{progress.nextSession.workoutName}</p>
@@ -747,7 +750,7 @@ function AssignedProgramRow({
           {assignedStatus.label}
         </Badge>
       </TableCell>
-      <TableCell>
+      <TableCell className="hidden lg:table-cell">
         <UpdatedAt date={program.updatedAt} />
       </TableCell>
       <TableCell className="text-right">
@@ -1813,11 +1816,11 @@ export function ProgramListClient({
                 <TableHeader>
                   <TableRow>
                     <TableHead>Program</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Collection</TableHead>
-                    <TableHead>Tags</TableHead>
-                    <TableHead>Workouts</TableHead>
-                    <TableHead>Updated</TableHead>
+                    <TableHead className="hidden sm:table-cell">Type</TableHead>
+                    <TableHead className="hidden md:table-cell">Collection</TableHead>
+                    <TableHead className="hidden lg:table-cell">Tags</TableHead>
+                    <TableHead className="hidden sm:table-cell">Workouts</TableHead>
+                    <TableHead className="hidden md:table-cell">Updated</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -1941,11 +1944,11 @@ export function ProgramListClient({
                   <TableRow>
                     <TableHead>Client</TableHead>
                     <TableHead>Program</TableHead>
-                    <TableHead>Type</TableHead>
+                    <TableHead className="hidden md:table-cell">Type</TableHead>
                     <TableHead>Progress</TableHead>
-                    <TableHead>Next Workout</TableHead>
+                    <TableHead className="hidden sm:table-cell">Next Workout</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead>Last Updated</TableHead>
+                    <TableHead className="hidden lg:table-cell">Last Updated</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>

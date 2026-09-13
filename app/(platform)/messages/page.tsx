@@ -55,7 +55,7 @@ export default async function MessagesPage({ searchParams }: Props) {
       />
 
       {threads.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-border p-16 text-center">
+        <div className="rounded-xl border border-dashed border-border p-8 text-center sm:p-16">
           <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-muted">
             <MessageSquare className="h-8 w-8 text-muted-foreground/50" />
           </div>
@@ -125,16 +125,16 @@ async function TrainerInbox({
   return (
     <div className="flex h-[calc(100dvh-7rem)] flex-col">
       <div className="mb-4 flex shrink-0 flex-wrap items-center justify-between gap-3">
-        <div>
+        <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Inbox</h1>
+            <h1 className="text-xl font-bold tracking-tight sm:text-3xl">Inbox</h1>
             {unreadCount > 0 && (
               <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-bold text-primary-foreground">
                 {unreadCount}
               </span>
             )}
           </div>
-          <p className="mt-1 text-sm text-muted-foreground">All messages, workout comments, and exercise feedback</p>
+          <p className="mt-1 hidden text-sm text-muted-foreground sm:block">All messages, workout comments, and exercise feedback</p>
           {unreadOnly && (
             <Link
               href="/messages"
@@ -146,7 +146,7 @@ async function TrainerInbox({
             </Link>
           )}
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <MarkAllReadButton />
           <BroadcastMessageDialog contacts={contacts} />
           <NewMessageDialog contacts={contacts} />
@@ -154,7 +154,7 @@ async function TrainerInbox({
       </div>
 
       {threads.length === 0 ? (
-        <div className="flex flex-1 items-center justify-center rounded-xl border border-dashed border-border p-16 text-center">
+        <div className="flex flex-1 items-center justify-center rounded-xl border border-dashed border-border p-8 text-center sm:p-16">
           <div>
             <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-muted">
               <MessageSquare className="h-8 w-8 text-muted-foreground/50" />

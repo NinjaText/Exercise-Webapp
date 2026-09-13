@@ -45,7 +45,7 @@ export function DashboardInboxCard({ threads }: { threads: InboxThread[] }) {
         </Link>
       </CardHeader>
       <CardContent>
-        <div className="mb-3 flex gap-1">
+        <div className="mb-3 flex flex-wrap gap-1">
           {TABS.map((t) => (
             <button
               key={t.key}

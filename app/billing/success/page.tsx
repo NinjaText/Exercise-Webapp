@@ -32,8 +32,8 @@ export default function BillingSuccessPage() {
   }, [router]);
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[oklch(0.97_0.005_247)]">
-      <div className="space-y-4 text-center">
+    <div className="flex min-h-screen items-center justify-center bg-[oklch(0.97_0.005_247)] px-4">
+      <div className="w-full max-w-md space-y-4 text-center">
         <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
           <svg
             className="h-8 w-8 text-green-600"

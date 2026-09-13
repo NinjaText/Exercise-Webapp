@@ -45,7 +45,7 @@ export function AuditLogTable({ entries, total, page, totalPages, basePath, quer
               <th className="px-5 py-3 text-left text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">When</th>
               <th className="px-5 py-3 text-left text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Actor</th>
               <th className="px-5 py-3 text-left text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Action</th>
-              <th className="px-5 py-3 text-left text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Target</th>
+              <th className="px-5 py-3 text-left text-[10px] font-semibold uppercase tracking-widest text-muted-foreground hidden sm:table-cell">Target</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
@@ -56,10 +56,10 @@ export function AuditLogTable({ entries, total, page, totalPages, basePath, quer
                 </td>
                 <td className="px-5 py-3">
                   <p className="font-medium text-foreground">{entry.actorName}</p>
-                  <p className="text-xs text-muted-foreground">{entry.actorType}</p>
+                  <p className="hidden text-xs text-muted-foreground sm:block">{entry.actorType}</p>
                 </td>
                 <td className="px-5 py-3 text-foreground">{ACTION_LABELS[entry.action] ?? entry.action}</td>
-                <td className="px-5 py-3 text-xs text-muted-foreground">
+                <td className="px-5 py-3 text-xs text-muted-foreground hidden sm:table-cell">
                   {entry.targetLabel ?? entry.targetId ?? <span className="italic">—</span>}
                 </td>
               </tr>

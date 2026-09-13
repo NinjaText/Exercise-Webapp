@@ -68,9 +68,9 @@ export function NewMessageDialog({ contacts }: NewMessageDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger className={buttonVariants()}>
-        <PenSquare className="mr-2 h-4 w-4" />
-        New Message
+      <DialogTrigger className={cn(buttonVariants(), "gap-1.5 px-2.5 sm:px-3")} aria-label="New message">
+        <PenSquare className="h-4 w-4" />
+        <span className="hidden sm:inline">New Message</span>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>

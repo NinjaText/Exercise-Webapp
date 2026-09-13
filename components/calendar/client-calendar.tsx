@@ -325,11 +325,13 @@ function CustomToolbar({
       </div>
 
       {/* Title */}
-      <h2 className="flex-1 text-base font-bold tracking-tight sm:text-lg">
+      <h2 className="order-first w-full basis-full text-base font-bold tracking-tight sm:order-none sm:w-auto sm:flex-1 sm:basis-auto sm:text-lg">
         {title}
       </h2>
 
-      {/* View toggle */}
+      {/* View toggle — Month/Week grids need real width to be usable, so they're
+          desktop/tablet-only; phones are steered to Day view (see the mount
+          effect below) and only get that option here. */}
       <div className="flex items-center overflow-hidden rounded-lg border border-border bg-muted/40 p-0.5">
         {([Views.MONTH, Views.WEEK, Views.DAY] as View[]).map((v) => (
           <button
@@ -337,6 +339,7 @@ function CustomToolbar({
             onClick={() => onView(v)}
             className={cn(
               "h-7 rounded-md px-3 text-xs font-medium transition-all",
+              v !== Views.DAY && "hidden sm:inline-flex",
               view === v
                 ? "bg-background text-foreground shadow-sm"
                 : "text-muted-foreground hover:text-foreground"

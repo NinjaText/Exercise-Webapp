@@ -45,9 +45,9 @@ export function SessionHistory({ sessions }: SessionHistoryProps) {
                 <TableHead>Date</TableHead>
                 <TableHead>Plan</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Exercises</TableHead>
-                <TableHead>Pain</TableHead>
-                <TableHead>Notes</TableHead>
+                <TableHead className="hidden sm:table-cell">Exercises</TableHead>
+                <TableHead className="hidden sm:table-cell">Pain</TableHead>
+                <TableHead className="hidden md:table-cell">Notes</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -69,16 +69,16 @@ export function SessionHistory({ sessions }: SessionHistoryProps) {
                         {s.status.replace(/_/g, " ")}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-sm">
+                    <TableCell className="hidden text-sm sm:table-cell">
                       {s.exercisesCompleted}/{s.exercisesTotal}
                       {s.exercisesSkipped > 0 && (
                         <span className="text-muted-foreground"> ({s.exercisesSkipped} skipped)</span>
                       )}
                     </TableCell>
-                    <TableCell className="text-sm">
+                    <TableCell className="hidden text-sm sm:table-cell">
                       {s.overallPainLevel !== null ? `${s.overallPainLevel}/10` : "-"}
                     </TableCell>
-                    <TableCell className="text-sm text-muted-foreground max-w-[200px] truncate">
+                    <TableCell className="hidden max-w-[200px] truncate text-sm text-muted-foreground md:table-cell">
                       {s.notes ?? "-"}
                     </TableCell>
                   </TableRow>
