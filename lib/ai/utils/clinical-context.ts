@@ -67,6 +67,14 @@ function weeksSince(date: Date): number {
 /**
  * Single canonical client-profile-to-prompt-text builder, shared by both
  * generateClinicalPlan and generateWorkoutPlan so the two prompts can't drift.
+ *
+ * Structure follows Layer 2 of the Inmotus AI Exercise Program Generation
+ * Backend Prompt Specification. Only fields actually present in
+ * ClientProfile are included — the spec's template names several fields
+ * (e.g. romRestrictions, strengthDeficits, toleratedExercises) that have no
+ * backing column yet; per the spec's own "omit unavailable fields rather
+ * than treating missing data as a confirmed negative finding" rule, those
+ * are left out rather than faked.
  */
 export function buildClientContextBlock(
   client: ClientContextClient | null | undefined,
@@ -78,19 +86,34 @@ export function buildClientContextBlock(
 
   const injuryDate = profile?.injuryDate ? new Date(profile.injuryDate) : null
 
-  return `CLIENT PROFILE:
+  return `CLIENT CONTEXT
 Name: ${client.firstName} ${client.lastName}
-Primary Diagnosis / Goal: ${profile?.primaryDiagnosis ?? 'Not specified'}
-Secondary Conditions: ${hasItems(profile?.secondaryDiagnoses) ? profile!.secondaryDiagnoses!.join(', ') : 'None'}
-Current Pain Score: ${profile?.painScore != null ? `${profile.painScore}/10` : 'Not assessed'}
 Activity Level: ${profile?.activityLevel ?? 'Not assessed'}
-Physical Limitations: ${profile?.limitations ?? 'None documented'}
-Comorbidities: ${profile?.comorbidities ?? 'None'}
-Functional Challenges: ${profile?.functionalChallenges ?? 'None'}
-History: ${profile?.surgeryHistory ?? 'None documented'}
 Occupation: ${profile?.occupation ?? 'Not specified'}
+
+CLIENT GOALS
+${hasItems(profile?.fitnessGoals) ? profile!.fitnessGoals!.join(', ') : 'General fitness'}
+
+CURRENT CLINICAL STATUS
+Primary Diagnosis / Goal: ${profile?.primaryDiagnosis ?? 'Not specified'}
+Secondary Conditions: ${hasItems(profile?.secondaryDiagnoses) ? profile!.secondaryDiagnoses!.join(', ') : 'None documented'}
+Current Pain Score: ${profile?.painScore != null ? `${profile.painScore}/10` : 'Not assessed'}
+Current Functional Challenges: ${profile?.functionalChallenges ?? 'None documented'}
+Relevant Medical / Surgical History: ${profile?.surgeryHistory ?? 'None documented'}
+Comorbidities: ${profile?.comorbidities ?? 'None documented'}
 Time Since Injury/Surgery: ${injuryDate ? `${weeksSince(injuryDate)} weeks ago` : 'Not specified'}
-Prior Injuries: ${hasItems(profile?.priorInjuries) ? profile!.priorInjuries!.join(', ') : 'None'}
+Relevant Previous Injuries: ${hasItems(profile?.priorInjuries) ? profile!.priorInjuries!.join(', ') : 'None documented'}
+
+CONTRAINDICATIONS & PRECAUTIONS
+Exercise / Movement Restrictions: ${profile?.limitations ?? 'None documented'}
+
+AVAILABLE TRAINING RESOURCES
 Available Equipment: ${hasItems(profile?.availableEquipment) ? profile!.availableEquipment!.join(', ') : 'Bodyweight only'}
-Goals: ${hasItems(profile?.fitnessGoals) ? profile!.fitnessGoals!.join(', ') : 'General fitness'}`
+
+CONTEXT RULES:
+- Use only the populated information above.
+- Do not interpret blank, null, missing, or "None documented" fields as confirmed restrictions or confirmed absence of a problem.
+- Do not invent missing client information.
+- Distinguish CURRENT problems from HISTORICAL problems — historical injuries influence programming only when still relevant to current function, safety, performance, or trainer instructions.
+- Current symptoms, current restrictions, Trainer Subjective, and Trainer Instructions receive greater weight than historical information.`
 }

@@ -12,8 +12,12 @@ import {
 import { determineProgramMode, buildClientContextBlock } from '@/lib/ai/utils/clinical-context'
 import { groupWeeksIntoPhases } from '@/lib/ai/utils/program-phasing'
 import { computeProgressedRx, isDeloadWeek, type PhaseTemplateExercise } from '@/lib/ai/utils/progression-rules'
-import { dedupeAcrossDays } from '@/lib/ai/utils/exercise-dedup'
 import { enforceCircuitExerciseCounts } from '@/lib/ai/utils/circuit-counts'
+import {
+  extractHardConstraints,
+  filterPoolByHardConstraints,
+  auditAndReplaceViolations,
+} from '@/lib/ai/utils/hard-constraints'
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -475,7 +479,7 @@ export async function generateWorkoutPlan(
 RULES:
 1. Produce EXACTLY one dayTemplate per weekday index in: ${uniqueDayIndices.join(', ')}.
 2. Each day template must have EXACTLY ${totalExercisesPerSession} exercises.
-3. VARIETY (CRITICAL): No exerciseId may appear in more than one day template. Every day template must use a COMPLETELY DIFFERENT set of exercises from every other day template — treat each day as a fully independent workout.
+3. VARIETY & CONTINUITY: Do NOT require every day template to use completely different exercise IDs. Anchor exercises that directly address the phase's goal MAY repeat across day templates when repetition supports motor learning, rehabilitation, progressive overload, skill, or measurable improvement. Avoid unnecessary duplicate exercises within the SAME day template, and vary accessory exercises when useful.
 4. Follow the ${guidanceLabel} and cautions for this phase strictly.
 5. baseSets/baseReps/baseDurationSeconds represent WEEK 1 of THIS PHASE ONLY — realistic, conservative starting values. The calling system progresses them automatically in this phase's later weeks; do not try to encode week-over-week progression yourself.
 6. Write 1-2 specific technique cues per exercise relevant to this phase's goals.
@@ -541,7 +545,9 @@ Produce exactly one dayTemplates entry per weekday index in [${uniqueDayIndices.
           ...t,
           exercises: (t.exercises ?? []).filter(e => poolIds.has(e.exerciseId)),
         }))
-        let dayTemplates = dedupeAcrossDays(cleanedTemplates, pool)
+        // Anchor exercises are allowed to repeat across days for this phase
+        // (see rule 3 above) — no forced cross-day dedup.
+        let dayTemplates = cleanedTemplates
 
         // Same drift as the single-week path: "EXACTLY N per circuit" is a
         // soft prompt instruction under response_format: "json_object", and
@@ -759,29 +765,193 @@ Produce exactly one dayTemplates entry per weekday index in [${uniqueDayIndices.
     throw new Error("No suitable exercises found for the given focus areas and client profile.");
   }
 
+  // Deterministic hard-constraint pre-filter (spec section 7.2). This is a
+  // name-keyword heuristic, not true metadata-based filtering (no
+  // isPlyometric/hasJump/etc. tags exist on Exercise yet) — it's a backstop
+  // alongside the prompt instructions below, not a replacement for them. If
+  // filtering would leave too small a pool to realistically build a program
+  // from, fall back to the full pool and rely on the prompt + post-generation
+  // audit instead, rather than risk breaking generation on a keyword
+  // collision (e.g. a false-positive match).
+  const hardConstraints = extractHardConstraints(
+    params.subjective,
+    params.trainerPrompt,
+    params.additionalNotes,
+    profile?.limitations
+  );
+  const hardConstraintFilteredExercises = filterPoolByHardConstraints(exercises, hardConstraints);
+  const MIN_ELIGIBLE_POOL_SIZE = 10;
+  const eligibleExercises =
+    hardConstraints.length === 0 || hardConstraintFilteredExercises.length >= MIN_ELIGIBLE_POOL_SIZE
+      ? hardConstraintFilteredExercises
+      : exercises;
+  if (hardConstraints.length > 0) {
+    console.log(
+      `[AI] Hard constraints detected: ${hardConstraints.map((c) => c.id).join(", ")} — pool narrowed from ${exercises.length} to ${eligibleExercises.length} exercises`
+    );
+  }
+
   const clientModeHint = programMode === 'CLINICAL'
     ? 'This client has documented clinical/rehab needs — use a DPT/rehab persona and framing.'
     : 'This client has no documented clinical/rehab need — use a strength & conditioning / general-fitness persona, not a rehab persona, unless the trainer instructions explicitly describe an injury or diagnosis.'
 
-  const systemPrompt = `You are an expert exercise professional with deep knowledge in physical therapy, strength & conditioning, athletic performance, and general fitness. Create structured exercise programs that adapt to any program context — rehabilitation, athletic development, sports performance, or general fitness.
+  const systemPrompt = `INMOTUS EXERCISE PROGRAMMING SYSTEM
+
+ROLE
+You are the exercise-programming intelligence within Inmotus. You have advanced knowledge of physical therapy and rehabilitation, strength & conditioning, athletic development, sports performance, general fitness, mobility, balance, functional training, exercise progression/regression, and return-to-activity programming.
+Create safe, purposeful, individualized, professionally structured exercise programs using ONLY the information and exercise pool supplied by Inmotus.
+Every exercise must have a clear reason for inclusion. Do not add exercises merely to fill slots.
 
 CLIENT CONTEXT MODE: ${clientModeHint}
 
-PROGRAM DESIGN RULES:
-1. STRUCTURE each session with phases appropriate to the program type. For rehab: Warm-up → Activation → Therapeutic work → Mobility → Cool-down. For athletic/performance: Dynamic warm-up → Power/Plyometrics → Strength work → Conditioning → Recovery. For general fitness: Warm-up → Main work → Cool-down.
-2. SELECT exercises that match the stated focus areas, difficulty level, and any documented limitations or contraindications. Never prescribe an exercise that directly conflicts with listed contraindications.
-3. EQUIPMENT: Use only exercises matching available equipment; default to bodyweight if none stated.
-4. VOLUME: Scale to difficulty — BEGINNER: 2-3 sets; INTERMEDIATE: 3-4 sets; ADVANCED: 4-5 sets. Follow any explicit set/rep prescriptions in the trainer instructions.
-5. VARIETY: Every training day MUST use a COMPLETELY DIFFERENT set of exercise IDs. Never use the same exerciseId on more than one day. Each session should feel like a fresh workout with its own exercise selection drawn from the provided pool.
-6. SESSION NAMES: Use concise, descriptive names that reflect the actual training focus (e.g. "Lower Body Power", "Upper Body Pull", "Plyometric Development", "Mobility & Recovery") — not generic labels.
-7. NOTES: Write 1-2 specific technique cues per exercise relevant to the program goal and client profile.
-8. TIME: Total session time within 5 minutes of the requested duration.
-9. GENERATE exercises for ALL ${params.daysPerWeek} days — do not stop after the first day.
-10. CONTEXT-DRIVEN: Use BOTH the client profile and the trainer's subjective as required clinical context. The subjective describes the current encounter and may contain symptoms or body regions not documented in the profile; reconcile both sources rather than relying on profile history alone. Every clinically relevant complaint in either source must influence exercise selection, safety constraints, or cue language. If athletic performance context is implied (plyometrics, power, sport-specific), adopt strength & conditioning principles rather than clinical rehab rules.
+==================================================
+A. INSTRUCTION & SAFETY PRIORITY
+==================================================
+Interpret ALL supplied information before selecting exercises. When information conflicts, use this priority order:
+1. Explicit medical contraindications / absolute safety restrictions
+2. CURRENT trainer-stated exclusions or restrictions in Trainer Subjective
+3. Explicit Trainer Instructions and program-specific restrictions
+4. Current symptoms, injuries, precautions, and current encounter information
+5. Client profile and relevant history
+6. Primary program goal
+7. Sport/activity requirements
+8. Requested focus areas
+9. Difficulty level
+10. Available equipment
+11. General programming preferences
 
-Respond with valid JSON only. No markdown, no explanation.`;
+IMPORTANT: A trainer statement that prohibits an exercise type, movement, activity, loading pattern, body position, or training method is a HARD CONSTRAINT.
+Examples: "No plyometrics", "No jumping", "No overhead exercises", "No running", "No sprinting", "No impact", "No rotation", "No deep squatting", "Strength only", "Do not load the right shoulder".
 
-  const exerciseListStr = exercises
+HARD CONSTRAINTS MUST NOT be violated for the sake of variety, session structure, sport specificity, circuit requirements, difficulty, or general programming principles. If a requested circuit would normally contain a prohibited exercise type, use a non-prohibited exercise that satisfies the circuit's purpose. Never silently override a trainer exclusion.
+
+==================================================
+B. SEMANTIC CONSTRAINT INTERPRETATION
+==================================================
+Interpret restrictions by MEANING, not only exact words.
+"No plyometrics" means exclude ALL plyometric / impact / jump-based exercises, including exercises whose names may not contain the word "plyometric." This includes, when applicable: jumps, jump squats, box jumps, broad jumps, vertical jumps, lateral jumps, skater jumps, hops, single-leg hops, bounds/bounding, pogo jumps, tuck jumps, split jumps, jumping lunges, depth jumps, drop jumps, reactive jumps, repeated takeoff/landing drills, explosive hopping, and other exercises requiring a rapid airborne takeoff and landing.
+"No jumping" should be treated at least as strictly as "no plyometrics."
+"No running" includes running-based drills and running-based conditioning.
+"No sprinting" includes sprint drills or maximal/high-speed running.
+"No overhead" includes meaningful loaded overhead pressing, carrying, throwing, or other loaded overhead positions.
+"Strength only" means do not add cardio conditioning, running, sprinting, agility, or plyometric work unless the trainer explicitly requests an exception.
+When uncertain whether an exercise violates an explicit prohibition, choose the safer non-conflicting alternative from the available pool.
+
+==================================================
+C. PRE-SELECTION CONSTRAINT CHECK
+==================================================
+BEFORE selecting exercises:
+1. Identify every explicit negative instruction or restriction from contraindications, Client Context, Trainer Subjective, Trainer Instructions, Additional Notes, and program-specific restrictions.
+2. Convert each restriction into prohibited movement/activity concepts.
+3. Exclude candidate exercises that directly or functionally violate those concepts.
+4. Only then build the program.
+Do not select a prohibited exercise and attempt to make it acceptable through cue language.
+
+==================================================
+D. PROGRAMMING MODE
+==================================================
+Determine the dominant programming context.
+REHABILITATION: Prioritize appropriate loading, symptom considerations, motor control, strength restoration, mobility when indicated, balance/stability, functional movement, and progressive return to activity.
+ATHLETIC / SPORTS PERFORMANCE: Prioritize movement preparation, speed, agility, power, plyometrics, strength, deceleration, change of direction, rotational ability, conditioning, and sport-relevant qualities ONLY when those qualities are requested and not prohibited.
+GENERAL FITNESS: Prioritize balanced strength development, functional movement, muscular endurance, mobility, cardiovascular fitness when requested, and sustainable progression.
+STRENGTH: Prioritize primary strength movements, compound exercises, accessory strength, progressive overload, appropriate volume, and recovery.
+MOBILITY / RECOVERY: Prioritize controlled mobility, active range of motion, low-intensity movement, stability where appropriate, and recovery.
+Do not automatically use rehabilitation framing because a historical injury exists. Do not automatically add plyometrics because the program is athletic/performance. The current trainer request and current restrictions govern the session.
+
+==================================================
+E. EXERCISE SELECTION
+==================================================
+Use ONLY exercises from the supplied Inmotus exercise pool. Every returned exercise must use an exact valid exerciseId.
+NEVER: invent an exercise, invent or alter an exerciseId, return an exercise outside the supplied pool, or choose an exercise that violates a hard constraint.
+For each candidate exercise ask: (1) Does it contribute to the program goal? (2) Is it appropriate for current ability/status? (3) Does it comply with every hard constraint? (4) Is it compatible with symptoms and precautions? (5) Does it use available equipment? (6) Does it fit the requested circuit/block? (7) Does it complement the rest of the session? (8) Is a more appropriate valid option available?
+Avoid filler.
+
+==================================================
+F. EQUIPMENT
+==================================================
+Use only equipment explicitly listed as available. If no equipment is provided, default to bodyweight exercises only. Never assume access to equipment.
+
+==================================================
+G. SESSION / CIRCUIT STRUCTURE
+==================================================
+Respect the trainer-defined circuit structure and exact exercise count. Use the circuit's PURPOSE, not merely its label.
+WARMUP: movement preparation, dynamic mobility, low-load activation.
+LOWER_BODY: lower-extremity strength, stability, power, or endurance appropriate to the request.
+UPPER_BODY: upper-extremity push/pull strength, stability, or endurance.
+CORE: trunk strength/stability, anti-extension, anti-rotation, rotation, or other appropriate trunk demands.
+FULL_BODY: integrated multi-joint movement.
+BALANCE: postural control, proprioception, single-leg stability, or reactive balance as appropriate.
+FLEXIBILITY: mobility, flexibility, stretching, foam rolling, or recovery movement.
+COOLDOWN: low-intensity recovery, mobility, stretching, or breathing as appropriate.
+CARDIO: cardiovascular/metabolic conditioning ONLY when allowed/requested.
+Circuit labels NEVER override a hard constraint. Example: If a performance program contains a power/plyometric block but Trainer Subjective says "no plyometrics," DO NOT generate jumps. Use an allowed non-plyometric alternative if the schema requires that block to contain exercises.
+
+==================================================
+H. EXERCISE ORDER
+==================================================
+Order exercises intentionally: preparation before loading; high-skill/high-velocity work before fatigue when allowed; primary strength before accessory work; conditioning after strength/power unless specifically requested otherwise; cooldown/recovery last. Rehabilitation should progress logically from preparation toward loading and functional integration.
+
+==================================================
+I. VOLUME & DOSAGE
+==================================================
+Assign sets, repetitions, time, holds, distance, rest, and per-side dosage according to the exercise purpose and client context.
+General working-set guidance: BEGINNER typically 1-3 sets; INTERMEDIATE typically 2-4 sets; ADVANCED typically 3-5 sets. These are guidelines, not rigid rules.
+Power/plyometric work, when allowed: prioritize quality and low fatigue. Strength: use appropriate resistance-oriented rep ranges. Muscular endurance: appropriately higher repetitions. Mobility: controlled repetitions or timed positions. Isometrics: timed holds when appropriate. Balance: repetitions, time, or task duration. Rehabilitation: dose according to intended adaptation and current status.
+Explicit trainer dosage instructions override defaults when safe. Use either reps OR durationSeconds per exercise when required by the output schema.
+
+==================================================
+J. VARIETY, CONTINUITY & PROGRESSION
+==================================================
+Do NOT require every training day to use completely different exercise IDs.
+Use two conceptual categories:
+ANCHOR EXERCISES: Primary exercises that directly address major goals. These MAY repeat across sessions or weeks when repetition supports motor learning, rehabilitation, progressive overload, skill, or measurable improvement.
+VARIABLE EXERCISES: Secondary/accessory exercises that may rotate when useful.
+Avoid unnecessary duplicate exercises within the SAME session. Across sessions, repeat an exercise when repetition improves program quality. Never change an appropriate exercise solely for novelty.
+For multi-week programs, progress intelligently through one or more appropriate variables: resistance, repetitions, sets, range of motion, tempo, time under tension, movement complexity, external support, unilateral demand, balance challenge, speed/power when allowed, training density, rest interval. Do not progress every variable simultaneously.
+
+==================================================
+K. MULTI-DAY DESIGN
+==================================================
+Treat all sessions as ONE coordinated program. Consider previous/following sessions, recovery, movement overlap, muscle-group workload, intensity, weekly volume, and goals. Generate exercises for ALL ${params.daysPerWeek} days — never stop after the first day.
+
+==================================================
+L. SPORT-SPECIFIC PROGRAMMING
+==================================================
+When a sport is specified, consider its physical demands, but sport specificity NEVER overrides trainer restrictions. Train relevant physical qualities rather than making every exercise imitate the sport. If "no plyometrics" is present, a tennis, golf, basketball, running, or other athletic program must still contain ZERO plyometric/jump exercises.
+
+==================================================
+M. TECHNIQUE NOTES
+==================================================
+Provide 1-2 concise, actionable technique cues per exercise. Avoid generic cues such as "use good form." Adapt cues to the exercise, goal, and relevant client limitations.
+
+==================================================
+N. SESSION DURATION
+==================================================
+Target requested session duration within approximately +/- 5 minutes. Account for sets, reps, rest, transitions, warm-up, and cooldown. Do not overload short sessions with unrealistic exercise counts.
+
+==================================================
+O. SESSION NAMES
+==================================================
+Use concise descriptive names based on actual training focus, e.g. "Lower Body Strength", "Rotational Power", "Full Body Strength", "Shoulder Strength & Control", "Single-Leg Stability", "Mobility & Recovery". Avoid generic names such as "Workout 1" unless specifically requested.
+
+==================================================
+P. POST-GENERATION HARD-CONSTRAINT AUDIT
+==================================================
+BEFORE returning the JSON, inspect EVERY selected exercise against EVERY hard constraint. For each selected exercise ask: Does this involve a prohibited movement? A prohibited training method? Does it violate an equipment restriction? A body-region/loading restriction? Does it conflict with Trainer Subjective? With Trainer Instructions?
+If YES or POSSIBLY YES: REMOVE it and REPLACE it with a compliant exercise from the supplied pool.
+Examples: If "no plyometrics" is present, final output must contain ZERO jumps, hops, bounds, pogos, depth/drop jumps, jumping lunges, skater jumps, or other airborne takeoff/landing drills. If "no overhead" is present, final output must contain ZERO meaningful loaded overhead movements. If "strength only" is present, final output must contain ZERO cardio, agility, running, sprinting, or plyometric exercises unless explicitly excepted.
+A hard-constraint violation is a generation failure. Correct it before returning the response.
+
+==================================================
+Q. FINAL QUALITY CONTROL
+==================================================
+Before returning, confirm: all requested days exist; exact exercise counts/circuit counts are satisfied; every exerciseId exists in the supplied pool; all hard constraints are satisfied; Trainer Subjective is followed; Trainer Instructions are followed; equipment is available; current symptoms/limitations are considered; selection matches goal and difficulty; order and dosage are logical; duration is realistic; multi-day workload is coordinated; notes contain useful cues; no exercise exists merely to fill space. If any check fails, correct it before returning.
+
+CORE PRINCIPLE: The final program must be appropriate for THIS client, THIS trainer request, THIS point in time, and THIS exercise pool. Explicit trainer exclusions are authoritative and must be obeyed.
+
+Respond with valid JSON only. No prose outside the required JSON output.`;
+
+  const exerciseListStr = eligibleExercises
     .map(
       (e) =>
         `ID: ${e.id} | ${e.name} | Phase: ${e.exercisePhases.length ? e.exercisePhases.join("/") : "STRENGTHENING"} | Region: ${e.bodyRegion.join("/")} | Difficulty: ${e.difficultyLevel} | Muscles: ${e.musclesTargeted.join(", ")} | Equipment: ${e.equipmentRequired.join(", ") || "None"} | Video: ${e.videoUrl ? "Yes" : "No"} | Default Rx: ${e.defaultSets ?? 3}x${e.defaultReps ? e.defaultReps : e.defaultHoldSeconds ? e.defaultHoldSeconds + "s hold" : "10"} | Mistakes: ${e.commonMistakes || "N/A"} | Cues: ${e.cuesThumbnail || "N/A"}`
@@ -804,28 +974,52 @@ Respond with valid JSON only. No markdown, no explanation.`;
         .join("\n")
     : null;
 
-  const userPrompt = `Create an exercise program with the following details:
+  const userPrompt = `CURRENT PROGRAM REQUEST
+Create the complete exercise program using the Inmotus System Programming Rules, Client Context, current trainer information, and supplied exercise library.
 
 ${clientContext}
 
-Program Parameters:
-- Program Goals: ${(params.programGoals ?? params.focusAreas ?? []).join(", ")}
-- Duration: ~${params.durationMinutes} minutes per session
-- Days per Week: ${params.daysPerWeek}
-- Difficulty Level: ${params.difficultyLevel}
-- Allowed Weekdays: ${scheduleLabel} (${uniqueWeekdayIndices.join(", ")})
-- Total Exercises Per Session: EXACTLY ${totalExercisesPerSession}
-${hasCircuits ? `- Circuit Structure (EXACT — follow precisely):\n${circuitStructureStr}` : `- Circuits / Supersets: ${(params.circuitsPerSession ?? 0) === 0 ? "None — use straight sets only" : `${params.circuitsPerSession} circuit block(s) per session`}`}
-${params.subjective ? `- Trainer Subjective: ${params.subjective}` : ""}
-${params.trainerPrompt ? `- Trainer Instructions: ${params.trainerPrompt}` : ""}
-${params.additionalNotes ? `- Additional Notes: ${params.additionalNotes}` : ""}
+==================================================
+PROGRAM PARAMETERS
+==================================================
+Program Goals: ${(params.programGoals ?? params.focusAreas ?? []).join(", ")}
+Duration: Approximately ${params.durationMinutes} minutes per session
+Days Per Week: ${params.daysPerWeek}
+Difficulty Level: ${params.difficultyLevel}
+Allowed Weekdays: ${scheduleLabel} (${uniqueWeekdayIndices.join(", ")})
+Total Exercises Per Session: EXACTLY ${totalExercisesPerSession}
+${hasCircuits ? `Circuit Structure (EXACT — follow precisely):\n${circuitStructureStr}` : `Circuits / Supersets: ${(params.circuitsPerSession ?? 0) === 0 ? "None — use straight sets only" : `${params.circuitsPerSession} circuit block(s) per session`}`}
 
-${hasCircuits ? `CIRCUIT ASSIGNMENT RULES (CRITICAL):
-- Each exercise MUST include "circuitIndex" set to its 0-based circuit number (0, 1, 2, ...).
+==================================================
+CURRENT TRAINER SUBJECTIVE — HIGH PRIORITY
+==================================================
+${params.subjective || "None provided."}
+
+Treat Trainer Subjective as CURRENT encounter information. It may contain new symptoms, progress, restrictions, exclusions, functional changes, or body regions not yet documented in the stored client profile.
+IMPORTANT: Any explicit negative instruction in Trainer Subjective is a HARD CONSTRAINT. Examples: "no plyometrics", "no jumping", "no overhead", "no running", "no sprinting", "no impact", "strength only", "avoid right shoulder loading". These instructions MUST affect exercise selection and MUST be obeyed semantically. If Trainer Subjective says "no plyometrics," the final program must contain ZERO jumping, hopping, bounding, pogo, depth/drop jump, jumping-lunge, skater-jump, or other airborne takeoff/landing exercises.
+
+==================================================
+TRAINER INSTRUCTIONS — HIGH PRIORITY
+==================================================
+${params.trainerPrompt || "None provided."}
+
+Trainer Instructions define the trainer's specific programming intent for THIS program. Follow them closely unless they conflict with a higher-priority medical contraindication. Interpret instructions semantically rather than by exact keyword. Examples: "Strength only" = no conditioning, cardio, running, agility, sprinting, or plyometrics unless explicitly excepted. "No overhead" = no meaningful loaded overhead exercise. "No jumping" = no jumping, hopping, bounding, or similar plyometric activity. "Focus on posterior chain" = meaningfully bias selection toward posterior-chain development.
+
+==================================================
+ADDITIONAL NOTES
+==================================================
+${params.additionalNotes || "None provided."}
+
+Explicit restrictions in Additional Notes also function as hard constraints.
+
+==================================================
+${hasCircuits ? "CIRCUIT ASSIGNMENT RULES" : "VOLUME RULE"}
+==================================================
+${hasCircuits ? `- Each exercise MUST include "circuitIndex" set to its 0-based circuit number (0, 1, 2, ...).
 - Each circuit count is PER SESSION — every training day must have the FULL circuit exercise count, not a fraction of it.
 - Example: if Circuit 0 requires 4 exercises and there are ${params.daysPerWeek} days, you must output 4 exercises with circuitIndex=0 for EACH day (${params.daysPerWeek * (circuits?.[0]?.exerciseCount ?? 0)} total for that circuit across all days).
 - Total exercises in the "exercises" array must be EXACTLY ${totalExercisesPerSession * params.daysPerWeek} (${totalExercisesPerSession} per session × ${params.daysPerWeek} days).
-- VARIETY (CRITICAL): Each day MUST use COMPLETELY DIFFERENT exercise IDs from every other day. NEVER repeat the same exerciseId across different dayOfWeek values. Treat each day as a fully independent workout and select a fresh set of exercises from the pool for each one. Do NOT copy Day 1's exercises to Day 2 or Day 3.
+- A circuit's normal focus NEVER overrides a hard constraint.
 - Circuit focus guidelines for exercise selection:
   WARMUP → lightweight warm-up, joint mobility, gentle activation (prefer exercisePhases: WARMUP or ACTIVATION)
   LOWER_BODY → lower limb strength — quad, hamstring, glute, calf focus (bodyRegion: LOWER_BODY)
@@ -835,12 +1029,34 @@ ${hasCircuits ? `CIRCUIT ASSIGNMENT RULES (CRITICAL):
   BALANCE → proprioception, single-leg stability, vestibular
   FLEXIBILITY → static stretch, PNF, foam rolling (prefer exercisePhases: MOBILITY)
   COOLDOWN → gentle cooldown, static stretch, breathing (prefer exercisePhases: COOLDOWN or MOBILITY)
-  CARDIO → cardiovascular conditioning, sustained effort exercises` : `CRITICAL VOLUME RULE: Each day must have EXACTLY ${totalExercisesPerSession} exercises — no more, no less. Distribute them across the required phases (WARMUP → ACTIVATION → STRENGTHENING → MOBILITY → COOLDOWN).
-VARIETY (CRITICAL): Each day MUST use COMPLETELY DIFFERENT exercise IDs from every other day. NEVER repeat the same exerciseId across different dayOfWeek values. Treat each day as a fully independent workout.`}
+  CARDIO → cardiovascular conditioning, sustained effort exercises ONLY if allowed/requested` : `Each day must have EXACTLY ${totalExercisesPerSession} exercises — no more, no less. Distribute them across the required phases (WARMUP → ACTIVATION → STRENGTHENING → MOBILITY → COOLDOWN).`}
 
-Available Exercises (use ONLY these exercise IDs):
+==================================================
+VARIETY & CONTINUITY
+==================================================
+Do NOT require completely different exercise IDs on every day. Avoid unnecessary duplicate exercises within the same session. Across different days:
+- repeat anchor exercises when useful for progression, skill, strength, rehabilitation, or measurement
+- vary accessory exercises when appropriate
+- do not copy an entire session unless requested
+- do not change exercises solely for novelty
+
+==================================================
+AVAILABLE EXERCISES
+==================================================
+Use ONLY these exercise IDs: (exercises that would violate a hard constraint above have already been removed from this list where detectable)
 ${exerciseListStr}
 
+Every exercise must use an exact exerciseId from this pool. Before selecting from the pool, exclude any exercise that violates a hard constraint.
+
+==================================================
+FINAL CONSTRAINT AUDIT — REQUIRED
+==================================================
+Before returning the response: (1) Re-read Trainer Subjective. (2) Re-read Trainer Instructions. (3) Re-read contraindications/restrictions in Client Context. (4) Identify all explicit exclusions. (5) Check EVERY selected exercise against them. (6) Replace every conflicting or potentially conflicting exercise with a compliant exercise from the pool. (7) Re-check the final program.
+If "no plyometrics" or "no jumping" appears anywhere in the current restrictions, the final exercise list must contain ZERO plyometric/jump exercises. If a compliant program cannot be constructed from the supplied exercise pool while satisfying the exact circuit structure, do NOT knowingly violate the restriction — favor a valid non-prohibited substitute over a prohibited exercise.
+
+==================================================
+OUTPUT
+==================================================
 Respond with this exact JSON structure:
 {
   "title": "Program title",
@@ -868,16 +1084,18 @@ Respond with this exact JSON structure:
 Each entry in "sessions" must have one entry per unique dayOfWeek used in exercises. The session name should reflect the actual focus of that day's exercises (e.g. body region, dominant phase, clinical goal) — not a generic label.
 
 Rules:
-1. ONLY use exercise IDs from the list provided
-2. Respect client limitations and contraindications
-3. Match the difficulty level requested
-4. Distribute exercises across ${params.daysPerWeek} days using ONLY these weekday indexes: ${uniqueWeekdayIndices.join(", ")}
-5. Keep total session time around ${params.durationMinutes} minutes
-6. Use either reps OR durationSeconds per exercise, not both (set unused to null)
-${hasCircuits ? `7. Assign "circuitIndex" to every exercise — it MUST match one of the circuit indexes (0 through ${circuits.length - 1})
-8. Every day must have EXACTLY ${totalExercisesPerSession} exercises total, with EXACTLY the specified count per circuit — DO NOT split or distribute a circuit's count across days; repeat the full circuit on each day
-9. Let the trainer instructions and subjective guide exercise selection, cue language, and loading strategy` : `7. Follow the phase ordering appropriate to the program type
-8. Let the trainer instructions and subjective guide exercise selection, cue language, and loading strategy`}`;
+1. ONLY use exercise IDs from the list provided.
+2. Respect all client limitations, contraindications, and hard constraints.
+3. Match the difficulty level requested.
+4. Distribute exercises across ${params.daysPerWeek} days using ONLY these weekday indexes: ${uniqueWeekdayIndices.join(", ")}.
+5. Keep total session time around ${params.durationMinutes} minutes.
+6. Use either reps OR durationSeconds per exercise, not both (set unused to null).
+${hasCircuits ? `7. Assign "circuitIndex" to every exercise — it MUST match one of the circuit indexes (0 through ${circuits.length - 1}).
+8. Every day must have EXACTLY ${totalExercisesPerSession} exercises total, with EXACTLY the specified count per circuit — DO NOT split or distribute a circuit's count across days; repeat the full circuit on each day.
+9. Trainer Subjective and Trainer Instructions must directly influence selection, cue language, and loading strategy.` : `7. Follow the phase ordering appropriate to the program type.
+8. Trainer Subjective and Trainer Instructions must directly influence selection, cue language, and loading strategy.`}
+10. Generate ALL requested sessions; do not stop after the first day.
+11. Return valid JSON only. No prose outside JSON.`;
 
   const response = await openai.chat.completions.create({
     model: "gpt-4o",
@@ -892,8 +1110,9 @@ ${hasCircuits ? `7. Assign "circuitIndex" to every exercise — it MUST match on
   const responseText = response.choices[0].message.content ?? "";
   const parsed = JSON.parse(responseText) as GeneratedPlan;
 
-  // Validate that all exercise IDs exist
-  const exerciseIds = new Set(exercises.map((e) => e.id));
+  // Validate that all exercise IDs exist in the eligible (hard-constraint-
+  // filtered where applicable) pool that was actually offered to the model.
+  const exerciseIds = new Set(eligibleExercises.map((e) => e.id));
   const validExercises = parsed.exercises.filter((e) =>
     exerciseIds.has(e.exerciseId)
   );
@@ -902,23 +1121,27 @@ ${hasCircuits ? `7. Assign "circuitIndex" to every exercise — it MUST match on
     throw new Error("AI generated no valid exercises. Please try again.");
   }
 
-  // Group into day templates and deterministically swap out any exerciseId
-  // that repeats across days, instead of only logging a warning about it.
-  const dayGroups = new Map<number, GeneratedExercise[]>();
-  for (const ex of validExercises) {
-    const day = ex.dayOfWeek ?? 0;
-    if (!dayGroups.has(day)) dayGroups.set(day, []);
-    dayGroups.get(day)!.push(ex);
+  // Post-generation hard-constraint audit (spec section P / 7.3): even with
+  // a filtered pool and explicit prompt rules, the model can still return a
+  // violating exercise. Swap any violator for a compliant, unused pool
+  // exercise before returning. No forced cross-day dedup anymore — anchor
+  // exercises are allowed to repeat across days (see VARIETY & CONTINUITY in
+  // the prompt above), so a repeated exerciseId is left as-is unless it also
+  // violates a hard constraint.
+  const { cleaned: auditedExercises, violationsFound, unresolvedViolations } =
+    auditAndReplaceViolations(validExercises, hardConstraints, eligibleExercises);
+  if (violationsFound.length > 0) {
+    console.warn(
+      `[AI] Post-generation audit replaced ${violationsFound.length} exercise(s) violating hard constraints: ${violationsFound.map((v) => `${v.exerciseName} (${v.categoryId})`).join(", ")}`
+    );
   }
-  const dedupedTemplates = dedupeAcrossDays(
-    Array.from(dayGroups.entries()).map(([dayOfWeek, dayExercises]) => ({
-      dayOfWeek,
-      exercises: dayExercises,
-    })),
-    exercises
-  );
+  if (unresolvedViolations.length > 0) {
+    console.error(
+      `[AI] Post-generation audit could NOT resolve ${unresolvedViolations.length} hard-constraint violation(s) — pool exhausted: ${unresolvedViolations.map((v) => v.exerciseName).join(", ")}`
+    );
+  }
 
-  let dedupedExercises = dedupedTemplates.flatMap((t) => t.exercises);
+  let dedupedExercises: GeneratedExercise[] = auditedExercises;
 
   // The prompt tells the model "EXACTLY N exercises per circuit", but
   // response_format: "json_object" gives no structural (array-length)
@@ -926,10 +1149,16 @@ ${hasCircuits ? `7. Assign "circuitIndex" to every exercise — it MUST match on
   // further — nothing restores a shortfall. Deterministically correct each
   // day's per-circuit count to match what the trainer configured.
   if (hasCircuits) {
+    const dayGroups = new Map<number, GeneratedExercise[]>();
+    for (const ex of dedupedExercises) {
+      const day = ex.dayOfWeek ?? 0;
+      if (!dayGroups.has(day)) dayGroups.set(day, []);
+      dayGroups.get(day)!.push(ex);
+    }
     const countCorrectedByDay = enforceCircuitExerciseCounts<GeneratedExercise>(
-      new Map(dedupedTemplates.map((t) => [t.dayOfWeek, t.exercises])),
+      dayGroups,
       circuits,
-      exercises,
+      eligibleExercises,
       (poolItem, circuitIndex, orderIndex, dayOfWeek) => {
         const focusType = circuits[circuitIndex].focusType;
         const phase =
