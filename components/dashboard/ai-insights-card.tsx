@@ -12,6 +12,8 @@ export function AiInsightsCard() {
         </div>
       </CardHeader>
       <CardContent>
+        {/* Collapsing happens per insight inside the list, not on the whole card —
+            a trainer scans several clients here and opens the one they'll act on. */}
         <AiInsightsList />
       </CardContent>
     </Card>

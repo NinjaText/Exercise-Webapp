@@ -10,7 +10,7 @@ import { ProgramDetailView } from "@/components/programs/program-detail-view";
 
 interface Props {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ assign?: string; workoutId?: string }>;
+  searchParams: Promise<{ assign?: string; workoutId?: string; clientId?: string }>;
 }
 
 export default async function ProgramDetailPage({
@@ -19,7 +19,7 @@ export default async function ProgramDetailPage({
 }: Props) {
   const user = await getCurrentUser();
   const { id } = await params;
-  const { assign, workoutId } = await searchParams;
+  const { assign, workoutId, clientId } = await searchParams;
 
   const program = await programService.getProgramById(id);
   if (!program) notFound();
@@ -88,6 +88,7 @@ export default async function ProgramDetailPage({
         clients={clients}
         sessions={sessions as Record<string, unknown>[]}
         showAssignDialog={assign === "true"}
+        initialAssignClientId={clientId}
         initialWorkoutId={workoutId}
       />
     </div>

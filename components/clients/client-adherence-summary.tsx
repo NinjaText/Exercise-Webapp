@@ -1,6 +1,4 @@
 import Link from "next/link";
-import { Card, CardContent } from "@/components/ui/card";
-import { Activity } from "lucide-react";
 
 interface ClientAdherenceSummaryProps {
   clientId: string;
@@ -11,6 +9,12 @@ interface ClientAdherenceSummaryProps {
   total: number;
 }
 
+/**
+ * Adherence at a glance, rendered as a strip inside the client's identity card
+ * rather than its own card — "who is this" and "how are they doing" are one
+ * question on this page, and answering them in two stacked cards pushed the
+ * actual work (calendar, programs, messages) below the fold.
+ */
 export function ClientAdherenceSummary({
   clientId,
   completionRate,
@@ -22,38 +26,30 @@ export function ClientAdherenceSummary({
   if (total === 0) return null;
 
   const stats = [
-    { label: "Completion Rate", value: `${completionRate}%`, className: "" },
+    { label: "Completion", value: `${completionRate}%`, className: "" },
     { label: "Completed", value: String(completed), className: "text-success" },
-    { label: "Missed / Skipped", value: String(missedOrSkipped), className: "text-destructive" },
+    { label: "Missed", value: String(missedOrSkipped), className: "text-destructive" },
     { label: "Avg RPE", value: avgRPE != null ? `${avgRPE}/10` : "—", className: "" },
   ];
 
   return (
-    <Card className="shadow-sm ring-1 ring-border/50">
-      <CardContent className="p-4 sm:p-6">
-        <div className="mb-4 flex items-center justify-between">
-          <p className="flex items-center gap-1.5 text-base font-semibold">
-            <Activity className="h-4 w-4 text-muted-foreground" />
-            Adherence
-          </p>
-          <Link
-            href={`/clients/${clientId}/adherence`}
-            className="text-xs text-muted-foreground transition-colors hover:text-foreground"
-          >
-            View all sessions
-          </Link>
-        </div>
-        <div className="flex flex-wrap gap-x-10 gap-y-4">
-          {stats.map((stat) => (
-            <div key={stat.label}>
-              <p className={`text-3xl font-bold tabular-nums ${stat.className}`}>
-                {stat.value}
-              </p>
-              <p className="text-xs text-muted-foreground">{stat.label}</p>
-            </div>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
+    <div className="border-t border-border/60 bg-muted/25 px-4 py-3.5 sm:px-6">
+      <div className="flex flex-wrap items-center gap-x-9 gap-y-3">
+        {stats.map((stat) => (
+          <div key={stat.label} className="flex items-baseline gap-2">
+            <span className={`text-xl font-semibold tabular-nums ${stat.className}`}>
+              {stat.value}
+            </span>
+            <span className="text-xs text-muted-foreground">{stat.label}</span>
+          </div>
+        ))}
+        <Link
+          href={`/clients/${clientId}/adherence`}
+          className="ml-auto rounded text-xs text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          View all sessions
+        </Link>
+      </div>
+    </div>
   );
 }

@@ -73,6 +73,8 @@ interface Props {
   exercises: PickerExercise[];
   organizationOrganizationId?: string | null;
   exerciseSourcePreference?: ExerciseSourcePreference;
+  /** Pre-selects a client, e.g. when arriving from that client's profile. */
+  initialClientId?: string;
 }
 
 type PreviewState = {
@@ -182,6 +184,7 @@ export function ProgramBriefUpload({
   exercises,
   organizationOrganizationId,
   exerciseSourcePreference,
+  initialClientId,
 }: Props) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -203,7 +206,7 @@ export function ProgramBriefUpload({
   // Single-open accordion: null means every week is collapsed. A week index
   // (not a Set) so opening one week always closes whichever other week was open.
   const [expandedWeek, setExpandedWeek] = useState<number | null>(null);
-  const [assignClientId, setAssignClientId] = useState("");
+  const [assignClientId, setAssignClientId] = useState(initialClientId ?? "");
   const [assignStartDate, setAssignStartDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [saving, setSaving] = useState<"template" | "assign" | null>(null);
 

@@ -19,6 +19,8 @@ import { TrainerMessageBanner, type TrainerMessagePreview } from "./trainer-mess
 import { ProgramProgressBar, type ProgramProgressSummary } from "./program-progress-bar";
 import { WeekStrip } from "./week-strip";
 import { QuickResourcesRow, type QuickResourceItem } from "./quick-resources-row";
+import { DashboardInboxCard } from "@/components/dashboard/dashboard-inbox-card";
+import type { getInboxThreads } from "@/lib/services/message.service";
 
 // Re-exported from lib/utils/workout-format so the existing callers (and the
 // component's unit tests) keep importing them from here.
@@ -60,6 +62,7 @@ interface ClientDashboardProps {
   unreadTrainerMessage: TrainerMessagePreview | null;
   programProgress: ProgramProgressSummary | null;
   resources: QuickResourceItem[];
+  inboxThreads: Awaited<ReturnType<typeof getInboxThreads>>;
 }
 
 export function ClientDashboard({
@@ -75,6 +78,7 @@ export function ClientDashboard({
   unreadTrainerMessage,
   programProgress,
   resources,
+  inboxThreads,
 }: ClientDashboardProps) {
   const totalWeekSessions = weeklyCompliance + upcomingSessions.length;
   const compliancePercent =
@@ -201,6 +205,8 @@ export function ClientDashboard({
       <WeekStrip sessions={weekStripSessions} today={today} />
 
       <QuickResourcesRow resources={resources} />
+
+      <DashboardInboxCard threads={inboxThreads} />
 
       {/* Secondary stats row */}
       <div className="grid gap-4 sm:grid-cols-4">

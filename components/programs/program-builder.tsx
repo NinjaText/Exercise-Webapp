@@ -56,6 +56,13 @@ import { toast } from "sonner";
 import { type ExerciseSourcePreference } from "@/lib/utils/exercise-picker";
 import { hasRealVideoUrl } from "@/lib/utils/video";
 import { suggestExerciseReplacementsAction } from "@/actions/ai-program-actions";
+import {
+  exerciseKey,
+  resolveOpenKeys,
+  isExerciseOpen,
+  type BuilderViewMode,
+} from "@/lib/utils/builder-view";
+import { CollapsedExerciseRow } from "./collapsed-exercise-row";
 
 interface Props {
   workouts: WorkoutInput[];
@@ -149,6 +156,8 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
   const [aiRevisionOpen, setAiRevisionOpen] = useState(false);
   const [aiRevisionInstructions, setAiRevisionInstructions] = useState("");
   const [aiRevisionLoading, setAiRevisionLoading] = useState(false);
+  const [viewMode, setViewMode] = useState<BuilderViewMode>("focus");
+  const [openKeys, setOpenKeys] = useState<Set<string>>(new Set());
   const { clipboard, copy } = useClipboard();
 
   function dayKey(weekIndex: number, dayIndex: number) {
@@ -403,6 +412,9 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
       },
     ];
     onChange(next);
+    const newIdx = block.exercises.length - 1;
+    const key = exerciseKey(workoutIdx, blockIdx, newIdx);
+    setOpenKeys((prev) => resolveOpenKeys("focus", prev, key, "select"));
     setPickerOpen(false);
   }
 
@@ -682,6 +694,24 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
           <p className="text-sm text-muted-foreground">
             Organize your program into weeks, with up to 7 days each. Drag blocks or exercises to reorder.
           </p>
+        </div>
+        <div className="flex items-center gap-1 rounded-lg border bg-muted/40 p-0.5 w-fit">
+          {(["focus", "all"] as const).map((mode) => (
+            <button
+              key={mode}
+              type="button"
+              onClick={() => setViewMode(mode)}
+              aria-pressed={viewMode === mode}
+              className={cn(
+                "rounded-md px-3 py-1 text-xs font-medium transition-colors",
+                viewMode === mode
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              {mode === "focus" ? "Focus" : "View All"}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -1006,7 +1036,13 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
                                   key={ei}
                                   id={`ex-${wi}-${bi}-${ex.orderIndex}`}
                                 >
-                                  {(exDragHandleProps) => (
+                                  {(exDragHandleProps) => {
+                                    const key = exerciseKey(wi, bi, ei);
+                                    const open = isExerciseOpen(viewMode, openKeys, key);
+                                    const collapsedLib = exerciseLibrary.find(
+                                      (e) => e.id === ex.exerciseId
+                                    );
+                                    return open ? (
                                     <div
                                       className={cn(
                                         "border rounded-md p-3 group",
@@ -1100,6 +1136,24 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
                                           })()}
                                         </div>
                                         <div className="flex items-center gap-0.5">
+                                          {viewMode !== "all" && (
+                                            <button
+                                              type="button"
+                                              onClick={() =>
+                                                setOpenKeys((prev) =>
+                                                  resolveOpenKeys(viewMode, prev, key, "toggle")
+                                                )
+                                              }
+                                              aria-label={`Collapse ${getExerciseName(
+                                                ex.exerciseId,
+                                                (ex as typeof ex & { _exerciseName?: string })
+                                                  ._exerciseName
+                                              )}`}
+                                              className="text-muted-foreground hover:text-foreground"
+                                            >
+                                              <ChevronDown className="h-4 w-4" />
+                                            </button>
+                                          )}
                                           <Button
                                             variant="ghost"
                                             size="icon"
@@ -1136,7 +1190,32 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
                                         }
                                       />
                                     </div>
-                                  )}
+                                    ) : (
+                                      <CollapsedExerciseRow
+                                        name={getExerciseName(
+                                          ex.exerciseId,
+                                          (ex as typeof ex & { _exerciseName?: string })
+                                            ._exerciseName
+                                        )}
+                                        sets={ex.sets}
+                                        hasVideo={
+                                          !!collapsedLib?.videoUrl &&
+                                          hasRealVideoUrl(collapsedLib.videoUrl)
+                                        }
+                                        dragHandleProps={exDragHandleProps}
+                                        onSelect={() =>
+                                          setOpenKeys((prev) =>
+                                            resolveOpenKeys(viewMode, prev, key, "select")
+                                          )
+                                        }
+                                        onToggle={() =>
+                                          setOpenKeys((prev) =>
+                                            resolveOpenKeys(viewMode, prev, key, "toggle")
+                                          )
+                                        }
+                                      />
+                                    );
+                                  }}
                                 </SortableExercise>
                               ))}
                             </div>

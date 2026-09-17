@@ -1114,17 +1114,19 @@ export function ProgramScheduleView({
     if (hasSessions) {
       return sessions.map((s) => {
         const overrideDate = sessionDateOverrides.get(s.id);
-        const rawStart = overrideDate ?? toLocalCalendarDate(s.scheduledDate);
-        // If the session has no meaningful time (midnight), show at 9 AM
-        const start = new Date(rawStart);
-        if (start.getHours() === 0 && start.getMinutes() === 0) {
-          start.setHours(9, 0, 0, 0);
-        }
+        // Sessions are scheduled to a calendar DAY, never a clock time. Emitting
+        // them as all-day events keeps them in the day-header strip and stops
+        // react-big-calendar from placing them against the hour grid.
+        // `overrideDate` is already a LOCAL date from the drag handler; only the persisted
+        // UTC-midnight-anchored `scheduledDate` needs converting. Converting both shifts the
+        // optimistic pill back a day in every timezone east of UTC.
+        const start = overrideDate ?? toLocalCalendarDate(s.scheduledDate);
         return {
           id: s.id,
           title: s.workout.name,
           start,
-          end: new Date(start.getTime() + 60 * 60 * 1000),
+          end: start,
+          allDay: true,
           isSession: true,
           status: s.status,
           workout: s.workout,
@@ -1388,7 +1390,7 @@ export function ProgramScheduleView({
       if (!pickerBlockId) return;
       // The dialog's internal Exercise type is narrower than LibraryExercise,
       // so re-resolve the full record from our cached library by id to access
-      // defaults like defaultSets / defaultHoldSeconds.
+      // defaults like defaultReps / defaultHoldSeconds.
       const exercise = exerciseLibrary.find((e) => e.id === picked.id);
       if (!exercise) {
         toast.error("Exercise not found in library");
@@ -1401,7 +1403,10 @@ export function ProgramScheduleView({
       const isDuration =
         (exercise.defaultHoldSeconds ?? 0) > 0 &&
         (exercise.defaultReps ?? 0) === 0;
-      const setCount = exercise.defaultSets ?? 3;
+      // Every newly added exercise starts as a single set — the trainer adds Set 2
+      // and Set 3 deliberately. The library's `defaultSets` intentionally does not
+      // seed this; only reps/duration defaults still apply.
+      const setCount = 1;
       const targetReps = isDuration ? null : (exercise.defaultReps ?? 10);
       const targetDuration = isDuration
         ? (exercise.defaultHoldSeconds ?? 30)
@@ -1507,9 +1512,16 @@ export function ProgramScheduleView({
         </div>
       )}
 
-      {/* Calendar */}
+      {/* Calendar — `schedule-day-only` strips react-big-calendar's hour grid
+          (see app/globals.css). Program workouts are day-scoped, never
+          clock-scoped, so Week and Day show day columns only. */}
       <div className="overflow-x-auto">
-        <div className={cn(view === Views.DAY ? "min-w-full" : "min-w-[640px]")}>
+        <div
+          className={cn(
+            "schedule-day-only",
+            view === Views.DAY ? "min-w-full" : "min-w-[640px]"
+          )}
+        >
         <DnDCalendar
           localizer={localizer}
           events={events}
@@ -1522,7 +1534,7 @@ export function ProgramScheduleView({
           draggableAccessor={() => !readOnly}
           resizable={false}
           popup
-          style={{ height: 580 }}
+          style={{ height: view === Views.MONTH ? 580 : "auto" }}
           components={{
             event: EventPill,
             toolbar: (props) => (

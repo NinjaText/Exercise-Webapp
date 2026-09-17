@@ -15,7 +15,11 @@ export const metadata = {
   description: "Upload a program brief file and generate a professional AI program",
 };
 
-export default async function ProgramBriefUploadPage() {
+export default async function ProgramBriefUploadPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ clientId?: string }>;
+}) {
   const { userId, orgId: sessionOrgId } = await auth();
 
   if (!userId) {
@@ -32,6 +36,8 @@ export default async function ProgramBriefUploadPage() {
   }
 
   const organizationOrgId = sessionOrgId ?? user.clerkOrgId ?? undefined;
+
+  const { clientId } = await searchParams;
 
   const [clients, exercises, organizationProfile] = await Promise.all([
     getClientsForTrainer(user.id),
@@ -57,6 +63,7 @@ export default async function ProgramBriefUploadPage() {
           exercises={exercises}
           organizationOrganizationId={organizationOrgId}
           exerciseSourcePreference={organizationProfile?.exerciseSourcePreference}
+          initialClientId={clientId}
         />
       </div>
     </div>

@@ -143,6 +143,7 @@ export function TodaysPrioritiesCard({ priorities, expandSignal = 0 }: TodaysPri
                           <div className="min-w-0 flex-1">
                             <p className="truncate text-sm font-semibold">{alert.clientName}</p>
                             <p className="mt-0.5 text-sm text-muted-foreground">{alert.message}</p>
+                            <p className="mt-0.5 text-xs text-muted-foreground">{alert.reason}</p>
                             <div className="mt-2 flex flex-wrap gap-2">
                               {ACTIONS_BY_KIND[alert.kind].map((actionKey) => {
                                 const action = ACTION_CONFIG[actionKey];

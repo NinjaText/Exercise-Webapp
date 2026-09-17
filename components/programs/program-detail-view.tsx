@@ -50,6 +50,7 @@ import {
 import { format } from "date-fns";
 import { toLocalCalendarDate } from "@/lib/utils/calendar-date";
 import { aggregateProgramEquipment } from "@/lib/utils/program-equipment";
+import { pickStartableSession } from "@/lib/utils/session-picker";
 import { VoiceMemoRecorder } from "@/components/voice-memo/VoiceMemoRecorder";
 import { VoiceMemoPlayer } from "@/components/voice-memo/VoiceMemoPlayer";
 import { getWorkoutVoiceMemos } from "@/actions/voice-memo-actions";
@@ -64,6 +65,8 @@ interface ProgramDetailViewProps {
   clients: { id: string; firstName: string; lastName: string }[];
   sessions: Record<string, unknown>[];
   showAssignDialog?: boolean;
+  /** Pre-selects a client in the assign dialog, e.g. when arriving from that client's profile. */
+  initialAssignClientId?: string;
   trainerName?: string;
   adminMode?: boolean;
   editHref?: string;
@@ -83,6 +86,7 @@ export function ProgramDetailView({
   clients,
   sessions,
   showAssignDialog = false,
+  initialAssignClientId,
   trainerName: trainerNameProp,
   adminMode = false,
   editHref,
@@ -199,6 +203,7 @@ export function ProgramDetailView({
   const equipmentNeeded = savedEquipment.length > 0
     ? savedEquipment
     : aggregateProgramEquipment(workouts);
+  const startableSession = !isTrainer && !isResource ? pickStartableSession(sessions, new Date()) : null;
 
   const [shareOpen, setShareOpen] = useState(false);
   const [voiceMemoWorkout, setVoiceMemoWorkout] = useState<{ id: string; name: string } | null>(null);
@@ -365,6 +370,25 @@ export function ProgramDetailView({
         )}
       </div>
 
+      {startableSession && (
+        <div className="rounded-xl border bg-card p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <p className="text-sm font-semibold truncate">
+              {((startableSession.workout as Record<string, unknown> | null)?.name as string) ?? "Next workout"}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {format(toLocalCalendarDate(startableSession.scheduledDate as string | Date), "EEEE, MMM d")}
+            </p>
+          </div>
+          <Button size="lg" className="shrink-0 font-semibold" asChild>
+            <Link href={`/sessions/${startableSession.id as string}`}>
+              <Play className="mr-2 h-4 w-4 fill-current" />
+              Start Workout
+            </Link>
+          </Button>
+        </div>
+      )}
+
       {/* Tabs */}
       <Tabs defaultValue="overview">
         <TabsList>
@@ -456,9 +480,11 @@ export function ProgramDetailView({
                                     <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
                                   )}
                                   <div className="flex items-center gap-2.5 flex-1 min-w-0">
-                                    <span className="text-xs font-medium text-muted-foreground bg-muted rounded-md px-2 py-0.5 shrink-0">
-                                      Day {dayPos + 1}
-                                    </span>
+                                    {!(isResource && workouts.length === 1) && (
+                                      <span className="text-xs font-medium text-muted-foreground bg-muted rounded-md px-2 py-0.5 shrink-0">
+                                        Day {dayPos + 1}
+                                      </span>
+                                    )}
                                     <span className="font-medium text-sm truncate">
                                       {workout.name as string}
                                     </span>
@@ -491,7 +517,7 @@ export function ProgramDetailView({
                                     ) : (
                                       <Play className="mr-1.5 h-3.5 w-3.5 fill-current" />
                                     )}
-                                    {startingWorkoutId === wId ? "Starting..." : "Start Resource Session"}
+                                    {startingWorkoutId === wId ? "Starting..." : "Start Session"}
                                   </Button>
                                 )}
                                 {isTrainer && (
@@ -621,6 +647,7 @@ export function ProgramDetailView({
         onOpenChange={setAssignOpen}
         schedulingType={program.schedulingType as string | null | undefined}
         assignAction={assignAction}
+        initialClientId={initialAssignClientId}
       />
 
       <SellProgramDialog

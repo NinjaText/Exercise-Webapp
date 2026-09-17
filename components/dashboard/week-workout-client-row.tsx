@@ -32,6 +32,13 @@ const dayDotLabels: Record<DayDotStatus, string> = {
   none: "No workout",
 };
 
+/**
+ * Monday-first weekday initials, matching the order `buildWeekDays` emits.
+ * Duplicate letters (T/T, S/S) are intentional — the product doc specifies
+ * exactly "M T W T F S S".
+ */
+const DAY_INITIALS = ["M", "T", "W", "T", "F", "S", "S"] as const;
+
 export interface WeekDayDot {
   date: Date;
   status: DayDotStatus;
@@ -75,13 +82,18 @@ export function WeekWorkoutClientRow({ row }: { row: WeekWorkoutClientRowData })
         </span>
       </Link>
 
-      <div className="hidden shrink-0 items-center gap-1 sm:flex" aria-label="This week's workouts">
-        {days.map((day) => (
+      <div className="hidden shrink-0 items-center gap-1.5 sm:flex" aria-label="This week's workouts">
+        {days.map((day, i) => (
           <span
             key={day.date.toISOString()}
             title={`${format(day.date, "EEE d MMM")} — ${dayDotLabels[day.status]}`}
-            className={`h-2.5 w-2.5 rounded-full border ${dayDotStyles[day.status]}`}
-          />
+            className="flex w-4 flex-col items-center gap-1"
+          >
+            <span className="text-[9px] font-medium leading-none text-muted-foreground/70">
+              {DAY_INITIALS[i]}
+            </span>
+            <span className={`h-2.5 w-2.5 rounded-full border ${dayDotStyles[day.status]}`} />
+          </span>
         ))}
       </div>
 

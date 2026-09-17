@@ -225,6 +225,7 @@ export default async function DashboardPage() {
       unreadTrainerMessage={unreadTrainerMessage}
       programProgress={programProgress}
       resources={resources}
+      inboxThreads={inboxThreads}
     />
   );
 }

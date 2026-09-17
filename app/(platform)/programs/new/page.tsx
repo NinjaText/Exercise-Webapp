@@ -9,7 +9,12 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/shared/page-header";
 
-export default async function NewProgramPage() {
+export default async function NewProgramPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ clientId?: string }>;
+}) {
+  const { clientId } = await searchParams;
   const [user, { orgId: sessionOrgId }, exercises, organizationProfile] = await Promise.all([
     requireRole("TRAINER"),
     auth(),
@@ -40,6 +45,7 @@ export default async function NewProgramPage() {
         organizationOrganizationId={organizationOrgId}
         exerciseSourcePreference={organizationProfile?.exerciseSourcePreference}
         collections={collections}
+        assignClientId={clientId}
       />
     </div>
   );

@@ -68,6 +68,8 @@ interface Props {
   }) => Promise<{ success: boolean; error?: string; data?: unknown }>;
   /** Called after a successful assign/queue, in addition to closing the dialog. */
   onAssigned?: () => void;
+  /** Pre-selects a client, e.g. when arriving from that client's profile. */
+  initialClientId?: string;
 }
 
 export function AssignProgramDialog({
@@ -80,9 +82,10 @@ export function AssignProgramDialog({
   programs = [],
   assignAction,
   onAssigned,
+  initialClientId,
 }: Props) {
   const router = useRouter();
-  const [clientId, setClientId] = useState("");
+  const [clientId, setClientId] = useState(initialClientId ?? "");
   const [selectedProgramId, setSelectedProgramId] = useState("");
   const [startDate, setStartDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [saving, setSaving] = useState(false);

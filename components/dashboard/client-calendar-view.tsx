@@ -58,13 +58,9 @@ export function ClientCalendarView({ sessions }: { sessions: ClientCalendarSessi
   const selectedSession = exactMatch ?? nextAfter;
 
   return (
+    // The selected-day panel sits ABOVE the grid: starting today's workout is
+    // the reason a client opens this page, so it must not sit below the fold.
     <div className="space-y-6">
-      <ClientSessionCalendar
-        sessions={sessions}
-        selectedDate={selectedDate}
-        onSelectDate={setSelectedDate}
-      />
-
       {selectedDate && (
         <div className="relative overflow-hidden rounded-2xl border border-border/60 bg-card p-5 shadow-sm">
           <button
@@ -121,6 +117,12 @@ export function ClientCalendarView({ sessions }: { sessions: ClientCalendarSessi
           )}
         </div>
       )}
+
+      <ClientSessionCalendar
+        sessions={sessions}
+        selectedDate={selectedDate}
+        onSelectDate={setSelectedDate}
+      />
     </div>
   );
 }

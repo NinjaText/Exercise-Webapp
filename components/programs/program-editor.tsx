@@ -90,6 +90,12 @@ interface Props {
   clinics?: { id: string; name: string }[];
   collections?: { id: string; name: string }[];
   exerciseSourcePreference?: ExerciseSourcePreference;
+  /**
+   * When set, saving a new program (create path only) redirects into that
+   * program's assign dialog with this client preselected, instead of the
+   * plain program page — e.g. when arriving from a client's profile.
+   */
+  assignClientId?: string;
 }
 
 // Helper to map DB workout to input type
@@ -149,7 +155,7 @@ function mapWorkoutToInput(w: Record<string, unknown>): WorkoutInput {
   };
 }
 
-export function ProgramEditor({ program, exercises, onSave, redirectTo, organizationOrganizationId, clinics, collections, exerciseSourcePreference }: Props) {
+export function ProgramEditor({ program, exercises, onSave, redirectTo, organizationOrganizationId, clinics, collections, exerciseSourcePreference, assignClientId }: Props) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
   const [syncingToMaster, setSyncingToMaster] = useState(false);
@@ -310,7 +316,14 @@ export function ProgramEditor({ program, exercises, onSave, redirectTo, organiza
         const result = await onSave(data, program?.id as string | undefined);
         if (result.success) {
           toast.success(program ? "Program updated" : "Program created");
-          router.push(redirectTo ?? (result.data?.id ? `/programs/${result.data.id}` : "/programs"));
+          router.push(
+            redirectTo ??
+              (result.data?.id
+                ? assignClientId
+                  ? `/programs/${result.data.id}?assign=true&clientId=${assignClientId}`
+                  : `/programs/${result.data.id}`
+                : "/programs")
+          );
         } else {
           toast.error(result.error);
         }
@@ -329,7 +342,11 @@ export function ProgramEditor({ program, exercises, onSave, redirectTo, organiza
         const result = await createProgramAction(data);
         if (result.success) {
           toast.success("Program created");
-          router.push(`/programs/${result.data.id}`);
+          router.push(
+            assignClientId
+              ? `/programs/${result.data.id}?assign=true&clientId=${assignClientId}`
+              : `/programs/${result.data.id}`
+          );
         } else {
           toast.error(result.error);
         }
