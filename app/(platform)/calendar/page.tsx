@@ -5,6 +5,7 @@ import {
   getClientCalendarWindow,
 } from "@/lib/services/session.service";
 import { PageHeader } from "@/components/shared/page-header";
+import { PageShell } from "@/components/shared/page-shell";
 import { ClientCalendarView } from "@/components/dashboard/client-calendar-view";
 
 /**
@@ -24,9 +25,9 @@ export default async function CalendarPage() {
   );
 
   return (
-    <div>
+    <PageShell width="full">
       <PageHeader title="My Calendar" description="Every workout on your schedule." />
       <ClientCalendarView sessions={sessions} />
-    </div>
+    </PageShell>
   );
 }

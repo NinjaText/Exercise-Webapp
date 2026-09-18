@@ -12,9 +12,10 @@ interface Props {
   suggestions?: string[];
 }
 
-// Free-text chip input shared by the program editor's category fields (Body
-// Area, Goal, Activity/Sport, Tags) — each is its own facet, but they all
-// share the same "type and press Enter, or pick a suggestion" interaction.
+// Free-text chip input for any repeated short value: the program editor's
+// category fields (Body Area, Goal, Activity/Sport, Tags) and a client's
+// secondary diagnoses and prior injuries. They all share the same "type and
+// press Enter, or pick a suggestion" interaction.
 export function TagListInput({ values, onChange, placeholder, suggestions }: Props) {
   const [input, setInput] = useState("");
 

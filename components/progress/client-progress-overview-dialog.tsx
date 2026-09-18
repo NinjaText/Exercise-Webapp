@@ -35,7 +35,7 @@ function Delta({ value, goodDirection }: { value: number | null; goodDirection: 
   const good = goodDirection === "up" ? rising : !rising;
   const Icon = rising ? ArrowUp : ArrowDown;
   return (
-    <span className={cn("flex items-center gap-1 text-sm font-semibold", good ? "text-success" : "text-red-600")}>
+    <span className={cn("flex items-center gap-1 text-sm font-semibold", good ? "text-success" : "text-danger")}>
       <Icon className="h-4 w-4" />
       {Math.abs(value)}%
     </span>
@@ -264,7 +264,7 @@ function RecentActivityCard({
                   <span
                     className={cn(
                       "flex h-6 w-6 shrink-0 items-center justify-center rounded-full",
-                      done ? "bg-success" : "bg-red-500"
+                      done ? "bg-success" : "bg-danger"
                     )}
                   >
                     {done ? <Check className="h-3.5 w-3.5 text-white" /> : <X className="h-3.5 w-3.5 text-white" />}

@@ -151,6 +151,17 @@ export const PERFORMANCE_GOALS = [
 /** Combined list — used where program type doesn't apply (client onboarding, other generators). */
 export const FITNESS_GOALS = [...REHAB_GOALS, ...PERFORMANCE_GOALS] as const;
 
+/**
+ * Baseline activity before starting a program. Shared by the client's own
+ * onboarding form and the trainer's edit dialog so both write the same values.
+ */
+export const ACTIVITY_LEVELS = [
+  { value: "SEDENTARY", label: "Sedentary" },
+  { value: "LIGHT", label: "Light" },
+  { value: "MODERATE", label: "Moderate" },
+  { value: "ACTIVE", label: "Active" },
+] as const;
+
 export const ASSESSMENT_TYPES = [
   { value: "pain_level", label: "Pain Level", unit: "/10" },
   { value: "range_of_motion", label: "Range of Motion", unit: "degrees" },

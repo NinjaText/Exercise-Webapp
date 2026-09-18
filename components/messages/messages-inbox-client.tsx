@@ -95,7 +95,7 @@ export function MessagesInboxClient({
   }, [currentUserId]);
 
   return (
-    <div className="overflow-hidden rounded-xl border border-border/60 bg-card shadow-sm">
+    <div className="h-full overflow-y-auto rounded-xl bg-card ring-1 ring-border">
       {threads.map((thread, i) => {
         const hasUnread = thread.unreadCount > 0;
         const fullName = getDisplayName(thread.otherUser);
@@ -122,7 +122,7 @@ export function MessagesInboxClient({
                 {hasUnread ? (
                   <span className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full border-2 border-card bg-primary" />
                 ) : isOnline ? (
-                  <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-card bg-emerald-500" />
+                  <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-card bg-success" />
                 ) : null}
               </div>
 

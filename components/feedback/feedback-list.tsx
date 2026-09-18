@@ -28,10 +28,10 @@ interface FeedbackListProps {
 }
 
 const ratingColors: Record<string, string> = {
-  FELT_GOOD: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
-  MILD_DISCOMFORT: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
-  PAINFUL: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
-  UNSURE_HOW_TO_PERFORM: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
+  FELT_GOOD: "bg-success-soft text-success-foreground",
+  MILD_DISCOMFORT: "bg-warning-soft text-warning-foreground",
+  PAINFUL: "bg-danger-soft text-danger-foreground",
+  UNSURE_HOW_TO_PERFORM: "bg-info-soft text-info-foreground",
 };
 
 export function FeedbackList({

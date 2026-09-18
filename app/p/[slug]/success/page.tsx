@@ -57,11 +57,11 @@ export default async function SuccessPage({
   const isPending = purchaseFound && !claimed && !ticket;
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 to-blue-50 px-4 py-12">
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-muted to-info-soft px-4 py-12">
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
-          <h1 className="text-2xl font-bold text-slate-900">Payment successful 🎉</h1>
-          <p className="mt-1 text-slate-600">
+          <h1 className="text-2xl font-bold text-foreground">Payment successful 🎉</h1>
+          <p className="mt-1 text-muted-foreground">
             {claimed ? "Your account is ready." : "Let's get your program set up."}
           </p>
         </div>

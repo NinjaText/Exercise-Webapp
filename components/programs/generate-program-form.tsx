@@ -378,10 +378,10 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
       }
     >
       {isReviewing && clinicalPlan ? (
-        <Card>
+        <Card className="ring-1 ring-border shadow-none">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-blue-600" />
+              <Sparkles className="h-5 w-5 text-brand" />
               {clinicalPlan.programMode === 'PERFORMANCE' ? 'Review Training Plan' : 'Review Clinical Plan'}
             </CardTitle>
           </CardHeader>
@@ -396,10 +396,10 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
         </Card>
       ) : (
         <form onSubmit={handleRequestPlan}>
-          <Card>
+          <Card className="ring-1 ring-border shadow-none">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Sparkles className="h-5 w-5 text-blue-600" />
+                <Sparkles className="h-5 w-5 text-brand" />
                 AI Program Generator
               </CardTitle>
             </CardHeader>

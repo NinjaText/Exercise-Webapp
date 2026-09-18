@@ -30,17 +30,6 @@ export function formatDifficulty(level: string | null | undefined): string {
   return map[level] || level;
 }
 
-export function formatPlanStatus(status: string): string {
-  const map: Record<string, string> = {
-    DRAFT: "Draft",
-    ACTIVE: "Active",
-    PAUSED: "Paused",
-    COMPLETED: "Completed",
-    ARCHIVED: "Archived",
-  };
-  return map[status] || status;
-}
-
 export function formatSessionStatus(status: string): string {
   const map: Record<string, string> = {
     SCHEDULED: "Scheduled",

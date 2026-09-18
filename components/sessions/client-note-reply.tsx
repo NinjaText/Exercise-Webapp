@@ -61,17 +61,17 @@ export function ClientNoteReply({
   }
 
   return (
-    <div className="border-b border-border/60 bg-blue-50">
+    <div className="border-b border-border/60 bg-info-soft">
       <div className="flex items-start gap-2 px-4 py-3">
-        <span className="mt-0.5 shrink-0 text-[10px] font-bold uppercase tracking-widest text-blue-500">
+        <span className="mt-0.5 shrink-0 text-[10px] font-bold uppercase tracking-widest text-info-foreground">
           Client note
         </span>
-        <p className="flex-1 text-sm italic text-blue-700">{clientNote}</p>
+        <p className="flex-1 text-sm italic text-info-foreground">{clientNote}</p>
         {!composerOpen && (
           <Button
             variant="ghost"
             size="sm"
-            className="-my-1 shrink-0 text-blue-700 hover:bg-blue-100 hover:text-blue-800"
+            className="-my-1 shrink-0 text-info-foreground hover:bg-info/15 hover:text-info-foreground"
             onClick={() => setComposerOpen(true)}
           >
             <Reply className="mr-1 h-3.5 w-3.5" />
@@ -81,7 +81,7 @@ export function ClientNoteReply({
       </div>
 
       {composerOpen && (
-        <div className="space-y-2 border-t border-blue-100 px-4 py-3">
+        <div className="space-y-2 border-t border-info-border px-4 py-3">
           <Textarea
             value={content}
             onChange={(e) => setContent(e.target.value)}

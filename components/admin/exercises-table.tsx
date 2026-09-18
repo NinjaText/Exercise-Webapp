@@ -2,12 +2,16 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { format } from "date-fns";
 import { toast } from "sonner";
-import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
+import { DataList, type Column } from "@/components/shared/data-list";
+import { StatusBadge } from "@/components/shared/status-badge";
+import { EmptyState } from "@/components/shared/empty-state";
+import { DIFFICULTY_ROLE } from "@/lib/ui/status";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,32 +25,14 @@ import {
 import { Dumbbell, Pencil, Trash2, Loader2, X } from "lucide-react";
 import { DeleteExerciseButton } from "@/components/admin/delete-exercise-button";
 import { bulkDeleteExercisesAction } from "@/actions/exercise-actions";
-import { cn } from "@/lib/utils";
+import { formatBodyRegion, formatDifficulty } from "@/lib/utils/formatting";
 import type { getAllExercises } from "@/lib/services/admin.service";
 
 type ExerciseRow = Awaited<ReturnType<typeof getAllExercises>>["items"][number];
 
-const bodyRegionColors: Record<string, string> = {
-  LOWER_BODY:  "border-amber-500/30 bg-amber-500/10 text-amber-700",
-  UPPER_BODY:  "border-blue-500/30 bg-blue-500/10 text-blue-700",
-  CORE:        "border-violet-500/30 bg-violet-500/10 text-violet-700",
-  FULL_BODY:   "border-emerald-500/30 bg-emerald-500/10 text-emerald-700",
-  BALANCE:     "border-cyan-500/30 bg-cyan-500/10 text-cyan-700",
-  FLEXIBILITY: "border-rose-500/30 bg-rose-500/10 text-rose-700",
-};
-
-const bodyRegionLabel: Record<string, string> = {
-  LOWER_BODY: "Lower Body", UPPER_BODY: "Upper Body", CORE: "Core",
-  FULL_BODY: "Full Body",   BALANCE: "Balance",       FLEXIBILITY: "Flexibility",
-};
-
 const phaseLabel: Record<string, string> = {
   WARMUP: "Warm-up", ACTIVATION: "Activation", STRENGTHENING: "Strengthening",
   MOBILITY: "Mobility", COOLDOWN: "Cool-down",
-};
-
-const diffLabel: Record<string, string> = {
-  BEGINNER: "Beginner", INTERMEDIATE: "Intermediate", ADVANCED: "Advanced",
 };
 
 interface AdminExercisesTableProps {
@@ -123,125 +109,155 @@ export function AdminExercisesTable({ exercises, total, totalPages, page, search
     });
   }
 
+  const columns: Column<ExerciseRow>[] = [
+    {
+      key: "select",
+      header: "",
+      className: "w-10",
+      render: (ex) => (
+        <Checkbox
+          checked={selectedIds.has(ex.id)}
+          onCheckedChange={() => toggleOne(ex.id)}
+          aria-label={`Select ${ex.name}`}
+        />
+      ),
+    },
+    {
+      key: "exercise",
+      header: "Exercise",
+      render: (ex) => (
+        <div>
+          <p className="font-medium text-foreground">{ex.name}</p>
+          {ex.description && (
+            <p className="mt-0.5 max-w-xs truncate text-xs text-muted-foreground">{ex.description}</p>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: "bodyRegion",
+      header: "Body Region",
+      render: (ex) => (
+        <div className="flex flex-wrap gap-1">
+          {ex.bodyRegion.map((region: string) => (
+            <Badge key={region} variant="outline" className="text-[10px]">
+              {formatBodyRegion(region)}
+            </Badge>
+          ))}
+        </div>
+      ),
+    },
+    {
+      key: "phase",
+      header: "Phase",
+      className: "hidden md:table-cell",
+      render: (ex) =>
+        ex.exercisePhases?.length
+          ? <span className="text-xs text-muted-foreground">
+              {ex.exercisePhases.map((p: string) => phaseLabel[p] ?? p).join(", ")}
+            </span>
+          : <span className="text-xs text-muted-foreground/40">—</span>,
+    },
+    {
+      key: "difficulty",
+      header: "Difficulty",
+      className: "hidden lg:table-cell",
+      render: (ex) =>
+        ex.difficultyLevel ? (
+          <StatusBadge
+            status={ex.difficultyLevel}
+            label={formatDifficulty(ex.difficultyLevel)}
+            role={DIFFICULTY_ROLE[ex.difficultyLevel] ?? "neutral"}
+            size="sm"
+            dot={false}
+          />
+        ) : (
+          <span className="text-xs text-muted-foreground">—</span>
+        ),
+    },
+    {
+      key: "createdBy",
+      header: "Created By",
+      className: "hidden xl:table-cell",
+      render: (ex) =>
+        ex.createdBy ? (
+          <div>
+            <p className="text-xs font-medium text-foreground">{ex.createdBy.firstName} {ex.createdBy.lastName}</p>
+            <p className="text-[10px] text-muted-foreground">{ex.createdBy.email}</p>
+          </div>
+        ) : (
+          <span className="text-xs text-muted-foreground/60">System</span>
+        ),
+    },
+    {
+      key: "status",
+      header: "Status",
+      render: (ex) => <StatusBadge status={ex.isActive ? "ACTIVE" : "INACTIVE"} size="sm" />,
+    },
+    {
+      key: "added",
+      header: "Added",
+      className: "hidden lg:table-cell",
+      render: (ex) => <span className="text-xs text-muted-foreground">{format(new Date(ex.createdAt), "MMM d, yyyy")}</span>,
+    },
+    {
+      key: "actions",
+      header: "",
+      align: "right",
+      render: (ex) => (
+        <div className="flex items-center justify-end gap-2">
+          <Button asChild variant="outline" size="sm">
+            <Link href={`/admin/exercises/${ex.id}/edit`}>
+              <Pencil className="h-3 w-3" />
+              Edit
+            </Link>
+          </Button>
+          <DeleteExerciseButton exerciseId={ex.id} exerciseName={ex.name} />
+        </div>
+      ),
+    },
+  ];
+
   return (
     <>
-      <div className="rounded-2xl border border-border bg-card overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border">
-                <th className="w-10 px-5 py-3">
-                  <Checkbox
-                    checked={allOnPageSelected}
-                    indeterminate={someOnPageSelected}
-                    onCheckedChange={toggleAllOnPage}
-                    aria-label="Select all exercises on this page"
-                  />
-                </th>
-                <th className="px-5 py-3 text-left text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Exercise</th>
-                <th className="px-5 py-3 text-left text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Body Region</th>
-                <th className="px-5 py-3 text-left text-[10px] font-semibold uppercase tracking-widest text-muted-foreground hidden md:table-cell">Phase</th>
-                <th className="px-5 py-3 text-left text-[10px] font-semibold uppercase tracking-widest text-muted-foreground hidden lg:table-cell">Difficulty</th>
-                <th className="px-5 py-3 text-left text-[10px] font-semibold uppercase tracking-widest text-muted-foreground hidden xl:table-cell">Created By</th>
-                <th className="px-5 py-3 text-left text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Status</th>
-                <th className="px-5 py-3 text-left text-[10px] font-semibold uppercase tracking-widest text-muted-foreground hidden lg:table-cell">Added</th>
-                <th className="px-5 py-3" />
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {exercises.map((ex) => (
-                <tr
-                  key={ex.id}
-                  className={cn(
-                    "hover:bg-muted/40 transition-colors",
-                    selectedIds.has(ex.id) && "bg-primary/5"
-                  )}
-                >
-                  <td className="px-5 py-3">
-                    <Checkbox
-                      checked={selectedIds.has(ex.id)}
-                      onCheckedChange={() => toggleOne(ex.id)}
-                      aria-label={`Select ${ex.name}`}
-                    />
-                  </td>
-                  <td className="px-5 py-3">
-                    <p className="font-medium text-foreground">{ex.name}</p>
-                    {ex.description && (
-                      <p className="mt-0.5 max-w-xs truncate text-xs text-muted-foreground">{ex.description}</p>
-                    )}
-                  </td>
-                  <td className="px-5 py-3">
-                    <div className="flex flex-wrap gap-1">
-                      {ex.bodyRegion.map((region: string) => (
-                        <Badge key={region} variant="outline" className={`text-[10px] ${bodyRegionColors[region] ?? "border-border text-muted-foreground"}`}>
-                          {bodyRegionLabel[region] ?? region}
-                        </Badge>
-                      ))}
-                    </div>
-                  </td>
-                  <td className="px-5 py-3 hidden md:table-cell">
-                    {ex.exercisePhases?.length
-                      ? <span className="text-xs text-muted-foreground">
-                          {ex.exercisePhases.map((p: string) => phaseLabel[p] ?? p).join(", ")}
-                        </span>
-                      : <span className="text-xs text-muted-foreground/40">—</span>}
-                  </td>
-                  <td className="px-5 py-3 hidden lg:table-cell">
-                    <span className="text-xs text-muted-foreground">{ex.difficultyLevel ? (diffLabel[ex.difficultyLevel] ?? ex.difficultyLevel) : "—"}</span>
-                  </td>
-                  <td className="px-5 py-3 hidden xl:table-cell">
-                    {ex.createdBy ? (
-                      <div>
-                        <p className="text-xs font-medium text-foreground">{ex.createdBy.firstName} {ex.createdBy.lastName}</p>
-                        <p className="text-[10px] text-muted-foreground">{ex.createdBy.email}</p>
-                      </div>
-                    ) : (
-                      <span className="text-xs text-muted-foreground/60">System</span>
-                    )}
-                  </td>
-                  <td className="px-5 py-3">
-                    {ex.isActive
-                      ? <span className="inline-flex items-center gap-1 text-xs text-emerald-600"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Active</span>
-                      : <span className="inline-flex items-center gap-1 text-xs text-muted-foreground/60"><span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/40" /> Inactive</span>}
-                  </td>
-                  <td className="px-5 py-3 hidden lg:table-cell">
-                    <span className="text-xs text-muted-foreground">{format(new Date(ex.createdAt), "MMM d, yyyy")}</span>
-                  </td>
-                  <td className="px-5 py-3 text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      <Link
-                        href={`/admin/exercises/${ex.id}/edit`}
-                        className="inline-flex items-center gap-1.5 rounded-lg bg-muted px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted/80 transition-colors"
-                      >
-                        <Pencil className="h-3 w-3" />
-                        Edit
-                      </Link>
-                      <DeleteExerciseButton exerciseId={ex.id} exerciseName={ex.name} />
-                    </div>
-                  </td>
-                </tr>
-              ))}
-              {exercises.length === 0 && (
-                <tr>
-                  <td colSpan={9} className="px-5 py-12 text-center">
-                    <Dumbbell className="mx-auto h-8 w-8 text-muted-foreground/30 mb-2" />
-                    <p className="text-sm text-muted-foreground">No exercises found.</p>
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+      <div className="rounded-xl ring-1 ring-border bg-card overflow-hidden">
+        {exercises.length > 0 && (
+          <div className="flex items-center justify-between border-b border-border px-5 py-2">
+            <label className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+              <Checkbox
+                checked={allOnPageSelected}
+                indeterminate={someOnPageSelected}
+                onCheckedChange={toggleAllOnPage}
+                aria-label="Select all exercises on this page"
+              />
+              Select all on this page
+            </label>
+            <span className="text-xs text-muted-foreground">{total.toLocaleString()} exercises</span>
+          </div>
+        )}
+
+        <DataList
+          columns={columns}
+          data={exercises}
+          keyExtractor={(ex) => ex.id}
+          density="compact"
+          className="rounded-none ring-0"
+          emptyState={<EmptyState icon={Dumbbell} title="No exercises found" size="compact" />}
+        />
 
         {totalPages > 1 && (
           <div className="flex items-center justify-between border-t border-border px-5 py-3">
             <p className="text-xs text-muted-foreground">Page {page} of {totalPages} · {total.toLocaleString()} exercises</p>
             <div className="flex gap-2">
               {page > 1 && (
-                <a href={`?search=${search}&bodyRegion=${bodyRegions.join(",")}&page=${page - 1}${kind === "assessment" ? "&kind=assessment" : ""}`} className="rounded-lg bg-muted px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted/80 transition-colors">← Prev</a>
+                <Button asChild variant="outline" size="sm">
+                  <Link href={`?search=${search}&bodyRegion=${bodyRegions.join(",")}&page=${page - 1}${kind === "assessment" ? "&kind=assessment" : ""}`}>← Prev</Link>
+                </Button>
               )}
               {page < totalPages && (
-                <a href={`?search=${search}&bodyRegion=${bodyRegions.join(",")}&page=${page + 1}${kind === "assessment" ? "&kind=assessment" : ""}`} className="rounded-lg bg-muted px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted/80 transition-colors">Next →</a>
+                <Button asChild variant="outline" size="sm">
+                  <Link href={`?search=${search}&bodyRegion=${bodyRegions.join(",")}&page=${page + 1}${kind === "assessment" ? "&kind=assessment" : ""}`}>Next →</Link>
+                </Button>
               )}
             </div>
           </div>

@@ -41,7 +41,7 @@ export function GenerateProgramEntryDialog({
     {
       href: generateHref,
       icon: Sparkles,
-      iconClassName: "bg-blue-500/10 text-blue-600",
+      iconClassName: "bg-brand-soft text-brand-foreground",
       title: "Generate with AI",
       description: "Describe the goal and get a full program draft in seconds.",
     },

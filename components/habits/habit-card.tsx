@@ -85,9 +85,9 @@ export function HabitCard({ habit, onToggle, showDelete = false }: HabitCardProp
   return (
     <div
       className={cn(
-        "group relative flex flex-col gap-4 rounded-xl border-0 p-5 ring-1 ring-border/50 shadow-sm transition-all duration-200",
-        "hover:-translate-y-0.5 hover:shadow-md hover:ring-border",
-        isCompleted && "ring-emerald-500/30 bg-emerald-500/5"
+        "group relative flex flex-col gap-4 rounded-xl p-5 ring-1 ring-border shadow-none transition-all duration-200",
+        "hover:-translate-y-0.5 hover:shadow-sm hover:ring-border-strong",
+        isCompleted && "ring-success-border bg-success-soft"
       )}
     >
       {/* Top row: icon + name + delete button */}
@@ -96,7 +96,7 @@ export function HabitCard({ habit, onToggle, showDelete = false }: HabitCardProp
         <div
           className={cn(
             "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-2xl",
-            isCompleted ? "bg-emerald-500/15" : "bg-muted"
+            isCompleted ? "bg-success-soft" : "bg-muted"
           )}
           aria-hidden="true"
         >
@@ -116,7 +116,7 @@ export function HabitCard({ habit, onToggle, showDelete = false }: HabitCardProp
 
           {/* Streak */}
           {streak > 0 && (
-            <p className="mt-1 text-sm font-bold text-orange-500">
+            <p className="mt-1 text-sm font-bold text-warning">
               🔥 {streak} day streak
             </p>
           )}
@@ -167,7 +167,7 @@ export function HabitCard({ habit, onToggle, showDelete = false }: HabitCardProp
         className={cn(
           "mt-auto flex w-full items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-semibold transition-all duration-200 outline-none focus-visible:ring-2 focus-visible:ring-ring",
           isCompleted
-            ? "bg-emerald-500 text-white hover:bg-emerald-600"
+            ? "bg-success text-white hover:bg-success/90"
             : "bg-primary/10 text-primary hover:bg-primary/20"
         )}
       >

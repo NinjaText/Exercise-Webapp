@@ -87,9 +87,9 @@ export function MealLogDialog({ clientId, date, defaultMealType }: MealLogDialog
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 px-3 py-2 text-sm font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+      <DialogTrigger render={<Button />}>
         <Plus className="h-4 w-4" />
-        Log Meal
+        Log meal
       </DialogTrigger>
 
       <DialogContent className="sm:max-w-md max-h-[85vh] overflow-y-auto">

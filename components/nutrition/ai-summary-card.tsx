@@ -51,8 +51,8 @@ export function DailySummaryCard({ clientId, date, initialSummary }: DailySummar
       {summary ? (
         <div className="space-y-2 text-sm">
           <p>{summary.summary}</p>
-          <p className="text-emerald-600">✓ {summary.highlight}</p>
-          {summary.concern && <p className="text-amber-600">→ {summary.concern}</p>}
+          <p className="text-success-foreground">✓ {summary.highlight}</p>
+          {summary.concern && <p className="text-warning-foreground">→ {summary.concern}</p>}
         </div>
       ) : (
         <Button type="button" size="sm" variant="outline" onClick={() => generate(false)} disabled={isPending}>

@@ -853,7 +853,7 @@ function ExerciseEditRow({
               {exercise.exercise.name}
             </span>
             {hasRealVideoUrl(exercise.exercise.videoUrl) && (
-              <span className="inline-flex items-center gap-0.5 text-[9px] bg-blue-50 text-blue-600 border border-blue-200 px-1 py-0 rounded-sm font-medium">
+              <span className="inline-flex items-center gap-0.5 text-[9px] bg-info-soft text-info-foreground border border-info-border px-1 py-0 rounded-sm font-medium">
                 <Play className="h-2 w-2" />
                 Video
               </span>
@@ -1478,8 +1478,8 @@ export function ProgramScheduleView({
     <div className="space-y-4">
       {/* Template mode banner */}
       {!hasSessions && (
-        <div className="flex items-start gap-2 rounded-lg border border-violet-200 bg-violet-50 px-4 py-3 text-sm text-violet-800">
-          <Info className="h-4 w-4 mt-0.5 shrink-0 text-violet-500" />
+        <div className="flex items-start gap-2 rounded-lg border border-brand-border bg-brand-soft px-4 py-3 text-sm text-brand-foreground">
+          <Info className="h-4 w-4 mt-0.5 shrink-0 text-brand" />
           <span>
             <strong>Program structure view</strong> — workouts are shown at
             their scheduled day positions starting this week.{" "}

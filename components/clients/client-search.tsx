@@ -30,7 +30,7 @@ export function ClientSearch() {
         placeholder="Search clients..."
         defaultValue={searchParams.get("q") ?? ""}
         onChange={handleChange}
-        className="pl-9"
+        className="h-9 pl-9"
       />
     </div>
   );

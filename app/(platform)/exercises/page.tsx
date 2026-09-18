@@ -6,6 +6,10 @@ import { ExerciseGrid } from "@/components/exercises/exercise-grid";
 import { ExerciseFilters } from "@/components/exercises/exercise-filters";
 import { ExerciseToolbarSelects } from "@/components/exercises/exercise-toolbar-selects";
 import { PaginationBar } from "@/components/shared/pagination-bar";
+import { PageShell } from "@/components/shared/page-shell";
+import { PageHeader } from "@/components/shared/page-header";
+import { PageToolbar } from "@/components/shared/page-toolbar";
+import { EmptyState } from "@/components/shared/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Dumbbell, Plus, Upload } from "lucide-react";
@@ -133,69 +137,74 @@ export default async function ExercisesPage({ searchParams }: Props) {
     return `/exercises?${sp.toString()}`;
   };
 
+  const kindTabs = (
+    <div className="flex gap-1">
+      {(["training", "assessment"] as const).map((k) => (
+        <Link
+          key={k}
+          href={kindUrl(k)}
+          className={cn(
+            "relative px-3 py-2 text-sm font-medium",
+            activeKind === k
+              ? "text-foreground after:absolute after:inset-x-0 after:-bottom-px after:h-0.5 after:bg-foreground"
+              : "text-muted-foreground hover:text-foreground"
+          )}
+        >
+          {k === "training" ? "Training" : "Assessment"}
+        </Link>
+      ))}
+    </div>
+  );
+
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col items-start gap-4 sm:flex-row sm:justify-between">
-        <div>
-          <h2 className="text-2xl font-bold">Exercise Library</h2>
-          <p className="text-muted-foreground">{total} exercises</p>
-        </div>
-        <div className="flex flex-wrap gap-2 shrink-0">
-          <Button variant="outline" size="sm" asChild>
-            <Link href="/exercises/bulk-import">
-              <Upload className="h-4 w-4 mr-1.5" />
-              Import
-            </Link>
-          </Button>
-          <Button size="sm" asChild>
+    <PageShell>
+      <PageHeader
+        title="Exercise Library"
+        description={`${total} exercises`}
+        primaryAction={
+          <Button asChild>
             <Link href="/exercises/new">
-              <Plus className="h-4 w-4 mr-1.5" />
+              <Plus className="size-4" />
               New Exercise
             </Link>
           </Button>
-        </div>
-      </div>
+        }
+        secondaryActions={
+          <Button variant="outline" asChild>
+            <Link href="/exercises/bulk-import">
+              <Upload className="size-4" />
+              Import
+            </Link>
+          </Button>
+        }
+        tabs={kindTabs}
+      />
 
-      <div className="flex gap-1 border-b">
-        {(["training", "assessment"] as const).map((k) => (
-          <Link
-            key={k}
-            href={kindUrl(k)}
-            className={cn(
-              "px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors",
-              activeKind === k
-                ? "border-primary text-primary"
-                : "border-transparent text-muted-foreground hover:text-foreground"
-            )}
-          >
-            {k === "training" ? "Training" : "Assessment"}
-          </Link>
-        ))}
-      </div>
-
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <Suspense fallback={<Skeleton className="h-10 w-full max-w-lg" />}>
+      <PageToolbar
+        end={
+          <ExerciseToolbarSelects
+            activeSource={activeSource}
+            sort={sort}
+            sourceUrls={{ UNIVERSAL: tabUrl("UNIVERSAL"), ORGANIZATION: tabUrl("ORGANIZATION") }}
+            sortUrls={{ name_asc: sortUrl("name_asc"), name_desc: sortUrl("name_desc") }}
+          />
+        }
+      >
+        <Suspense fallback={<Skeleton className="h-9 w-full max-w-lg" />}>
           <ExerciseFilters equipmentOptions={equipmentOptions} />
         </Suspense>
-
-        <ExerciseToolbarSelects
-          activeSource={activeSource}
-          sort={sort}
-          sourceUrls={{ UNIVERSAL: tabUrl("UNIVERSAL"), ORGANIZATION: tabUrl("ORGANIZATION") }}
-          sortUrls={{ name_asc: sortUrl("name_asc"), name_desc: sortUrl("name_desc") }}
-        />
-      </div>
+      </PageToolbar>
 
       {exercises.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-border p-12 text-center">
-          <Dumbbell className="mx-auto h-12 w-12 text-muted-foreground/40" />
-          <h3 className="mt-4 font-semibold">No exercises found</h3>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {activeSource === "ORGANIZATION"
+        <EmptyState
+          icon={Dumbbell}
+          title="No exercises found"
+          description={
+            activeSource === "ORGANIZATION"
               ? "Your organization hasn't added any exercises yet."
-              : "Try adjusting your filters, or add a new exercise to the library."}
-          </p>
-        </div>
+              : "Try adjusting your filters, or add a new exercise to the library."
+          }
+        />
       ) : (
         <>
           <ExerciseGrid
@@ -207,6 +216,6 @@ export default async function ExercisesPage({ searchParams }: Props) {
           <PaginationBar page={page} pageSize={PAGE_SIZE} total={total} buildHref={pageUrl} itemLabel="exercises" />
         </>
       )}
-    </div>
+    </PageShell>
   );
 }

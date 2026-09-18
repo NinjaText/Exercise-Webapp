@@ -31,6 +31,8 @@ import {
 import { Check, SkipForward, X, PlayCircle, Loader2, Timer, ChevronRight, ChevronLeft, ChevronDown, Trophy, RotateCcw, ClipboardList, Dumbbell } from "lucide-react";
 import type { SetLogEntry, SetLogCache } from "./types";
 import { instructionsToBullets } from "./format-instructions";
+import { WORKOUT_STATE } from "./workout-tokens";
+import { ROLE_CLASSES } from "@/lib/ui/status";
 import { aggregateProgramEquipment } from "@/lib/utils/program-equipment";
 import { VoiceMemoRecorder } from "@/components/voice-memo/VoiceMemoRecorder";
 import { getWorkoutVoiceMemos } from "@/actions/voice-memo-actions";
@@ -564,7 +566,7 @@ export function WorkoutSessionTracker({
             </div>
             <Button
               size="lg"
-              className="mt-6 w-full"
+              className="mt-6 h-11 w-full"
               onClick={handleStart}
               disabled={isLoading}
             >
@@ -649,10 +651,10 @@ export function WorkoutSessionTracker({
       {/* Rest card */}
       {currentItem?.kind === "rest" && (
         <Card className="overflow-hidden border-0 shadow-md ring-1 ring-border/50">
-          <div className="h-1 w-full bg-amber-400" />
+          <div className={`h-1 w-full ${ROLE_CLASSES.info.dot}`} />
           <CardContent className="p-4 sm:p-6 text-center space-y-4">
-            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-50">
-              <Timer className="h-8 w-8 text-amber-500" />
+            <div className={`mx-auto flex h-16 w-16 items-center justify-center rounded-2xl ${ROLE_CLASSES.info.soft}`}>
+              <Timer className={`h-8 w-8 ${ROLE_CLASSES.info.text}`} />
             </div>
             <div>
               <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
@@ -663,7 +665,7 @@ export function WorkoutSessionTracker({
                 After round {currentItem.afterRound + 1} of {currentItem.totalRounds}
               </p>
             </div>
-            <div className="text-5xl font-bold tabular-nums text-amber-500">
+            <div className={`text-5xl font-bold tabular-nums ${ROLE_CLASSES.info.text}`}>
               {restCountdown !== null ? formatTime(restCountdown) : formatTime(currentItem.restSeconds)}
             </div>
             <Button
@@ -692,13 +694,13 @@ export function WorkoutSessionTracker({
 
         return (
           <Card className="overflow-hidden border-0 shadow-md ring-1 ring-border/50">
-            <div className={`h-1 w-full ${isCompleted ? "bg-emerald-500" : isSkipped ? "bg-muted" : "bg-primary"}`} />
+            <div className={`h-1 w-full ${isCompleted ? WORKOUT_STATE.completed.dot : isSkipped ? "bg-muted" : "bg-primary"}`} />
             <CardContent className="p-5 space-y-4">
               {/* Block + round badges */}
               <div className="flex items-center gap-2 flex-wrap">
                 <Badge variant="secondary" className="text-[10px] px-1.5 py-0.5">{blockName}</Badge>
                 {isCircuit && totalRounds > 1 && (
-                  <Badge variant="outline" className="text-[10px] px-1.5 py-0.5 bg-indigo-50 text-indigo-700 border-indigo-200">
+                  <Badge variant="outline" className={`text-[10px] px-1.5 py-0.5 ${ROLE_CLASSES.brand.soft} ${ROLE_CLASSES.brand.text} ${ROLE_CLASSES.brand.border}`}>
                     <RotateCcw className="h-2.5 w-2.5 mr-1" />
                     Round {round + 1} / {totalRounds}
                   </Badge>
@@ -710,13 +712,13 @@ export function WorkoutSessionTracker({
                 <div className="flex items-center gap-2 flex-wrap">
                   <h3 className="text-xl font-bold leading-tight">{blockExercise.exercise.name}</h3>
                   {isRunType && (
-                    <Badge variant="outline" className="text-[10px] px-1.5 py-0.5 bg-sky-50 text-sky-700 border-sky-200 shrink-0">
+                    <Badge variant="outline" className={`text-[10px] px-1.5 py-0.5 ${WORKOUT_STATE.current.soft} ${WORKOUT_STATE.current.text} ${WORKOUT_STATE.current.border} shrink-0`}>
                       {activityType === "INTERVAL_RUN" ? "Interval Run" : "Run"}
                     </Badge>
                   )}
                 </div>
                 {isCompleted && (
-                  <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 border shrink-0">
+                  <Badge className={`${WORKOUT_STATE.completed.soft} ${WORKOUT_STATE.completed.text} ${WORKOUT_STATE.completed.border} border shrink-0`}>
                     <Check className="mr-1 h-3 w-3" /> Done
                   </Badge>
                 )}
@@ -737,7 +739,6 @@ export function WorkoutSessionTracker({
                 <ExerciseImageLightbox
                   src={blockExercise.exercise.imageUrl ?? undefined}
                   alt={blockExercise.exercise.name}
-                  bodyRegion={blockExercise.exercise.bodyRegion?.[0] ?? ""}
                   label={blockExercise.exercise.name.split(" ").slice(0, 2).join(" ")}
                   thumbnailClassName="relative h-40 w-full overflow-hidden rounded-xl"
                 />
@@ -767,7 +768,7 @@ export function WorkoutSessionTracker({
               {/* Trainer notes */}
               {blockExercise.notes && (
                 <div className="rounded-xl bg-muted/60 px-3 py-2.5">
-                  <p className="text-sm text-blue-700">
+                  <p className={`text-sm ${WORKOUT_STATE.current.text}`}>
                     <span className="font-semibold">Tip:</span>{" "}
                     <span className="italic">{blockExercise.notes}</span>
                   </p>
@@ -780,8 +781,8 @@ export function WorkoutSessionTracker({
                   <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                     Log Set
                   </p>
-                  <div className={`flex items-center gap-3 rounded-xl border p-3 transition-colors ${activeSetLogs[0]?.completed ? "border-emerald-200 bg-emerald-50/50" : "border-border bg-background"}`}>
-                    <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold ${activeSetLogs[0]?.completed ? "bg-emerald-500 text-white" : "bg-primary/10 text-primary"}`}>
+                  <div className={`flex items-center gap-3 rounded-xl border p-3 transition-colors ${activeSetLogs[0]?.completed ? `${WORKOUT_STATE.completed.border} ${WORKOUT_STATE.completed.soft}` : "border-border bg-background"}`}>
+                    <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold ${activeSetLogs[0]?.completed ? `${WORKOUT_STATE.completed.dot} text-white` : "bg-primary/10 text-primary"}`}>
                       {activeSetLogs[0]?.completed ? <Check className="h-4 w-4" /> : round + 1}
                     </div>
                     <div className="flex-1 space-y-1.5">
@@ -828,7 +829,7 @@ export function WorkoutSessionTracker({
                     <Button
                       size="icon"
                       variant="outline"
-                      className={`h-8 w-8 shrink-0 rounded-full border-2 ${activeSetLogs[0]?.completed ? "border-emerald-500 bg-emerald-500 text-white hover:bg-emerald-500" : "border-muted-foreground/30 bg-transparent"}`}
+                      className={`h-8 w-8 shrink-0 rounded-full border-2 ${activeSetLogs[0]?.completed ? "border-success bg-success text-white hover:bg-success" : "border-muted-foreground/30 bg-transparent"}`}
                       onClick={() => handleLogSet(0)}
                       disabled={activeSetLogs[0]?.completed || loggingSet === 0}
                     >
@@ -849,8 +850,8 @@ export function WorkoutSessionTracker({
                     const isSetDone = logData.completed;
                     const label = showAsSegments ? segmentLabel(set.setType, set.repeatCount) : null;
                     return (
-                      <div key={set.id} className={`flex items-center gap-3 rounded-xl border p-3 transition-colors ${isSetDone ? "border-emerald-200 bg-emerald-50/50" : "border-border bg-background"}`}>
-                        <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold ${isSetDone ? "bg-emerald-500 text-white" : "bg-primary/10 text-primary"}`}>
+                      <div key={set.id} className={`flex items-center gap-3 rounded-xl border p-3 transition-colors ${isSetDone ? `${WORKOUT_STATE.completed.border} ${WORKOUT_STATE.completed.soft}` : "border-border bg-background"}`}>
+                        <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold ${isSetDone ? `${WORKOUT_STATE.completed.dot} text-white` : "bg-primary/10 text-primary"}`}>
                           {isSetDone ? <Check className="h-4 w-4" /> : i + 1}
                         </div>
                         <div className="flex-1 space-y-1.5">
@@ -900,7 +901,7 @@ export function WorkoutSessionTracker({
                         <Button
                           size="icon"
                           variant="outline"
-                          className={`h-8 w-8 shrink-0 rounded-full border-2 ${isSetDone ? "border-emerald-500 bg-emerald-500 text-white hover:bg-emerald-500" : "border-muted-foreground/30 bg-transparent"}`}
+                          className={`h-8 w-8 shrink-0 rounded-full border-2 ${isSetDone ? "border-success bg-success text-white hover:bg-success" : "border-muted-foreground/30 bg-transparent"}`}
                           onClick={() => handleLogSet(i)}
                           disabled={isSetDone || loggingSet === i}
                         >
@@ -913,8 +914,8 @@ export function WorkoutSessionTracker({
               )}
 
               {/* Client note */}
-              <div className="space-y-1.5 rounded-xl bg-violet-50/30 p-3">
-                <Label htmlFor={`client-note-${blockExercise.id}`} className="text-xs font-semibold uppercase tracking-widest text-violet-600/80">
+              <div className={`space-y-1.5 rounded-xl ${ROLE_CLASSES.brand.soft} p-3`}>
+                <Label htmlFor={`client-note-${blockExercise.id}`} className={`text-xs font-semibold uppercase tracking-widest ${ROLE_CLASSES.brand.text}`}>
                   Your Notes
                 </Label>
                 <Textarea
@@ -922,21 +923,21 @@ export function WorkoutSessionTracker({
                   placeholder="Anything you want your trainer to know about this exercise..."
                   value={clientNotes[blockExercise.id] ?? ""}
                   onChange={(e) => handleClientNoteChange(blockExercise.id, e.target.value)}
-                  className="min-h-14 text-xs italic resize-none bg-background/70 border-violet-100"
+                  className={`min-h-14 text-xs italic resize-none bg-background/70 ${ROLE_CLASSES.brand.border}`}
                 />
               </div>
 
               {/* Action buttons */}
               <div className="flex gap-3 pt-1">
                 <Button
-                  className="flex-1"
+                  className="h-11 flex-1"
                   onClick={handleCompleteAll}
                   disabled={isLoading}
                 >
                   {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
                   Complete
                 </Button>
-                <Button variant="outline" className="flex-1 gap-2" onClick={handleSkip} disabled={isLoading}>
+                <Button variant="outline" className="h-11 flex-1 gap-2" onClick={handleSkip} disabled={isLoading}>
                   <SkipForward className="h-4 w-4" /> Skip
                 </Button>
               </div>
@@ -949,7 +950,7 @@ export function WorkoutSessionTracker({
       <Dialog open={showEndDialog} onOpenChange={setShowEndDialog}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-500/15 text-emerald-700">
+            <div className={`mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl ${WORKOUT_STATE.completed.soft} ${WORKOUT_STATE.completed.text}`}>
               <Trophy className="h-8 w-8" />
             </div>
             <DialogTitle className="text-center text-xl">Great work!</DialogTitle>
@@ -969,7 +970,7 @@ export function WorkoutSessionTracker({
               </div>
               <div className="mt-2 flex gap-1">
                 {Array.from({ length: 10 }).map((_, i) => (
-                  <div key={i} className={`h-1.5 flex-1 rounded-full transition-colors ${i < rpe ? i < 4 ? "bg-emerald-500" : i < 7 ? "bg-amber-500" : "bg-red-500" : "bg-muted"}`} />
+                  <div key={i} className={`h-1.5 flex-1 rounded-full transition-colors ${i < rpe ? "bg-primary" : "bg-muted"}`} />
                 ))}
               </div>
             </div>
@@ -990,15 +991,15 @@ export function WorkoutSessionTracker({
                 />
               </div>
             ) : (
-              <p className="text-sm font-semibold text-emerald-700">Voice note sent ✓</p>
+              <p className={`text-sm font-semibold ${WORKOUT_STATE.completed.text}`}>Voice note sent ✓</p>
             )}
           </div>
           <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => { toast.info("Session preserved"); router.push("/dashboard"); }}>
+            <Button variant="outline" className="h-11" onClick={() => { toast.info("Session preserved"); router.push("/dashboard"); }}>
               Skip &amp; Exit
             </Button>
             <Button
-              className="flex-1"
+              className="h-11 flex-1"
               onClick={handleEndSession}
               disabled={isLoading}
             >

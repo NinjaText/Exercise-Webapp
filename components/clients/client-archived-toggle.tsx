@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
+import { Button } from "@/components/ui/button";
 
 export function ClientArchivedToggle() {
   const router = useRouter();
@@ -15,12 +16,8 @@ export function ClientArchivedToggle() {
   }
 
   return (
-    <button
-      type="button"
-      onClick={toggle}
-      className="text-sm text-muted-foreground hover:text-foreground transition-colors whitespace-nowrap"
-    >
+    <Button variant="outline" size="sm" onClick={toggle}>
       {archived ? "Hide inactive" : "Show inactive"}
-    </button>
+    </Button>
   );
 }

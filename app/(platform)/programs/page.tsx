@@ -8,7 +8,7 @@ import {
   ClientProgramsView,
   type ClientProgramsTab,
 } from "@/components/programs/client-programs-view";
-import { PageHeader } from "@/components/shared/page-header";
+import { PageShell } from "@/components/shared/page-shell";
 import { getProgramSchedulingType } from "@/lib/utils/program-scheduling";
 
 interface Props {
@@ -96,11 +96,7 @@ export default async function ProgramsPage({ searchParams }: Props) {
   );
 
   return (
-    <div>
-      <PageHeader
-        title="Programs"
-        description="Build programs in your Library, then assign them to clients."
-      />
+    <PageShell>
       <ProgramListClient
         programs={programs}
         globalPrograms={globalPrograms}
@@ -109,7 +105,7 @@ export default async function ProgramsPage({ searchParams }: Props) {
         progressByProgramId={progressByProgramId}
         usageByProgramId={usageByProgramId}
       />
-    </div>
+    </PageShell>
   );
 }
 
@@ -160,23 +156,13 @@ async function ClientProgramsPage({
     ),
   }));
 
-  const scheduledCount = programs.filter(
-    (p) => getProgramSchedulingType(p) === "SCHEDULED"
-  ).length;
-
   return (
-    <div>
-      <PageHeader
-        title="My Programs"
-        description={`You have ${scheduledCount} ${
-          scheduledCount === 1 ? "program" : "programs"
-        } assigned.`}
-      />
+    <PageShell>
       <ClientProgramsView
         programs={programs}
         progressByProgramId={progressByProgramId}
         initialTab={initialTab}
       />
-    </div>
+    </PageShell>
   );
 }

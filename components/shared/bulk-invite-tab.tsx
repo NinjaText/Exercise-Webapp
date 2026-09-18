@@ -296,9 +296,9 @@ export function BulkInviteTab({ onInvite, onDone }: Props) {
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+              <CheckCircle2 className="h-5 w-5 text-success" />
               <p className="font-medium text-foreground">
-                <span className="text-emerald-600">
+                <span className="text-success-foreground">
                   {validEmails.length} email
                   {validEmails.length === 1 ? "" : "s"}
                 </span>{" "}
@@ -356,7 +356,7 @@ export function BulkInviteTab({ onInvite, onDone }: Props) {
       {state === "results" && (
         <div className="space-y-4">
           <p className="font-medium text-foreground">
-            <span className="text-emerald-600">
+            <span className="text-success-foreground">
               {results.filter((r) => r.success).length} sent
             </span>
             {results.some((r) => !r.success) && (
@@ -389,8 +389,8 @@ export function BulkInviteTab({ onInvite, onDone }: Props) {
                       </td>
                       <td className="px-4 py-2">
                         {r.success ? (
-                          <span className="inline-flex items-center gap-1 text-xs text-emerald-600">
-                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />{" "}
+                          <span className="inline-flex items-center gap-1 text-xs text-success-foreground">
+                            <span className="h-1.5 w-1.5 rounded-full bg-success" />{" "}
                             Sent
                           </span>
                         ) : (

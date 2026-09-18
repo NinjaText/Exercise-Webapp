@@ -72,7 +72,7 @@ export function ClinicVisibilitySelector({ clinics, value, onChange }: Props) {
             </div>
           )}
           {value.length === 0 && (
-            <p className="text-sm text-amber-600 dark:text-amber-500">
+            <p className="text-sm text-warning">
               Select at least one clinic, or choose All Clinics.
             </p>
           )}

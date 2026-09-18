@@ -1,13 +1,14 @@
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import { format } from "date-fns";
-import { ArrowLeft } from "lucide-react";
+import { toLocalCalendarDate } from "@/lib/utils/calendar-date";
 
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/current-user";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/shared/page-header";
+import { PageShell } from "@/components/shared/page-shell";
+import { StatusBadge } from "@/components/shared/status-badge";
+import { ROLE_CLASSES } from "@/lib/ui/status";
 import { ClientNoteReply } from "@/components/sessions/client-note-reply";
 
 // ---------- Types derived from the Prisma query ----------
@@ -23,14 +24,6 @@ type SetLog = ExerciseLog["setLogs"][number];
 
 // ---------- Constants ----------
 
-const STATUS_COLORS: Record<string, string> = {
-  COMPLETED: "bg-success/10 text-success",
-  IN_PROGRESS: "bg-amber-100 text-amber-700",
-  SCHEDULED: "bg-blue-100 text-blue-700",
-  MISSED: "bg-red-100 text-red-700",
-  SKIPPED: "bg-muted text-muted-foreground",
-};
-
 const CIRCUIT_TYPES = new Set(["CIRCUIT", "SUPERSET", "WARMUP", "COOLDOWN"]);
 
 // ---------- Helpers ----------
@@ -43,18 +36,6 @@ function getSetCount(block: Block, exercise: BlockExercise): number {
   return isCircuitBlock(block.type)
     ? Math.max(1, block.rounds ?? 1)
     : exercise.sets.length;
-}
-
-function getStatusColor(status: string): string {
-  return STATUS_COLORS[status.toUpperCase()] ?? "bg-muted text-muted-foreground";
-}
-
-function formatStatus(status: string): string {
-  return status
-    .toLowerCase()
-    .split("_")
-    .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
-    .join(" ");
 }
 
 function isCouldntComplete(log: SetLog): boolean {
@@ -142,37 +123,30 @@ export default async function SessionReviewPage({ params }: Props) {
   const clientName = `${session.client.firstName} ${session.client.lastName}`;
 
   return (
-    <div className="space-y-8">
-      <div className="space-y-4">
-        <Button variant="ghost" size="sm" asChild className="-ml-2">
-          <Link href={`/clients/${id}/adherence`}>
-            <ArrowLeft className="mr-1 h-4 w-4" />
-            Back
-          </Link>
-        </Button>
-        <PageHeader
-          title={session.workout.name}
-          description={clientName}
-          className="pb-0"
-        />
-      </div>
+    <PageShell>
+      <PageHeader
+        back={{ label: "Back", href: `/clients/${id}/adherence` }}
+        breadcrumb={[
+          { label: "Clients", href: "/clients" },
+          { label: clientName, href: `/clients/${id}` },
+          { label: "Sessions", href: `/clients/${id}/adherence` },
+          { label: session.workout.name },
+        ]}
+        title={session.workout.name}
+        description={clientName}
+        className="pb-0"
+      />
 
       {/* Session meta */}
       <Card>
         <CardContent className="space-y-4">
           <div className="flex flex-wrap items-center gap-2 text-sm">
             <span className="text-muted-foreground">
-              {format(session.scheduledDate, "MMM d, yyyy")}
+              {format(toLocalCalendarDate(session.scheduledDate), "MMM d, yyyy")}
             </span>
-            <span
-              className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${getStatusColor(
-                session.status
-              )}`}
-            >
-              {formatStatus(session.status)}
-            </span>
+            <StatusBadge status={session.status} />
             {session.overallRPE != null && (
-              <span className="inline-flex items-center rounded-full bg-indigo-100 px-2.5 py-0.5 text-xs font-medium text-indigo-700">
+              <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${ROLE_CLASSES.brand.soft} ${ROLE_CLASSES.brand.text}`}>
                 RPE {session.overallRPE}
               </span>
             )}
@@ -199,7 +173,7 @@ export default async function SessionReviewPage({ params }: Props) {
         <StatChip
           label="Couldn't complete"
           value={couldntComplete}
-          tone={couldntComplete > 0 ? "amber" : "neutral"}
+          tone={couldntComplete > 0 ? "warning" : "neutral"}
         />
         <StatChip label="Overall RPE" value={session.overallRPE ?? "—"} />
       </div>
@@ -258,7 +232,7 @@ export default async function SessionReviewPage({ params }: Props) {
           </section>
         ))}
       </div>
-    </div>
+    </PageShell>
   );
 }
 
@@ -271,11 +245,11 @@ function StatChip({
 }: {
   label: string;
   value: number | string;
-  tone?: "neutral" | "amber";
+  tone?: "neutral" | "warning";
 }) {
   const toneClass =
-    tone === "amber"
-      ? "bg-amber-50 text-amber-700 ring-amber-200"
+    tone === "warning"
+      ? `${ROLE_CLASSES.warning.soft} ${ROLE_CLASSES.warning.text} ring-warning-border`
       : "bg-muted text-foreground ring-border";
 
   return (
@@ -297,14 +271,14 @@ function CompletionBadge({
 }) {
   if (completion === "all") {
     return (
-      <span className="inline-flex items-center rounded-full bg-success/10 px-2.5 py-0.5 text-xs font-medium text-success">
+      <span className="inline-flex items-center rounded-full bg-success-soft px-2.5 py-0.5 text-xs font-medium text-success-foreground">
         All done
       </span>
     );
   }
   if (completion === "partial") {
     return (
-      <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-700">
+      <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${ROLE_CLASSES.warning.soft} ${ROLE_CLASSES.warning.text}`}>
         Partial
       </span>
     );
@@ -416,14 +390,14 @@ function SetRow({
     );
   } else if (isCouldntComplete(log)) {
     statusBadge = (
-      <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
+      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${ROLE_CLASSES.warning.soft} ${ROLE_CLASSES.warning.text}`}>
         ⚠ Couldn&apos;t complete
       </span>
     );
     if (log.notes) noteText = log.notes;
   } else {
     statusBadge = (
-      <span className="inline-flex items-center rounded-full bg-success/10 px-2 py-0.5 text-xs font-medium text-success">
+      <span className="inline-flex items-center rounded-full bg-success-soft px-2 py-0.5 text-xs font-medium text-success-foreground">
         ✓ Done
       </span>
     );

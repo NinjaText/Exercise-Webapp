@@ -716,8 +716,8 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
       </div>
 
       {selection.level === "exercises" && selection.exerciseIdxs.size > 0 && (
-        <div className="flex items-center justify-between gap-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3">
-          <p className="text-sm font-medium text-blue-950">
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-info-border bg-info-soft px-4 py-3">
+          <p className="text-sm font-medium text-info-foreground">
             {selection.exerciseIdxs.size} exercise{selection.exerciseIdxs.size === 1 ? "" : "s"} selected
           </p>
           <Button
@@ -820,7 +820,7 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
           className={cn(
             "border-2 transition-shadow",
             selection.level === "workout" && selection.workoutIdx === wi
-              ? "ring-2 ring-blue-500"
+              ? "ring-2 ring-ring"
               : ""
           )}
           onClick={(e) => {
@@ -908,11 +908,11 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
                           selection.level === "block" &&
                           selection.workoutIdx === wi &&
                           selection.blockIdx === bi
-                            ? "ring-2 ring-blue-400"
+                            ? "ring-2 ring-ring"
                             : "",
                           clipboard?.type === "exercises" &&
                           hoveredPasteTarget === `block-${wi}-${bi}`
-                            ? "border-dashed border-blue-400"
+                            ? "border-dashed border-info-border"
                             : ""
                         )}
                         onMouseEnter={() => {
@@ -1050,7 +1050,7 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
                                         selection.workoutIdx === wi &&
                                         selection.blockIdx === bi &&
                                         selection.exerciseIdxs.has(ei)
-                                          ? "bg-blue-50"
+                                          ? "bg-info-soft"
                                           : "bg-background"
                                       )}
                                     >
@@ -1058,7 +1058,7 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
                                         <input
                                           type="checkbox"
                                           className={cn(
-                                            "h-4 w-4 shrink-0 rounded border-gray-300 cursor-pointer transition-opacity",
+                                            "h-4 w-4 shrink-0 rounded border-border cursor-pointer transition-opacity",
                                             selection.level === "exercises" &&
                                             selection.workoutIdx === wi &&
                                             selection.blockIdx === bi &&
@@ -1127,7 +1127,7 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
                                                     name: lib.name,
                                                   });
                                                 }}
-                                                className="inline-flex items-center gap-0.5 text-[10px] bg-blue-50 text-blue-600 border border-blue-200 px-1.5 py-0.5 rounded-sm font-medium shrink-0 hover:bg-blue-100"
+                                                className="inline-flex items-center gap-0.5 text-[10px] bg-info-soft text-info-foreground border border-info-border px-1.5 py-0.5 rounded-sm font-medium shrink-0 hover:bg-info-border"
                                               >
                                                 <Play className="h-2.5 w-2.5" />
                                                 Video

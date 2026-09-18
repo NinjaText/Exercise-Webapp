@@ -26,8 +26,8 @@ interface CoachingInsight {
 }
 
 const typeStyles: Record<CoachingInsight["type"], { icon: typeof Lightbulb; className: string }> = {
-  warning: { icon: TriangleAlert, className: "text-red-600" },
-  suggestion: { icon: Lightbulb, className: "text-amber-600" },
+  warning: { icon: TriangleAlert, className: "text-danger" },
+  suggestion: { icon: Lightbulb, className: "text-warning" },
   positive: { icon: CircleCheck, className: "text-success" },
 };
 

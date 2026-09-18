@@ -53,7 +53,7 @@ export function WeeklyReviewCard({ clientId, referenceDate, initialReview, title
         <div className="space-y-3 text-sm">
           {review.wins.length > 0 && (
             <div>
-              <p className="text-xs font-semibold text-emerald-600">Wins</p>
+              <p className="text-xs font-semibold text-success-foreground">Wins</p>
               <ul className="list-inside list-disc text-foreground/90">
                 {review.wins.map((w, i) => (
                   <li key={i}>{w}</li>
@@ -63,7 +63,7 @@ export function WeeklyReviewCard({ clientId, referenceDate, initialReview, title
           )}
           {review.struggles.length > 0 && (
             <div>
-              <p className="text-xs font-semibold text-amber-600">Struggles</p>
+              <p className="text-xs font-semibold text-warning-foreground">Struggles</p>
               <ul className="list-inside list-disc text-foreground/90">
                 {review.struggles.map((s, i) => (
                   <li key={i}>{s}</li>

@@ -3,19 +3,9 @@
 import { useState } from "react";
 import { extractYouTubeId, getYouTubeThumbnail } from "@/lib/utils/video";
 
-const REGION_GRADIENTS: Record<string, string> = {
-  LOWER_BODY: "from-blue-400 to-blue-600",
-  UPPER_BODY: "from-green-400 to-green-600",
-  CORE: "from-amber-400 to-amber-600",
-  FULL_BODY: "from-purple-400 to-purple-600",
-  BALANCE: "from-teal-400 to-teal-600",
-  FLEXIBILITY: "from-pink-400 to-pink-600",
-};
-
 interface ExerciseImageProps {
   src: string | null | undefined;
   alt: string;
-  bodyRegion: string;
   /** If imageUrl fails/missing, fall back to this YouTube URL's thumbnail */
   videoUrl?: string | null;
   className?: string;
@@ -27,12 +17,11 @@ interface ExerciseImageProps {
  * Smart exercise image component:
  * 1. Tries imageUrl first
  * 2. If that fails or is absent → tries YouTube thumbnail (from videoUrl)
- * 3. If both fail → shows colored body-region gradient with exercise name
+ * 3. If both fail → shows a neutral placeholder with the exercise name
  */
 export function ExerciseImage({
   src,
   alt,
-  bodyRegion,
   videoUrl,
   className = "absolute inset-0 h-full w-full object-cover",
   gradientClassName = "absolute inset-0 flex items-center justify-center",
@@ -46,13 +35,12 @@ export function ExerciseImage({
 
   const [sourceIndex, setSourceIndex] = useState(0);
 
-  const gradient = REGION_GRADIENTS[bodyRegion] ?? "from-muted-foreground/60 to-muted-foreground";
   const currentSrc = sources[sourceIndex];
 
   if (!currentSrc) {
     return (
-      <div className={`bg-linear-to-br ${gradient} ${gradientClassName}`}>
-        <span className="text-center text-white text-xs font-semibold px-2 opacity-90 leading-tight">
+      <div className={`bg-muted ${gradientClassName}`}>
+        <span className="text-center text-xs font-semibold px-2 leading-tight text-muted-foreground">
           {label ?? alt.split(" ").slice(0, 3).join(" ")}
         </span>
       </div>

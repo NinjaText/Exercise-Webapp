@@ -1,9 +1,8 @@
 import { notFound, redirect } from "next/navigation";
-import Link from "next/link";
 import { getCurrentUser } from "@/lib/current-user";
 import { getExerciseById } from "@/lib/services/exercise.service";
-import { Button } from "@/components/ui/button";
-import { ArrowLeft } from "lucide-react";
+import { PageShell } from "@/components/shared/page-shell";
+import { PageHeader } from "@/components/shared/page-header";
 import { ExerciseEditForm } from "@/components/exercises/exercise-edit-form";
 
 interface Props {
@@ -21,16 +20,17 @@ export default async function EditExercisePage({ params }: Props) {
   if (!exercise) notFound();
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="sm" asChild>
-          <Link href={`/exercises/${id}`}>
-            <ArrowLeft className="mr-1 h-4 w-4" />
-            Back to Exercise
-          </Link>
-        </Button>
-      </div>
+    <PageShell width="narrow">
+      <PageHeader
+        back={{ label: "Back to Exercise", href: `/exercises/${id}` }}
+        breadcrumb={[
+          { label: "Exercises", href: "/exercises" },
+          { label: exercise.name, href: `/exercises/${id}` },
+          { label: "Edit" },
+        ]}
+        title={`Edit: ${exercise.name}`}
+      />
       <ExerciseEditForm exercise={exercise} />
-    </div>
+    </PageShell>
   );
 }

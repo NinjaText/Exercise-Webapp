@@ -1,5 +1,4 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import {
   Table,
   TableBody,
@@ -8,6 +7,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { StatusBadge } from "@/components/shared/status-badge";
 import { formatDateTime } from "@/lib/utils/dates";
 
 interface SessionHistoryProps {
@@ -24,12 +24,6 @@ interface SessionHistoryProps {
     exercisesTotal: number;
   }>;
 }
-
-const statusColors: Record<string, string> = {
-  completed: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
-  in_progress: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
-  abandoned: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
-};
 
 export function SessionHistory({ sessions }: SessionHistoryProps) {
   return (
@@ -65,9 +59,7 @@ export function SessionHistory({ sessions }: SessionHistoryProps) {
                     </TableCell>
                     <TableCell className="text-sm">{s.planTitle}</TableCell>
                     <TableCell>
-                      <Badge className={`text-xs ${statusColors[s.status] ?? ""}`}>
-                        {s.status.replace(/_/g, " ")}
-                      </Badge>
+                      <StatusBadge status={s.status} size="sm" />
                     </TableCell>
                     <TableCell className="hidden text-sm sm:table-cell">
                       {s.exercisesCompleted}/{s.exercisesTotal}

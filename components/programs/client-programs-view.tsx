@@ -3,9 +3,11 @@
 import { useMemo, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { format } from "date-fns";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { PageHeader } from "@/components/shared/page-header";
+import { StatusBadge } from "@/components/shared/status-badge";
 import {
   CalendarDays,
   ChevronRight,
@@ -16,10 +18,8 @@ import {
   Play,
   X,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { toLocalCalendarDate } from "@/lib/utils/calendar-date";
 import { getProgramSchedulingType } from "@/lib/utils/program-scheduling";
-import { getProgramStatusConfig } from "@/lib/utils/program-status";
 import { getProgramCategoryVisual } from "@/lib/utils/program-visual";
 import { formatWorkoutMetaLine } from "@/lib/utils/workout-format";
 import { getDailyQuickTip } from "@/lib/constants/motivation";
@@ -70,37 +70,30 @@ export function ClientProgramsView({ programs, progressByProgramId, initialTab }
   }, [programs]);
 
   return (
-    <div className="space-y-5">
-      <div className="inline-flex items-center gap-1 rounded-lg border border-border/60 bg-muted/40 p-1">
-        {(
-          [
-            { value: "programs", label: "Programs", count: scheduled.length },
-            { value: "resources", label: "Resources", count: resources.length },
-          ] as const
-        ).map((option) => (
-          <button
-            key={option.value}
-            type="button"
-            aria-pressed={tab === option.value}
-            onClick={() => setTab(option.value)}
-            className={cn(
-              "rounded-md px-3 py-1 text-xs font-medium transition-colors",
-              tab === option.value
-                ? "bg-background text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground"
-            )}
-          >
-            {option.label} ({option.count})
-          </button>
-        ))}
-      </div>
+    <Tabs
+      value={tab}
+      onValueChange={(v) => setTab(v as ClientProgramsTab)}
+      className="gap-6"
+    >
+      <PageHeader
+        title="My Programs"
+        description={`You have ${scheduled.length} ${
+          scheduled.length === 1 ? "program" : "programs"
+        } assigned.`}
+        tabs={
+          <TabsList variant="line">
+            <TabsTrigger value="programs">Programs ({scheduled.length})</TabsTrigger>
+            <TabsTrigger value="resources">Resources ({resources.length})</TabsTrigger>
+          </TabsList>
+        }
+      />
 
       {tab === "programs" ? (
         <ProgramsTab programs={scheduled} progressByProgramId={progressByProgramId} />
       ) : (
         <ResourcesTab resources={resources} />
       )}
-    </div>
+    </Tabs>
   );
 }
 
@@ -122,6 +115,11 @@ function ProgramsTab({
     );
   }
 
+  // Only one "Continue" button on the page is filled — the first program (in
+  // list order) that actually has an upcoming workout to continue is "current".
+  const currentProgramId =
+    programs.find((p) => progressByProgramId[p.id]?.nextSession)?.id ?? null;
+
   return (
     <div className="space-y-4">
       <QuickTipCallout />
@@ -130,6 +128,7 @@ function ProgramsTab({
           key={program.id}
           program={program}
           progress={progressByProgramId[program.id]}
+          isCurrent={program.id === currentProgramId}
         />
       ))}
     </div>
@@ -139,19 +138,20 @@ function ProgramsTab({
 function ScheduledProgramCard({
   program,
   progress,
+  isCurrent,
 }: {
   program: ClientProgramCard;
   progress?: ProgramProgress;
+  isCurrent: boolean;
 }) {
   const { icon: Icon, label: categoryLabel } = getProgramCategoryVisual(program);
-  const status = getProgramStatusConfig(program.status);
   const completed = progress?.completed ?? 0;
   const total = progress?.total ?? 0;
   const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
   const next = progress?.nextSession ?? null;
 
   return (
-    <div className="rounded-2xl border border-border/60 bg-card p-4 shadow-sm sm:p-5">
+    <div className="rounded-2xl ring-1 ring-border bg-card p-4 shadow-none sm:p-5">
       <div className="flex items-start gap-3.5">
         <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
           <Icon className="h-6 w-6" />
@@ -164,9 +164,7 @@ function ScheduledProgramCard({
             >
               {program.name}
             </Link>
-            <Badge className={`border text-[11px] font-medium ${status.className}`}>
-              {status.label}
-            </Badge>
+            <StatusBadge status={program.status} size="sm" />
           </div>
           <p className="mt-0.5 text-xs text-muted-foreground">
             {categoryLabel} · {program._count.workouts}{" "}
@@ -177,9 +175,16 @@ function ScheduledProgramCard({
 
       <div className="mt-4">
         <div className="mb-1.5 flex items-center justify-between text-xs">
-          <span className="font-medium">
-            {program.week ? `Week ${program.week.current} of ${program.week.total}` : "Progress"}
-          </span>
+          {program.week ? (
+            <StatusBadge
+              status="week"
+              role="info"
+              dot={false}
+              label={`Week ${program.week.current} of ${program.week.total}`}
+            />
+          ) : (
+            <span className="font-medium">Progress</span>
+          )}
           <span className="text-muted-foreground">
             {completed} of {total} workouts · {percent}%
           </span>
@@ -206,7 +211,11 @@ function ScheduledProgramCard({
                 </span>
               </p>
             </div>
-            <Button className="shrink-0 font-semibold" asChild>
+            <Button
+              variant={isCurrent ? "default" : "outline"}
+              className="h-11 shrink-0 font-semibold sm:h-9"
+              asChild
+            >
               <Link href={`/sessions/${next.sessionId}`}>
                 <Play className="mr-2 h-4 w-4 fill-current" />
                 Continue Workout
@@ -260,7 +269,7 @@ function ResourceCard({ resource }: { resource: ClientProgramCard }) {
   return (
     <div className="flex flex-col gap-3 rounded-2xl border border-border/60 bg-card p-4 shadow-sm">
       <div className="flex items-start gap-3">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-violet-500/10 text-violet-600">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand-soft text-brand-foreground">
           <Icon className="h-5 w-5" />
         </span>
         <div className="min-w-0 flex-1">
@@ -353,8 +362,8 @@ function QuickTipCallout() {
   if (dismissed) return null;
 
   return (
-    <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-500/5 p-3 text-sm">
-      <Lightbulb className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+    <div className="flex items-start gap-3 rounded-xl border border-warning-border bg-warning-soft p-3 text-sm">
+      <Lightbulb className="mt-0.5 h-4 w-4 shrink-0 text-warning-foreground" />
       <p className="flex-1 text-muted-foreground">
         <span className="font-medium text-foreground">Quick tip.</span> {tip.text}
       </p>

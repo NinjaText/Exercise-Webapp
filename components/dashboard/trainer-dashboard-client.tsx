@@ -1,11 +1,11 @@
 "use client";
 
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
-import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Sparkles } from "lucide-react";
+import { AlertTriangle, CalendarDays, Inbox, MessageSquareText, Sparkles } from "lucide-react";
+import { PageHeader } from "@/components/shared/page-header";
+import { StatCard } from "@/components/shared/stat-card";
 import { TodaysPrioritiesCard } from "@/components/dashboard/todays-priorities-card";
 import {
   WeekWorkoutsCard,
@@ -116,93 +116,61 @@ export function TrainerDashboardClient({
     [pathname, router]
   );
 
-  const heroStats: { label: string; value: number; href?: string; onClick?: () => void }[] = [
-    {
-      label: "Clients Needing Attention",
-      value: clientsNeedingAttention,
-      href: "/dashboard?focus=priorities",
-    },
-    {
-      label: "Sessions Due Today",
-      value: sessionsDueToday,
-      href: "/dashboard?focus=sessions-today",
-    },
-    {
-      label: "Pending Feedback",
-      value: pendingFeedback,
-      onClick: () => setFeedbackSheetOpen(true),
-    },
-    {
-      label: "Unread Messages",
-      value: unreadMessages,
-      href: unreadMessages > 0 ? "/messages?filter=unread" : "/messages",
-    },
-  ];
-
-  const statValueClassName = "text-2xl font-bold leading-none tabular-nums";
-  const statLabelClassName =
-    "mt-1 max-w-32 text-xs font-medium text-white/70 transition-colors group-hover:text-white";
-
   return (
-    <div className="space-y-5">
+    <>
       <Suspense fallback={null}>
         <FocusParamReader onFocus={handleFocus} />
       </Suspense>
 
-      {/* Hero – greeting + compact stats over a gradient */}
-      <Card
-        className="border-0 text-white shadow-sm"
-        style={{
-          background: "linear-gradient(135deg, var(--primary), oklch(0.36 0.19 264))",
-        }}
-      >
-        <CardContent className="p-3.5 sm:p-4">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <h1 className="text-xl font-bold tracking-tight text-white sm:text-2xl">
-                {greeting} 👋
-              </h1>
-              <p className="mt-0.5 text-xs text-white/80">
-                Here&apos;s what&apos;s happening with your clients today.
-              </p>
-              <div className="mt-3 flex flex-wrap items-center gap-2">
-                <GenerateProgramEntryDialog
-                  trigger={
-                    <Button
-                      size="sm"
-                      className="bg-white text-primary hover:bg-white/90 [a]:hover:bg-white/90"
-                    />
-                  }
-                >
-                  <Sparkles className="mr-2 h-4 w-4" />
-                  Generate Program
-                </GenerateProgramEntryDialog>
-                <AddClientDialog triggerClassName="bg-transparent text-white border border-white/40 hover:bg-white/10" />
-              </div>
-            </div>
-            <div className="flex flex-wrap gap-x-7 gap-y-3 lg:justify-end">
-              {heroStats.map((stat) =>
-                stat.href ? (
-                  <Link key={stat.label} href={stat.href} scroll={false} className="group min-w-24">
-                    <p className={statValueClassName}>{stat.value}</p>
-                    <p className={statLabelClassName}>{stat.label}</p>
-                  </Link>
-                ) : (
-                  <button
-                    key={stat.label}
-                    type="button"
-                    onClick={stat.onClick}
-                    className="group min-w-24 text-left outline-none focus-visible:ring-3 focus-visible:ring-white/40"
-                  >
-                    <p className={statValueClassName}>{stat.value}</p>
-                    <p className={statLabelClassName}>{stat.label}</p>
-                  </button>
-                )
-              )}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      <PageHeader
+        title={`${greeting} 👋`}
+        breadcrumb={[{ label: "Dashboard" }]}
+        description="Here's what's happening with your clients today."
+        primaryAction={
+          <GenerateProgramEntryDialog trigger={<Button />}>
+            <Sparkles className="size-4" />
+            Generate Program
+          </GenerateProgramEntryDialog>
+        }
+        secondaryActions={<AddClientDialog triggerVariant="outline" />}
+      />
+
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard
+          size="compact"
+          label="Clients needing attention"
+          value={clientsNeedingAttention}
+          icon={AlertTriangle}
+          role={clientsNeedingAttention > 0 ? "warning" : "success"}
+          href="/dashboard?focus=priorities"
+          scroll={false}
+        />
+        <StatCard
+          size="compact"
+          label="Sessions due today"
+          value={sessionsDueToday}
+          icon={CalendarDays}
+          role="info"
+          href="/dashboard?focus=sessions-today"
+          scroll={false}
+        />
+        <StatCard
+          size="compact"
+          label="Pending feedback"
+          value={pendingFeedback}
+          icon={MessageSquareText}
+          role="brand"
+          onClick={() => setFeedbackSheetOpen(true)}
+        />
+        <StatCard
+          size="compact"
+          label="Unread messages"
+          value={unreadMessages}
+          icon={Inbox}
+          role={unreadMessages > 0 ? "info" : "neutral"}
+          href={unreadMessages > 0 ? "/messages?filter=unread" : "/messages"}
+        />
+      </div>
 
       {/* Today's Priorities + This Week's Workouts – side by side, and always
           the same height as each other regardless of how much either has to
@@ -234,6 +202,6 @@ export function TrainerDashboardClient({
         onOpenChange={setFeedbackSheetOpen}
         pendingCount={pendingFeedback}
       />
-    </div>
+    </>
   );
 }

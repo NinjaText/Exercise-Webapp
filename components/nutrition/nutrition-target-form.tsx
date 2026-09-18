@@ -111,7 +111,7 @@ export function NutritionTargetForm({ clientId, role, target, onSaved }: Nutriti
                     }
                     className={cn(
                       "rounded p-0.5",
-                      editableFields.includes(field) ? "text-emerald-500" : "text-muted-foreground/50"
+                      editableFields.includes(field) ? "text-success" : "text-muted-foreground/50"
                     )}
                     title={editableFields.includes(field) ? "Client can edit" : "Coach only"}
                   >

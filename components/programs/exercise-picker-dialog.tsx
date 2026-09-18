@@ -76,9 +76,9 @@ const REGIONS = [
 ] as const;
 
 const DIFFICULTY_COLORS: Record<string, string> = {
-  BEGINNER:     "bg-green-100 text-green-700 border-green-200",
-  INTERMEDIATE: "bg-amber-100 text-amber-700 border-amber-200",
-  ADVANCED:     "bg-red-100 text-red-700 border-red-200",
+  BEGINNER:     "bg-success-soft text-success-foreground border-success-border",
+  INTERMEDIATE: "bg-warning-soft text-warning-foreground border-warning-border",
+  ADVANCED:     "bg-danger-soft text-danger-foreground border-danger-border",
 };
 
 const MAX_BATCH_SIZE = 15;
@@ -189,7 +189,7 @@ function ExerciseList({
                   <span className="font-medium text-sm">{ex.name}</span>
                   {hasRealVideoUrl(ex.videoUrl) && (
                     <span
-                      className="inline-flex items-center gap-0.5 text-[10px] bg-blue-50 text-blue-600 border border-blue-200 px-1.5 py-0.5 rounded-sm font-medium shrink-0 hover:bg-blue-100 cursor-pointer"
+                      className="inline-flex items-center gap-0.5 text-[10px] bg-info-soft text-info-foreground border border-info-border px-1.5 py-0.5 rounded-sm font-medium shrink-0 hover:bg-info-border cursor-pointer"
                       onClick={(e) => { e.stopPropagation(); onPreview(ex); }}
                     >
                       <Play className="h-2.5 w-2.5" /> Video
@@ -211,7 +211,7 @@ function ExerciseList({
                     </Badge>
                   )}
                   {ex.exercisePhases?.filter((p) => p !== "STRENGTHENING").map((p) => (
-                    <Badge key={p} variant="outline" className="text-[10px] px-1.5 py-0 bg-purple-50 text-purple-700 border-purple-200">
+                    <Badge key={p} variant="outline" className="text-[10px] px-1.5 py-0 bg-brand-soft text-brand-foreground border-brand-border">
                       {p.charAt(0) + p.slice(1).toLowerCase()}
                     </Badge>
                   ))}
@@ -429,7 +429,7 @@ function DraftExerciseCard({
 }) {
   const isReady = !!draft.name.trim();
   return (
-    <div className={cn("rounded-lg border bg-background transition-colors", isReady && "border-green-200")}>
+    <div className={cn("rounded-lg border bg-background transition-colors", isReady && "border-success-border")}>
       <div className="flex items-center gap-2 px-3 py-2.5">
         <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-muted text-[10px] font-semibold">
           {index + 1}

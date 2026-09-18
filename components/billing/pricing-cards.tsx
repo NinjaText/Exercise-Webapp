@@ -37,13 +37,13 @@ export function PricingCards() {
           <div key={tier} className="relative flex flex-col">
             {isPopular && (
               <div className="absolute -top-4 left-1/2 -translate-x-1/2 z-10 whitespace-nowrap">
-                <span className="rounded-full bg-blue-500 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-white shadow">
+                <span className="rounded-full bg-primary px-3 py-1 text-xs font-semibold uppercase tracking-wide text-primary-foreground shadow">
                   Most Popular
                 </span>
               </div>
             )}
             <Card
-              className={`flex flex-col flex-1${isPopular ? " border-blue-500 border-2 shadow-lg" : ""}`}
+              className={`flex flex-col flex-1${isPopular ? " ring-2 ring-primary shadow-lg" : ""}`}
             >
               <CardHeader className="pt-8">
                 <CardTitle className="text-xl">{config.label}</CardTitle>
@@ -57,19 +57,19 @@ export function PricingCards() {
               <CardContent className="flex flex-col flex-1 space-y-4">
                 <ul className="space-y-2 flex-1">
                   <li className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Check className="h-4 w-4 shrink-0 text-green-500" />
+                    <Check className="h-4 w-4 shrink-0 text-success" />
                     {config.description}
                   </li>
                   <li className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Check className="h-4 w-4 shrink-0 text-green-500" />
+                    <Check className="h-4 w-4 shrink-0 text-success" />
                     AI workout generation
                   </li>
                   <li className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Check className="h-4 w-4 shrink-0 text-green-500" />
+                    <Check className="h-4 w-4 shrink-0 text-success" />
                     Client progress tracking
                   </li>
                   <li className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Check className="h-4 w-4 shrink-0 text-green-500" />
+                    <Check className="h-4 w-4 shrink-0 text-success" />
                     Assessments &amp; check-ins
                   </li>
                 </ul>

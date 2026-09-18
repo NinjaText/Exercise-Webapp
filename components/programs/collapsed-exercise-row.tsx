@@ -70,7 +70,7 @@ export function CollapsedExerciseRow({
       >
         <span className="truncate text-sm font-medium">{name}</span>
         {hasVideo && (
-          <span className="inline-flex shrink-0 items-center gap-0.5 rounded-sm border border-blue-200 bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-blue-600">
+          <span className="inline-flex shrink-0 items-center gap-0.5 rounded-sm border border-info-border bg-info-soft px-1.5 py-0.5 text-[10px] font-medium text-info-foreground">
             <Play className="h-2.5 w-2.5" />
             Video
           </span>

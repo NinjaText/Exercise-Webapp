@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/shared/status-badge";
 import { Progress } from "@/components/ui/progress";
 import { Checkbox } from "@/components/ui/checkbox";
 import { BODY_REGIONS, DIFFICULTY_LEVELS, COMMON_EQUIPMENT } from "@/lib/utils/constants";
@@ -16,7 +16,7 @@ import { toast } from "sonner";
 import {
   Loader2, Sparkles, ChevronDown, ChevronUp,
   Trash2, CheckCircle2, Video,
-  AlertCircle, Youtube, ListVideo, Search, ClipboardCheck,
+  Youtube, ListVideo, Search, ClipboardCheck,
 } from "lucide-react";
 
 const EXERCISE_PHASES = [
@@ -676,7 +676,7 @@ export function BulkImportForm() {
             </div>
           </div>
 
-          <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          <div className="flex items-start gap-2 rounded-lg border border-warning-border bg-warning-soft px-4 py-3 text-sm text-warning-foreground">
             <Youtube className="mt-0.5 h-4 w-4 shrink-0" />
             <p>
               Works best with exercise-specific YouTube videos — the video title is used to generate the exercise name and all clinical details. Videos like &ldquo;Seated Knee Extension — Senior Physical Therapy&rdquo; produce excellent results.
@@ -765,7 +765,7 @@ export function BulkImportForm() {
             </div>
           </div>
 
-          <div className="flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+          <div className="flex items-start gap-2 rounded-lg border border-info-border bg-info-soft px-4 py-3 text-sm text-info-foreground">
             <ListVideo className="mt-0.5 h-4 w-4 shrink-0" />
             <p>
               Playlists can contain up to 200 videos. Use the checkboxes to select which videos to import — AI will generate full clinical metadata for each selected video.
@@ -849,7 +849,7 @@ export function BulkImportForm() {
             </div>
           </div>
 
-          <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          <div className="flex items-start gap-2 rounded-lg border border-warning-border bg-warning-soft px-4 py-3 text-sm text-warning-foreground">
             <Search className="mt-0.5 h-4 w-4 shrink-0" />
             <p>
               Search results aren&apos;t curated — expect some irrelevant videos mixed in (vlogs, interviews, nutrition content). Nothing is pre-selected; review titles and channels before checking the ones worth importing.
@@ -935,38 +935,42 @@ function ExerciseRowCard({ row, index, onUpdate, onRemove, onGenerate, onToggleE
   const isYT = isYouTubeUrl(row.videoUrl);
 
   return (
-    <div className={`rounded-xl border bg-background shadow-sm transition-colors ${isReady ? "border-green-200" : ""}`}>
+    <div className={`rounded-xl border bg-background shadow-sm transition-colors ${isReady ? "border-success-border" : ""}`}>
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3">
         <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold">
           {index + 1}
         </span>
         {isYT ? (
-          <Youtube className="h-4 w-4 shrink-0 text-red-500" />
+          <Youtube className="h-4 w-4 shrink-0 text-danger" />
         ) : (
           <Video className="h-4 w-4 shrink-0 text-muted-foreground" />
         )}
         <p className="flex-1 truncate text-sm text-muted-foreground">{row.videoFileName || row.videoUrl}</p>
-        {isReady && <CheckCircle2 className="h-4 w-4 shrink-0 text-green-500" />}
+        {isReady && <CheckCircle2 className="h-4 w-4 shrink-0 text-success" />}
         {row.isAssessment && (
-          <Badge variant="outline" className="shrink-0 gap-1 border-blue-300 bg-blue-50 text-xs text-blue-700">
-            <ClipboardCheck className="h-3 w-3" /> Assessment
-          </Badge>
+          <StatusBadge status="ASSESSMENT" label="Assessment" role="info" dot={false} size="sm" />
         )}
         {row.aiStatus === "done" && (
-          <Badge variant="secondary" className="shrink-0 gap-1 text-xs">
-            <Sparkles className="h-3 w-3" /> AI filled
-          </Badge>
+          <StatusBadge status="AI_FILLED" label="AI filled" role="brand" dot={false} size="sm" />
         )}
         {row.aiStatus === "error" && (
-          <Badge variant="destructive" className="shrink-0 gap-1 text-xs">
-            <AlertCircle className="h-3 w-3" /> Retry AI
-          </Badge>
+          <StatusBadge status="RETRY_AI" label="Retry AI" role="danger" dot={false} size="sm" />
         )}
-        <button type="button" onClick={() => onUpdate({ expanded: !row.expanded })} className="rounded p-1 text-muted-foreground hover:text-foreground">
+        <button
+          type="button"
+          onClick={() => onUpdate({ expanded: !row.expanded })}
+          className="rounded p-1 text-muted-foreground hover:text-foreground"
+          aria-label={row.expanded ? "Collapse row" : "Expand row"}
+        >
           {row.expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
         </button>
-        <button type="button" onClick={onRemove} className="rounded p-1 text-muted-foreground hover:text-destructive">
+        <button
+          type="button"
+          onClick={onRemove}
+          className="rounded p-1 text-muted-foreground hover:text-destructive"
+          aria-label="Remove row"
+        >
           <Trash2 className="h-4 w-4" />
         </button>
       </div>
@@ -1056,7 +1060,7 @@ function ExerciseRowCard({ row, index, onUpdate, onRemove, onGenerate, onToggleE
           </div>
 
           {/* Assessment exercise toggle */}
-          <div className="flex items-start gap-3 rounded-lg border border-blue-200 bg-blue-50/60 p-3">
+          <div className="flex items-start gap-3 rounded-lg border border-info-border bg-info-soft p-3">
             <Checkbox
               id={`isAssessment-${row.rowId}`}
               checked={row.isAssessment}
@@ -1065,7 +1069,7 @@ function ExerciseRowCard({ row, index, onUpdate, onRemove, onGenerate, onToggleE
             />
             <div className="space-y-0.5">
               <Label htmlFor={`isAssessment-${row.rowId}`} className="flex items-center gap-1.5 text-xs font-medium">
-                <ClipboardCheck className="h-3.5 w-3.5 text-blue-600" />
+                <ClipboardCheck className="h-3.5 w-3.5 text-info" />
                 Assessment exercise
               </Label>
               <p className="text-xs text-muted-foreground">

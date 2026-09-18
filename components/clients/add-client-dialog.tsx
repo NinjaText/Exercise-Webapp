@@ -7,7 +7,7 @@ import {
   getAssignableProgramsAction,
   type AssignableProgramOption,
 } from "@/actions/program-actions";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants, type ButtonProps } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -25,9 +25,6 @@ import { toast } from "sonner";
 import { CircleCheck, Loader2, UserPlus } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const DEFAULT_TRIGGER_CLASSNAME =
-  "inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg bg-primary px-2.5 text-sm font-medium text-primary-foreground transition-all outline-none select-none hover:bg-primary/90 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 h-8";
-
 /** The invitee, as captured by this dialog, once the invitation has been sent. */
 interface InvitedClient {
   email: string;
@@ -37,7 +34,13 @@ interface InvitedClient {
 
 const EMPTY_FORM = { firstName: "", lastName: "", email: "", phone: "" };
 
-export function AddClientDialog({ triggerClassName }: { triggerClassName?: string } = {}) {
+export function AddClientDialog({
+  triggerClassName,
+  triggerVariant = "default",
+}: {
+  triggerClassName?: string;
+  triggerVariant?: ButtonProps["variant"];
+} = {}) {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
   const [invited, setInvited] = useState<InvitedClient | null>(null);
@@ -120,7 +123,7 @@ export function AddClientDialog({ triggerClassName }: { triggerClassName?: strin
   return (
     <>
       <Dialog open={open} onOpenChange={(next) => (next ? setOpen(true) : resetAndClose())}>
-        <DialogTrigger className={cn(DEFAULT_TRIGGER_CLASSNAME, triggerClassName)}>
+        <DialogTrigger className={cn(buttonVariants({ variant: triggerVariant }), triggerClassName)}>
           <UserPlus className="h-4 w-4" />
           Invite Client
         </DialogTrigger>

@@ -1,4 +1,5 @@
-import Link from "next/link";
+import { Target, CheckCircle2, XCircle, Gauge } from "lucide-react";
+import { StatCard } from "@/components/shared/stat-card";
 
 interface ClientAdherenceSummaryProps {
   clientId: string;
@@ -10,10 +11,11 @@ interface ClientAdherenceSummaryProps {
 }
 
 /**
- * Adherence at a glance, rendered as a strip inside the client's identity card
- * rather than its own card — "who is this" and "how are they doing" are one
- * question on this page, and answering them in two stacked cards pushed the
- * actual work (calendar, programs, messages) below the fold.
+ * Adherence at a glance, rendered as a 4-up compact stat strip directly under
+ * the page header rather than nested inside the identity card — "who is this"
+ * and "how are they doing" are one question on this page, and answering them
+ * in two stacked cards pushed the actual work (calendar, programs, messages)
+ * below the fold.
  */
 export function ClientAdherenceSummary({
   clientId,
@@ -25,31 +27,25 @@ export function ClientAdherenceSummary({
 }: ClientAdherenceSummaryProps) {
   if (total === 0) return null;
 
-  const stats = [
-    { label: "Completion", value: `${completionRate}%`, className: "" },
-    { label: "Completed", value: String(completed), className: "text-success" },
-    { label: "Missed", value: String(missedOrSkipped), className: "text-destructive" },
-    { label: "Avg RPE", value: avgRPE != null ? `${avgRPE}/10` : "—", className: "" },
-  ];
-
   return (
-    <div className="border-t border-border/60 bg-muted/25 px-4 py-3.5 sm:px-6">
-      <div className="flex flex-wrap items-center gap-x-9 gap-y-3">
-        {stats.map((stat) => (
-          <div key={stat.label} className="flex items-baseline gap-2">
-            <span className={`text-xl font-semibold tabular-nums ${stat.className}`}>
-              {stat.value}
-            </span>
-            <span className="text-xs text-muted-foreground">{stat.label}</span>
-          </div>
-        ))}
-        <Link
-          href={`/clients/${clientId}/adherence`}
-          className="ml-auto rounded text-xs text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          View all sessions
-        </Link>
-      </div>
+    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <StatCard
+        size="compact"
+        label="Completion"
+        value={`${completionRate}%`}
+        icon={Target}
+        role={completionRate >= 70 ? "success" : completionRate >= 40 ? "warning" : "danger"}
+        href={`/clients/${clientId}/adherence`}
+      />
+      <StatCard size="compact" label="Completed" value={completed} icon={CheckCircle2} role="success" />
+      <StatCard
+        size="compact"
+        label="Missed"
+        value={missedOrSkipped}
+        icon={XCircle}
+        role={missedOrSkipped > 0 ? "warning" : "neutral"}
+      />
+      <StatCard size="compact" label="Avg RPE" value={avgRPE != null ? `${avgRPE}/10` : "—"} icon={Gauge} />
     </div>
   );
 }

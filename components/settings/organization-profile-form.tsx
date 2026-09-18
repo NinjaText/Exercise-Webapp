@@ -4,9 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { FormSection, FormField } from "@/components/shared/form-section";
 import {
   Select,
   SelectContent,
@@ -59,132 +58,121 @@ export function OrganizationProfileForm({ initialData }: OrganizationProfileForm
   }
 
   return (
-    <form onSubmit={handleSubmit}>
-      <Card>
-        <CardHeader>
-          <CardTitle>Organization Details</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="space-y-2">
-            <Label htmlFor="organizationName">Organization Name *</Label>
+    <form onSubmit={handleSubmit} className="flex flex-col gap-8">
+      <FormSection title="Organization details">
+        <FormField label="Organization Name" htmlFor="organizationName" required>
+          <Input
+            id="organizationName"
+            name="organizationName"
+            required
+            defaultValue={initialData?.organizationName ?? ""}
+            placeholder="e.g., Summit Physical Therapy"
+          />
+        </FormField>
+
+        <FormField label="Tagline" htmlFor="tagline">
+          <Input
+            id="tagline"
+            name="tagline"
+            defaultValue={initialData?.tagline ?? ""}
+            placeholder="e.g., Evidence-based rehabilitation"
+          />
+        </FormField>
+
+        <FormField label="Organization Logo" hint="Logo upload is temporarily unavailable.">
+          {logoUrl && (
+            <Image
+              src={logoUrl}
+              alt="Organization logo"
+              width={80}
+              height={80}
+              className="rounded-md border"
+            />
+          )}
+        </FormField>
+      </FormSection>
+
+      <FormSection title="Contact">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <FormField label="Phone" htmlFor="phone">
             <Input
-              id="organizationName"
-              name="organizationName"
-              required
-              defaultValue={initialData?.organizationName ?? ""}
-              placeholder="e.g., Summit Physical Therapy"
+              id="phone"
+              name="phone"
+              defaultValue={initialData?.phone ?? ""}
+              placeholder="(555) 123-4567"
             />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="tagline">Tagline</Label>
+          </FormField>
+          <FormField label="Contact Email" htmlFor="email">
             <Input
-              id="tagline"
-              name="tagline"
-              defaultValue={initialData?.tagline ?? ""}
-              placeholder="e.g., Evidence-based rehabilitation"
+              id="email"
+              name="email"
+              type="email"
+              defaultValue={initialData?.email ?? ""}
+              placeholder="organization@example.com"
             />
-          </div>
+          </FormField>
+        </div>
 
-          <div className="space-y-2">
-            <Label>Organization Logo</Label>
-            {logoUrl && (
-              <div className="mb-2">
-                <Image
-                  src={logoUrl}
-                  alt="Organization logo"
-                  width={80}
-                  height={80}
-                  className="rounded-md border"
-                />
-              </div>
-            )}
-            <p className="text-sm text-muted-foreground">Logo upload is temporarily unavailable.</p>
-          </div>
+        <FormField label="Website" htmlFor="website">
+          <Input
+            id="website"
+            name="website"
+            type="url"
+            defaultValue={initialData?.website ?? ""}
+            placeholder="https://www.example.com"
+          />
+        </FormField>
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="phone">Phone</Label>
-              <Input
-                id="phone"
-                name="phone"
-                defaultValue={initialData?.phone ?? ""}
-                placeholder="(555) 123-4567"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="email">Contact Email</Label>
-              <Input
-                id="email"
-                name="email"
-                type="email"
-                defaultValue={initialData?.email ?? ""}
-                placeholder="organization@example.com"
-              />
-            </div>
-          </div>
+        <FormField label="Address" htmlFor="address">
+          <Textarea
+            id="address"
+            name="address"
+            rows={2}
+            defaultValue={initialData?.address ?? ""}
+            placeholder="123 Main St, Suite 100, City, State ZIP"
+          />
+        </FormField>
+      </FormSection>
 
-          <div className="space-y-2">
-            <Label htmlFor="website">Website</Label>
-            <Input
-              id="website"
-              name="website"
-              type="url"
-              defaultValue={initialData?.website ?? ""}
-              placeholder="https://www.example.com"
-            />
-          </div>
+      <FormSection title="Program exercise library">
+        <FormField
+          label="Program Exercise Library"
+          htmlFor="exerciseSourcePreference"
+          hint="Controls which exercises trainers see by default when building a program."
+        >
+          <Select
+            value={exerciseSourcePreference}
+            onValueChange={(v) => setExerciseSourcePreference((v as ExerciseSourcePreference) ?? "BOTH")}
+          >
+            <SelectTrigger id="exerciseSourcePreference">
+              <SelectValue>
+                {(value: ExerciseSourcePreference) => {
+                  switch (value) {
+                    case "UNIVERSAL":
+                      return "Universal exercises only";
+                    case "ORGANIZATION":
+                      return "My Organization exercises only";
+                    default:
+                      return "Universal + My Organization";
+                  }
+                }}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="BOTH">Universal + My Organization</SelectItem>
+              <SelectItem value="UNIVERSAL">Universal exercises only</SelectItem>
+              <SelectItem value="ORGANIZATION">My Organization exercises only</SelectItem>
+            </SelectContent>
+          </Select>
+        </FormField>
+      </FormSection>
 
-          <div className="space-y-2">
-            <Label htmlFor="address">Address</Label>
-            <Textarea
-              id="address"
-              name="address"
-              rows={2}
-              defaultValue={initialData?.address ?? ""}
-              placeholder="123 Main St, Suite 100, City, State ZIP"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="exerciseSourcePreference">Program Exercise Library</Label>
-            <Select
-              value={exerciseSourcePreference}
-              onValueChange={(v) => setExerciseSourcePreference((v as ExerciseSourcePreference) ?? "BOTH")}
-            >
-              <SelectTrigger id="exerciseSourcePreference">
-                <SelectValue>
-                  {(value: ExerciseSourcePreference) => {
-                    switch (value) {
-                      case "UNIVERSAL":
-                        return "Universal exercises only";
-                      case "ORGANIZATION":
-                        return "My Organization exercises only";
-                      default:
-                        return "Universal + My Organization";
-                    }
-                  }}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="BOTH">Universal + My Organization</SelectItem>
-                <SelectItem value="UNIVERSAL">Universal exercises only</SelectItem>
-                <SelectItem value="ORGANIZATION">My Organization exercises only</SelectItem>
-              </SelectContent>
-            </Select>
-            <p className="text-sm text-muted-foreground">
-              Controls which exercises trainers see by default when building a program.
-            </p>
-          </div>
-
-          <div className="flex justify-end">
-            <Button type="submit" disabled={loading}>
-              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Save Profile
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="flex justify-end border-t border-border pt-6">
+        <Button type="submit" disabled={loading}>
+          {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          Save Profile
+        </Button>
+      </div>
     </form>
   );
 }

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Target } from "lucide-react";
 import { NutritionTargetForm } from "./nutrition-target-form";
+import { Button, type ButtonProps } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -25,15 +26,21 @@ interface NutritionGoalsDialogProps {
     mealsPerDayTarget: number | null;
     clientEditableFields: string[];
   };
+  variant?: ButtonProps["variant"];
 }
 
-export function NutritionGoalsDialog({ clientId, role, target }: NutritionGoalsDialogProps) {
+export function NutritionGoalsDialog({
+  clientId,
+  role,
+  target,
+  variant = "outline",
+}: NutritionGoalsDialogProps) {
   const [open, setOpen] = useState(false);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger className="inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold ring-1 ring-border/60 text-muted-foreground transition-all hover:text-foreground hover:ring-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-        <Target className="h-3.5 w-3.5" />
+      <DialogTrigger render={<Button variant={variant} />}>
+        <Target className="size-4" />
         {role === "TRAINER" ? "Edit Goals" : "My Goals"}
       </DialogTrigger>
 

@@ -1,10 +1,12 @@
 import { getPlatformStats, getRecentUsers, getTopTrainers } from "@/lib/services/admin.service";
-import { StatCard } from "@/components/admin/stat-card";
+import { PageShell } from "@/components/shared/page-shell";
+import { PageHeader } from "@/components/shared/page-header";
+import { StatCard } from "@/components/shared/stat-card";
+import { SectionCard } from "@/components/shared/section-card";
 import { Users, UserCheck, User, Dumbbell, Library, Activity, TrendingUp, Zap } from "lucide-react";
 import { format } from "date-fns";
 import Image from "next/image";
-import Link from "next/link";
-import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/shared/status-badge";
 
 export default async function AdminOverviewPage() {
   const [stats, recentUsers, topTrainers] = await Promise.all([
@@ -14,37 +16,53 @@ export default async function AdminOverviewPage() {
   ]);
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Platform Overview</h1>
-        <p className="mt-0.5 text-sm text-muted-foreground">
-          Real-time snapshot of all activity across the INMOTUS RX platform.
-        </p>
+    <PageShell>
+      <PageHeader
+        breadcrumb={[{ label: "Admin", href: "/admin" }]}
+        title="Platform Overview"
+        description="Real-time snapshot of all activity across the INMOTUS RX platform."
+      />
+
+      <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
+        <StatCard
+          label="Total Users"
+          value={stats.totalUsers.toLocaleString()}
+          description={`+${stats.newUsersThisMonth} this month`}
+          icon={Users}
+          role="info"
+        />
+        <StatCard label="Trainers" value={stats.trainers.toLocaleString()} icon={UserCheck} role="brand" />
+        <StatCard label="Clients" value={stats.clients.toLocaleString()} icon={User} role="success" />
+        <StatCard
+          label="Active Programs"
+          value={stats.activePrograms.toLocaleString()}
+          description={`${stats.totalPrograms.toLocaleString()} total`}
+          icon={TrendingUp}
+          role="success"
+        />
       </div>
 
       <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
-        <StatCard label="Total Users"     value={stats.totalUsers.toLocaleString()}   sub={`+${stats.newUsersThisMonth} this month`} icon={Users}      />
-        <StatCard label="Trainers"      value={stats.trainers.toLocaleString()}                                                   icon={UserCheck}  />
-        <StatCard label="Clients"        value={stats.clients.toLocaleString()}                                                     icon={User}       />
-        <StatCard label="Active Programs" value={stats.activePrograms.toLocaleString()} sub={`${stats.totalPrograms.toLocaleString()} total`}           icon={TrendingUp} />
-      </div>
-
-      <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
-        <StatCard label="Exercises"          value={stats.totalExercises.toLocaleString()} sub="In library"  icon={Dumbbell}  />
-        <StatCard label="Total Programs"     value={stats.totalPrograms.toLocaleString()}                    icon={Library}   />
-        <StatCard label="Sessions Completed" value={stats.totalSessions.toLocaleString()}                    icon={Activity}  />
-        <StatCard label="New This Month"     value={stats.newUsersThisMonth.toLocaleString()} sub="Signups"  icon={Zap}       />
+        <StatCard
+          label="Exercises"
+          value={stats.totalExercises.toLocaleString()}
+          description="In library"
+          icon={Dumbbell}
+          role="neutral"
+        />
+        <StatCard label="Total Programs" value={stats.totalPrograms.toLocaleString()} icon={Library} role="neutral" />
+        <StatCard label="Sessions Completed" value={stats.totalSessions.toLocaleString()} icon={Activity} role="neutral" />
+        <StatCard
+          label="New This Month"
+          value={stats.newUsersThisMonth.toLocaleString()}
+          description="Signups"
+          icon={Zap}
+          role="neutral"
+        />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        {/* Recent signups */}
-        <div className="rounded-2xl border border-border bg-card overflow-hidden">
-          <div className="flex items-center justify-between border-b border-border px-5 py-4">
-            <h2 className="text-sm font-semibold text-foreground">Recent Sign-ups</h2>
-            <Link href="/admin/users" className="text-xs text-primary hover:text-primary/80 transition-colors">
-              View all →
-            </Link>
-          </div>
+        <SectionCard title="Recent Sign-ups" action={{ label: "View all", href: "/admin/users" }} contentClassName="px-0 pb-0">
           <div className="divide-y divide-border">
             {recentUsers.map((u) => (
               <div key={u.id} className="flex items-center gap-3 px-5 py-3">
@@ -64,16 +82,7 @@ export default async function AdminOverviewPage() {
                   <p className="truncate text-xs text-muted-foreground">{u.email}</p>
                 </div>
                 <div className="flex flex-col items-end gap-1">
-                  <Badge
-                    variant="outline"
-                    className={
-                      u.role === "TRAINER"
-                        ? "border-blue-500/30 bg-blue-500/10 text-blue-600 text-[10px]"
-                        : "border-cyan-500/30 bg-cyan-500/10 text-cyan-600 text-[10px]"
-                    }
-                  >
-                    {u.role === "TRAINER" ? "Trainer" : "Client"}
-                  </Badge>
+                  <StatusBadge status={u.role} size="sm" />
                   <span className="text-[10px] text-muted-foreground/60">
                     {format(new Date(u.createdAt), "MMM d")}
                   </span>
@@ -81,14 +90,13 @@ export default async function AdminOverviewPage() {
               </div>
             ))}
           </div>
-        </div>
+        </SectionCard>
 
-        {/* Top trainers */}
-        <div className="rounded-2xl border border-border bg-card overflow-hidden">
-          <div className="flex items-center justify-between border-b border-border px-5 py-4">
-            <h2 className="text-sm font-semibold text-foreground">Top Trainers</h2>
-            <span className="text-xs text-muted-foreground">by client count</span>
-          </div>
+        <SectionCard
+          title="Top Trainers"
+          action={<span className="text-xs text-muted-foreground">by client count</span>}
+          contentClassName="px-0 pb-0"
+        >
           <div className="divide-y divide-border">
             {topTrainers.map((c, i) => (
               <div key={c.id} className="flex items-center gap-3 px-5 py-3">
@@ -122,8 +130,8 @@ export default async function AdminOverviewPage() {
               <p className="px-5 py-6 text-center text-sm text-muted-foreground">No trainers yet.</p>
             )}
           </div>
-        </div>
+        </SectionCard>
       </div>
-    </div>
+    </PageShell>
   );
 }

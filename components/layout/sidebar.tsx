@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { UserButton } from "@clerk/nextjs";
+import { clerkAppearance } from "@/lib/ui/clerk-appearance";
 import {
   LayoutDashboard,
   Dumbbell,
@@ -103,7 +104,7 @@ export function Sidebar({
         key={href}
         href={href}
         className={cn(
-          "group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-150",
+          "group relative flex items-center gap-3 h-9 rounded-lg px-3 text-sm font-medium transition-all duration-150",
           isActive
             ? "bg-sidebar-primary/15 text-sidebar-primary shadow-sm"
             : "text-sidebar-foreground/60 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground"
@@ -111,7 +112,7 @@ export function Sidebar({
       >
         <Icon
           className={cn(
-            "h-4.5 w-4.5 shrink-0 transition-transform duration-150 group-hover:scale-105",
+            "size-4 shrink-0",
             isActive ? "text-sidebar-primary" : "text-sidebar-foreground/50"
           )}
         />
@@ -175,8 +176,12 @@ export function Sidebar({
         </div>
         {role === "TRAINER" && navItem("/settings/billing", "Billing", CreditCard)}
         {navItem("/settings", "Settings", Settings)}
-        {role === "TRAINER" && navItem("/settings/clinic", "Organization Settings", Building2)}
-        {role === "TRAINER" && navItem("/settings/audit-log", "Audit Log", History)}
+        {role === "TRAINER" && pathname.startsWith("/settings") && !pathname.startsWith("/settings/billing") && (
+          <div className="ml-4 mt-0.5 space-y-0.5 border-l border-sidebar-border/50 pl-2">
+            {navItem("/settings/clinic", "Organization", Building2)}
+            {navItem("/settings/audit-log", "Audit Log", History)}
+          </div>
+        )}
 
         {isAdmin && (
           <>
@@ -188,9 +193,9 @@ export function Sidebar({
             </div>
             <Link
               href="/admin"
-              className="group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-sidebar-foreground/60 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground transition-all duration-150"
+              className="group flex items-center gap-3 h-9 rounded-lg px-3 text-sm font-medium text-sidebar-foreground/60 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground transition-all duration-150"
             >
-              <Shield className="h-4.5 w-4.5 shrink-0 text-sidebar-primary/70 group-hover:scale-105 transition-transform duration-150" />
+              <Shield className="size-4 shrink-0 text-sidebar-primary/70" />
               <span className="flex-1">Super Admin</span>
               <span className="rounded-full bg-sidebar-primary/20 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-sidebar-primary">
                 Admin
@@ -203,7 +208,7 @@ export function Sidebar({
       {/* User section */}
       <div className="border-t border-sidebar-border/60 p-4">
         <div className="flex items-center gap-3 rounded-xl bg-sidebar-accent/40 px-3 py-2.5">
-          <UserButton signInUrl="/sign-in" />
+          <UserButton signInUrl="/sign-in" appearance={clerkAppearance} />
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-semibold text-sidebar-foreground leading-tight">
               {userName}

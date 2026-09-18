@@ -1,11 +1,25 @@
 "use client";
 
 import Link from "next/link";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { TrendingUp, Play, Flame, ChevronRight, CalendarX } from "lucide-react";
+import { PageHeader } from "@/components/shared/page-header";
+import { SectionCard } from "@/components/shared/section-card";
+import { StatCard } from "@/components/shared/stat-card";
+import { StatusBadge } from "@/components/shared/status-badge";
+import { EmptyState } from "@/components/shared/empty-state";
+import {
+  CalendarDays,
+  CalendarCheck,
+  CalendarX,
+  Play,
+  ChevronRight,
+  Flame,
+  CheckCircle2,
+  Dumbbell,
+  Timer,
+  ClipboardCheck,
+} from "lucide-react";
 import { format } from "date-fns";
 import { formatDate } from "@/lib/utils/formatting";
 import { toLocalCalendarDate } from "@/lib/utils/calendar-date";
@@ -101,23 +115,23 @@ export function ClientDashboard({
 
   return (
     <div className="space-y-6">
-      {/* Welcome */}
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Welcome Back, {firstName}!</h1>
-        <p className="mt-1 text-muted-foreground">Stay on track with your exercises and progress.</p>
-      </div>
+      <PageHeader
+        title={`Welcome back, ${firstName}`}
+        description={format(today, "EEEE, MMMM d")}
+        breadcrumb={[{ label: "Dashboard" }]}
+      />
 
       <TrainerMessageBanner message={unreadTrainerMessage} />
 
-      {/* Workout hero — always reflects today (or the next upcoming session) */}
-      {todayWorkout ? (
-        <div className="relative overflow-hidden rounded-2xl bg-muted p-4 sm:p-6 shadow-sm">
-          <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <Badge className="mb-3 border-border bg-background text-foreground text-xs font-medium uppercase tracking-wide">
-                Today&apos;s Workout
-              </Badge>
-              <h2 className="text-xl font-bold text-foreground">{formatDayLabel(todayWorkout.workout)}</h2>
+      {/* Up next — always reflects today (or the next upcoming session) */}
+      <SectionCard title="Up next" icon={CalendarDays}>
+        {todayWorkout ? (
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <StatusBadge status="TODAY" role="info" label="TODAY" />
+              <h3 className="mt-2 text-lg font-semibold text-foreground">
+                {formatDayLabel(todayWorkout.workout)}
+              </h3>
               <p className="mt-1 text-sm text-muted-foreground">
                 {formatWorkoutMetaLine(
                   todayWorkout.workout?.estimatedMinutes,
@@ -125,29 +139,23 @@ export function ClientDashboard({
                 )}
               </p>
             </div>
-            <Button
-              size="lg"
-              className="shrink-0 bg-primary text-primary-foreground hover:bg-primary/90 font-semibold shadow-lg border-0"
-              asChild
-            >
+            <Button size="lg" className="h-11 shrink-0 font-semibold sm:h-9" asChild>
               <Link href={`/sessions/${todayWorkout.id}`}>
                 <Play className="mr-2 h-4 w-4 fill-current" />
-                Start Today&apos;s Workout
+                Start workout
               </Link>
             </Button>
           </div>
-        </div>
-      ) : nextFutureSession ? (
-        <div className="relative overflow-hidden rounded-2xl bg-muted p-4 sm:p-6 shadow-sm">
-          <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <Badge className="mb-3 border-border bg-background text-foreground text-xs font-medium uppercase tracking-wide">
-                Next Workout
-              </Badge>
-              <p className="text-sm font-medium text-muted-foreground">
+        ) : nextFutureSession ? (
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <StatusBadge status="UPCOMING" role="neutral" label="UPCOMING" />
+              <p className="mt-2 text-sm font-medium text-muted-foreground">
                 {format(toLocalCalendarDate(nextFutureSession.scheduledDate), "EEEE, MMM d")}
               </p>
-              <h2 className="text-xl font-bold text-foreground">{formatDayLabel(nextFutureSession.workout)}</h2>
+              <h3 className="text-lg font-semibold text-foreground">
+                {formatDayLabel(nextFutureSession.workout)}
+              </h3>
               <p className="mt-1 text-sm text-muted-foreground">
                 {formatWorkoutMetaLine(
                   nextFutureSession.workout?.estimatedMinutes,
@@ -155,50 +163,41 @@ export function ClientDashboard({
                 )}
               </p>
             </div>
-            <Button size="lg" variant="outline" className="shrink-0 font-semibold" asChild>
+            <Button size="lg" variant="outline" className="h-11 shrink-0 font-semibold sm:h-9" asChild>
               <Link href={`/sessions/${nextFutureSession.id}`}>
-                View Workout
+                Preview
                 <ChevronRight className="ml-2 h-4 w-4" />
               </Link>
             </Button>
           </div>
-        </div>
-      ) : (
-        <div className="relative overflow-hidden rounded-2xl bg-muted p-4 sm:p-6 shadow-sm text-center">
-          <CalendarX className="mx-auto mb-2 h-6 w-6 text-muted-foreground" />
-          <h2 className="text-lg font-bold text-foreground">Nothing Scheduled Right Now</h2>
-          <p className="mt-2 text-xs text-muted-foreground italic">{quote}</p>
-        </div>
-      )}
+        ) : (
+          <EmptyState
+            size="compact"
+            icon={CalendarX}
+            title="Nothing scheduled right now"
+            description={quote}
+          />
+        )}
+      </SectionCard>
 
       {/* Two progress readings side by side: the whole-program arc, and this
           week's completion. They answer different questions, so both stay. */}
       <div className="grid gap-4 lg:grid-cols-2">
         <ProgramProgressBar summary={programProgress} />
 
-        <Card>
-          <CardContent className="p-4 sm:p-6">
-            <div className="mb-4 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-50">
-                  <Flame className="h-4.5 w-4.5 text-amber-500" />
-                </div>
-                <div>
-                  <p className="text-sm font-semibold">This Week</p>
-                  <p className="text-xs text-muted-foreground">
-                    {weeklyCompliance} of {totalWeekSessions} sessions completed
-                  </p>
-                </div>
-              </div>
-              <span className="text-2xl font-bold text-primary">{compliancePercent}%</span>
-            </div>
-            <Progress value={compliancePercent} className="h-2.5" />
-            <div className="mt-3 flex justify-between text-xs text-muted-foreground/60">
-              <span>Keep it up!</span>
-              <span>{totalWeekSessions - weeklyCompliance} remaining</span>
-            </div>
-          </CardContent>
-        </Card>
+        <SectionCard title="This week" icon={CalendarCheck}>
+          <div className="mb-4 flex items-center justify-between">
+            <p className="text-xs text-muted-foreground">
+              {weeklyCompliance} of {totalWeekSessions} sessions completed
+            </p>
+            <span className="text-2xl font-bold text-primary">{compliancePercent}%</span>
+          </div>
+          <Progress value={compliancePercent} className="h-2.5" />
+          <div className="mt-3 flex justify-between text-xs text-muted-foreground/60">
+            <span>Keep it up!</span>
+            <span>{totalWeekSessions - weeklyCompliance} remaining</span>
+          </div>
+        </SectionCard>
       </div>
 
       {/* Primary at-a-glance schedule — the month view now lives at /calendar */}
@@ -209,62 +208,63 @@ export function ClientDashboard({
       <DashboardInboxCard threads={inboxThreads} />
 
       {/* Secondary stats row */}
-      <div className="grid gap-4 sm:grid-cols-4">
-        {[
-          { label: "Workouts Completed", value: exercisesCompleted, emoji: "✅", bg: "bg-violet-50" },
-          { label: "Current Streak", value: `${currentStreak} ${currentStreak === 1 ? "day" : "days"}`, emoji: "🔥", bg: "bg-amber-50" },
-          { label: "Exercises Completed", value: exercisesCompleted, emoji: "💪", bg: "bg-emerald-50" },
-          { label: "Minutes Exercised", value: minutesExercised, emoji: "⏱", bg: "bg-blue-50" },
-        ].map((stat) => (
-          <Card key={stat.label} className="border-0 ring-1 ring-border/50 shadow-sm">
-            <CardContent className="flex items-center gap-4 p-5">
-              <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-xl ${stat.bg}`}>
-                {stat.emoji}
-              </div>
-              <div>
-                <p className="text-2xl font-bold leading-none">{stat.value}</p>
-                <p className="mt-1 text-xs text-muted-foreground">{stat.label}</p>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+      <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
+        <StatCard
+          size="compact"
+          label="Current streak"
+          value={`${currentStreak} ${currentStreak === 1 ? "day" : "days"}`}
+          icon={Flame}
+          role="warning"
+        />
+        <StatCard
+          size="compact"
+          label="Workouts completed"
+          value={workoutsCompleted}
+          icon={CheckCircle2}
+          role="success"
+        />
+        <StatCard
+          size="compact"
+          label="Exercises completed"
+          value={exercisesCompleted}
+          icon={Dumbbell}
+          role="info"
+        />
+        <StatCard
+          size="compact"
+          label="Minutes exercised"
+          value={minutesExercised}
+          icon={Timer}
+          role="neutral"
+        />
       </div>
 
       {/* Recent Assessments */}
       {recentAssessments.length > 0 && (
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-3">
-            <div className="flex items-center gap-2">
-              <TrendingUp className="h-4.5 w-4.5 text-primary" />
-              <CardTitle className="text-base font-semibold">Recent Assessments</CardTitle>
-            </div>
-            <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs text-muted-foreground" asChild>
-              <Link href="/assessments">
-                View all <ChevronRight className="h-3.5 w-3.5" />
-              </Link>
-            </Button>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {recentAssessments.slice(0, 4).map((a) => (
-                <div
-                  key={a.id}
-                  className="flex items-center justify-between rounded-xl border border-border/60 p-3"
-                >
-                  <p className="text-sm font-medium capitalize">
-                    {a.assessmentType.replace(/_/g, " ")}
+        <SectionCard
+          title="Assessments"
+          icon={ClipboardCheck}
+          action={{ label: "View all", href: "/assessments" }}
+        >
+          <div className="space-y-2">
+            {recentAssessments.slice(0, 4).map((a) => (
+              <div
+                key={a.id}
+                className="flex items-center justify-between rounded-xl border border-border/60 p-3"
+              >
+                <p className="text-sm font-medium capitalize">
+                  {a.assessmentType.replace(/_/g, " ")}
+                </p>
+                <div className="flex items-center gap-3">
+                  <p className="text-sm font-bold text-primary">
+                    {a.value} <span className="font-normal text-muted-foreground">{a.unit}</span>
                   </p>
-                  <div className="flex items-center gap-3">
-                    <p className="text-sm font-bold text-primary">
-                      {a.value} <span className="font-normal text-muted-foreground">{a.unit}</span>
-                    </p>
-                    <p className="text-xs text-muted-foreground">{formatDate(a.createdAt)}</p>
-                  </div>
+                  <p className="text-xs text-muted-foreground">{formatDate(a.createdAt)}</p>
                 </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+              </div>
+            ))}
+          </div>
+        </SectionCard>
       )}
     </div>
   );

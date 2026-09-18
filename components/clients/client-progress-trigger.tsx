@@ -59,8 +59,8 @@ export function ClientProgressTrigger({ clientId, clientName }: { clientId: stri
 
   return (
     <>
-      <Button variant="outline" size="sm" onClick={() => handleOpenChange(true)}>
-        <TrendingUp className="mr-1 h-4 w-4" />
+      <Button variant="outline" onClick={() => handleOpenChange(true)}>
+        <TrendingUp className="h-4 w-4" />
         Progress
       </Button>
       <ClientProgressOverviewDialog

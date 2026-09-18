@@ -186,7 +186,7 @@ export function AiGenerateProgramDialog({
       <DialogContent className="sm:max-w-2xl flex flex-col p-0 max-h-[90vh] overflow-hidden">
         <DialogHeader className="px-4 pt-6 pb-4 border-b shrink-0 sm:px-6">
           <DialogTitle className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-violet-600" />
+            <Sparkles className="h-4 w-4 text-brand" />
             Generate Program with AI
           </DialogTitle>
           <p className="text-xs text-muted-foreground mt-1">
@@ -470,7 +470,7 @@ export function AiGenerateProgramDialog({
           <Button
             onClick={handleGenerate}
             disabled={loading}
-            className="bg-violet-600 hover:bg-violet-700 text-white"
+            className="bg-brand hover:bg-brand/90 text-white"
           >
             {loading ? (
               <>

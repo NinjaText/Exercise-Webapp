@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Papa from "papaparse";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/shared/status-badge";
 import {
   UploadCloud, FileSpreadsheet, AlertCircle,
   CheckCircle2, Loader2, Download, X,
@@ -177,9 +177,14 @@ export function CsvImportForm() {
                     <tr key={i}>
                       <td className="px-4 py-2 font-mono text-xs text-muted-foreground">{err.row}</td>
                       <td className="px-4 py-2">
-                        <Badge variant="outline" className="text-[10px] font-mono border-destructive/30 text-destructive">
-                          {err.column}
-                        </Badge>
+                        <StatusBadge
+                          status={err.column}
+                          label={err.column}
+                          role="danger"
+                          dot={false}
+                          size="sm"
+                          className="font-mono"
+                        />
                       </td>
                       <td className="px-4 py-2 text-xs text-foreground">{err.message}</td>
                     </tr>
@@ -200,9 +205,9 @@ export function CsvImportForm() {
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+              <CheckCircle2 className="h-5 w-5 text-success-foreground" />
               <p className="font-medium text-foreground">
-                <span className="text-emerald-600">
+                <span className="text-success-foreground">
                   {validRows.length} exercise{validRows.length === 1 ? "" : "s"}
                 </span>{" "}
                 ready to import from{" "}
@@ -244,7 +249,7 @@ export function CsvImportForm() {
                       <td className="px-4 py-2 text-xs text-muted-foreground">{row.exercisePhases?.length ? row.exercisePhases.join(", ") : "—"}</td>
                       <td className="px-4 py-2 text-xs text-muted-foreground max-w-[160px] truncate">
                         {row.videoUrl ? (
-                          <span className="text-blue-600">{row.videoUrl}</span>
+                          <span className="text-info-foreground">{row.videoUrl}</span>
                         ) : (
                           <span className="text-muted-foreground/40">no video</span>
                         )}

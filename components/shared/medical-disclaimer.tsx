@@ -26,9 +26,9 @@ export function MedicalDisclaimer({
   }
 
   return (
-    <Alert className={cn("border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950", className)}>
-      <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-      <AlertDescription className="text-amber-800 dark:text-amber-200">
+    <Alert className={cn("border-warning-border bg-warning-soft", className)}>
+      <AlertTriangle className="h-4 w-4 text-warning" />
+      <AlertDescription className="text-warning-foreground">
         AI-generated content is not a substitute for professional medical advice.
         Always consult your healthcare provider before starting or modifying any
         exercise program.

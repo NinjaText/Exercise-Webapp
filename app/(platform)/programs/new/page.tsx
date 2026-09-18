@@ -4,10 +4,8 @@ import { getExercises, getExerciseUsageForTrainer, rankExercisesByUsage } from "
 import { listCollections } from "@/lib/services/collection.service";
 import { getOrganizationProfile } from "@/actions/organization-actions";
 import { ProgramEditor } from "@/components/programs/program-editor";
-import { ArrowLeft } from "lucide-react";
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/shared/page-header";
+import { PageShell } from "@/components/shared/page-shell";
 
 export default async function NewProgramPage({
   searchParams,
@@ -29,14 +27,10 @@ export default async function NewProgramPage({
   const rankedExercises = rankExercisesByUsage(exercises, usage);
 
   return (
-    <div>
-      <Button variant="ghost" size="sm" asChild className="mb-2">
-        <Link href="/programs">
-          <ArrowLeft className="mr-1 h-4 w-4" />
-          Back to Programs
-        </Link>
-      </Button>
+    <PageShell>
       <PageHeader
+        back={{ label: "Back to Programs", href: "/programs" }}
+        breadcrumb={[{ label: "Programs", href: "/programs" }, { label: "Create Program" }]}
         title="Create Program"
         description="Build a new training program from scratch or start from a template."
       />
@@ -47,6 +41,6 @@ export default async function NewProgramPage({
         collections={collections}
         assignClientId={clientId}
       />
-    </div>
+    </PageShell>
   );
 }

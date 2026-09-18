@@ -3,8 +3,8 @@
 import { useMemo } from "react";
 import Link from "next/link";
 import { addDays, format, isSameDay, isToday, startOfWeek } from "date-fns";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { CalendarDays, Check, ChevronRight } from "lucide-react";
+import { SectionCard } from "@/components/shared/section-card";
+import { CalendarDays, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toLocalCalendarDate } from "@/lib/utils/calendar-date";
 import {
@@ -50,20 +50,12 @@ export function WeekStrip({ sessions, today = new Date() }: Props) {
   }, [sessions, today]);
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between pb-3">
-        <div className="flex items-center gap-2">
-          <CalendarDays className="h-4 w-4 text-primary" />
-          <CardTitle className="text-base font-semibold">This Week</CardTitle>
-        </div>
-        <Link
-          href="/calendar"
-          className="inline-flex items-center gap-0.5 text-xs font-medium text-primary hover:underline"
-        >
-          View Calendar <ChevronRight className="h-3.5 w-3.5" />
-        </Link>
-      </CardHeader>
-      <CardContent className="space-y-3">
+    <SectionCard
+      title="Your week"
+      icon={CalendarDays}
+      action={{ label: "View calendar", href: "/calendar" }}
+    >
+      <div className="space-y-3">
         <div className="grid grid-cols-7 gap-1.5">
           {days.map((day) => (
             <WeekStripCell key={day.date.toISOString()} day={day} />
@@ -78,8 +70,8 @@ export function WeekStrip({ sessions, today = new Date() }: Props) {
             </div>
           ))}
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </SectionCard>
   );
 }
 
@@ -99,7 +91,7 @@ function WeekStripCell({ day }: { day: WeekStripDay }) {
       </span>
       <span className="flex h-4 items-center justify-center">
         {completed ? (
-          <Check className="h-3.5 w-3.5 text-emerald-600" aria-hidden />
+          <Check className="h-3.5 w-3.5 text-success" aria-hidden />
         ) : session ? (
           <span className={cn("h-2 w-2 rounded-full", getSessionStatusDot(session.status))} />
         ) : (

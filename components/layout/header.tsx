@@ -2,12 +2,14 @@
 
 import { usePathname } from "next/navigation";
 import { UserButton } from "@clerk/nextjs";
+import { clerkAppearance } from "@/lib/ui/clerk-appearance";
 import { Menu, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
 import { Sidebar } from "./sidebar";
 import { NotificationPanel } from "@/components/notifications/notification-panel";
 import { useSearch } from "@/components/search/search-provider";
+import { Breadcrumbs, useBreadcrumb } from "./breadcrumb-context";
 import type { User, Notification } from "@prisma/client";
 
 interface HeaderProps {
@@ -17,47 +19,6 @@ interface HeaderProps {
   initialNotifications: Notification[];
 }
 
-function getPageTitle(pathname: string): string {
-  const exactMap: Record<string, string> = {
-    "/dashboard": "Dashboard",
-    "/exercises": "Exercise Library",
-    "/exercises/new": "New Exercise",
-    "/programs": "Programs",
-    "/programs/new": "New Program",
-    "/programs/generate": "Generate Program",
-    "/programs/upload": "Upload Program",
-    "/clients": "Clients",
-    "/calendar": "My Calendar",
-    "/messages": "Inbox",
-    "/assessments": "Assessments",
-    "/assessments/new": "New Assessment",
-    "/check-ins": "Check-ins",
-    "/check-ins/new": "New Check-in Template",
-    "/habits": "Habits",
-    "/settings": "Settings",
-    "/settings/billing": "Billing & Subscription",
-    "/settings/audit-log": "Audit Log",
-    "/settings/clinic": "Organization Settings",
-  };
-
-  if (exactMap[pathname]) return exactMap[pathname];
-
-  if (pathname.startsWith("/exercises/") && pathname.endsWith("/edit")) return "Edit Exercise";
-  if (pathname.startsWith("/exercises/")) return "Exercise Details";
-  if (pathname.startsWith("/programs/") && pathname.endsWith("/edit")) return "Edit Program";
-  if (pathname.startsWith("/programs/")) return "Program Details";
-  if (pathname.startsWith("/clients/") && pathname.endsWith("/adherence")) return "Sessions";
-  if (pathname.startsWith("/clients/") && pathname.endsWith("/outcomes")) return "Outcomes";
-  if (pathname.startsWith("/clients/") && pathname.endsWith("/progress")) return "Progress";
-  if (pathname.startsWith("/clients/")) return "Client Details";
-  if (pathname.startsWith("/messages/")) return "Conversation";
-  if (pathname.startsWith("/sessions/")) return "Workout Session";
-  if (pathname.startsWith("/check-ins/") && pathname.endsWith("/respond")) return "Complete Check-in";
-  if (pathname.startsWith("/check-ins/")) return "Check-in Response";
-
-  return "INMOTUS RX";
-}
-
 export function Header({
   user,
   unreadMessageCount,
@@ -65,7 +26,7 @@ export function Header({
   initialNotifications,
 }: HeaderProps) {
   const pathname = usePathname();
-  const pageTitle = getPageTitle(pathname);
+  const { crumbs } = useBreadcrumb();
   const { setOpen: openSearch } = useSearch();
 
   return (
@@ -91,16 +52,13 @@ export function Header({
         </SheetContent>
       </Sheet>
 
-      {/* Breadcrumb-style page title */}
-      <div className="flex items-center gap-2">
-        <span className="hidden text-sm font-semibold text-primary sm:inline-block">
-          INMOTUS RX
-        </span>
-        <span className="hidden text-muted-foreground/40 sm:inline-block">/</span>
-        <h1 className="text-sm font-semibold sm:text-base">{pageTitle}</h1>
+      <div className="flex min-w-0 flex-1 items-center">
+        {crumbs.length > 0 ? (
+          <Breadcrumbs crumbs={crumbs} />
+        ) : (
+          <span className="text-sm font-semibold tracking-tight">INMOTUS RX</span>
+        )}
       </div>
-
-      <div className="flex-1" />
 
       {/* Search */}
       <Button
@@ -123,7 +81,7 @@ export function Header({
       />
 
       {/* User button (always visible top-right; contains sign out) */}
-      <UserButton signInUrl="/sign-in" />
+      <UserButton signInUrl="/sign-in" appearance={clerkAppearance} />
 
     </header>
   );

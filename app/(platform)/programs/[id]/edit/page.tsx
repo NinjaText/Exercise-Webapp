@@ -6,10 +6,8 @@ import { getExercises, getExerciseUsageForTrainer, rankExercisesByUsage } from "
 import { listCollections } from "@/lib/services/collection.service";
 import { getOrganizationProfile } from "@/actions/organization-actions";
 import { ProgramEditor } from "@/components/programs/program-editor";
-import { ArrowLeft } from "lucide-react";
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/shared/page-header";
+import { PageShell } from "@/components/shared/page-shell";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -36,14 +34,17 @@ export default async function EditProgramPage({ params }: Props) {
   const rankedExercises = rankExercisesByUsage(exercises, usage);
 
   return (
-    <div>
-      <Button variant="ghost" size="sm" asChild className="mb-2">
-        <Link href={`/programs/${id}`}>
-          <ArrowLeft className="mr-1 h-4 w-4" />
-          Back to Program
-        </Link>
-      </Button>
-      <PageHeader title="Edit Program" description={`Modify “${program.name}”`} />
+    <PageShell>
+      <PageHeader
+        back={{ label: "Back to Program", href: `/programs/${id}` }}
+        breadcrumb={[
+          { label: "Programs", href: "/programs" },
+          { label: program.name, href: `/programs/${id}` },
+          { label: "Edit" },
+        ]}
+        title="Edit Program"
+        description={`Modify “${program.name}”`}
+      />
       <ProgramEditor
         program={program as unknown as Record<string, unknown>}
         exercises={rankedExercises}
@@ -51,6 +52,6 @@ export default async function EditProgramPage({ params }: Props) {
         exerciseSourcePreference={organizationProfile?.exerciseSourcePreference}
         collections={collections}
       />
-    </div>
+    </PageShell>
   );
 }

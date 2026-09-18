@@ -144,10 +144,10 @@ export function VoiceMemoRecorder({
       <div className="flex items-center gap-2">
         <div
           className={`flex h-8 w-8 items-center justify-center rounded-full ${
-            isClient ? "bg-blue-100" : "bg-emerald-100"
+            isClient ? "bg-info-soft" : "bg-success-soft"
           }`}
         >
-          <Mic className={`h-4 w-4 ${isClient ? "text-blue-600" : "text-emerald-600"}`} />
+          <Mic className={`h-4 w-4 ${isClient ? "text-info-foreground" : "text-success-foreground"}`} />
         </div>
         <span className="text-sm font-semibold">
           {existingMemo ? "Replace voice note" : "Add voice note"}
@@ -187,12 +187,12 @@ export function VoiceMemoRecorder({
       )}
 
       {recording && (
-        <div className="flex items-center gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3">
-          <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-red-500" />
-          <span className="flex-1 text-sm font-medium text-red-700">
+        <div className="flex items-center gap-3 rounded-xl border border-danger-border bg-danger-soft px-4 py-3">
+          <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-danger" />
+          <span className="flex-1 text-sm font-medium text-danger-foreground">
             Recording… {formatTime(elapsed)}
           </span>
-          <span className="text-xs text-red-500">
+          <span className="text-xs text-danger-foreground">
             {formatTime(MAX_DURATION_SEC - elapsed)} left
           </span>
           <Button
@@ -226,11 +226,7 @@ export function VoiceMemoRecorder({
             </Button>
             <Button
               size="sm"
-              className={`flex-1 gap-1.5 border-0 text-white ${
-                isClient
-                  ? "bg-blue-600 hover:bg-blue-700"
-                  : "bg-emerald-600 hover:bg-emerald-700"
-              }`}
+              className="flex-1 gap-1.5 border-0 bg-primary text-primary-foreground hover:bg-primary/90"
               onClick={submit}
               disabled={uploading}
             >

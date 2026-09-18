@@ -223,7 +223,7 @@ export function ReadOnlyPanel({
                             {be.exercise.name}
                           </span>
                           {hasRealVideoUrl(be.exercise.videoUrl) && (
-                            <span className="inline-flex items-center gap-0.5 text-[9px] bg-blue-50 text-blue-600 border border-blue-200 px-1 py-0 rounded-sm font-medium">
+                            <span className="inline-flex items-center gap-0.5 text-[9px] bg-info-soft text-info-foreground border border-info-border px-1 py-0 rounded-sm font-medium">
                               <Play className="h-2 w-2" />
                               Video
                             </span>

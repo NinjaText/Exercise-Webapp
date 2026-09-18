@@ -36,11 +36,11 @@ export function CreateProgramMenu({ clientId, onUseTemplate, trigger, children }
           Start from scratch
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => router.push(generateHref)}>
-          <Sparkles className="mr-2 h-4 w-4 text-blue-600" />
+          <Sparkles className="mr-2 h-4 w-4 text-brand" />
           Generate with AI
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => router.push(uploadHref)}>
-          <Upload className="mr-2 h-4 w-4 text-emerald-600" />
+          <Upload className="mr-2 h-4 w-4 text-success" />
           Upload a program/document
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => (onUseTemplate ? onUseTemplate() : router.push("/programs?tab=templates"))}>

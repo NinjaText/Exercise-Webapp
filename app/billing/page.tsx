@@ -30,24 +30,24 @@ export default async function BillingPage({
     <div className="min-h-screen bg-[oklch(0.97_0.005_247)] py-16 px-4">
       <div className="mx-auto max-w-5xl">
         {reason === "payment_failed" && (
-          <div className="mb-8 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <div className="mb-8 rounded-lg border border-danger-border bg-danger-soft px-4 py-3 text-sm text-danger-foreground">
             Your last payment failed — please update your billing details.
           </div>
         )}
         {reason === "trial_expired" && (
-          <div className="mb-8 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+          <div className="mb-8 rounded-lg border border-neutral-border bg-neutral-soft px-4 py-3 text-sm text-neutral-foreground">
             Your free trial has ended. Choose a plan to continue.
           </div>
         )}
         {trialDaysRemaining !== null && trialDaysRemaining > 0 && (
-          <div className="mb-8 flex items-center justify-between rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="mb-8 flex items-center justify-between rounded-lg border border-info-border bg-info-soft px-4 py-3 text-sm text-info-foreground">
             <span>
               You have {trialDaysRemaining} day
               {trialDaysRemaining !== 1 ? "s" : ""} left in your free trial.
             </span>
             <a
               href="/dashboard"
-              className="ml-4 shrink-0 font-medium underline underline-offset-2 hover:text-blue-900"
+              className="ml-4 shrink-0 font-medium underline underline-offset-2 hover:opacity-80"
             >
               Skip for now →
             </a>
@@ -55,10 +55,10 @@ export default async function BillingPage({
         )}
 
         <div className="mb-12 text-center">
-          <h1 className="text-4xl font-bold text-slate-900">
+          <h1 className="text-4xl font-bold text-foreground">
             Choose your plan
           </h1>
-          <p className="mt-3 text-lg text-slate-500">
+          <p className="mt-3 text-lg text-muted-foreground">
             All plans include a 14-day free trial
           </p>
         </div>

@@ -4,8 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { StatusBadge } from "@/components/shared/status-badge";
 import {
   Dialog,
   DialogContent,
@@ -64,17 +64,7 @@ export function AssignedProgramsList({ programs }: { programs: AssignedProgram[]
                 {prog._count.workouts} workouts
               </p>
             </Link>
-            <Badge
-              className={
-                prog.status === "ACTIVE"
-                  ? "border-emerald-200 bg-emerald-100 text-emerald-700"
-                  : prog.status === "PAUSED"
-                  ? "border-amber-200 bg-amber-100 text-amber-700"
-                  : "border-border bg-muted text-muted-foreground"
-              }
-            >
-              {prog.status.charAt(0) + prog.status.slice(1).toLowerCase()}
-            </Badge>
+            <StatusBadge status={prog.status} />
             <Button
               variant="ghost"
               size="icon"

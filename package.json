@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "lint:palette": "node scripts/palette-baseline.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "db:push": "prisma db push",

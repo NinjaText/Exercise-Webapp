@@ -160,7 +160,7 @@ function ProgressStepper({ stage }: { stage: Stage }) {
           <div
             className={cn(
               "flex items-center gap-1.5",
-              i < currentIndex ? "text-emerald-600" : i === currentIndex ? "font-medium text-blue-600" : "text-muted-foreground"
+              i < currentIndex ? "text-success" : i === currentIndex ? "font-medium text-info" : "text-muted-foreground"
             )}
           >
             {i < currentIndex ? (
@@ -633,7 +633,7 @@ export function ProgramBriefUpload({
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5 text-blue-600" />
+            <FileText className="h-5 w-5 text-info" />
             Upload Program Brief
           </CardTitle>
         </CardHeader>
@@ -644,7 +644,7 @@ export function ProgramBriefUpload({
                 Any format works — tables, bullet lists, or plain prose. Not sure where to start?
               </p>
               <Link
-                className="text-sm text-blue-600 hover:underline"
+                className="text-sm text-info hover:underline"
                 href="/templates/program-brief-template.txt"
                 target="_blank"
               >
@@ -703,13 +703,13 @@ export function ProgramBriefUpload({
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+              <CheckCircle2 className="h-5 w-5 text-success" />
               Review Generated Program
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
             {preview.warnings.length > 0 && (
-              <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">
+              <div className="rounded-lg border border-warning-border bg-warning-soft p-4 text-sm text-warning-foreground">
                 <div className="flex items-center gap-2 font-medium">
                   <AlertTriangle className="h-4 w-4" />
                   Review before saving
@@ -727,20 +727,20 @@ export function ProgramBriefUpload({
                 const confirmed = confirmedInferredFields.has(field);
                 if (confirmed) {
                   return (
-                    <p className="flex items-center gap-1 text-xs text-emerald-700 dark:text-emerald-400">
+                    <p className="flex items-center gap-1 text-xs text-success-foreground">
                       <CheckCircle2 className="h-3 w-3" /> Confirmed
                     </p>
                   );
                 }
                 return (
                   <div className="flex items-center justify-between gap-2">
-                    <p className="text-xs text-amber-700 dark:text-amber-400">
+                    <p className="text-xs text-warning-foreground">
                       Not stated in the document — please confirm.
                     </p>
                     <button
                       type="button"
                       onClick={() => confirmInferredField(field)}
-                      className="whitespace-nowrap text-xs font-medium text-amber-800 underline hover:text-amber-900 dark:text-amber-300"
+                      className="whitespace-nowrap text-xs font-medium text-warning-foreground underline hover:text-warning"
                     >
                       Confirm
                     </button>
@@ -759,7 +759,7 @@ export function ProgramBriefUpload({
                       }}
                       className={
                         inferred.has("programTitle") && !confirmedInferredFields.has("programTitle")
-                          ? "border-amber-400"
+                          ? "border-warning"
                           : undefined
                       }
                     />
@@ -777,7 +777,7 @@ export function ProgramBriefUpload({
                       <SelectTrigger
                         className={
                           inferred.has("difficultyLevel") && !confirmedInferredFields.has("difficultyLevel")
-                            ? "border-amber-400"
+                            ? "border-warning"
                             : undefined
                         }
                       >
@@ -803,7 +803,7 @@ export function ProgramBriefUpload({
                       }}
                       className={
                         inferred.has("focusAreas") && !confirmedInferredFields.has("focusAreas")
-                          ? "border-amber-400"
+                          ? "border-warning"
                           : undefined
                       }
                     />
@@ -829,7 +829,7 @@ export function ProgramBriefUpload({
                       }}
                       className={
                         inferred.has("durationMinutes") && !confirmedInferredFields.has("durationMinutes")
-                          ? "border-amber-400"
+                          ? "border-warning"
                           : undefined
                       }
                     />
@@ -840,7 +840,7 @@ export function ProgramBriefUpload({
             })()}
 
             {unconfirmedInferredCount > 0 && (
-              <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">
+              <div className="rounded-lg border border-warning-border bg-warning-soft p-3 text-sm text-warning-foreground">
                 {unconfirmedInferredCount} field{unconfirmedInferredCount === 1 ? "" : "s"} above{" "}
                 {unconfirmedInferredCount === 1 ? "was" : "were"} not stated in the document and need your
                 confirmation before this program can be saved.
@@ -848,7 +848,7 @@ export function ProgramBriefUpload({
             )}
 
             {unresolvedCount > 0 && (
-              <div className="rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-200">
+              <div className="rounded-lg border border-danger-border bg-danger-soft p-3 text-sm text-danger-foreground">
                 {unresolvedCount} exercise{unresolvedCount === 1 ? "" : "s"} need{unresolvedCount === 1 ? "s" : ""}{" "}
                 your review before this program can be saved.
               </div>

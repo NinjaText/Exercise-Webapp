@@ -4,7 +4,6 @@ import { useState, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -26,7 +25,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Dumbbell, Sparkles, Tag, X } from "lucide-react";
+import { Dumbbell, FileText, Sparkles, Tags, X } from "lucide-react";
+import { SectionCard } from "@/components/shared/section-card";
 import {
   createProgramSchema,
   type CreateProgramInput,
@@ -360,216 +360,204 @@ export function ProgramEditor({ program, exercises, onSave, redirectTo, organiza
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
         {/* Metadata Card */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Program Details</CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-4 sm:grid-cols-2">
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem className="sm:col-span-2">
-                  <FormLabel>Program Name</FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="e.g., 12-Week Strength Program"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="programType"
-              render={({ field }) => (
-                <FormItem className="sm:col-span-2">
-                  <FormLabel>Program Type</FormLabel>
-                  <FormControl>
-                    <Select
-                      items={PROGRAM_TYPE_ITEMS}
-                      value={field.value || "UNSET"}
-                      onValueChange={(v) => field.onChange(v === "UNSET" ? null : v)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="UNSET">Select program type</SelectItem>
-                        <SelectItem value="PERFORMANCE">🏋️ Performance / Athletic</SelectItem>
-                        <SelectItem value="CLINICAL">🩺 Rehab / Clinical</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="description"
-              render={({ field }) => (
-                <FormItem className="sm:col-span-2">
-                  <FormLabel>Description</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      placeholder="Program description..."
-                      {...field}
-                      value={field.value ?? ""}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormItem className="sm:col-span-2">
-              <FormLabel>Scheduling</FormLabel>
-              <SchedulingTypeSelector value={schedulingType} onChange={setSchedulingType} />
-            </FormItem>
-            {!isOnDemand && (
+        <SectionCard title="Program Details" icon={FileText} contentClassName="grid gap-4 sm:grid-cols-2">
+          <FormField
+            control={form.control}
+            name="name"
+            render={({ field }) => (
               <FormItem className="sm:col-span-2">
-                <FormLabel>Schedule</FormLabel>
-                <div className="flex flex-wrap items-center gap-2">
-                  {scheduleSummary.durationWeeks > 0 ? (
-                    <>
-                      <Badge variant="secondary" className="text-sm">
-                        {scheduleSummary.durationWeeks} week
-                        {scheduleSummary.durationWeeks !== 1 ? "s" : ""}
-                      </Badge>
-                      <Badge variant="secondary" className="text-sm">
-                        up to {scheduleSummary.daysPerWeek} day
-                        {scheduleSummary.daysPerWeek !== 1 ? "s" : ""}/week
-                      </Badge>
-                    </>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">
-                      Add weeks and days in the builder below to set the schedule.
-                    </p>
-                  )}
-                </div>
+                <FormLabel>Program Name</FormLabel>
+                <FormControl>
+                  <Input
+                    placeholder="e.g., 12-Week Strength Program"
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage />
               </FormItem>
             )}
-            <FormField
-              control={form.control}
-              name="isTemplate"
-              render={({ field }) => (
-                <FormItem className="flex items-center gap-3 sm:col-span-2">
-                  <FormControl>
-                    <Switch
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                    />
-                  </FormControl>
-                  <FormLabel className="mt-0!">Save as template</FormLabel>
-                </FormItem>
-              )}
-            />
-            {clinics && (
-              <div className="sm:col-span-2">
-                <ClinicVisibilitySelector
-                  clinics={clinics}
-                  value={selectedOrganizationIds}
-                  onChange={setSelectedOrganizationIds}
-                />
-              </div>
+          />
+          <FormField
+            control={form.control}
+            name="programType"
+            render={({ field }) => (
+              <FormItem className="sm:col-span-2">
+                <FormLabel>Program Type</FormLabel>
+                <FormControl>
+                  <Select
+                    items={PROGRAM_TYPE_ITEMS}
+                    value={field.value || "UNSET"}
+                    onValueChange={(v) => field.onChange(v === "UNSET" ? null : v)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="UNSET">Select program type</SelectItem>
+                      <SelectItem value="PERFORMANCE">🏋️ Performance / Athletic</SelectItem>
+                      <SelectItem value="CLINICAL">🩺 Rehab / Clinical</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </FormControl>
+                <FormMessage />
+              </FormItem>
             )}
-          </CardContent>
-        </Card>
+          />
+          <FormField
+            control={form.control}
+            name="description"
+            render={({ field }) => (
+              <FormItem className="sm:col-span-2">
+                <FormLabel>Description</FormLabel>
+                <FormControl>
+                  <Textarea
+                    placeholder="Program description..."
+                    {...field}
+                    value={field.value ?? ""}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormItem className="sm:col-span-2">
+            <FormLabel>Scheduling</FormLabel>
+            <SchedulingTypeSelector value={schedulingType} onChange={setSchedulingType} />
+          </FormItem>
+          {!isOnDemand && (
+            <FormItem className="sm:col-span-2">
+              <FormLabel>Schedule</FormLabel>
+              <div className="flex flex-wrap items-center gap-2">
+                {scheduleSummary.durationWeeks > 0 ? (
+                  <>
+                    <Badge variant="secondary" className="text-sm">
+                      {scheduleSummary.durationWeeks} week
+                      {scheduleSummary.durationWeeks !== 1 ? "s" : ""}
+                    </Badge>
+                    <Badge variant="secondary" className="text-sm">
+                      up to {scheduleSummary.daysPerWeek} day
+                      {scheduleSummary.daysPerWeek !== 1 ? "s" : ""}/week
+                    </Badge>
+                  </>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    Add weeks and days in the builder below to set the schedule.
+                  </p>
+                )}
+              </div>
+            </FormItem>
+          )}
+          <FormField
+            control={form.control}
+            name="isTemplate"
+            render={({ field }) => (
+              <FormItem className="flex items-center gap-3 sm:col-span-2">
+                <FormControl>
+                  <Switch
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                  />
+                </FormControl>
+                <FormLabel className="mt-0!">Save as template</FormLabel>
+              </FormItem>
+            )}
+          />
+          {clinics && (
+            <div className="sm:col-span-2">
+              <ClinicVisibilitySelector
+                clinics={clinics}
+                value={selectedOrganizationIds}
+                onChange={setSelectedOrganizationIds}
+              />
+            </div>
+          )}
+        </SectionCard>
 
         {/* Categorization Card */}
-        <Card>
-          <CardHeader className="flex flex-row items-center gap-2 space-y-0">
-            <Tag className="h-4 w-4 text-muted-foreground" />
-            <CardTitle className="text-base">Categorization</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-5">
-            <div className="grid gap-5 sm:grid-cols-3">
-              <div className="space-y-2">
-                <Label>Body Area</Label>
-                <TagListInput
-                  values={bodyAreas}
-                  onChange={setBodyAreas}
-                  placeholder="Add body area..."
-                  suggestions={BODY_AREA_SUGGESTIONS}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Goal</Label>
-                <TagListInput
-                  values={goals}
-                  onChange={setGoals}
-                  placeholder="Add goal..."
-                  suggestions={GOAL_SUGGESTIONS}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Activity / Sport</Label>
-                <TagListInput
-                  values={activities}
-                  onChange={setActivities}
-                  placeholder="Add activity..."
-                  suggestions={ACTIVITY_SUGGESTIONS}
-                />
+        <SectionCard title="Categorization" icon={Tags} contentClassName="space-y-5">
+          <div className="grid gap-5 sm:grid-cols-3">
+            <div className="space-y-2">
+              <Label>Body Area</Label>
+              <TagListInput
+                values={bodyAreas}
+                onChange={setBodyAreas}
+                placeholder="Add body area..."
+                suggestions={BODY_AREA_SUGGESTIONS}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Goal</Label>
+              <TagListInput
+                values={goals}
+                onChange={setGoals}
+                placeholder="Add goal..."
+                suggestions={GOAL_SUGGESTIONS}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Activity / Sport</Label>
+              <TagListInput
+                values={activities}
+                onChange={setActivities}
+                placeholder="Add activity..."
+                suggestions={ACTIVITY_SUGGESTIONS}
+              />
+            </div>
+          </div>
+
+          <div className="grid gap-5 sm:grid-cols-3">
+            <div className="space-y-2">
+              <Label>Level</Label>
+              <Select
+                items={LEVEL_ITEMS}
+                value={level || "UNSET"}
+                onValueChange={(v) => setLevel(v === "UNSET" ? null : v)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select level" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="UNSET">Select level</SelectItem>
+                  <SelectItem value="BEGINNER">Beginner</SelectItem>
+                  <SelectItem value="INTERMEDIATE">Intermediate</SelectItem>
+                  <SelectItem value="ADVANCED">Advanced</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2 sm:col-span-2">
+              <Label>Tags</Label>
+              <TagListInput values={tags} onChange={setTags} placeholder="Add a tag..." />
+            </div>
+          </div>
+
+          {collections && collections.length > 0 && (
+            <div className="space-y-2 border-t pt-5">
+              <Label>Collections</Label>
+              <div className="flex flex-wrap gap-x-5 gap-y-2">
+                {collections.map((c) => (
+                  <label key={c.id} className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
+                    <Checkbox
+                      checked={selectedCollectionIds.includes(c.id)}
+                      onCheckedChange={(checked) =>
+                        setSelectedCollectionIds((prev) =>
+                          checked ? [...prev, c.id] : prev.filter((id) => id !== c.id)
+                        )
+                      }
+                    />
+                    {c.name}
+                  </label>
+                ))}
               </div>
             </div>
-
-            <div className="grid gap-5 sm:grid-cols-3">
-              <div className="space-y-2">
-                <Label>Level</Label>
-                <Select
-                  items={LEVEL_ITEMS}
-                  value={level || "UNSET"}
-                  onValueChange={(v) => setLevel(v === "UNSET" ? null : v)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select level" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="UNSET">Select level</SelectItem>
-                    <SelectItem value="BEGINNER">Beginner</SelectItem>
-                    <SelectItem value="INTERMEDIATE">Intermediate</SelectItem>
-                    <SelectItem value="ADVANCED">Advanced</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2 sm:col-span-2">
-                <Label>Tags</Label>
-                <TagListInput values={tags} onChange={setTags} placeholder="Add a tag..." />
-              </div>
-            </div>
-
-            {collections && collections.length > 0 && (
-              <div className="space-y-2 border-t pt-5">
-                <Label>Collections</Label>
-                <div className="flex flex-wrap gap-x-5 gap-y-2">
-                  {collections.map((c) => (
-                    <label key={c.id} className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
-                      <Checkbox
-                        checked={selectedCollectionIds.includes(c.id)}
-                        onCheckedChange={(checked) =>
-                          setSelectedCollectionIds((prev) =>
-                            checked ? [...prev, c.id] : prev.filter((id) => id !== c.id)
-                          )
-                        }
-                      />
-                      {c.name}
-                    </label>
-                  ))}
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+          )}
+        </SectionCard>
 
         {/* Equipment Card */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-            <div className="flex items-center gap-2">
-              <Dumbbell className="h-4 w-4 text-muted-foreground" />
-              <CardTitle className="text-base">Equipment Needed</CardTitle>
-            </div>
+        <SectionCard
+          title="Equipment Needed"
+          icon={Dumbbell}
+          contentClassName="space-y-3"
+          action={
             <Button
               type="button"
               variant="outline"
@@ -580,56 +568,55 @@ export function ProgramEditor({ program, exercises, onSave, redirectTo, organiza
               <Sparkles className="h-3.5 w-3.5" />
               Auto-detect from exercises
             </Button>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {/* Current equipment tags */}
-            <div className="flex flex-wrap gap-2 min-h-7">
-              {equipment.length === 0 && (
-                <p className="text-sm text-muted-foreground">
-                  No equipment added yet. Type below or use auto-detect.
-                </p>
-              )}
-              {equipment.map((item) => (
-                <Badge
-                  key={item}
-                  variant="secondary"
-                  className="gap-1 pr-1 text-sm"
-                >
-                  {item}
-                  <button
-                    type="button"
-                    onClick={() => removeEquipmentItem(item)}
-                    className="ml-0.5 rounded-full hover:bg-muted-foreground/20 p-0.5"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                </Badge>
-              ))}
-            </div>
-            {/* Manual entry */}
-            <div className="flex gap-2">
-              <Input
-                ref={equipmentInputRef}
-                value={equipmentInput}
-                onChange={(e) => setEquipmentInput(e.target.value)}
-                onKeyDown={handleEquipmentKeyDown}
-                placeholder="Add item (e.g. Resistance Band) and press Enter"
-                className="flex-1"
-              />
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  addEquipmentItem(equipmentInput);
-                  setEquipmentInput("");
-                  equipmentInputRef.current?.focus();
-                }}
+          }
+        >
+          {/* Current equipment tags */}
+          <div className="flex flex-wrap gap-2 min-h-7">
+            {equipment.length === 0 && (
+              <p className="text-sm text-muted-foreground">
+                No equipment added yet. Type below or use auto-detect.
+              </p>
+            )}
+            {equipment.map((item) => (
+              <Badge
+                key={item}
+                variant="secondary"
+                className="gap-1 pr-1 text-sm"
               >
-                Add
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+                {item}
+                <button
+                  type="button"
+                  onClick={() => removeEquipmentItem(item)}
+                  className="ml-0.5 rounded-full hover:bg-muted-foreground/20 p-0.5"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </Badge>
+            ))}
+          </div>
+          {/* Manual entry */}
+          <div className="flex gap-2">
+            <Input
+              ref={equipmentInputRef}
+              value={equipmentInput}
+              onChange={(e) => setEquipmentInput(e.target.value)}
+              onKeyDown={handleEquipmentKeyDown}
+              placeholder="Add item (e.g. Resistance Band) and press Enter"
+              className="flex-1"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                addEquipmentItem(equipmentInput);
+                setEquipmentInput("");
+                equipmentInputRef.current?.focus();
+              }}
+            >
+              Add
+            </Button>
+          </div>
+        </SectionCard>
 
         {/* Program Builder */}
         <ProgramBuilder

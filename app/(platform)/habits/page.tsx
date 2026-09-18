@@ -79,8 +79,8 @@ async function ClientHabitsView({ clientId }: { clientId: string }) {
       {/* ── Daily progress summary ────────────────────────────────────── */}
       {totalHabits > 0 && (
         <div className="flex items-center gap-3 rounded-xl bg-muted/40 px-4 py-3 ring-1 ring-border/40">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-500/15">
-            <Sparkles className="h-4 w-4 text-emerald-500" />
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-success-soft">
+            <Sparkles className="h-4 w-4 text-success" />
           </div>
           <div>
             <p className="text-sm font-semibold">
@@ -146,7 +146,7 @@ async function ClientHabitsView({ clientId }: { clientId: string }) {
               return (
                 <div
                   key={habit.id}
-                  className="flex items-center gap-4 rounded-xl border-0 px-4 py-3 ring-1 ring-border/50 shadow-sm"
+                  className="flex items-center gap-4 rounded-xl px-4 py-3 ring-1 ring-border shadow-none"
                 >
                   <span className="text-xl" aria-hidden="true">
                     {habit.icon ?? "🎯"}
@@ -282,7 +282,7 @@ function WeekDots({ logs }: { logs: { date: Date | string; completed: boolean }[
               className={[
                 "h-2 w-2 rounded-full",
                 isDone
-                  ? "bg-emerald-500"
+                  ? "bg-success"
                   : isFuture
                   ? "bg-muted-foreground/20"
                   : "border border-muted-foreground/40 bg-transparent",

@@ -3,9 +3,8 @@ import { getExercises } from "@/lib/services/exercise.service";
 import { getProgramById } from "@/lib/services/program.service";
 import { notFound } from "next/navigation";
 import { GlobalProgramEditorWrapper } from "../../global-program-editor-wrapper";
-import { ArrowLeft } from "lucide-react";
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
+import { PageShell } from "@/components/shared/page-shell";
+import { PageHeader } from "@/components/shared/page-header";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -23,21 +22,21 @@ export default async function EditGlobalProgramPage({ params }: Props) {
   if (!program || !program.isGlobal) notFound();
 
   return (
-    <div className="space-y-6">
-      <div>
-        <Button variant="ghost" size="sm" asChild className="mb-2">
-          <Link href="/admin/global-programs">
-            <ArrowLeft className="mr-1 h-4 w-4" />
-            Back to Global Programs
-          </Link>
-        </Button>
-        <h1 className="text-3xl font-bold tracking-tight">Edit Global Program</h1>
-        <p className="text-muted-foreground">Changes will be reflected for all organizations after pushing an update.</p>
-      </div>
+    <PageShell>
+      <PageHeader
+        back={{ label: "Back to Global Programs", href: "/admin/global-programs" }}
+        breadcrumb={[
+          { label: "Admin", href: "/admin" },
+          { label: "Global Programs", href: "/admin/global-programs" },
+          { label: "Edit" },
+        ]}
+        title="Edit Global Program"
+        description="Changes will be reflected for all organizations after pushing an update."
+      />
       <GlobalProgramEditorWrapper
         program={program as unknown as Record<string, unknown>}
         exercises={exercises}
       />
-    </div>
+    </PageShell>
   );
 }

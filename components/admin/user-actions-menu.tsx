@@ -8,6 +8,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -65,18 +66,22 @@ export function UserActionsMenu({ userId, isActive, userName }: UserActionsMenuP
     <>
       <DropdownMenu>
         <DropdownMenuTrigger
-          className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50"
+          render={<Button variant="ghost" size="icon-sm" aria-label="User actions" />}
+          onClick={(e) => e.stopPropagation()}
+          onMouseDown={(e) => e.stopPropagation()}
           disabled={isPending}
-          aria-label="User actions"
         >
           <MoreHorizontal className="h-4 w-4" />
         </DropdownMenuTrigger>
-        <DropdownMenuContent side="bottom" align="end" className="w-40">
+        <DropdownMenuContent
+          side="bottom"
+          align="end"
+          className="w-40"
+          onClick={(e) => e.stopPropagation()}
+          onMouseDown={(e) => e.stopPropagation()}
+        >
           {isActive ? (
-            <DropdownMenuItem
-              onClick={handleArchive}
-              className="gap-2 text-amber-600"
-            >
+            <DropdownMenuItem onClick={handleArchive} className="gap-2">
               <Archive className="h-4 w-4" />
               Archive
             </DropdownMenuItem>
@@ -115,9 +120,9 @@ export function UserActionsMenu({ userId, isActive, userName }: UserActionsMenuP
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isPending}>Cancel</AlertDialogCancel>
             <AlertDialogAction
+              variant="destructive"
               onClick={handleDelete}
               disabled={isPending}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {isPending ? "Deleting…" : "Delete permanently"}
             </AlertDialogAction>

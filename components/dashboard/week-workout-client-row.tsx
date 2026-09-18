@@ -2,26 +2,21 @@
 
 import Link from "next/link";
 import { format } from "date-fns";
-import { Badge } from "@/components/ui/badge";
 import { Flame } from "lucide-react";
-import { formatDaysAgoLong, formatSessionStatus } from "@/lib/utils/formatting";
+import { formatDaysAgoLong } from "@/lib/utils/formatting";
 import { getDisplayName, getInitials } from "@/lib/utils/display-name";
+import { StatusBadge } from "@/components/shared/status-badge";
+import { ROLE_CLASSES } from "@/lib/ui/status";
+import { cn } from "@/lib/utils";
 import type { ClientMetrics } from "@/lib/services/dashboard-insights.service";
-
-export const sessionStatusColors: Record<string, string> = {
-  SCHEDULED: "bg-blue-100 text-blue-700",
-  IN_PROGRESS: "bg-amber-100 text-amber-700",
-  COMPLETED: "bg-success/15 text-success",
-  MISSED: "bg-red-100 text-red-700",
-};
 
 /** One Mon–Sun cell of the week strip. */
 export type DayDotStatus = "completed" | "missed" | "scheduled" | "none";
 
 const dayDotStyles: Record<DayDotStatus, string> = {
-  completed: "bg-success border-success",
-  missed: "bg-red-500/20 border-red-500",
-  scheduled: "bg-transparent border-muted-foreground/50",
+  completed: cn(ROLE_CLASSES.success.dot, "border-success"),
+  missed: cn(ROLE_CLASSES.warning.dot, "border-warning"),
+  scheduled: "bg-info-soft border-info",
   none: "bg-muted border-transparent",
 };
 
@@ -105,17 +100,11 @@ export function WeekWorkoutClientRow({ row }: { row: WeekWorkoutClientRowData })
             </span>
           )}
           {displayStatus && (
-            <Badge
-              className={`border-0 text-xs font-medium ${
-                sessionStatusColors[displayStatus] ?? "bg-muted text-muted-foreground"
-              }`}
-            >
-              {formatSessionStatus(displayStatus)}
-            </Badge>
+            <StatusBadge status={displayStatus} size="sm" />
           )}
         </div>
         {metrics && metrics.streak > 1 && (
-          <span className="flex items-center gap-0.5 text-[11px] font-medium text-amber-600">
+          <span className="flex items-center gap-0.5 text-[11px] font-medium text-warning-foreground">
             <Flame className="h-3 w-3" />
             {metrics.streak} streak
           </span>

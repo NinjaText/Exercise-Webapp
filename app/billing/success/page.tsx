@@ -34,9 +34,9 @@ export default function BillingSuccessPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-[oklch(0.97_0.005_247)] px-4">
       <div className="w-full max-w-md space-y-4 text-center">
-        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
+        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-success-soft">
           <svg
-            className="h-8 w-8 text-green-600"
+            className="h-8 w-8 text-success"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -49,8 +49,8 @@ export default function BillingSuccessPage() {
             />
           </svg>
         </div>
-        <h1 className="text-2xl font-bold text-slate-900">You&apos;re all set!</h1>
-        <p className="text-slate-500">
+        <h1 className="text-2xl font-bold text-foreground">You&apos;re all set!</h1>
+        <p className="text-muted-foreground">
           Your subscription is now active. Redirecting to dashboard…
         </p>
       </div>

@@ -6,37 +6,18 @@ import { getClientIdsForTrainer } from "@/lib/services/client.service";
 import { getClientPastSessions, computeAdherenceStats } from "@/lib/services/session.service";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { StatCard } from "@/components/shared/stat-card";
 import { PageHeader } from "@/components/shared/page-header";
+import { PageShell } from "@/components/shared/page-shell";
 import { EmptyState } from "@/components/shared/empty-state";
+import { StatusBadge } from "@/components/shared/status-badge";
 import { ArrowLeft, Target, CheckCircle2, XCircle, Gauge, ClipboardList } from "lucide-react";
 import { format } from "date-fns";
 
 interface Props {
   params: Promise<{ id: string }>;
 }
-
-const statusColors: Record<string, string> = {
-  COMPLETED:   "bg-success/10 text-success",
-  IN_PROGRESS: "bg-amber-100 text-amber-700",
-  SCHEDULED:   "bg-blue-100 text-blue-700",
-  MISSED:      "bg-red-100 text-red-700",
-  SKIPPED:     "bg-muted text-muted-foreground",
-};
-
-const varianceColors: Record<string, string> = {
-  ON_TIME: "bg-success/10 text-success",
-  EARLY:   "bg-blue-100 text-blue-700",
-  DELAYED: "bg-amber-100 text-amber-700",
-};
-
-const varianceLabels: Record<string, string> = {
-  ON_TIME: "On Time",
-  EARLY:   "Early",
-  DELAYED: "Delayed",
-};
 
 export default async function ClientAdherencePage({ params }: Props) {
   const { id } = await params;
@@ -52,7 +33,7 @@ export default async function ClientAdherencePage({ params }: Props) {
     computeAdherenceStats(sessions);
 
   return (
-    <div className="space-y-8">
+    <PageShell>
       <div className="space-y-4">
         <Button variant="ghost" size="sm" asChild className="-ml-2">
           <Link href={`/clients/${id}`}>
@@ -134,17 +115,13 @@ export default async function ClientAdherencePage({ params }: Props) {
                       <span className="text-xs text-muted-foreground">RPE {session.overallRPE}/10</span>
                     )}
                     {session.scheduleVariance && (
-                      <Badge
-                        className={`border-0 text-xs font-medium ${varianceColors[session.scheduleVariance] ?? "bg-muted text-muted-foreground"}`}
-                      >
-                        {varianceLabels[session.scheduleVariance] ?? session.scheduleVariance}
-                      </Badge>
+                      <StatusBadge
+                        status={session.scheduleVariance}
+                        size="sm"
+                        dot={false}
+                      />
                     )}
-                    <Badge
-                      className={`border-0 text-xs font-medium ${statusColors[session.status] ?? "bg-muted text-muted-foreground"}`}
-                    >
-                      {session.status.charAt(0) + session.status.slice(1).toLowerCase()}
-                    </Badge>
+                    <StatusBadge status={session.status} size="sm" />
                   </div>
                 </Link>
               ))}
@@ -152,6 +129,6 @@ export default async function ClientAdherencePage({ params }: Props) {
           )}
         </CardContent>
       </Card>
-    </div>
+    </PageShell>
   );
 }

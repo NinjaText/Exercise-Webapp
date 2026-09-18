@@ -1,6 +1,7 @@
-import { Card, CardContent } from "@/components/ui/card";
+import { Stethoscope } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { FieldInfo } from "@/components/clients/field-info";
+import { SectionCard } from "@/components/shared/section-card";
 
 /**
  * The clinical fields this card can show. Kept local and narrow so the page
@@ -16,14 +17,21 @@ export interface ClinicalProfile {
   surgeryHistory?: string | null;
   limitations?: string | null;
   comorbidities?: string | null;
+  functionalChallenges?: string | null;
+  priorInjuries?: string[] | null;
   fitnessGoals?: string[] | null;
   availableEquipment?: string[] | null;
+  preferredDurationMinutes?: number | null;
+  preferredDaysPerWeek?: number | null;
 }
 
 /**
  * True when there is at least one value worth rendering. A client can have a
- * profile ROW with every field still empty — rendering the card then produced a
- * heading with nothing under it.
+ * profile ROW with every field still empty — that state now gets an explicit
+ * prompt to fill it in rather than a heading over blank space.
+ *
+ * Deliberately excludes the session preferences: they carry database defaults
+ * (25 minutes, 3 days), so counting them would make every row look populated.
  */
 export function hasClinicalContent(p: ClinicalProfile | null | undefined): boolean {
   if (!p) return false;
@@ -37,6 +45,8 @@ export function hasClinicalContent(p: ClinicalProfile | null | undefined): boole
       p.surgeryHistory ||
       p.limitations ||
       p.comorbidities ||
+      p.functionalChallenges ||
+      p.priorInjuries?.length ||
       p.fitnessGoals?.length ||
       p.availableEquipment?.length
   );
@@ -76,7 +86,7 @@ function PainScale({ score }: { score: number }) {
                 ? score <= 3
                   ? "bg-success"
                   : score <= 6
-                    ? "bg-amber-500"
+                    ? "bg-warning"
                     : "bg-destructive"
                 : "bg-muted-foreground/20"
             }`}
@@ -88,20 +98,33 @@ function PainScale({ score }: { score: number }) {
   );
 }
 
-export function ClinicalProfileCard({ profile }: { profile: ClinicalProfile }) {
-  const secondary = profile.secondaryDiagnoses?.filter(Boolean) ?? [];
+export function ClinicalProfileCard({
+  profile,
+  action,
+}: {
+  profile: ClinicalProfile | null;
+  /** The Edit control, passed in so this card can stay a server component. */
+  action?: React.ReactNode;
+}) {
+  const secondary = profile?.secondaryDiagnoses?.filter(Boolean) ?? [];
+  const priorInjuries = profile?.priorInjuries?.filter(Boolean) ?? [];
+  const populated = hasClinicalContent(profile);
 
   return (
-    <Card className="shadow-sm ring-1 ring-border/50">
-      <CardContent className="p-4 sm:p-6">
-        <h2 className="text-base font-semibold">Clinical profile</h2>
-        <dl className="mt-1 divide-y divide-border/50">
-          {profile.primaryDiagnosis && (
+    <SectionCard title="Clinical profile" icon={Stethoscope} action={action}>
+      {!populated ? (
+        <p className="text-sm text-muted-foreground">
+          Nothing on file yet — this client skipped the intake questions at sign-up. Add
+          what you know so it can inform their programming.
+        </p>
+      ) : (
+        <dl className="divide-y divide-border/50">
+          {profile!.primaryDiagnosis && (
             <Row
               label="Primary diagnosis"
               info="The main condition this client's programming is built around. Drives AI program generation and exercise contraindication tagging."
             >
-              <span className="font-medium">{profile.primaryDiagnosis}</span>
+              <span className="font-medium">{profile!.primaryDiagnosis}</span>
               {secondary.length > 0 && (
                 <span className="mt-0.5 block text-muted-foreground">
                   Alongside {secondary.join(", ")}
@@ -110,7 +133,7 @@ export function ClinicalProfileCard({ profile }: { profile: ClinicalProfile }) {
             </Row>
           )}
 
-          {!profile.primaryDiagnosis && secondary.length > 0 && (
+          {!profile!.primaryDiagnosis && secondary.length > 0 && (
             <Row
               label="Secondary diagnoses"
               info="Additional conditions to account for when programming. Shown to the AI generator alongside the primary diagnosis."
@@ -119,56 +142,69 @@ export function ClinicalProfileCard({ profile }: { profile: ClinicalProfile }) {
             </Row>
           )}
 
-          {profile.painScore != null && (
+          {profile!.painScore != null && (
             <Row
               label="Pain score"
               info="Client's self-reported pain, 0 (none) to 10 (worst imaginable). Captured at intake and updated when the client logs a pain assessment."
             >
-              <PainScale score={profile.painScore} />
+              <PainScale score={profile!.painScore} />
             </Row>
           )}
 
-          {profile.limitations && (
+          {profile!.limitations && (
             <Row
               label="Limitations"
               info="Movements or positions this client should avoid. Review these before assigning or generating a program."
             >
-              {profile.limitations}
+              {profile!.limitations}
             </Row>
           )}
 
-          {profile.comorbidities && (
+          {profile!.comorbidities && (
             <Row
               label="Comorbidities"
               info="Co-occurring conditions that affect exercise tolerance, such as cardiovascular or metabolic conditions."
             >
-              {profile.comorbidities}
+              {profile!.comorbidities}
             </Row>
           )}
 
-          {profile.activityLevel && (
+          {profile!.activityLevel && (
             <Row
               label="Activity level"
               info="The client's baseline activity before starting this program. Used to set starting intensity."
             >
-              <span className="capitalize">{profile.activityLevel.toLowerCase()}</span>
+              <span className="capitalize">{profile!.activityLevel.toLowerCase()}</span>
             </Row>
           )}
 
-          {profile.surgeryHistory && <Row label="Surgery history">{profile.surgeryHistory}</Row>}
+          {profile!.surgeryHistory && <Row label="Surgery history">{profile!.surgeryHistory}</Row>}
 
-          {profile.injuryDate && (
+          {profile!.injuryDate && (
             <Row label="Injury date">
-              {new Date(profile.injuryDate).toLocaleDateString()}
+              {new Date(profile!.injuryDate).toLocaleDateString()}
             </Row>
           )}
 
-          {profile.occupation && <Row label="Occupation">{profile.occupation}</Row>}
+          {profile!.functionalChallenges && (
+            <Row
+              label="Functional challenges"
+              info="Everyday tasks the client currently struggles with — the practical outcomes their program is working toward."
+            >
+              {profile!.functionalChallenges}
+            </Row>
+          )}
 
-          {(profile.fitnessGoals?.length ?? 0) > 0 && (
+          {profile!.occupation && <Row label="Occupation">{profile!.occupation}</Row>}
+
+          {priorInjuries.length > 0 && (
+            <Row label="Prior injuries">{priorInjuries.join(", ")}</Row>
+          )}
+
+          {(profile!.fitnessGoals?.length ?? 0) > 0 && (
             <Row label="Goals">
               <span className="flex flex-wrap gap-1.5">
-                {profile.fitnessGoals!.map((g) => (
+                {profile!.fitnessGoals!.map((g) => (
                   <Badge key={g} variant="secondary" className="font-normal">
                     {g}
                   </Badge>
@@ -177,10 +213,10 @@ export function ClinicalProfileCard({ profile }: { profile: ClinicalProfile }) {
             </Row>
           )}
 
-          {(profile.availableEquipment?.length ?? 0) > 0 && (
+          {(profile!.availableEquipment?.length ?? 0) > 0 && (
             <Row label="Equipment">
               <span className="flex flex-wrap gap-1.5">
-                {profile.availableEquipment!.map((eq) => (
+                {profile!.availableEquipment!.map((eq) => (
                   <Badge key={eq} variant="outline" className="font-normal">
                     {eq}
                   </Badge>
@@ -188,8 +224,27 @@ export function ClinicalProfileCard({ profile }: { profile: ClinicalProfile }) {
               </span>
             </Row>
           )}
+
+          {(profile!.preferredDurationMinutes != null ||
+            profile!.preferredDaysPerWeek != null) && (
+            <Row
+              label="Session preference"
+              info="What the client said they can commit to. Used as the starting point when generating a program for them."
+            >
+              {[
+                profile!.preferredDurationMinutes != null
+                  ? `${profile!.preferredDurationMinutes} min`
+                  : null,
+                profile!.preferredDaysPerWeek != null
+                  ? `${profile!.preferredDaysPerWeek}× / week`
+                  : null,
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+            </Row>
+          )}
         </dl>
-      </CardContent>
-    </Card>
+      )}
+    </SectionCard>
   );
 }

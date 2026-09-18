@@ -3,6 +3,7 @@ import { ArrowUpRight } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { ROLE_CLASSES, type StatusRole } from "@/lib/ui/status";
 
 interface StatCardTrend {
   value: number;
@@ -17,9 +18,18 @@ interface StatCardProps {
   description?: string;
   trend?: StatCardTrend;
   href?: string;
+  /** Forwarded to `next/link`'s `scroll` prop when `href` is set. Defaults to `true`. */
+  scroll?: boolean;
+  /**
+   * Renders the card as a `<button>` instead of a link when no `href` is set
+   * (`href` wins if both are provided). This component has no `"use client"`
+   * directive, so only client component callers can pass a function here —
+   * a server page cannot pass `onClick`, which is fine.
+   */
+  onClick?: () => void;
   className?: string;
-  /** Overrides the default muted icon badge (e.g. "bg-blue-500/10 text-blue-600"). */
-  iconClassName?: string;
+  /** Semantic color for the icon badge. Omit for neutral grey. */
+  role?: StatusRole;
   /**
    * "compact" lays the icon and value out on one row, tightens the padding and
    * drops the description sub-line — for dense stat strips above a table.
@@ -35,11 +45,14 @@ export function StatCard({
   description,
   trend,
   href,
+  scroll = true,
+  onClick,
   className,
-  iconClassName,
+  role,
   size = "default",
 }: StatCardProps) {
   const isCompact = size === "compact";
+  const interactive = Boolean(href || onClick);
   const isPositiveTrend = trend
     ? trend.direction
       ? trend.direction === "up"
@@ -49,9 +62,8 @@ export function StatCard({
   const card = (
     <Card
       className={cn(
-        "h-full shadow-sm ring-1 ring-border/50",
-        href &&
-          "group transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md hover:ring-border",
+        "h-full ring-1 ring-border shadow-none",
+        interactive && "group transition-shadow hover:shadow-sm hover:ring-border-strong",
         className,
       )}
     >
@@ -59,9 +71,9 @@ export function StatCard({
         <div className={cn(isCompact ? "flex items-center gap-3" : "flex items-start justify-between")}>
           <div
             className={cn(
-              "flex shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground",
+              "flex shrink-0 items-center justify-center rounded-xl",
               isCompact ? "h-8 w-8 rounded-lg" : "h-11 w-11",
-              iconClassName,
+              role ? cn(ROLE_CLASSES[role].soft, ROLE_CLASSES[role].text) : "bg-muted text-muted-foreground",
             )}
           >
             <Icon className={cn(isCompact ? "h-4 w-4" : "h-5 w-5")} />
@@ -93,8 +105,8 @@ export function StatCard({
                 className={cn(
                   "mt-2 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium",
                   isPositiveTrend
-                    ? "bg-success/10 text-success"
-                    : "bg-destructive/10 text-destructive",
+                    ? "bg-success-soft text-success-foreground"
+                    : "bg-danger-soft text-danger-foreground",
                 )}
               >
                 <span>{isPositiveTrend ? "↑" : "↓"}</span>
@@ -111,9 +123,25 @@ export function StatCard({
 
   if (href) {
     return (
-      <Link href={href} className="block">
+      <Link
+        href={href}
+        scroll={scroll}
+        className="block rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
         {card}
       </Link>
+    );
+  }
+
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        className="block w-full rounded-xl text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        {card}
+      </button>
     );
   }
 

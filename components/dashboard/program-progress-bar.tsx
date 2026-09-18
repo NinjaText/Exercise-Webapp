@@ -1,9 +1,8 @@
 "use client";
 
-import Link from "next/link";
-import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { ChevronRight, Target } from "lucide-react";
+import { SectionCard } from "@/components/shared/section-card";
+import { TrendingUp } from "lucide-react";
 
 export interface ProgramProgressSummary {
   programId: string;
@@ -29,36 +28,26 @@ export function ProgramProgressBar({ summary }: { summary: ProgramProgressSummar
     totalSessions > 0 ? Math.min(Math.round((completedSessions / totalSessions) * 100), 100) : 0;
 
   return (
-    <Card>
-      <CardContent className="p-4 sm:p-6">
-        <div className="mb-4 flex items-start justify-between gap-3">
-          <div className="flex min-w-0 items-center gap-2">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-violet-50">
-              <Target className="h-4.5 w-4.5 text-violet-600" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-sm font-semibold">Program Progress</p>
-              <p className="truncate text-xs text-muted-foreground">
-                {programName}
-                {week ? ` · Week ${week.current} of ${week.total}` : ""}
-              </p>
-            </div>
-          </div>
-          <span className="shrink-0 text-2xl font-bold text-primary">{percent}%</span>
+    <SectionCard
+      title="Program progress"
+      icon={TrendingUp}
+      action={{ label: "View program", href: `/programs/${programId}` }}
+    >
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="truncate text-sm font-semibold">{programName}</p>
+          {week && (
+            <p className="text-xs text-muted-foreground">
+              Week {week.current} of {week.total}
+            </p>
+          )}
         </div>
-        <Progress value={percent} className="h-2.5" />
-        <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground/70">
-          <span>
-            {completedSessions} of {totalSessions} workouts complete
-          </span>
-          <Link
-            href={`/programs/${programId}`}
-            className="inline-flex items-center gap-0.5 font-medium text-primary hover:underline"
-          >
-            View program <ChevronRight className="h-3.5 w-3.5" />
-          </Link>
-        </div>
-      </CardContent>
-    </Card>
+        <span className="shrink-0 text-2xl font-bold text-primary">{percent}%</span>
+      </div>
+      <Progress value={percent} className="h-2.5" />
+      <p className="mt-3 text-xs text-muted-foreground/70">
+        {completedSessions} of {totalSessions} workouts complete
+      </p>
+    </SectionCard>
   );
 }
