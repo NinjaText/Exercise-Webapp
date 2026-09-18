@@ -237,7 +237,7 @@ export default function NewCheckInTemplatePage() {
       </div>
 
       {/* Template info */}
-      <Card className="border-0 shadow-sm ring-1 ring-border/50">
+      <Card className="ring-1 ring-border shadow-none">
         <CardHeader className="pb-4">
           <CardTitle className="text-base">Template Details</CardTitle>
         </CardHeader>
@@ -283,10 +283,10 @@ export default function NewCheckInTemplatePage() {
       </Card>
 
       {/* Quick suggestions */}
-      <Card className="border-0 shadow-sm ring-1 ring-border/50">
+      <Card className="ring-1 ring-border shadow-none">
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-base">
-            <Sparkles className="h-4 w-4 text-indigo-500" />
+            <Sparkles className="h-4 w-4 text-brand" />
             Quick Add Suggestions
           </CardTitle>
         </CardHeader>
@@ -332,7 +332,7 @@ export default function NewCheckInTemplatePage() {
           {questions.map((q, idx) => (
             <Card
               key={q.id}
-              className="border-0 shadow-sm ring-1 ring-border/50"
+              className="ring-1 ring-border shadow-none"
             >
               <CardContent className="p-4 space-y-4">
                 {/* Row: order controls + type badge + delete */}

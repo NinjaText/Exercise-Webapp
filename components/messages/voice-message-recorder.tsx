@@ -126,8 +126,8 @@ export function VoiceMessageRecorder({ recipientId, onSent, onCancel }: VoiceMes
     <div className="flex items-center gap-2 rounded-xl border border-border bg-muted/40 px-3 py-2">
       {recording ? (
         <>
-          <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-red-500" />
-          <span className="flex-1 text-sm font-medium text-red-700">Recording… {formatTime(elapsed)}</span>
+          <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-danger" />
+          <span className="flex-1 text-sm font-medium text-danger-foreground">Recording… {formatTime(elapsed)}</span>
           <Button size="sm" variant="destructive" className="h-7 gap-1 text-xs" onClick={stopRecording}>
             <Square className="h-3 w-3" />
             Stop

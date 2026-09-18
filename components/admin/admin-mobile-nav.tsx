@@ -10,7 +10,7 @@ interface AdminMobileNavProps {
   userImageUrl?: string | null;
 }
 
-export function AdminMobileNav({ userName, userEmail, userImageUrl }: AdminMobileNavProps) {
+export function AdminMobileNav({ userName, userEmail }: AdminMobileNavProps) {
   return (
     <Sheet>
       <SheetTrigger
@@ -23,7 +23,6 @@ export function AdminMobileNav({ userName, userEmail, userImageUrl }: AdminMobil
         <AdminSidebar
           userName={userName}
           userEmail={userEmail}
-          userImageUrl={userImageUrl}
           mobileMode
         />
       </SheetContent>

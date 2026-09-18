@@ -18,7 +18,10 @@ import { ClientContextSheet } from "@/components/messages/client-context-sheet";
 import { MarkAllReadButton } from "@/components/messages/mark-all-read-button";
 import { MessageThread } from "@/components/messages/message-thread";
 import { PageHeader } from "@/components/shared/page-header";
-import { MessageSquare, ArrowLeft, X } from "lucide-react";
+import { PageShell } from "@/components/shared/page-shell";
+import { StatusBadge } from "@/components/shared/status-badge";
+import { EmptyState } from "@/components/shared/empty-state";
+import { MessageSquare, ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getDisplayName } from "@/lib/utils/display-name";
 
@@ -43,7 +46,7 @@ export default async function MessagesPage({ searchParams }: Props) {
   const contacts = await getTrainersForClient(user.id);
 
   return (
-    <div className="space-y-6">
+    <PageShell width="full" className="h-[calc(100dvh-4rem-2rem)] sm:h-[calc(100dvh-4rem-3rem)]">
       <PageHeader
         title="Inbox"
         description={
@@ -51,23 +54,21 @@ export default async function MessagesPage({ searchParams }: Props) {
             ? `${threads.length} conversation${threads.length !== 1 ? "s" : ""}`
             : "Your conversations"
         }
-        action={<NewMessageDialog contacts={contacts} />}
+        primaryAction={<NewMessageDialog contacts={contacts} />}
       />
 
       {threads.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-border p-16 text-center">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-muted">
-            <MessageSquare className="h-8 w-8 text-muted-foreground/50" />
-          </div>
-          <h3 className="mt-5 text-lg font-semibold">No messages yet</h3>
-          <p className="mx-auto mt-2 max-w-sm text-sm text-muted-foreground">
-            Start a conversation by clicking <strong>New Message</strong> above.
-          </p>
-        </div>
+        <EmptyState
+          icon={MessageSquare}
+          title="No messages yet"
+          description="Start a conversation by clicking New Message above."
+        />
       ) : (
-        <MessagesInboxClient initialThreads={threads} currentUserId={user.id} />
+        <div className="min-h-0 flex-1">
+          <MessagesInboxClient initialThreads={threads} currentUserId={user.id} />
+        </div>
       )}
-    </div>
+    </PageShell>
   );
 }
 
@@ -123,62 +124,66 @@ async function TrainerInbox({
   const unreadCount = allThreads.reduce((sum, t) => sum + t.unreadCount, 0);
 
   return (
-    <div className="flex h-[calc(100dvh-7rem)] flex-col">
-      <div className="mb-4 flex shrink-0 flex-wrap items-center justify-between gap-3">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Inbox</h1>
-            {unreadCount > 0 && (
-              <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-bold text-primary-foreground">
-                {unreadCount}
-              </span>
-            )}
-          </div>
-          <p className="mt-1 text-sm text-muted-foreground">All messages, workout comments, and exercise feedback</p>
-          {unreadOnly && (
-            <Link
-              href="/messages"
-              scroll={false}
-              className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/20"
-            >
-              Unread only
-              <X className="h-3 w-3" />
-            </Link>
-          )}
-        </div>
-        <div className="flex items-center gap-4">
-          <MarkAllReadButton />
-          <BroadcastMessageDialog contacts={contacts} />
-          <NewMessageDialog contacts={contacts} />
-        </div>
-      </div>
+    <PageShell width="full" className="h-[calc(100dvh-4rem-2rem)] sm:h-[calc(100dvh-4rem-3rem)]">
+      <PageHeader
+        title="Inbox"
+        description="All messages, workout comments, and exercise feedback"
+        primaryAction={<NewMessageDialog contacts={contacts} />}
+        secondaryActions={
+          <>
+            <MarkAllReadButton />
+            <BroadcastMessageDialog contacts={contacts} />
+          </>
+        }
+        meta={
+          unreadCount > 0 || unreadOnly ? (
+            <>
+              {unreadCount > 0 && (
+                <StatusBadge
+                  status="unread"
+                  role="brand"
+                  dot={false}
+                  size="sm"
+                  label={`${unreadCount} unread`}
+                />
+              )}
+              {unreadOnly && (
+                <Link href="/messages" scroll={false}>
+                  <StatusBadge
+                    status="unread-only"
+                    role="neutral"
+                    dot={false}
+                    size="sm"
+                    label="Unread only ×"
+                  />
+                </Link>
+              )}
+            </>
+          ) : undefined
+        }
+      />
 
       {threads.length === 0 ? (
-        <div className="flex flex-1 items-center justify-center rounded-xl border border-dashed border-border p-16 text-center">
-          <div>
-            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-muted">
-              <MessageSquare className="h-8 w-8 text-muted-foreground/50" />
-            </div>
-            <h3 className="mt-5 text-lg font-semibold">
-              {unreadOnly ? "No unread messages" : "No messages yet"}
-            </h3>
-            {unreadOnly ? (
-              <p className="mx-auto mt-2 max-w-sm text-sm text-muted-foreground">
-                You&apos;re all caught up.{" "}
-                <Link href="/messages" scroll={false} className="font-medium text-primary hover:underline">
+        <div className="flex min-h-0 flex-1 items-center justify-center">
+          <EmptyState
+            icon={MessageSquare}
+            title={unreadOnly ? "No unread messages" : "No messages yet"}
+            description={
+              unreadOnly
+                ? "You're all caught up."
+                : "Start a conversation by clicking New Message above."
+            }
+            action={
+              unreadOnly ? (
+                <Link href="/messages" scroll={false} className="text-sm font-medium text-primary hover:underline">
                   View all conversations
                 </Link>
-                .
-              </p>
-            ) : (
-              <p className="mx-auto mt-2 max-w-sm text-sm text-muted-foreground">
-                Start a conversation by clicking <strong>New Message</strong> above.
-              </p>
-            )}
-          </div>
+              ) : undefined
+            }
+          />
         </div>
       ) : (
-        <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden rounded-xl border border-border bg-card shadow-sm md:grid-cols-[280px_1fr] xl:grid-cols-[300px_1fr_300px]">
+        <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden rounded-xl bg-card ring-1 ring-border shadow-none md:grid-cols-[320px_1fr] xl:grid-cols-[320px_1fr_280px]">
           <div className={cn("min-h-0 border-r border-border", isExplicitSelection ? "hidden md:block" : "block")}>
             <InboxList threads={threads} currentUserId={trainerId} selectedId={selectedId} />
           </div>
@@ -219,6 +224,6 @@ async function TrainerInbox({
           )}
         </div>
       )}
-    </div>
+    </PageShell>
   );
 }

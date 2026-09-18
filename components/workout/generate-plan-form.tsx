@@ -64,7 +64,7 @@ export function GeneratePlanForm({ clients }: GeneratePlanFormProps) {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-blue-600" />
+            <Sparkles className="h-5 w-5 text-brand-foreground" />
             AI Plan Generator
           </CardTitle>
         </CardHeader>

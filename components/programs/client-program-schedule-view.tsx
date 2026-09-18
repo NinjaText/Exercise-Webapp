@@ -7,6 +7,7 @@ import { ChevronLeft, ChevronRight, Clock, Info, Moon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toLocalCalendarDate } from "@/lib/utils/calendar-date";
 import { groupSessionsByWeek } from "@/lib/utils/schedule-weeks";
+import { ROLE_CLASSES, statusRole } from "@/lib/ui/status";
 import {
   castSession,
   STATUS_CONFIG,
@@ -30,8 +31,8 @@ export function ClientProgramScheduleView({ rawSessions }: Props) {
 
   if (weeks.length === 0) {
     return (
-      <div className="flex items-start gap-2 rounded-lg border border-violet-200 bg-violet-50 px-4 py-3 text-sm text-violet-800">
-        <Info className="h-4 w-4 mt-0.5 shrink-0 text-violet-500" />
+      <div className="flex items-start gap-2 rounded-lg border border-info-border bg-info-soft px-4 py-3 text-sm text-info-foreground">
+        <Info className="h-4 w-4 mt-0.5 shrink-0 text-info-foreground" />
         <span>No workouts have been scheduled for this program yet.</span>
       </div>
     );
@@ -82,6 +83,7 @@ export function ClientProgramScheduleView({ rawSessions }: Props) {
           const key = format(day, "yyyy-MM-dd");
           const session = sessionsByDay.get(key);
           const statusCfg = session ? STATUS_CONFIG[session.status] ?? STATUS_CONFIG.SCHEDULED : null;
+          const dotClass = session ? ROLE_CLASSES[statusRole(session.status)].dot : null;
           const exerciseCount = session
             ? session.workout.blocks.reduce((sum, b) => sum + b.exercises.length, 0)
             : 0;
@@ -109,10 +111,7 @@ export function ClientProgramScheduleView({ rawSessions }: Props) {
                   onClick={() => setSelectedSession(session)}
                   className="flex flex-1 items-center gap-2 rounded-md border border-border/70 bg-muted/30 p-2 text-left transition-colors hover:border-foreground/30 hover:bg-muted/50"
                 >
-                  <span
-                    className="h-2 w-2 shrink-0 rounded-full"
-                    style={{ backgroundColor: statusCfg!.dot }}
-                  />
+                  <span className={cn("h-2 w-2 shrink-0 rounded-full", dotClass)} />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-semibold leading-snug text-foreground">
                       {session.workout.name}
@@ -149,6 +148,7 @@ export function ClientProgramScheduleView({ rawSessions }: Props) {
             const key = format(day, "yyyy-MM-dd");
             const session = sessionsByDay.get(key);
             const statusCfg = session ? STATUS_CONFIG[session.status] ?? STATUS_CONFIG.SCHEDULED : null;
+            const dotClass = session ? ROLE_CLASSES[statusRole(session.status)].dot : null;
             const exerciseCount = session
               ? session.workout.blocks.reduce((sum, b) => sum + b.exercises.length, 0)
               : 0;
@@ -176,10 +176,7 @@ export function ClientProgramScheduleView({ rawSessions }: Props) {
                     onClick={() => setSelectedSession(session)}
                     className="flex flex-1 flex-col items-start gap-1.5 rounded-md border border-border/70 bg-muted/30 p-2 text-left transition-colors hover:border-foreground/30 hover:bg-muted/50"
                   >
-                    <span
-                      className="h-2 w-2 shrink-0 rounded-full"
-                      style={{ backgroundColor: statusCfg!.dot }}
-                    />
+                    <span className={cn("h-2 w-2 shrink-0 rounded-full", dotClass)} />
                     <p className="line-clamp-2 text-xs font-semibold leading-snug text-foreground">
                       {session.workout.name}
                     </p>

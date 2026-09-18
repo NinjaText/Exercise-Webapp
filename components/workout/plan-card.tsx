@@ -30,14 +30,14 @@ export function PlanCard({
       <Card className="h-full transition-shadow hover:shadow-md">
         <CardContent className="p-5">
           <div className="mb-3 flex items-start justify-between">
-            <div className="rounded-lg bg-blue-50 p-2.5 text-blue-600">
+            <div className="rounded-lg bg-brand-soft p-2.5 text-brand-foreground">
               <ClipboardList className="h-5 w-5" />
             </div>
             <PlanStatusBadge status={status} />
           </div>
           <h3 className="mb-1 font-semibold text-foreground">{title}</h3>
           {clientName && (
-            <p className="text-sm text-blue-600">{clientName}</p>
+            <p className="text-sm text-brand-foreground">{clientName}</p>
           )}
           {description && (
             <p className="mb-3 mt-1 line-clamp-2 text-sm text-muted-foreground">{description}</p>

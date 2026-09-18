@@ -98,33 +98,31 @@ export function ExerciseFilters({ equipmentOptions }: { equipmentOptions: string
   const equipmentFacetOptions = equipmentOptions.map((eq) => ({ value: eq, label: eq }));
 
   return (
-    <div className="space-y-3">
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="relative w-full sm:w-64">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search exercises..."
-            value={searchValue}
-            onChange={(e) => setSearchValue(e.target.value)}
-            onKeyDown={handleSearchKeyDown}
-            onBlur={() => searchValue !== current.search && pushParams({ search: searchValue })}
-            className="pl-9"
-          />
-        </div>
-
-        <Button variant="outline" size="sm" onClick={() => setPanelOpen((v) => !v)}>
-          <SlidersHorizontal className="mr-2 h-4 w-4" />
-          Filters
-          {activeCount > 0 && (
-            <Badge variant="secondary" className="ml-2 px-1.5">
-              {activeCount}
-            </Badge>
-          )}
-        </Button>
+    <>
+      <div className="relative w-full sm:w-64">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="Search exercises..."
+          value={searchValue}
+          onChange={(e) => setSearchValue(e.target.value)}
+          onKeyDown={handleSearchKeyDown}
+          onBlur={() => searchValue !== current.search && pushParams({ search: searchValue })}
+          className="h-9 pl-9"
+        />
       </div>
 
+      <Button variant="outline" className="h-9" onClick={() => setPanelOpen((v) => !v)}>
+        <SlidersHorizontal className="mr-2 h-4 w-4" />
+        Filters
+        {activeCount > 0 && (
+          <Badge variant="secondary" className="ml-2 px-1.5">
+            {activeCount}
+          </Badge>
+        )}
+      </Button>
+
       {panelOpen && (
-        <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
+        <div className="basis-full mt-1 rounded-xl border border-border bg-card p-5 shadow-sm">
           <div className="mb-4 flex items-center justify-between">
             <p className="font-semibold">Filters</p>
             <div className="flex items-center gap-3">
@@ -200,6 +198,6 @@ export function ExerciseFilters({ equipmentOptions }: { equipmentOptions: string
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }

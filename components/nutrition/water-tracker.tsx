@@ -6,9 +6,7 @@ import { Droplet, Loader2, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { addWaterLogAction } from "@/actions/nutrition-actions";
-
-const ML_PER_OZ = 29.5735;
-const WATER_COLOR = "#0ea5e9";
+import { ML_PER_OZ } from "@/lib/constants/nutrition";
 
 interface WaterTrackerProps {
   clientId: string;
@@ -56,11 +54,8 @@ export function WaterTracker({ clientId, date, consumedMl, targetMl, readOnly = 
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
       <div className="flex flex-1 items-center gap-3">
-        <div
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"
-          style={{ backgroundColor: `${WATER_COLOR}1a` }}
-        >
-          <Droplet className="h-4 w-4" style={{ color: WATER_COLOR }} />
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-info-soft">
+          <Droplet className="h-4 w-4 text-info" />
         </div>
         <div className="min-w-0 flex-1 space-y-1">
           <div className="flex items-baseline justify-between gap-2 text-xs">
@@ -72,11 +67,11 @@ export function WaterTracker({ clientId, date, consumedMl, targetMl, readOnly = 
           </div>
           <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
             <div
-              className={cn("h-full rounded-full transition-all duration-300", exceeded && "!bg-sky-700")}
-              style={{
-                width: pct === null ? "0%" : `${Math.min(pct, 100)}%`,
-                backgroundColor: exceeded ? undefined : WATER_COLOR,
-              }}
+              className={cn(
+                "h-full rounded-full bg-info/70 transition-all duration-300",
+                exceeded && "!bg-info"
+              )}
+              style={{ width: pct === null ? "0%" : `${Math.min(pct, 100)}%` }}
             />
           </div>
         </div>
@@ -88,7 +83,7 @@ export function WaterTracker({ clientId, date, consumedMl, targetMl, readOnly = 
             type="button"
             onClick={() => addOz(8)}
             disabled={isPending}
-            className="rounded-md bg-sky-500/10 px-2.5 py-1 text-[11px] font-semibold text-sky-600 hover:bg-sky-500/20 disabled:opacity-50"
+            className="rounded-md bg-info-soft px-2.5 py-1 text-[11px] font-semibold text-info-foreground hover:bg-info-soft/70 disabled:opacity-50"
           >
             +8oz
           </button>
@@ -96,7 +91,7 @@ export function WaterTracker({ clientId, date, consumedMl, targetMl, readOnly = 
             type="button"
             onClick={() => addOz(16)}
             disabled={isPending}
-            className="rounded-md bg-sky-500/10 px-2.5 py-1 text-[11px] font-semibold text-sky-600 hover:bg-sky-500/20 disabled:opacity-50"
+            className="rounded-md bg-info-soft px-2.5 py-1 text-[11px] font-semibold text-info-foreground hover:bg-info-soft/70 disabled:opacity-50"
           >
             +16oz
           </button>

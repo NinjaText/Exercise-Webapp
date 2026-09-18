@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/shared/page-header";
+import { PageShell } from "@/components/shared/page-shell";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ArrowLeft, ClipboardList } from "lucide-react";
 import { formatDate } from "@/lib/utils/formatting";
@@ -35,7 +36,7 @@ export default async function ClientOutcomesPage({ params }: Props) {
   }, {});
 
   return (
-    <div className="space-y-8">
+    <PageShell>
       <div className="space-y-4">
         <Button variant="ghost" size="sm" asChild className="-ml-2">
           <Link href={`/clients/${id}`}>
@@ -84,6 +85,6 @@ export default async function ClientOutcomesPage({ params }: Props) {
           </Card>
         ))
       )}
-    </div>
+    </PageShell>
   );
 }

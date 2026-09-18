@@ -2,9 +2,8 @@ import { requireSuperAdmin } from "@/lib/current-user";
 import { getExercises } from "@/lib/services/exercise.service";
 import { listClerkOrganizations } from "@/lib/services/admin.service";
 import { GlobalProgramEditorWrapper } from "../global-program-editor-wrapper";
-import { ArrowLeft } from "lucide-react";
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
+import { PageShell } from "@/components/shared/page-shell";
+import { PageHeader } from "@/components/shared/page-header";
 
 export default async function NewGlobalProgramPage() {
   await requireSuperAdmin();
@@ -14,20 +13,18 @@ export default async function NewGlobalProgramPage() {
   ]);
 
   return (
-    <div className="space-y-6">
-      <div>
-        <Button variant="ghost" size="sm" asChild className="mb-2">
-          <Link href="/admin/global-programs">
-            <ArrowLeft className="mr-1 h-4 w-4" />
-            Back to Global Programs
-          </Link>
-        </Button>
-        <h1 className="text-3xl font-bold tracking-tight">New Global Program</h1>
-        <p className="text-muted-foreground">
-          Create a master program that will be available to all organizations.
-        </p>
-      </div>
+    <PageShell>
+      <PageHeader
+        back={{ label: "Back to Global Programs", href: "/admin/global-programs" }}
+        breadcrumb={[
+          { label: "Admin", href: "/admin" },
+          { label: "Global Programs", href: "/admin/global-programs" },
+          { label: "New Program" },
+        ]}
+        title="New Global Program"
+        description="Create a master program that will be available to all organizations."
+      />
       <GlobalProgramEditorWrapper exercises={exercises} clinics={clinics} />
-    </div>
+    </PageShell>
   );
 }

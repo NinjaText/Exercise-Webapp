@@ -24,21 +24,23 @@ interface CreateProgramMenuProps {
 export function CreateProgramMenu({ clientId, onUseTemplate, trigger, children }: CreateProgramMenuProps) {
   const router = useRouter();
   const generateHref = clientId ? `/programs/generate?clientId=${clientId}` : "/programs/generate";
+  const newHref = clientId ? `/programs/new?clientId=${clientId}` : "/programs/new";
+  const uploadHref = clientId ? `/programs/upload?clientId=${clientId}` : "/programs/upload";
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger render={trigger}>{children}</DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
-        <DropdownMenuItem onClick={() => router.push("/programs/new")}>
+        <DropdownMenuItem onClick={() => router.push(newHref)}>
           <Pencil className="mr-2 h-4 w-4 text-muted-foreground" />
           Start from scratch
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => router.push(generateHref)}>
-          <Sparkles className="mr-2 h-4 w-4 text-blue-600" />
+          <Sparkles className="mr-2 h-4 w-4 text-brand" />
           Generate with AI
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => router.push("/programs/upload")}>
-          <Upload className="mr-2 h-4 w-4 text-emerald-600" />
+        <DropdownMenuItem onClick={() => router.push(uploadHref)}>
+          <Upload className="mr-2 h-4 w-4 text-success" />
           Upload a program/document
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => (onUseTemplate ? onUseTemplate() : router.push("/programs?tab=templates"))}>

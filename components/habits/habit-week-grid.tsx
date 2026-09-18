@@ -59,7 +59,7 @@ export function HabitWeekGrid({ logs }: HabitWeekGridProps) {
               className={cn(
                 "h-2 w-2 rounded-full transition-colors",
                 isDone
-                  ? "bg-emerald-500"
+                  ? "bg-success"
                   : isFuture
                   ? "bg-muted-foreground/20"
                   : "border border-muted-foreground/40 bg-transparent"

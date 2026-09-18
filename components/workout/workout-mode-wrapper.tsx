@@ -11,6 +11,7 @@ import { aggregateProgramEquipment } from "@/lib/utils/program-equipment";
 import { formatDate } from "@/lib/utils/formatting";
 import { toLocalCalendarDate } from "@/lib/utils/calendar-date";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { WORKOUT_STATE } from "./workout-tokens";
 
 type Mode = "pick" | "checklist" | "session";
 
@@ -175,16 +176,16 @@ export function WorkoutModeWrapper({ session, initialMode }: Props) {
         <button
           type="button"
           onClick={() => enterMode("checklist")}
-          className="group flex flex-col rounded-2xl border-2 border-border/60 bg-card p-5 text-left shadow-sm transition-all hover:border-emerald-400 hover:bg-emerald-50/60 hover:shadow-lg hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="group flex flex-col rounded-2xl border-2 border-border/60 bg-card p-5 text-left shadow-sm transition-all hover:border-success-border hover:bg-success-soft hover:shadow-lg hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 group-hover:bg-emerald-200 transition-colors">
-            <ClipboardList className="h-5 w-5 text-emerald-600" />
+          <div className={`mb-3 flex h-10 w-10 items-center justify-center rounded-xl ${WORKOUT_STATE.completed.soft} group-hover:bg-success/20 transition-colors`}>
+            <ClipboardList className={`h-5 w-5 ${WORKOUT_STATE.completed.text}`} />
           </div>
           <p className="font-semibold text-sm">Quick Checklist</p>
           <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
             Check off exercises as you go. Great for gym sessions.
           </p>
-          <div className="mt-4 flex items-center gap-1 text-xs font-medium text-emerald-600">
+          <div className={`mt-4 flex items-center gap-1 text-xs font-medium ${WORKOUT_STATE.completed.text}`}>
             Start <ChevronRight className="h-3 w-3" />
           </div>
         </button>
@@ -192,16 +193,16 @@ export function WorkoutModeWrapper({ session, initialMode }: Props) {
         <button
           type="button"
           onClick={() => enterMode("session")}
-          className="group flex flex-col rounded-2xl border-2 border-border/60 bg-card p-5 text-left shadow-sm transition-all hover:border-blue-400 hover:bg-blue-50/60 hover:shadow-lg hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="group flex flex-col rounded-2xl border-2 border-border/60 bg-card p-5 text-left shadow-sm transition-all hover:border-info-border hover:bg-info-soft hover:shadow-lg hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 group-hover:bg-blue-200 transition-colors">
-            <Zap className="h-5 w-5 text-blue-600" />
+          <div className={`mb-3 flex h-10 w-10 items-center justify-center rounded-xl ${WORKOUT_STATE.current.soft} group-hover:bg-info/20 transition-colors`}>
+            <Zap className={`h-5 w-5 ${WORKOUT_STATE.current.text}`} />
           </div>
           <p className="font-semibold text-sm">Guided Workout</p>
           <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
             Guided step-by-step with timers and set logging.
           </p>
-          <div className="mt-4 flex items-center gap-1 text-xs font-medium text-blue-600">
+          <div className={`mt-4 flex items-center gap-1 text-xs font-medium ${WORKOUT_STATE.current.text}`}>
             Start <ChevronRight className="h-3 w-3" />
           </div>
         </button>

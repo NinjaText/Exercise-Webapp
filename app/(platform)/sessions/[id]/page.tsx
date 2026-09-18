@@ -1,13 +1,14 @@
 ﻿import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/current-user";
 import { notFound, redirect } from "next/navigation";
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
+import { format } from "date-fns";
+import { toLocalCalendarDate } from "@/lib/utils/calendar-date";
 import { Card, CardContent } from "@/components/ui/card";
-import { ArrowLeft } from "lucide-react";
 import { WorkoutModeWrapper } from "@/components/workout/workout-mode-wrapper";
 import { getWorkoutVoiceMemos } from "@/actions/voice-memo-actions";
 import { VoiceMemoPlayer } from "@/components/voice-memo/VoiceMemoPlayer";
+import { PageShell } from "@/components/shared/page-shell";
+import { PageHeader } from "@/components/shared/page-header";
 
 export default async function SessionPage({
   params,
@@ -84,14 +85,17 @@ export default async function SessionPage({
 
   if (!isClientOwner && !isProgramTrainer) return redirect("/dashboard");
 
+  const workoutName = session.workout.name;
+  const description = `${session.workout.program.name} · ${format(toLocalCalendarDate(session.scheduledDate), "MMM d, yyyy")}`;
+
   return (
-    <div className="space-y-8">
-      <Button variant="ghost" size="sm" asChild className="-ml-2">
-        <Link href="/dashboard">
-          <ArrowLeft className="mr-1 h-4 w-4" />
-          Back to Dashboard
-        </Link>
-      </Button>
+    <PageShell width="full">
+      <PageHeader
+        back={{ label: "Back to dashboard", href: "/dashboard" }}
+        breadcrumb={[{ label: "Dashboard", href: "/dashboard" }, { label: workoutName }]}
+        title={workoutName}
+        description={description}
+      />
       {(trainerMemo || clientMemo) && (
         <Card>
           <CardContent className="space-y-2 p-4 sm:p-6">
@@ -128,6 +132,6 @@ export default async function SessionPage({
         session={session as any}
         initialMode={mode === "checklist" || mode === "session" ? mode : undefined}
       />
-    </div>
+    </PageShell>
   );
 }

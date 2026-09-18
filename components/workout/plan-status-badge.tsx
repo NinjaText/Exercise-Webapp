@@ -1,18 +1,7 @@
-import { Badge } from "@/components/ui/badge";
-import { formatPlanStatus } from "@/lib/utils/formatting";
+import { StatusBadge } from "@/components/shared/status-badge";
 
-const statusColors: Record<string, string> = {
-  DRAFT: "bg-muted text-muted-foreground",
-  ACTIVE: "bg-green-100 text-green-700",
-  PAUSED: "bg-amber-100 text-amber-700",
-  COMPLETED: "bg-blue-100 text-blue-700",
-  ARCHIVED: "bg-muted text-muted-foreground/60",
-};
-
+/** Thin wrapper: plan lifecycle statuses (DRAFT/ACTIVE/PAUSED/COMPLETED/ARCHIVED)
+ * are already mapped to roles in lib/ui/status.ts. */
 export function PlanStatusBadge({ status }: { status: string }) {
-  return (
-    <Badge className={statusColors[status] || ""} variant="secondary">
-      {formatPlanStatus(status)}
-    </Badge>
-  );
+  return <StatusBadge status={status} />;
 }

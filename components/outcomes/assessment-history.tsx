@@ -74,13 +74,13 @@ export function AssessmentHistory({ assessments }: AssessmentHistoryProps) {
                               {prevVal !== null && (
                                 <span className="flex items-center gap-1">
                                   {trend === "up" && (
-                                    <ArrowUp className="h-3.5 w-3.5 text-green-500" />
+                                    <ArrowUp className="h-3.5 w-3.5 text-success" />
                                   )}
                                   {trend === "down" && (
-                                    <ArrowDown className="h-3.5 w-3.5 text-red-500" />
+                                    <ArrowDown className="h-3.5 w-3.5 text-danger" />
                                   )}
                                   {trend === "same" && (
-                                    <Minus className="h-3.5 w-3.5 text-gray-400" />
+                                    <Minus className="h-3.5 w-3.5 text-muted-foreground" />
                                   )}
                                 </span>
                               )}

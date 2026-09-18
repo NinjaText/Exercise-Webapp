@@ -29,7 +29,7 @@ export function ExerciseToolbarSelects({
         value={activeSource}
         onValueChange={(v) => v && router.push(sourceUrls[v as "UNIVERSAL" | "ORGANIZATION"])}
       >
-        <SelectTrigger className="w-44" size="sm">
+        <SelectTrigger className="h-9 w-44">
           <SelectValue>{activeSource === "ORGANIZATION" ? "Library: My Organization" : "Library: Universal"}</SelectValue>
         </SelectTrigger>
         <SelectContent>
@@ -41,7 +41,7 @@ export function ExerciseToolbarSelects({
         value={sort}
         onValueChange={(v) => v && router.push(sortUrls[v as "name_asc" | "name_desc"])}
       >
-        <SelectTrigger className="w-32" size="sm">
+        <SelectTrigger className="h-9 w-32">
           <SelectValue>{sort === "name_desc" ? "Sort: Z-A" : "Sort: A-Z"}</SelectValue>
         </SelectTrigger>
         <SelectContent>

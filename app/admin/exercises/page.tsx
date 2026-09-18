@@ -5,6 +5,9 @@ import { AdminExercisesTable } from "@/components/admin/exercises-table";
 import { AdminExerciseFilters } from "@/components/admin/admin-exercise-filters";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { PageShell } from "@/components/shared/page-shell";
+import { PageHeader } from "@/components/shared/page-header";
+import { PageToolbar } from "@/components/shared/page-toolbar";
 
 interface PageProps {
   searchParams: Promise<{ search?: string; bodyRegion?: string; page?: string; kind?: string }>;
@@ -25,60 +28,68 @@ export default async function AdminExercisesPage({ searchParams }: PageProps) {
     isAssessment: activeKind === "assessment",
   });
 
+  const kindTabs = (
+    <div className="flex gap-1">
+      {(["training", "assessment"] as const).map((k) => {
+        const sp = new URLSearchParams();
+        if (search) sp.set("search", search);
+        if (bodyRegions.length) sp.set("bodyRegion", bodyRegions.join(","));
+        if (k === "assessment") sp.set("kind", "assessment");
+        const href = sp.toString() ? `/admin/exercises?${sp.toString()}` : "/admin/exercises";
+        return (
+          <Link
+            key={k}
+            href={href}
+            className={cn(
+              "relative px-3 py-2 text-sm font-medium",
+              activeKind === k
+                ? "text-foreground after:absolute after:inset-x-0 after:-bottom-px after:h-0.5 after:bg-foreground"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            {k === "training" ? "Training" : "Assessment"}
+          </Link>
+        );
+      })}
+    </div>
+  );
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Exercise Library</h1>
-          <p className="mt-0.5 text-sm text-muted-foreground">{total.toLocaleString()} exercises across the platform.</p>
-        </div>
-        <div className="flex gap-2 shrink-0">
-          <Button asChild variant="outline">
-            <Link href="/exercises/bulk-import">
-              <UploadCloud className="mr-2 h-4 w-4" />
-              Bulk Import
-            </Link>
-          </Button>
-          <Button asChild variant="outline">
-            <Link href="/admin/exercises/import">
-              <FileSpreadsheet className="mr-2 h-4 w-4" />
-              Import CSV
-            </Link>
-          </Button>
+    <PageShell>
+      <PageHeader
+        breadcrumb={[{ label: "Admin", href: "/admin" }, { label: "Exercise Library" }]}
+        title="Exercise Library"
+        description={`${total.toLocaleString()} exercises across the platform.`}
+        primaryAction={
           <Button asChild>
             <Link href="/admin/exercises/new">
               <Plus className="mr-2 h-4 w-4" />
               Add Exercise
             </Link>
           </Button>
-        </div>
-      </div>
+        }
+        secondaryActions={
+          <>
+            <Button asChild variant="outline">
+              <Link href="/exercises/bulk-import">
+                <UploadCloud className="mr-2 h-4 w-4" />
+                Bulk Import
+              </Link>
+            </Button>
+            <Button asChild variant="outline">
+              <Link href="/admin/exercises/import">
+                <FileSpreadsheet className="mr-2 h-4 w-4" />
+                Import CSV
+              </Link>
+            </Button>
+          </>
+        }
+        tabs={kindTabs}
+      />
 
-      <div className="flex gap-1 border-b">
-        {(["training", "assessment"] as const).map((k) => {
-          const sp = new URLSearchParams();
-          if (search) sp.set("search", search);
-          if (bodyRegions.length) sp.set("bodyRegion", bodyRegions.join(","));
-          if (k === "assessment") sp.set("kind", "assessment");
-          const href = sp.toString() ? `/admin/exercises?${sp.toString()}` : "/admin/exercises";
-          return (
-            <Link
-              key={k}
-              href={href}
-              className={cn(
-                "px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors",
-                activeKind === k
-                  ? "border-primary text-primary"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
-              )}
-            >
-              {k === "training" ? "Training" : "Assessment"}
-            </Link>
-          );
-        })}
-      </div>
-
-      <AdminExerciseFilters search={search} selected={bodyRegions} />
+      <PageToolbar>
+        <AdminExerciseFilters search={search} selected={bodyRegions} />
+      </PageToolbar>
 
       <AdminExercisesTable
         exercises={exercises}
@@ -89,6 +100,6 @@ export default async function AdminExercisesPage({ searchParams }: PageProps) {
         bodyRegions={bodyRegions}
         kind={activeKind}
       />
-    </div>
+    </PageShell>
   );
 }

@@ -635,13 +635,20 @@ export interface AssignableProgramOption {
   id: string;
   name: string;
   schedulingType: string | null;
+  durationWeeks: number | null;
+  daysPerWeek: number | null;
+  bodyAreas: string[];
+  goals: string[];
+  activities: string[];
+  level: string | null;
+  updatedAt: Date;
 }
 
 /**
- * A minimal id/name/schedulingType list of the trainer's own programs, for
- * program pickers. Deliberately narrower than `getProgramsAction`, which
- * returns the full list shape (workouts, counts, categorization) that a picker
- * has no use for.
+ * The trainer's own programs as a picker needs them: identity, scheduling type,
+ * cadence, and the structured facets the picker derives its filter chips from.
+ * Still deliberately narrower than `getProgramsAction`, which returns the full
+ * list shape (workouts, counts, session rollups) that a picker has no use for.
  */
 export async function getAssignableProgramsAction() {
   const user = await getTrainerUser();
@@ -650,7 +657,19 @@ export async function getAssignableProgramsAction() {
   try {
     const programs = await prisma.program.findMany({
       where: { trainerId: user.id, isGlobal: { not: true } },
-      select: { id: true, name: true, schedulingType: true, tags: true },
+      select: {
+        id: true,
+        name: true,
+        schedulingType: true,
+        tags: true,
+        durationWeeks: true,
+        daysPerWeek: true,
+        bodyAreas: true,
+        goals: true,
+        activities: true,
+        level: true,
+        updatedAt: true,
+      },
       orderBy: { updatedAt: "desc" },
     });
 
@@ -658,7 +677,18 @@ export async function getAssignableProgramsAction() {
     // programs created by calendar actions are not real, assignable programs.
     const data: AssignableProgramOption[] = programs
       .filter((p) => !p.tags.includes("ad-hoc"))
-      .map(({ id, name, schedulingType }) => ({ id, name, schedulingType }));
+      .map((p) => ({
+        id: p.id,
+        name: p.name,
+        schedulingType: p.schedulingType,
+        durationWeeks: p.durationWeeks,
+        daysPerWeek: p.daysPerWeek,
+        bodyAreas: p.bodyAreas,
+        goals: p.goals,
+        activities: p.activities,
+        level: p.level,
+        updatedAt: p.updatedAt,
+      }));
 
     return { success: true as const, data };
   } catch (error) {

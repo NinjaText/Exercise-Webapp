@@ -23,10 +23,10 @@ export function FeedbackSummary({ feedback }: FeedbackSummaryProps) {
   const unsure = feedback.filter((f) => f.rating === "unsure_how_to_perform").length;
 
   const ratings = [
-    { label: "Felt Good", count: feltGood, color: "bg-green-500" },
-    { label: "Mild Discomfort", count: mildDiscomfort, color: "bg-yellow-500" },
-    { label: "Painful", count: painful, color: "bg-red-500" },
-    { label: "Unsure", count: unsure, color: "bg-blue-500" },
+    { label: "Felt Good", count: feltGood, color: "bg-success" },
+    { label: "Mild Discomfort", count: mildDiscomfort, color: "bg-warning" },
+    { label: "Painful", count: painful, color: "bg-danger" },
+    { label: "Unsure", count: unsure, color: "bg-info" },
   ];
 
   const lastComment = feedback.find((f) => f.comment)?.comment;

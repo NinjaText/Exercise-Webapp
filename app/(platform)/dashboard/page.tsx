@@ -1,5 +1,6 @@
 ﻿import { getCurrentUser } from "@/lib/current-user";
 import { prisma } from "@/lib/prisma";
+import { PageShell } from "@/components/shared/page-shell";
 import { TrainerDashboard } from "@/components/dashboard/trainer-dashboard";
 import { ClientDashboard } from "@/components/dashboard/client-dashboard";
 import * as sessionService from "@/lib/services/session.service";
@@ -78,20 +79,22 @@ export default async function DashboardPage() {
     );
 
     return (
-      <TrainerDashboard
-        clientCount={clientIds.length}
-        activePlans={activePlans}
-        pendingFeedback={pendingFeedback}
-        unreadMessages={unreadMessages}
-        activePrograms={activePrograms}
-        upcomingSessions={scheduledSessions}
-        priorities={insights.priorities}
-        clientsNeedingAttention={insights.clientsNeedingAttention}
-        sessionsDueToday={insights.sessionsDueToday}
-        clientMetrics={insights.clientMetrics}
-        recentMessages={inboxThreads.slice(0, 5)}
-        clientProgress={insights.clientProgress}
-      />
+      <PageShell>
+        <TrainerDashboard
+          clientCount={clientIds.length}
+          activePlans={activePlans}
+          pendingFeedback={pendingFeedback}
+          unreadMessages={unreadMessages}
+          activePrograms={activePrograms}
+          upcomingSessions={scheduledSessions}
+          priorities={insights.priorities}
+          clientsNeedingAttention={insights.clientsNeedingAttention}
+          sessionsDueToday={insights.sessionsDueToday}
+          clientMetrics={insights.clientMetrics}
+          recentMessages={inboxThreads.slice(0, 5)}
+          clientProgress={insights.clientProgress}
+        />
+      </PageShell>
     );
   }
 
@@ -212,19 +215,22 @@ export default async function DashboardPage() {
   const workoutsCompleted = completedSessionDates.length;
 
   return (
-    <ClientDashboard
-      firstName={user.firstName}
-      upcomingSessions={upcomingSessions}
-      calendarSessions={calendarSessions}
-      weeklyCompliance={completedThisWeek}
-      recentAssessments={recentAssessments}
-      currentStreak={currentStreak}
-      workoutsCompleted={workoutsCompleted}
-      exercisesCompleted={exercisesCompleted}
-      minutesExercised={minutesExercised}
-      unreadTrainerMessage={unreadTrainerMessage}
-      programProgress={programProgress}
-      resources={resources}
-    />
+    <PageShell>
+      <ClientDashboard
+        firstName={user.firstName}
+        upcomingSessions={upcomingSessions}
+        calendarSessions={calendarSessions}
+        weeklyCompliance={completedThisWeek}
+        recentAssessments={recentAssessments}
+        currentStreak={currentStreak}
+        workoutsCompleted={workoutsCompleted}
+        exercisesCompleted={exercisesCompleted}
+        minutesExercised={minutesExercised}
+        unreadTrainerMessage={unreadTrainerMessage}
+        programProgress={programProgress}
+        resources={resources}
+        inboxThreads={inboxThreads}
+      />
+    </PageShell>
   );
 }

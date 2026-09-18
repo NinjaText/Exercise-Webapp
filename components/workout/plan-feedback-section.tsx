@@ -27,7 +27,7 @@ export function PlanFeedbackSection({ exercises }: PlanFeedbackSectionProps) {
 
   if (allDone) {
     return (
-      <div className="flex items-center gap-2 rounded-lg bg-green-50 p-4 text-green-700">
+      <div className="flex items-center gap-2 rounded-lg bg-success-soft p-4 text-success-foreground">
         <CheckCircle className="h-5 w-5" />
         <p className="text-sm font-medium">All feedback submitted. Thank you!</p>
       </div>
@@ -43,12 +43,12 @@ export function PlanFeedbackSection({ exercises }: PlanFeedbackSectionProps) {
           return (
             <div
               key={ex.planExerciseId}
-              className="flex items-center justify-between rounded-lg border border-green-100 bg-green-50 px-4 py-3"
+              className="flex items-center justify-between rounded-lg border border-success-border bg-success-soft px-4 py-3"
             >
               <p className="text-sm font-medium text-muted-foreground">
                 {ex.exerciseName}
               </p>
-              <Badge variant="secondary" className="bg-green-100 text-green-700">
+              <Badge variant="secondary" className="bg-success-soft text-success-foreground">
                 <CheckCircle className="mr-1 h-3 w-3" />
                 {formatFeedbackRating(ex.existingRating ?? "FELT_GOOD")}
               </Badge>

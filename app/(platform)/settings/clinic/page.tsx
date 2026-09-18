@@ -2,6 +2,7 @@ import { requireRole } from "@/lib/current-user";
 import { getOrganizationProfile } from "@/actions/organization-actions";
 import { OrganizationProfileForm } from "@/components/settings/organization-profile-form";
 import { PageHeader } from "@/components/shared/page-header";
+import { PageShell } from "@/components/shared/page-shell";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -11,7 +12,7 @@ export default async function OrganizationSettingsPage() {
   const profile = await getOrganizationProfile();
 
   return (
-    <div className="space-y-6">
+    <PageShell width="narrow">
       <div>
         <Button variant="ghost" size="sm" asChild className="mb-2">
           <Link href="/settings">
@@ -26,6 +27,6 @@ export default async function OrganizationSettingsPage() {
         />
       </div>
       <OrganizationProfileForm initialData={profile ?? undefined} />
-    </div>
+    </PageShell>
   );
 }

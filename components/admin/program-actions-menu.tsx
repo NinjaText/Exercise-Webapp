@@ -8,6 +8,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -73,13 +74,20 @@ export function ProgramActionsMenu({
     <>
       <DropdownMenu>
         <DropdownMenuTrigger
-          className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50"
+          render={<Button variant="ghost" size="icon-sm" aria-label="Program actions" />}
+          onClick={(e) => e.stopPropagation()}
+          onMouseDown={(e) => e.stopPropagation()}
           disabled={isPending}
-          aria-label="Program actions"
         >
           <MoreHorizontal className="h-4 w-4" />
         </DropdownMenuTrigger>
-        <DropdownMenuContent side="bottom" align="end" className="w-48">
+        <DropdownMenuContent
+          side="bottom"
+          align="end"
+          className="w-48"
+          onClick={(e) => e.stopPropagation()}
+          onMouseDown={(e) => e.stopPropagation()}
+        >
           {isPublic && (
             <DropdownMenuItem
               onClick={() => setShowUnpublishDialog(true)}
@@ -115,9 +123,9 @@ export function ProgramActionsMenu({
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isPending}>Cancel</AlertDialogCancel>
             <AlertDialogAction
+              variant="destructive"
               onClick={handleDelete}
               disabled={isPending}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {isPending ? "Deleting…" : "Delete permanently"}
             </AlertDialogAction>

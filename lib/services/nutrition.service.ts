@@ -538,6 +538,7 @@ export interface ClientAdherenceSnapshot {
   clientId: string;
   firstName: string;
   lastName: string;
+  email: string;
   imageUrl: string | null;
   adherencePct: number | null;
   mealsLogged: number;
@@ -565,7 +566,7 @@ export async function getRosterAdherenceSnapshot(
 
   const clients = await prisma.user.findMany({
     where: { clerkOrgId: trainer.clerkOrgId, role: "CLIENT" },
-    select: { id: true, firstName: true, lastName: true, imageUrl: true },
+    select: { id: true, firstName: true, lastName: true, email: true, imageUrl: true },
     orderBy: { firstName: "asc" },
   });
 
@@ -579,6 +580,7 @@ export async function getRosterAdherenceSnapshot(
         clientId: client.id,
         firstName: client.firstName,
         lastName: client.lastName,
+        email: client.email,
         imageUrl: client.imageUrl,
         adherencePct: summary.adherencePct,
         mealsLogged: summary.mealsLogged,

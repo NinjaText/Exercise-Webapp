@@ -51,7 +51,7 @@ async function TrainerView({ trainerId }: { trainerId: string }) {
           <h3 className="text-lg font-semibold">Templates</h3>
           <Button
             size="sm"
-            className="gap-2 bg-linear-to-r from-blue-500 to-indigo-500 border-0 text-white shadow-md shadow-blue-500/20 hover:from-blue-600 hover:to-indigo-600"
+            className="gap-2"
             asChild
           >
             <Link href="/check-ins/new">
@@ -73,7 +73,7 @@ async function TrainerView({ trainerId }: { trainerId: string }) {
             </p>
             <Button
               size="sm"
-              className="mt-4 gap-2 bg-linear-to-r from-blue-500 to-indigo-500 border-0 text-white shadow-md shadow-blue-500/20 hover:from-blue-600 hover:to-indigo-600"
+              className="mt-4 gap-2"
               asChild
             >
               <Link href="/check-ins/new">
@@ -87,7 +87,7 @@ async function TrainerView({ trainerId }: { trainerId: string }) {
             {templates.map((t) => (
               <Card
                 key={t.id}
-                className="group border-0 shadow-sm ring-1 ring-border/50 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md hover:ring-border"
+                className="group ring-1 ring-border shadow-none transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm hover:ring-border-strong"
               >
                 <CardContent className="p-5">
                   <div className="flex items-start justify-between gap-3">
@@ -153,24 +153,22 @@ async function TrainerView({ trainerId }: { trainerId: string }) {
               return (
                 <Card
                   key={r.id}
-                  className={`group relative border-0 shadow-sm ring-1 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md hover:ring-border ${
+                  className={`group relative ring-1 shadow-none transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm hover:ring-border-strong ${
                     isUnreviewed
-                      ? "ring-amber-400/60 bg-amber-50/30 dark:bg-amber-950/10"
-                      : "ring-border/50"
+                      ? "ring-warning-border bg-warning-soft"
+                      : "ring-border"
                   }`}
                 >
                   <CardContent className="flex items-center gap-4 px-5 py-4">
                     <div
                       className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
-                        isUnreviewed
-                          ? "bg-amber-100 dark:bg-amber-900/30"
-                          : "bg-muted"
+                        isUnreviewed ? "bg-warning-soft" : "bg-muted"
                       }`}
                     >
                       {isUnreviewed ? (
-                        <AlertCircle className="h-4.5 w-4.5 text-amber-500" />
+                        <AlertCircle className="h-4.5 w-4.5 text-warning" />
                       ) : (
-                        <CheckCircle2 className="h-4.5 w-4.5 text-emerald-500" />
+                        <CheckCircle2 className="h-4.5 w-4.5 text-success" />
                       )}
                     </div>
 
@@ -188,7 +186,7 @@ async function TrainerView({ trainerId }: { trainerId: string }) {
                       {isUnreviewed && (
                         <Badge
                           variant="outline"
-                          className="border-amber-400/60 text-[10px] text-amber-600 dark:text-amber-400"
+                          className="border-warning-border text-[10px] text-warning-foreground"
                         >
                           Needs Review
                         </Badge>
@@ -228,7 +226,7 @@ async function ClientView({ clientId }: { clientId: string }) {
         <h3 className="text-lg font-semibold">
           Due Check-ins
           {pending.length > 0 && (
-            <Badge className="ml-2 bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-0 text-xs">
+            <Badge className="ml-2 bg-warning-soft text-warning-foreground border-0 text-xs">
               {pending.length}
             </Badge>
           )}
@@ -237,7 +235,7 @@ async function ClientView({ clientId }: { clientId: string }) {
         {pending.length === 0 ? (
           <div className="rounded-xl border border-dashed border-border p-12 text-center">
             <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-muted">
-              <CheckCircle2 className="h-7 w-7 text-emerald-500/60" />
+              <CheckCircle2 className="h-7 w-7 text-success/60" />
             </div>
             <h3 className="mt-4 text-base font-semibold">
               All caught up!
@@ -251,11 +249,11 @@ async function ClientView({ clientId }: { clientId: string }) {
             {pending.map((assignment) => (
               <Card
                 key={assignment.id}
-                className="group border-0 shadow-sm ring-1 ring-amber-400/60 bg-amber-50/30 dark:bg-amber-950/10 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
+                className="group ring-1 ring-warning-border bg-warning-soft shadow-none transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm"
               >
                 <CardContent className="flex items-center gap-4 px-5 py-4">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-100 dark:bg-amber-900/30">
-                    <ClipboardList className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-warning-soft">
+                    <ClipboardList className="h-5 w-5 text-warning" />
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="font-semibold leading-tight">
@@ -268,7 +266,7 @@ async function ClientView({ clientId }: { clientId: string }) {
                       >
                         {frequencyLabel(assignment.template.frequency)}
                       </Badge>
-                      <span className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400">
+                      <span className="flex items-center gap-1 text-xs text-warning-foreground">
                         <Clock className="h-3 w-3" />
                         Due {formatDate(assignment.nextDueDate)}
                       </span>
@@ -276,7 +274,7 @@ async function ClientView({ clientId }: { clientId: string }) {
                   </div>
                   <Button
                     size="sm"
-                    className="shrink-0 gap-2 bg-linear-to-r from-blue-500 to-indigo-500 border-0 text-white shadow-md shadow-blue-500/20 hover:from-blue-600 hover:to-indigo-600"
+                    className="shrink-0 gap-2"
                     asChild
                   >
                     <Link href={`/check-ins/${assignment.id}/respond`}>
@@ -302,7 +300,7 @@ async function ClientView({ clientId }: { clientId: string }) {
                 return (
                   <Card
                     key={assignment.id}
-                    className="group border-0 shadow-sm ring-1 ring-border/50 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md hover:ring-border"
+                    className="group ring-1 ring-border shadow-none transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm hover:ring-border-strong"
                   >
                     <CardContent className="flex items-center gap-4 px-5 py-4">
                       <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-muted">
@@ -347,8 +345,8 @@ export default async function CheckInsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
           <h2 className="text-2xl font-bold tracking-tight">Check-ins</h2>
           <p className="text-muted-foreground">
             {user.role === "TRAINER"
@@ -358,7 +356,7 @@ export default async function CheckInsPage() {
         </div>
         {user.role === "TRAINER" && (
           <Button
-            className="gap-2 bg-linear-to-r from-blue-500 to-indigo-500 border-0 text-white shadow-md shadow-blue-500/20 hover:from-blue-600 hover:to-indigo-600"
+            className="gap-2"
             asChild
           >
             <Link href="/check-ins/new">

@@ -31,11 +31,11 @@ const TYPE_CONFIG: Record<
   string,
   { icon: React.ElementType; colorClass: string }
 > = {
-  SESSION_REMINDER: { icon: CalendarDays, colorClass: "text-blue-500" },
-  CHECK_IN_DUE: { icon: ClipboardList, colorClass: "text-violet-500" },
-  SESSION_COMPLETED: { icon: CheckCircle, colorClass: "text-emerald-500" },
-  MISSED_SESSION: { icon: AlertCircle, colorClass: "text-amber-500" },
-  NEW_RESPONSE: { icon: FileText, colorClass: "text-indigo-500" },
+  SESSION_REMINDER: { icon: CalendarDays, colorClass: "text-primary" },
+  CHECK_IN_DUE: { icon: ClipboardList, colorClass: "text-brand" },
+  SESSION_COMPLETED: { icon: CheckCircle, colorClass: "text-success" },
+  MISSED_SESSION: { icon: AlertCircle, colorClass: "text-warning" },
+  NEW_RESPONSE: { icon: FileText, colorClass: "text-primary" },
   NEW_MESSAGE: { icon: MessageSquare, colorClass: "text-primary" },
 };
 
@@ -203,7 +203,7 @@ function NotificationItem({
 function EmptyState() {
   return (
     <div className="flex flex-col items-center justify-center gap-2 py-10 text-center">
-      <CheckCircle className="h-8 w-8 text-emerald-500/70" />
+      <CheckCircle className="h-8 w-8 text-success/70" />
       <p className="text-sm font-medium text-foreground">
         You&apos;re all caught up!
       </p>

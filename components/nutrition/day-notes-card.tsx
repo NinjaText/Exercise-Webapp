@@ -19,7 +19,7 @@ export function DayNotesCard({ clientId, date, comments }: DayNotesCardProps) {
   const dayComments = comments.filter((c) => !c.logId);
 
   return (
-    <div className="rounded-xl p-4 ring-1 ring-border/50">
+    <div className="rounded-xl p-4 ring-1 ring-border">
       <div className="mb-3 flex items-center gap-2">
         <StickyNote className="h-4 w-4 text-muted-foreground" />
         <p className="text-sm font-semibold">Day notes</p>

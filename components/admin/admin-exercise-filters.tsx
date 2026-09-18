@@ -82,17 +82,17 @@ export function AdminExerciseFilters({ search, selected }: Props) {
   }
 
   return (
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-      <div className="relative flex-1 max-w-sm">
+    <>
+      <div className="relative max-w-sm flex-1">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           value={searchValue}
           onChange={(e) => setSearchValue(e.target.value)}
           placeholder="Search exercises…"
-          className="pl-9"
+          className="h-9 pl-9"
         />
       </div>
-      <div className="flex flex-wrap items-center gap-3 rounded-lg border border-input bg-background px-3 py-2">
+      <div className="flex min-h-9 basis-full flex-wrap items-center gap-3 rounded-lg border border-input bg-background px-3 py-1.5">
         <span className="text-xs font-medium text-muted-foreground shrink-0">Body region</span>
         {BODY_REGIONS.map((r) => {
           const id = `admin-region-${r.value}`;
@@ -108,6 +108,6 @@ export function AdminExerciseFilters({ search, selected }: Props) {
           );
         })}
       </div>
-    </div>
+    </>
   );
 }

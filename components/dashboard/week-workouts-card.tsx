@@ -1,9 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
 import { endOfDay, isSameDay, startOfDay, startOfWeek } from "date-fns";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { SectionCard } from "@/components/shared/section-card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -13,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { CalendarDays, ChevronRight } from "lucide-react";
+import { CalendarDays } from "lucide-react";
 import {
   WeekWorkoutClientRow,
   type DayDotStatus,
@@ -192,96 +191,75 @@ export function WeekWorkoutsCard({
   const hiddenCount = rows.length - visibleRows.length;
 
   return (
-    <Card className="h-full">
-      <CardHeader className="flex flex-col gap-2 pb-2">
-        <div className="flex flex-row items-center justify-between">
-          <div className="flex items-center gap-2">
-            <CalendarDays className="h-4.5 w-4.5 text-primary" />
-            <CardTitle className="text-base font-semibold">
-              {dateScope === "today" ? "Today's Workouts" : "This Week's Workouts"}
-            </CardTitle>
-          </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 gap-1 text-xs text-muted-foreground hover:text-foreground"
-            asChild
-          >
-            <Link href="/programs">
-              View all <ChevronRight className="h-3.5 w-3.5" />
-            </Link>
-          </Button>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Tabs value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatusFilter)}>
-            <TabsList className="gap-0.5 rounded-full border border-border bg-muted/60 p-0.5">
-              {STATUS_FILTERS.map((filter) => (
-                <TabsTrigger
-                  key={filter.value}
-                  value={filter.value}
-                  className="rounded-full px-2.5 text-xs data-active:bg-primary data-active:text-primary-foreground data-active:shadow-none"
-                >
-                  {filter.label}
-                </TabsTrigger>
+    <SectionCard
+      title={dateScope === "today" ? "Today's Workouts" : "This Week's Workouts"}
+      icon={CalendarDays}
+      action={{ label: "View all", href: "/programs" }}
+      className="h-full"
+    >
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <Tabs value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatusFilter)}>
+          <TabsList>
+            {STATUS_FILTERS.map((filter) => (
+              <TabsTrigger key={filter.value} value={filter.value} className="text-xs">
+                {filter.label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
+        {clients.length > 0 && (
+          <Select value={clientFilter} onValueChange={(v) => setClientFilter(v ?? "all")}>
+            <SelectTrigger className="h-8 w-44" size="sm">
+              <SelectValue placeholder="All Clients">
+                {(value: string | null) =>
+                  !value || value === "all"
+                    ? "All Clients"
+                    : clients.find((c) => c.id === value)?.name ?? "All Clients"
+                }
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Clients</SelectItem>
+              {clients.map((client) => (
+                <SelectItem key={client.id} value={client.id}>
+                  {client.name}
+                </SelectItem>
               ))}
-            </TabsList>
-          </Tabs>
-          {clients.length > 0 && (
-            <Select value={clientFilter} onValueChange={(v) => setClientFilter(v ?? "all")}>
-              <SelectTrigger className="h-8 w-44" size="sm">
-                <SelectValue placeholder="All Clients">
-                  {(value: string | null) =>
-                    !value || value === "all"
-                      ? "All Clients"
-                      : clients.find((c) => c.id === value)?.name ?? "All Clients"
-                  }
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Clients</SelectItem>
-                {clients.map((client) => (
-                  <SelectItem key={client.id} value={client.id}>
-                    {client.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            </SelectContent>
+          </Select>
+        )}
+      </div>
+      {rows.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-8 text-center">
+          <CalendarDays className="h-9 w-9 text-muted-foreground/30" />
+          <p className="mt-2.5 text-sm font-medium text-muted-foreground">
+            {sessions.length === 0 ? "No workouts this week" : "No workouts match these filters"}
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground/60">
+            {sessions.length === 0
+              ? "Assign programs to your clients to get started"
+              : "Try a different status, client, or date filter"}
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {visibleRows.map((row) => (
+            <WeekWorkoutClientRow key={row.client.id} row={row} />
+          ))}
+          {(hiddenCount > 0 || expanded) && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 w-full text-xs text-muted-foreground hover:text-foreground"
+              onClick={() => setExpanded((prev) => !prev)}
+            >
+              {expanded
+                ? "Show fewer clients"
+                : `Show ${hiddenCount} more client${hiddenCount === 1 ? "" : "s"}`}
+            </Button>
           )}
         </div>
-      </CardHeader>
-      <CardContent className="pt-0">
-        {rows.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-8 text-center">
-            <CalendarDays className="h-9 w-9 text-muted-foreground/30" />
-            <p className="mt-2.5 text-sm font-medium text-muted-foreground">
-              {sessions.length === 0 ? "No workouts this week" : "No workouts match these filters"}
-            </p>
-            <p className="mt-1 text-xs text-muted-foreground/60">
-              {sessions.length === 0
-                ? "Assign programs to your clients to get started"
-                : "Try a different status, client, or date filter"}
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {visibleRows.map((row) => (
-              <WeekWorkoutClientRow key={row.client.id} row={row} />
-            ))}
-            {(hiddenCount > 0 || expanded) && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 w-full text-xs text-muted-foreground hover:text-foreground"
-                onClick={() => setExpanded((prev) => !prev)}
-              >
-                {expanded
-                  ? "Show fewer clients"
-                  : `Show ${hiddenCount} more client${hiddenCount === 1 ? "" : "s"}`}
-              </Button>
-            )}
-          </div>
-        )}
-      </CardContent>
-    </Card>
+      )}
+    </SectionCard>
   );
 }

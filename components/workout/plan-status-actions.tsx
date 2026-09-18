@@ -12,26 +12,33 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { CheckCircle, CirclePause, ChevronDown, Loader2, Archive, RotateCcw } from "lucide-react";
+import { ROLE_CLASSES, statusRole } from "@/lib/ui/status";
 
 interface Props {
   planId: string;
   currentStatus: string;
 }
 
+/** Icon color reflects the role of the status this action transitions *to*. */
+const successText = ROLE_CLASSES[statusRole("ACTIVE")].text;
+const warningText = ROLE_CLASSES[statusRole("PAUSED")].text;
+const completedText = ROLE_CLASSES[statusRole("COMPLETED")].text;
+const neutralText = ROLE_CLASSES[statusRole("ARCHIVED")].text;
+
 const transitions: Record<string, { label: string; status: string; icon: React.ReactNode }[]> = {
   DRAFT: [
-    { label: "Activate Plan", status: "ACTIVE", icon: <CheckCircle className="mr-2 h-4 w-4 text-green-600" /> },
+    { label: "Activate Plan", status: "ACTIVE", icon: <CheckCircle className={`mr-2 h-4 w-4 ${successText}`} /> },
   ],
   ACTIVE: [
-    { label: "Pause Plan", status: "PAUSED", icon: <CirclePause className="mr-2 h-4 w-4 text-amber-600" /> },
-    { label: "Mark Completed", status: "COMPLETED", icon: <CheckCircle className="mr-2 h-4 w-4 text-blue-600" /> },
+    { label: "Pause Plan", status: "PAUSED", icon: <CirclePause className={`mr-2 h-4 w-4 ${warningText}`} /> },
+    { label: "Mark Completed", status: "COMPLETED", icon: <CheckCircle className={`mr-2 h-4 w-4 ${completedText}`} /> },
   ],
   PAUSED: [
-    { label: "Resume Plan", status: "ACTIVE", icon: <RotateCcw className="mr-2 h-4 w-4 text-green-600" /> },
-    { label: "Archive Plan", status: "ARCHIVED", icon: <Archive className="mr-2 h-4 w-4 text-muted-foreground" /> },
+    { label: "Resume Plan", status: "ACTIVE", icon: <RotateCcw className={`mr-2 h-4 w-4 ${successText}`} /> },
+    { label: "Archive Plan", status: "ARCHIVED", icon: <Archive className={`mr-2 h-4 w-4 ${neutralText}`} /> },
   ],
   COMPLETED: [
-    { label: "Archive Plan", status: "ARCHIVED", icon: <Archive className="mr-2 h-4 w-4 text-muted-foreground" /> },
+    { label: "Archive Plan", status: "ARCHIVED", icon: <Archive className={`mr-2 h-4 w-4 ${neutralText}`} /> },
   ],
   ARCHIVED: [],
 };

@@ -30,22 +30,22 @@ const FOOTER_COLUMNS = [
 
 export function SiteFooter() {
   return (
-    <footer className="border-t border-slate-200 bg-white py-16">
+    <footer className="border-t border-border bg-background py-16">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="grid gap-12 lg:grid-cols-5">
           {/* Brand */}
           <div className="lg:col-span-2">
             <div className="flex items-center gap-2.5">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-linear-to-br from-blue-500 to-indigo-500 shadow-md shadow-blue-500/20">
-                <Activity className="h-4 w-4 text-white" />
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary shadow-md">
+                <Activity className="h-4 w-4 text-primary-foreground" />
               </div>
-              <span className="text-lg font-bold text-slate-900">INMOTUS RX</span>
+              <span className="text-lg font-bold text-foreground">INMOTUS RX</span>
             </div>
-            <p className="mt-4 max-w-xs text-sm leading-relaxed text-slate-500">
+            <p className="mt-4 max-w-xs text-sm leading-relaxed text-muted-foreground">
               AI-powered home exercise programs for modern rehabilitation. Built for trainers, designed for clients.
             </p>
-            <div className="mt-6 flex items-center gap-1.5 text-xs text-slate-400">
-              <Shield className="h-3.5 w-3.5 text-emerald-500" />
+            <div className="mt-6 flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Shield className="h-3.5 w-3.5 text-success" />
               HIPAA Compliant · SOC 2 Type II
             </div>
           </div>
@@ -53,13 +53,13 @@ export function SiteFooter() {
           {/* Links */}
           {FOOTER_COLUMNS.map((col) => (
             <div key={col.title}>
-              <h3 className="text-sm font-semibold text-slate-900">{col.title}</h3>
+              <h3 className="text-sm font-semibold text-foreground">{col.title}</h3>
               <ul className="mt-4 space-y-3">
                 {col.links.map((link) => (
                   <li key={link.label}>
                     <Link
                       href={link.href}
-                      className="text-sm text-slate-500 transition-colors hover:text-slate-900"
+                      className="text-sm text-muted-foreground transition-colors hover:text-foreground"
                     >
                       {link.label}
                     </Link>
@@ -70,11 +70,11 @@ export function SiteFooter() {
           ))}
         </div>
 
-        <div className="mt-16 flex flex-col items-center justify-between gap-4 border-t border-slate-100 pt-8 sm:flex-row">
-          <p className="text-sm text-slate-400">
+        <div className="mt-16 flex flex-col items-center justify-between gap-4 border-t border-border pt-8 sm:flex-row">
+          <p className="text-sm text-muted-foreground">
             &copy; {new Date().getFullYear()} INMOTUS RX. All rights reserved.
           </p>
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-muted-foreground">
             Made with ♥ for better rehabilitation outcomes
           </p>
         </div>

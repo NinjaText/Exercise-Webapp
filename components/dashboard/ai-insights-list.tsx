@@ -3,7 +3,7 @@
 import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Sparkles, TriangleAlert, Lightbulb, CircleCheck } from "lucide-react";
+import { Sparkles, TriangleAlert, Lightbulb, CircleCheck, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { dismissInsightAction } from "@/actions/dismiss-insight-action";
 import type { InsightKind } from "@/lib/constants/insights";
@@ -26,8 +26,8 @@ interface CoachingInsight {
 }
 
 const typeStyles: Record<CoachingInsight["type"], { icon: typeof Lightbulb; className: string }> = {
-  warning: { icon: TriangleAlert, className: "text-red-600" },
-  suggestion: { icon: Lightbulb, className: "text-amber-600" },
+  warning: { icon: TriangleAlert, className: "text-danger" },
+  suggestion: { icon: Lightbulb, className: "text-warning" },
   positive: { icon: CircleCheck, className: "text-success" },
 };
 
@@ -36,10 +36,17 @@ function insightKey(insight: CoachingInsight): string {
   return `${insight.clientId}:${insight.kind}`;
 }
 
+const DEFAULT_VISIBLE_INSIGHTS = 3;
+
 export function AiInsightsList() {
   const [insights, setInsights] = useState<CoachingInsight[]>([]);
   const [loading, setLoading] = useState(true);
   const [dismissingKey, setDismissingKey] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState(false);
+  // Which insights are open. Each is long (observation, reasoning, next step,
+  // actions), so they collapse individually to a one-line summary and the
+  // trainer opens the one they intend to act on.
+  const [openKeys, setOpenKeys] = useState<Set<string>>(new Set());
   const [, startTransition] = useTransition();
 
   useEffect(() => {
@@ -47,7 +54,11 @@ export function AiInsightsList() {
     fetch("/api/dashboard/ai-insights")
       .then((res) => (res.ok ? res.json() : { insights: [] }))
       .then((data) => {
-        if (active) setInsights(Array.isArray(data.insights) ? data.insights : []);
+        if (!active) return;
+        const next = Array.isArray(data.insights) ? data.insights : [];
+        setInsights(next);
+        // Open the first one so the card never reads as an empty shell.
+        if (next.length > 0) setOpenKeys(new Set([insightKey(next[0])]));
       })
       .catch(() => {
         if (active) setInsights([]);
@@ -59,6 +70,15 @@ export function AiInsightsList() {
       active = false;
     };
   }, []);
+
+  function toggleInsight(key: string) {
+    setOpenKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
 
   function handleDismiss(insight: CoachingInsight) {
     const key = insightKey(insight);
@@ -99,62 +119,104 @@ export function AiInsightsList() {
     );
   }
 
+  const visibleInsights = expanded ? insights : insights.slice(0, DEFAULT_VISIBLE_INSIGHTS);
+  const hiddenCount = insights.length - DEFAULT_VISIBLE_INSIGHTS;
+
   return (
     <div className="space-y-2.5">
-      {insights.map((insight) => {
+      {visibleInsights.map((insight) => {
         const style = typeStyles[insight.type] ?? typeStyles.suggestion;
         const Icon = style.icon;
         const key = insightKey(insight);
         const actionKeys = ACTIONS_BY_INSIGHT_KIND[insight.kind] ?? ["message_client", "dismiss"];
 
+        const isOpen = openKeys.has(key);
+
         return (
           <div key={key} className="rounded-xl border border-border/60 p-3">
-            <div className="flex items-start gap-2.5">
+            {/* The whole header is the toggle — collapsed, an insight is just the
+                client and what happened; the reasoning and actions come on open. */}
+            <button
+              type="button"
+              onClick={() => toggleInsight(key)}
+              aria-expanded={isOpen}
+              className="flex w-full items-start gap-2.5 rounded-md text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
               <Icon className={`mt-0.5 h-4 w-4 shrink-0 ${style.className}`} />
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium">{insight.clientName}</p>
-                <p className="mt-0.5 text-xs text-foreground/80">{insight.what}</p>
-                <p className="mt-0.5 text-xs text-muted-foreground">{insight.why}</p>
-                <p className="mt-1 text-xs font-medium text-foreground">
-                  Next: <span className="font-normal">{insight.action}</span>
-                </p>
-              </div>
-            </div>
-            <div className="mt-2 flex flex-wrap gap-1.5 pl-6.5">
-              {actionKeys.map((actionKey: InsightActionKey) => {
-                const config = INSIGHT_ACTION_CONFIG[actionKey];
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-medium">{insight.clientName}</span>
+                <span
+                  className={`mt-0.5 block text-xs text-foreground/80 ${
+                    isOpen ? "" : "line-clamp-2"
+                  }`}
+                >
+                  {insight.what}
+                </span>
+              </span>
+              <ChevronDown
+                className={`mt-0.5 h-4 w-4 shrink-0 text-muted-foreground transition-transform ${
+                  isOpen ? "rotate-180" : ""
+                }`}
+              />
+            </button>
 
-                if (actionKey === "dismiss") {
-                  return (
-                    <Button
-                      key={actionKey}
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 text-xs text-muted-foreground"
-                      disabled={dismissingKey === key}
-                      onClick={() => handleDismiss(insight)}
-                    >
-                      {config.label}
-                    </Button>
-                  );
-                }
+            {isOpen && (
+              <>
+                <div className="mt-1 pl-6.5">
+                  <p className="text-xs text-muted-foreground">{insight.why}</p>
+                  <p className="mt-1 text-xs font-medium text-foreground">
+                    Next: <span className="font-normal">{insight.action}</span>
+                  </p>
+                </div>
+                <div className="mt-2 flex flex-wrap gap-1.5 pl-6.5">
+                  {actionKeys.map((actionKey: InsightActionKey) => {
+                    const config = INSIGHT_ACTION_CONFIG[actionKey];
 
-                const href = config.href?.({
-                  clientId: insight.clientId,
-                  programId: insight.programId,
-                });
-                if (!href) return null;
+                    if (actionKey === "dismiss") {
+                      return (
+                        <Button
+                          key={actionKey}
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 text-xs text-muted-foreground"
+                          disabled={dismissingKey === key}
+                          onClick={() => handleDismiss(insight)}
+                        >
+                          {config.label}
+                        </Button>
+                      );
+                    }
 
-                return (
-                  <Button key={actionKey} variant="outline" size="sm" className="h-7 text-xs" asChild>
-                    <Link href={href}>{config.label}</Link>
-                  </Button>
-                );
-              })}
-            </div>
+                    const href = config.href?.({
+                      clientId: insight.clientId,
+                      programId: insight.programId,
+                    });
+                    if (!href) return null;
+
+                    return (
+                      <Button key={actionKey} variant="outline" size="sm" className="h-7 text-xs" asChild>
+                        <Link href={href}>{config.label}</Link>
+                      </Button>
+                    );
+                  })}
+                </div>
+              </>
+            )}
           </div>
         );
       })}
+      {(hiddenCount > 0 || expanded) && (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-7 w-full text-xs text-muted-foreground hover:text-foreground"
+          onClick={() => setExpanded((prev) => !prev)}
+        >
+          {expanded
+            ? "Show fewer insights"
+            : `View ${hiddenCount} more insight${hiddenCount === 1 ? "" : "s"}`}
+        </Button>
+      )}
     </div>
   );
 }

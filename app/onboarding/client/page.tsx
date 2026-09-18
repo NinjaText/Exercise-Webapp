@@ -12,7 +12,7 @@ export default async function ClientOnboardingPage() {
   // from the invitation URL and complete account creation inline.
   if (!userId) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-blue-50">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-muted to-info-soft px-4 py-12">
         <SignUp routing="hash" forceRedirectUrl="/onboarding/client" />
       </div>
     );
@@ -25,28 +25,28 @@ export default async function ClientOnboardingPage() {
     <div className="flex min-h-screen">
       <div className="hidden w-1/2 flex-col justify-between bg-gradient-to-br from-[#0f172a] via-[#1e3a5f] to-[#0c4a6e] p-12 lg:flex">
         <div className="flex items-center gap-2.5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-blue-400 to-indigo-500">
-            <Activity className="h-5 w-5 text-white" />
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
+            <Activity className="h-5 w-5 text-primary-foreground" />
           </div>
-          <span className="text-xl font-bold text-white">INMOTUS RX</span>
+          <span className="text-xl font-bold text-sidebar-foreground">INMOTUS RX</span>
         </div>
         <div>
-          <h1 className="text-4xl font-extrabold tracking-tight text-white">
+          <h1 className="text-4xl font-extrabold tracking-tight text-sidebar-foreground">
             Welcome to your rehabilitation program.
           </h1>
-          <p className="mt-4 max-w-md text-lg text-slate-300">
+          <p className="mt-4 max-w-md text-lg text-sidebar-foreground/70">
             Complete your profile so your trainer can personalize your exercise program.
           </p>
         </div>
-        <p className="text-sm text-slate-400">
+        <p className="text-sm text-sidebar-foreground/40">
           &copy; {new Date().getFullYear()} INMOTUS RX. All rights reserved.
         </p>
       </div>
 
       <div className="flex flex-1 flex-col items-center justify-center bg-[oklch(0.97_0.005_247)] p-6 sm:p-12">
         <div className="flex items-center gap-2.5 mb-8 lg:hidden">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-blue-400 to-indigo-500">
-            <Activity className="h-5 w-5 text-white" />
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
+            <Activity className="h-5 w-5 text-primary-foreground" />
           </div>
           <span className="text-xl font-bold">INMOTUS RX</span>
         </div>

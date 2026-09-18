@@ -224,8 +224,8 @@ export function MessageThread({
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between gap-3 border-b border-border p-4">
-        <h2 className="font-semibold text-foreground">{recipientName}</h2>
+      <div className="flex items-center justify-between gap-3 border-b border-border p-3 sm:p-4">
+        <h2 className="min-w-0 truncate font-semibold text-foreground">{recipientName}</h2>
         {headerRight}
       </div>
 
@@ -307,7 +307,7 @@ export function MessageThread({
                 className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
                   composeMode === mode
                     ? mode === "note"
-                      ? "bg-amber-100 text-amber-900"
+                      ? "bg-warning-soft text-warning-foreground"
                       : "bg-primary/10 text-primary"
                     : "text-muted-foreground hover:bg-muted"
                 }`}
@@ -334,7 +334,7 @@ export function MessageThread({
               onKeyDown={handleKeyDown}
               placeholder={composeMode === "note" ? "Write a note only you can see..." : "Type a message..."}
               rows={1}
-              className={`min-h-[2.5rem] resize-none ${composeMode === "note" ? "border-amber-300 bg-amber-50" : ""}`}
+              className={`min-h-[2.5rem] resize-none ${composeMode === "note" ? "border-warning-border bg-warning-soft" : ""}`}
             />
             {composeMode === "message" && (
               <Button
@@ -380,29 +380,29 @@ function VoiceNoteBubble({ item, isOwn }: { item: ThreadVoiceNoteItem; isOwn: bo
       <div className={`max-w-[70%] ${isOwn ? "text-right" : ""}`}>
         <div
           className={`inline-block rounded-lg px-3 py-2 text-left ${
-            isOwn ? "bg-blue-600 text-white" : "bg-muted text-foreground"
+            isOwn ? "bg-primary text-primary-foreground" : "bg-muted text-foreground"
           }`}
         >
           <p
             className={`mb-1 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide ${
-              isOwn ? "text-white/80" : "text-muted-foreground"
+              isOwn ? "text-primary-foreground/80" : "text-muted-foreground"
             }`}
           >
             <Dumbbell className="h-3 w-3 shrink-0" />
             Session Voice Note
           </p>
-          <p className={`mb-1.5 text-xs ${isOwn ? "text-white/90" : "text-muted-foreground"}`}>
+          <p className={`mb-1.5 text-xs ${isOwn ? "text-primary-foreground/90" : "text-muted-foreground"}`}>
             {item.workoutName}
           </p>
           <div className="flex items-center gap-2">
-            <Mic className={`h-3.5 w-3.5 shrink-0 ${isOwn ? "text-white" : "text-muted-foreground"}`} />
+            <Mic className={`h-3.5 w-3.5 shrink-0 ${isOwn ? "text-primary-foreground" : "text-muted-foreground"}`} />
             <audio src={item.audioUrl} controls className="h-8 max-w-[220px]" />
           </div>
           {item.sessionId && (
             <Link
               href={`/sessions/${item.sessionId}`}
               className={`mt-1.5 inline-block text-xs font-medium underline underline-offset-2 ${
-                isOwn ? "text-white/90 hover:text-white" : "text-primary hover:text-primary/80"
+                isOwn ? "text-primary-foreground/90 hover:text-primary-foreground" : "text-primary hover:text-primary/80"
               }`}
             >
               View workout
@@ -549,27 +549,27 @@ function MessageBubble({
         ) : isVoice ? (
           <div
             className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 ${
-              isOwn ? "bg-blue-600" : "bg-muted"
+              isOwn ? "bg-primary" : "bg-muted"
             }`}
           >
             <Mic
-              className={`h-3.5 w-3.5 shrink-0 ${isOwn ? "text-white" : "text-muted-foreground"}`}
+              className={`h-3.5 w-3.5 shrink-0 ${isOwn ? "text-primary-foreground" : "text-muted-foreground"}`}
             />
             <audio src={message.audioUrl ?? undefined} controls className="h-8 max-w-[220px]" />
           </div>
         ) : (
           <div>
             {message.isInternal && (
-              <p className={`mb-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700 ${isOwn ? "text-right" : ""}`}>
+              <p className={`mb-0.5 text-[10px] font-semibold uppercase tracking-wide text-warning-foreground ${isOwn ? "text-right" : ""}`}>
                 Internal note
               </p>
             )}
             <div
               className={`inline-block rounded-lg px-4 py-2 text-sm ${
                 message.isInternal
-                  ? "bg-amber-100 text-amber-950 ring-1 ring-amber-300"
+                  ? "bg-warning-soft text-warning-foreground ring-1 ring-warning-border"
                   : isOwn
-                    ? "bg-blue-600 text-white"
+                    ? "bg-primary text-primary-foreground"
                     : "bg-muted text-foreground"
               }`}
             >
@@ -662,7 +662,7 @@ function ReadIndicator({ isRead, readAt }: { isRead: boolean; readAt?: Date | st
         <TooltipTrigger
           render={<span className="inline-flex items-center" aria-label={readLabel} />}
         >
-          <CheckCheck className="h-3.5 w-3.5 text-blue-500" />
+          <CheckCheck className="h-3.5 w-3.5 text-info" />
         </TooltipTrigger>
         <TooltipContent>{readLabel}</TooltipContent>
       </Tooltip>

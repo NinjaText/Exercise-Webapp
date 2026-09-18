@@ -16,11 +16,11 @@ export default async function SalesPage({
   const bundle = pkg.upsell && pkg.upsell.programTemplateId ? pkg.upsell : null;
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 to-blue-50 px-4 py-12">
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-muted to-info-soft px-4 py-12">
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
-          <h1 className="text-2xl font-bold text-slate-900">{pkg.name}</h1>
-          {pkg.description && <p className="mt-1 text-slate-600">{pkg.description}</p>}
+          <h1 className="text-2xl font-bold text-foreground">{pkg.name}</h1>
+          {pkg.description && <p className="mt-1 text-muted-foreground">{pkg.description}</p>}
         </div>
         <Card>
           <CardHeader>

@@ -3,21 +3,18 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 import {
   Tabs,
   TabsContent,
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs";
+import { PageHeader } from "@/components/shared/page-header";
+import { StatusBadge } from "@/components/shared/status-badge";
+import { SectionCard } from "@/components/shared/section-card";
 import {
   Pencil,
   Copy,
@@ -26,9 +23,9 @@ import {
   ChevronRight,
   Play,
   Dumbbell,
-  Share2,
   Download,
   Printer,
+  Tag,
   Mic,
   Loader2,
 } from "lucide-react";
@@ -50,6 +47,7 @@ import {
 import { format } from "date-fns";
 import { toLocalCalendarDate } from "@/lib/utils/calendar-date";
 import { aggregateProgramEquipment } from "@/lib/utils/program-equipment";
+import { pickStartableSession } from "@/lib/utils/session-picker";
 import { VoiceMemoRecorder } from "@/components/voice-memo/VoiceMemoRecorder";
 import { VoiceMemoPlayer } from "@/components/voice-memo/VoiceMemoPlayer";
 import { getWorkoutVoiceMemos } from "@/actions/voice-memo-actions";
@@ -64,6 +62,8 @@ interface ProgramDetailViewProps {
   clients: { id: string; firstName: string; lastName: string }[];
   sessions: Record<string, unknown>[];
   showAssignDialog?: boolean;
+  /** Pre-selects a client in the assign dialog, e.g. when arriving from that client's profile. */
+  initialAssignClientId?: string;
   trainerName?: string;
   adminMode?: boolean;
   editHref?: string;
@@ -83,6 +83,7 @@ export function ProgramDetailView({
   clients,
   sessions,
   showAssignDialog = false,
+  initialAssignClientId,
   trainerName: trainerNameProp,
   adminMode = false,
   editHref,
@@ -199,8 +200,8 @@ export function ProgramDetailView({
   const equipmentNeeded = savedEquipment.length > 0
     ? savedEquipment
     : aggregateProgramEquipment(workouts);
+  const startableSession = !isTrainer && !isResource ? pickStartableSession(sessions, new Date()) : null;
 
-  const [shareOpen, setShareOpen] = useState(false);
   const [voiceMemoWorkout, setVoiceMemoWorkout] = useState<{ id: string; name: string } | null>(null);
   const [trainerMemo, setTrainerMemo] = useState<VoiceMemoData | null>(null);
   const [memoLoading, setMemoLoading] = useState(false);
@@ -244,150 +245,147 @@ export function ProgramDetailView({
     URL.revokeObjectURL(url);
   }
 
-  return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">
-            {program.name as string}
-          </h1>
-          <div className="flex items-center gap-2 mt-2">
-            <Badge>{program.status as string}</Badge>
-            {(program.isTemplate as boolean) && (
-              <Badge variant="outline">Template</Badge>
-            )}
-            {client && (
-              <span className="text-sm text-muted-foreground">
-                Assigned to {client.firstName} {client.lastName}
-              </span>
-            )}
-            {!!program.startDate && (
-              <span className="text-sm text-muted-foreground">
-                Starts{" "}
-                {format(toLocalCalendarDate(program.startDate as string), "MMM d, yyyy")}
-              </span>
-            )}
-          </div>
-          {!!program.description && (
-            <p className="text-muted-foreground mt-2">
-              {program.description as string}
-            </p>
-          )}
-        </div>
-        {isTrainer && (
-          <div className="flex flex-wrap items-center gap-2">
-            <Button variant="outline" asChild>
-              <Link href={`/programs/${program.id}/edit`}>
-                <Pencil className="mr-2 h-4 w-4" /> Edit
-              </Link>
-            </Button>
-            <Button
-              variant="outline"
-              onClick={async () => {
-                const r = await duplicateProgramAction(
-                  program.id as string
-                );
-                if (r.success) {
-                  toast.success("Duplicated");
-                  router.refresh();
-                } else toast.error(r.error);
-              }}
-            >
-              <Copy className="mr-2 h-4 w-4" /> Duplicate
-            </Button>
-            {!clientId && (
-              <Button onClick={() => setAssignOpen(true)}>
-                <UserPlus className="mr-2 h-4 w-4" /> Assign
-              </Button>
-            )}
-            {(program.isTemplate as boolean) && !clientId && (
-              <Button variant="outline" onClick={() => setSellOpen(true)}>
-                Sell this program
-              </Button>
-            )}
-            <Popover open={shareOpen} onOpenChange={setShareOpen}>
-              <PopoverTrigger render={
-                <Button variant="outline">
-                  <Share2 className="mr-2 h-4 w-4" /> Share
-                </Button>
-              } />
-              <PopoverContent className="w-80" align="end">
-                <div className="space-y-3">
-                  <p className="text-sm font-semibold">Share Exercise Plan</p>
-                  <Separator />
-                  <Button
-                    variant="ghost"
-                    className="w-full justify-start gap-2"
-                    onClick={() => { setShareOpen(false); void handleDownloadPdf(); }}
-                  >
-                    <Download className="h-4 w-4" /> Download PDF
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    className="w-full justify-start gap-2"
-                    onClick={() => {
-                      setShareOpen(false);
-                      window.open(`/api/programs/${program.id as string}/pdf`);
-                    }}
-                  >
-                    <Printer className="h-4 w-4" /> Print
-                  </Button>
-                </div>
-              </PopoverContent>
-            </Popover>
-          </div>
-        )}
-        {adminMode && (
-          <div className="flex items-center gap-2">
-            {trainerName && (
-              <span className="text-sm text-muted-foreground mr-2">
-                Owned by {trainerName}
-              </span>
-            )}
-            <Button variant="outline" asChild>
-              <Link href={editHref ?? `/programs/${program.id}/edit`}>
-                <Pencil className="mr-2 h-4 w-4" /> Edit
-              </Link>
-            </Button>
-            {!clientId && (
-              <Button onClick={() => setAssignOpen(true)}>
-                <UserPlus className="mr-2 h-4 w-4" /> Assign
-              </Button>
-            )}
-            <ProgramActionsMenu
-              programId={program.id as string}
-              programName={(program.name as string) ?? "this program"}
-              isPublic={program.isPublic as boolean | undefined}
-              redirectTo="/admin/programs"
-            />
-          </div>
-        )}
-      </div>
+  async function handleDuplicate() {
+    const r = await duplicateProgramAction(program.id as string);
+    if (r.success) {
+      toast.success("Duplicated");
+      router.refresh();
+    } else toast.error(r.error);
+  }
 
-      {/* Tabs */}
-      <Tabs defaultValue="overview">
-        <TabsList>
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="schedule">Schedule</TabsTrigger>
-        </TabsList>
+  const isTemplate = program.isTemplate as boolean;
+  const pdfUrl = `/api/programs/${program.id as string}/pdf`;
+
+  const shareOverflow = [
+    { label: "Duplicate", icon: Copy, onSelect: handleDuplicate },
+    ...(isTemplate && !clientId
+      ? [{ label: "Sell this program", icon: Tag, onSelect: () => setSellOpen(true) }]
+      : []),
+    { label: "Download PDF", icon: Download, onSelect: () => void handleDownloadPdf() },
+    { label: "Print", icon: Printer, onSelect: () => window.open(pdfUrl) },
+  ];
+
+  const editButton = (
+    <Button variant="outline" asChild>
+      <Link href={editHref ?? `/programs/${program.id}/edit`}>
+        <Pencil className="size-4" /> Edit
+      </Link>
+    </Button>
+  );
+
+  const primaryEditButton = (
+    <Button asChild>
+      <Link href={editHref ?? `/programs/${program.id}/edit`}>
+        <Pencil className="size-4" /> Edit
+      </Link>
+    </Button>
+  );
+
+  const assignIsPrimary = (isTrainer || adminMode) && !clientId;
+
+  return (
+    <>
+      <Tabs defaultValue="overview" className="gap-6">
+        <PageHeader
+          breadcrumb={
+            adminMode
+              ? [
+                  { label: "Admin", href: "/admin" },
+                  { label: "All Programs", href: "/admin/programs" },
+                  { label: program.name as string },
+                ]
+              : [
+                  { label: isTrainer ? "Programs" : "My Programs", href: "/programs" },
+                  { label: program.name as string },
+                ]
+          }
+          back={adminMode ? { label: "Back to Programs", href: "/admin/programs" } : undefined}
+          title={program.name as string}
+          description={program.description as string | undefined}
+          primaryAction={
+            !isTrainer && !adminMode
+              ? undefined
+              : assignIsPrimary
+                ? (
+                  <Button onClick={() => setAssignOpen(true)}>
+                    <UserPlus className="size-4" /> Assign
+                  </Button>
+                )
+                : primaryEditButton
+          }
+          secondaryActions={
+            isTrainer
+              ? (assignIsPrimary ? editButton : undefined)
+              : adminMode
+                ? (
+                  <>
+                    {assignIsPrimary && editButton}
+                    <ProgramActionsMenu
+                      programId={program.id as string}
+                      programName={(program.name as string) ?? "this program"}
+                      isPublic={program.isPublic as boolean | undefined}
+                      redirectTo="/admin/programs"
+                    />
+                  </>
+                )
+                : undefined
+          }
+          overflow={isTrainer ? shareOverflow : undefined}
+          meta={
+            <>
+              <StatusBadge status={program.status as string} size="sm" />
+              {isTemplate && <StatusBadge status="TEMPLATE" size="sm" dot={false} />}
+              {client && (
+                <span>
+                  Assigned to {client.firstName} {client.lastName}
+                </span>
+              )}
+              {!!program.startDate && (
+                <span>
+                  Starts {format(toLocalCalendarDate(program.startDate as string), "MMM d, yyyy")}
+                </span>
+              )}
+              {adminMode && trainerName && <span>Owned by {trainerName}</span>}
+            </>
+          }
+          tabs={
+            <TabsList variant="line">
+              <TabsTrigger value="overview">Overview</TabsTrigger>
+              <TabsTrigger value="schedule">Schedule</TabsTrigger>
+            </TabsList>
+          }
+        />
+
+        {startableSession && (
+          <div className="rounded-xl bg-card p-4 ring-1 ring-border flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <p className="text-sm font-semibold truncate">
+                {((startableSession.workout as Record<string, unknown> | null)?.name as string) ?? "Next workout"}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {format(toLocalCalendarDate(startableSession.scheduledDate as string | Date), "EEEE, MMM d")}
+              </p>
+            </div>
+            <Button size="default" className="shrink-0 font-semibold" asChild>
+              <Link href={`/sessions/${startableSession.id as string}`}>
+                <Play className="mr-2 h-4 w-4 fill-current" />
+                Start Workout
+              </Link>
+            </Button>
+          </div>
+        )}
+
         <TabsContent value="overview" className="space-y-4 mt-4">
           {equipmentNeeded.length > 0 && (
-            <Card>
-              <CardContent className="pt-4 pb-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <Dumbbell className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm font-semibold">Equipment needed</span>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {equipmentNeeded.map((eq) => (
-                    <Badge key={eq} variant="secondary" className="text-xs">
-                      {eq}
-                    </Badge>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+            <SectionCard title="Equipment needed" icon={Dumbbell}>
+              <div className="flex flex-wrap gap-2">
+                {equipmentNeeded.map((eq) => (
+                  <Badge key={eq} variant="secondary" className="text-xs">
+                    {eq}
+                  </Badge>
+                ))}
+              </div>
+            </SectionCard>
           )}
           {workouts.length === 0 ? (
             <Card className="p-12 text-center">
@@ -406,7 +404,7 @@ export function ProgramDetailView({
                 const sessionCount = weekWorkouts.length;
 
                 return (
-                  <div key={weekIdx} className="rounded-xl border bg-card overflow-hidden">
+                  <Card key={weekIdx} className="gap-0 overflow-hidden p-0 ring-1 ring-border shadow-none">
                     {!isSingleWeek && (
                       <button
                         type="button"
@@ -456,9 +454,11 @@ export function ProgramDetailView({
                                     <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
                                   )}
                                   <div className="flex items-center gap-2.5 flex-1 min-w-0">
-                                    <span className="text-xs font-medium text-muted-foreground bg-muted rounded-md px-2 py-0.5 shrink-0">
-                                      Day {dayPos + 1}
-                                    </span>
+                                    {!(isResource && workouts.length === 1) && (
+                                      <span className="text-xs font-medium text-muted-foreground bg-muted rounded-md px-2 py-0.5 shrink-0">
+                                        Day {dayPos + 1}
+                                      </span>
+                                    )}
                                     <span className="font-medium text-sm truncate">
                                       {workout.name as string}
                                     </span>
@@ -491,13 +491,13 @@ export function ProgramDetailView({
                                     ) : (
                                       <Play className="mr-1.5 h-3.5 w-3.5 fill-current" />
                                     )}
-                                    {startingWorkoutId === wId ? "Starting..." : "Start Resource Session"}
+                                    {startingWorkoutId === wId ? "Starting..." : "Start Session"}
                                   </Button>
                                 )}
                                 {isTrainer && (
                                   <button
                                     type="button"
-                                    className="px-4 py-3.5 shrink-0 text-muted-foreground hover:text-emerald-600 transition-colors"
+                                    className="px-4 py-3.5 shrink-0 text-muted-foreground hover:text-success transition-colors"
                                     title="Voice note"
                                     onClick={() => setVoiceMemoWorkout({ id: wId, name: workout.name as string })}
                                   >
@@ -549,7 +549,7 @@ export function ProgramDetailView({
                                                     {!!(exercise?.videoUrl) && (
                                                       <button
                                                         type="button"
-                                                        className="inline-flex items-center gap-0.5 text-[10px] bg-blue-50 text-blue-600 border border-blue-200 px-1.5 py-0.5 rounded-sm font-medium hover:bg-blue-100 transition-colors"
+                                                        className="inline-flex items-center gap-0.5 text-[10px] bg-info-soft text-info-foreground border border-info-border px-1.5 py-0.5 rounded-sm font-medium hover:bg-info-border transition-colors"
                                                         onClick={() => setDetailExercise(exercise)}
                                                       >
                                                         <Play className="h-2.5 w-2.5" /> Watch
@@ -593,7 +593,7 @@ export function ProgramDetailView({
                         })}
                       </div>
                     )}
-                  </div>
+                  </Card>
                 );
               })}
             </div>
@@ -616,11 +616,13 @@ export function ProgramDetailView({
       {/* Assign Dialog */}
       <AssignProgramDialog
         programId={program.id as string}
+        programName={program.name as string}
         clients={clients}
         open={assignOpen}
         onOpenChange={setAssignOpen}
         schedulingType={program.schedulingType as string | null | undefined}
         assignAction={assignAction}
+        initialClientId={initialAssignClientId}
       />
 
       <SellProgramDialog
@@ -694,6 +696,6 @@ export function ProgramDetailView({
           </div>
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   );
 }

@@ -33,14 +33,31 @@ function session(overrides: Partial<ClientSessionSummary>): ClientSessionSummary
   };
 }
 
-function snapshot(overrides: Partial<ClientSnapshot>): ClientSnapshot {
+type FeedbackOverride = {
+  rating: string;
+  createdAt: Date;
+  comment?: string | null;
+  exerciseName?: string | null;
+};
+
+function snapshot(
+  overrides: Partial<Omit<ClientSnapshot, "recentFeedback">> & {
+    recentFeedback?: FeedbackOverride[];
+  }
+): ClientSnapshot {
+  const { recentFeedback, ...rest } = overrides;
   return {
     clientId: "c1",
     clientName: "Jane Doe",
     sessions: [],
     activeProgram: null,
-    recentFeedback: [],
-    ...overrides,
+    ...rest,
+    recentFeedback: (recentFeedback ?? []).map((f) => ({
+      rating: f.rating,
+      createdAt: f.createdAt,
+      comment: f.comment ?? null,
+      exerciseName: f.exerciseName ?? null,
+    })),
   };
 }
 
@@ -102,11 +119,11 @@ describe("computeCompletionRate", () => {
       session({ status: "COMPLETED", scheduledDate: daysAgo(5) }),
       session({ status: "COMPLETED", scheduledDate: daysAgo(30) }), // outside 14d window
     ];
-    expect(computeCompletionRate(sessions, NOW)).toEqual({ rate: 2 / 3, scheduled: 3 });
+    expect(computeCompletionRate(sessions, NOW)).toEqual({ rate: 2 / 3, scheduled: 3, completed: 2 });
   });
 
   it("returns zero when nothing is scheduled in the window", () => {
-    expect(computeCompletionRate([], NOW)).toEqual({ rate: 0, scheduled: 0 });
+    expect(computeCompletionRate([], NOW)).toEqual({ rate: 0, scheduled: 0, completed: 0 });
   });
 });
 
@@ -315,13 +332,117 @@ describe("buildPriorityAlerts", () => {
   });
 });
 
+describe("buildPriorityAlerts — reasons", () => {
+  it("gives every alert a non-empty reason", () => {
+    const alerts = buildPriorityAlerts(
+      [
+        // Triggers low_completion.
+        snapshot({
+          clientId: "c1",
+          sessions: [
+            session({ status: "COMPLETED", scheduledDate: daysAgo(3), completedAt: daysAgo(3) }),
+            session({ status: "MISSED", scheduledDate: daysAgo(2) }),
+            session({ status: "MISSED", scheduledDate: daysAgo(1) }),
+          ],
+          activeProgram: { id: "p1", name: "Knee Rehab", startDate: daysAgo(30), durationWeeks: 12 },
+        }),
+        // Triggers program_ending: an 8-week program that started 54 days ago
+        // ends 2 days from now.
+        snapshot({
+          clientId: "c2",
+          sessions: [session({ status: "COMPLETED", scheduledDate: daysAgo(1), completedAt: daysAgo(1) })],
+          activeProgram: { id: "p2", name: "Shoulder Program", startDate: daysAgo(54), durationWeeks: 8 },
+        }),
+        // Triggers inactive: last activity 10 days ago, past the 5-day threshold.
+        snapshot({
+          clientId: "c3",
+          sessions: [session({ status: "COMPLETED", scheduledDate: daysAgo(10), completedAt: daysAgo(10) })],
+          activeProgram: { id: "p3", name: "Ankle Program", startDate: daysAgo(60), durationWeeks: 12 },
+        }),
+      ],
+      NOW
+    );
+    expect(alerts.length).toBeGreaterThan(0);
+    const distinctKinds = new Set(alerts.map((a) => a.kind));
+    expect(distinctKinds.size).toBeGreaterThanOrEqual(3);
+    for (const alert of alerts) {
+      expect(alert.reason).toBeTruthy();
+      expect(alert.reason.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("states the completion ratio for a low_completion alert", () => {
+    const alerts = buildPriorityAlerts(
+      [
+        snapshot({
+          sessions: [
+            session({ status: "COMPLETED", scheduledDate: daysAgo(5), completedAt: daysAgo(5) }),
+            session({ status: "MISSED", scheduledDate: daysAgo(4) }),
+            session({ status: "MISSED", scheduledDate: daysAgo(3) }),
+            session({ status: "MISSED", scheduledDate: daysAgo(2) }),
+          ],
+        }),
+      ],
+      NOW
+    );
+    const low = alerts.find((a) => a.kind === "low_completion");
+    expect(low).toBeDefined();
+    expect(low!.reason).toMatch(/1 of 4/);
+  });
+
+  it("names the exercise in a pain_feedback reason when one is known", () => {
+    const alerts = buildPriorityAlerts(
+      [
+        snapshot({
+          recentFeedback: [
+            { rating: "PAINFUL", createdAt: daysAgo(1), comment: "sharp twinge", exerciseName: "Squat" },
+          ],
+        }),
+      ],
+      NOW
+    );
+    const pain = alerts.find((a) => a.kind === "pain_feedback");
+    expect(pain!.reason).toContain("Squat");
+    expect(pain!.reason).toContain("sharp twinge");
+  });
+
+  it("falls back to the comment alone when the exercise name is unknown", () => {
+    const alerts = buildPriorityAlerts(
+      [
+        snapshot({
+          recentFeedback: [
+            { rating: "PAINFUL", createdAt: daysAgo(1), comment: "sore after", exerciseName: null },
+          ],
+        }),
+      ],
+      NOW
+    );
+    const pain = alerts.find((a) => a.kind === "pain_feedback");
+    expect(pain!.reason).toContain("sore after");
+  });
+
+  it("keeps the low_completion reason's numerator inside the same 14-day window as its denominator", () => {
+    const sessions = [
+      // Completed well outside the 14-day completion window but inside the 45-day history.
+      ...Array.from({ length: 9 }, (_, i) => session({ status: "COMPLETED", scheduledDate: daysAgo(20 + i), completedAt: daysAgo(20 + i) })),
+      // Inside the window: 1 of 4 completed -> 25%, which triggers low_completion.
+      session({ status: "COMPLETED", scheduledDate: daysAgo(3), completedAt: daysAgo(3) }),
+      session({ status: "MISSED", scheduledDate: daysAgo(2) }),
+      session({ status: "MISSED", scheduledDate: daysAgo(1) }),
+      session({ status: "MISSED", scheduledDate: daysAgo(4) }),
+    ];
+    const alert = buildPriorityAlerts([snapshot({ sessions })], NOW).find((a) => a.kind === "low_completion");
+    expect(alert!.reason).toBe("1 of 4 scheduled workouts completed in the last 14 days");
+  });
+});
+
 describe("countClientsNeedingAttention", () => {
   it("counts distinct clients with high or medium alerts, excluding low-only clients", () => {
     const alerts = [
-      { clientId: "a", clientName: "A", severity: "high" as const, kind: "inactive" as const, message: "", href: "" },
-      { clientId: "a", clientName: "A", severity: "medium" as const, kind: "discomfort" as const, message: "", href: "" },
-      { clientId: "b", clientName: "B", severity: "low" as const, kind: "fully_completed" as const, message: "", href: "" },
-      { clientId: "c", clientName: "C", severity: "medium" as const, kind: "discomfort" as const, message: "", href: "" },
+      { clientId: "a", clientName: "A", severity: "high" as const, kind: "inactive" as const, message: "", reason: "", href: "" },
+      { clientId: "a", clientName: "A", severity: "medium" as const, kind: "discomfort" as const, message: "", reason: "", href: "" },
+      { clientId: "b", clientName: "B", severity: "low" as const, kind: "fully_completed" as const, message: "", reason: "", href: "" },
+      { clientId: "c", clientName: "C", severity: "medium" as const, kind: "discomfort" as const, message: "", reason: "", href: "" },
     ];
     expect(countClientsNeedingAttention(alerts)).toBe(2);
   });

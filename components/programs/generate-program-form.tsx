@@ -114,6 +114,11 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
   const [difficulty, setDifficulty] = useState("BEGINNER");
   const [duration, setDuration] = useState(25);
   const [daysPerWeek, setDaysPerWeek] = useState(3);
+  // A Resource's session count is tracked separately from the scheduled
+  // days-per-week so switching scheduling type never carries one mode's
+  // number into the other. A Resource previously always generated exactly
+  // 1 session, so that stays the default here.
+  const [onDemandSessionCount, setOnDemandSessionCount] = useState(1);
   const [selectedWeekdays, setSelectedWeekdays] = useState<string[]>([
     "Monday",
     "Wednesday",
@@ -128,10 +133,11 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
     { id: "3", name: "Cool Down", focusType: "COOLDOWN", exerciseCount: 3, rounds: 1, restBetweenRounds: null },
   ]);
 
-  // A resource is a single anytime session, so the AI planner is always asked
-  // for one week / one day regardless of what the (hidden) schedule inputs say.
+  // A Resource has no schedule — no start date, no weekdays, always one "week".
+  // But it may bundle several standalone sessions, so the day count is the
+  // trainer's choice rather than a forced 1.
   const effectiveDurationWeeks = isOnDemand ? 1 : durationWeeks;
-  const effectiveDaysPerWeek = isOnDemand ? 1 : daysPerWeek;
+  const effectiveDaysPerWeek = isOnDemand ? onDemandSessionCount : daysPerWeek;
 
   useEffect(() => {
     getDistinctEquipmentAction().then(res => {
@@ -372,10 +378,10 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
       }
     >
       {isReviewing && clinicalPlan ? (
-        <Card>
+        <Card className="ring-1 ring-border shadow-none">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-blue-600" />
+              <Sparkles className="h-5 w-5 text-brand" />
               {clinicalPlan.programMode === 'PERFORMANCE' ? 'Review Training Plan' : 'Review Clinical Plan'}
             </CardTitle>
           </CardHeader>
@@ -390,10 +396,10 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
         </Card>
       ) : (
         <form onSubmit={handleRequestPlan}>
-          <Card>
+          <Card className="ring-1 ring-border shadow-none">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Sparkles className="h-5 w-5 text-blue-600" />
+                <Sparkles className="h-5 w-5 text-brand" />
                 AI Program Generator
               </CardTitle>
             </CardHeader>
@@ -482,24 +488,34 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
                     ))}
                   </select>
                 </div>
-                {!isOnDemand && (
-                  <div className="space-y-2">
-                    <Label>Days Per Week</Label>
-                    <select
-                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                      value={daysPerWeek}
-                      onChange={(e) => {
-                        const val = Number(e.target.value);
+                <div className="space-y-2">
+                  <Label>{isOnDemand ? "Number of Days" : "Days Per Week"}</Label>
+                  <select
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    value={isOnDemand ? onDemandSessionCount : daysPerWeek}
+                    onChange={(e) => {
+                      const val = Number(e.target.value);
+                      if (isOnDemand) {
+                        setOnDemandSessionCount(val);
+                      } else {
                         setDaysPerWeek(val);
-                        setSelectedWeekdays(prev => prev.slice(0, val));
-                      }}
-                    >
-                      {[1, 2, 3, 4, 5, 6, 7].map((d) => (
-                        <option key={d} value={d}>{d} {d === 1 ? "day" : "days"}</option>
-                      ))}
-                    </select>
-                  </div>
-                )}
+                        setSelectedWeekdays((prev) => prev.slice(0, val));
+                      }
+                    }}
+                  >
+                    {[1, 2, 3, 4, 5, 6, 7].map((d) => (
+                      <option key={d} value={d}>
+                        {d} {d === 1 ? "day" : "days"}
+                      </option>
+                    ))}
+                  </select>
+                  {isOnDemand && (
+                    <p className="text-xs text-muted-foreground">
+                      How many separate days this resource contains. It stays unscheduled —
+                      the client picks when to do each one.
+                    </p>
+                  )}
+                </div>
               </div>
 
               {/* Program Duration — cosmetic for a resource, which has no schedule */}

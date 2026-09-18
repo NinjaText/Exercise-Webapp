@@ -1,10 +1,10 @@
 import { notFound } from "next/navigation";
-import { UtensilsCrossed, TrendingUp } from "lucide-react";
 import { getCurrentUser } from "@/lib/current-user";
 import { getClientIdsForTrainer } from "@/lib/services/client.service";
 import { prisma } from "@/lib/prisma";
 import * as nutritionService from "@/lib/services/nutrition.service";
 import * as accountabilityService from "@/lib/services/accountability.service";
+import { getDisplayName } from "@/lib/utils/display-name";
 import { MacroProgressBars } from "@/components/nutrition/macro-progress-bars";
 import { WaterTracker } from "@/components/nutrition/water-tracker";
 import { NutritionGoalsDialog } from "@/components/nutrition/nutrition-goals-dialog";
@@ -16,6 +16,10 @@ import { TrendRangeToggle } from "@/components/nutrition/trend-range-toggle";
 import { AccountabilityScoreCard } from "@/components/nutrition/accountability-score-card";
 import { WeeklyReviewCard } from "@/components/nutrition/weekly-review-card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { PageShell } from "@/components/shared/page-shell";
+import { PageHeader } from "@/components/shared/page-header";
+import { SectionCard } from "@/components/shared/section-card";
+import { UtensilsCrossed, TrendingUp } from "lucide-react";
 
 function describeEmptyRange(preset: nutritionService.NutritionRangePreset, start: Date, end: Date): string {
   if (preset === "TODAY") return "No meals logged today.";
@@ -41,9 +45,11 @@ export default async function ClientNutritionDetailPage({
 
   const client = await prisma.user.findUnique({
     where: { id: clientId },
-    select: { firstName: true, lastName: true },
+    select: { firstName: true, lastName: true, email: true },
   });
   if (!client) notFound();
+
+  const clientName = getDisplayName(client);
 
   const today = new Date();
   const { preset, start, end } = nutritionService.parseNutritionRangeParams(rangeParams);
@@ -60,56 +66,53 @@ export default async function ClientNutritionDetailPage({
   const streak = nutritionService.computeLoggingStreak(history30);
 
   return (
-    <div className="space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="min-w-0">
-          <h2 className="truncate text-xl font-bold tracking-tight">
-            {client.firstName} {client.lastName} — Nutrition
-          </h2>
-          <p className="text-xs text-muted-foreground">
-            {summary.mealsLogged} meal{summary.mealsLogged !== 1 ? "s" : ""} logged today
-          </p>
-        </div>
-        <div className="flex shrink-0 items-center gap-3">
-          {summary.adherencePct !== null && (
-            <div className="text-right leading-none">
-              <p className="text-xl font-bold tabular-nums">{summary.adherencePct}%</p>
-              <p className="mt-0.5 text-[10px] text-muted-foreground">adherence</p>
-            </div>
-          )}
-          <NutritionGoalsDialog clientId={clientId} role="TRAINER" target={summary.target} />
-        </div>
-      </div>
-
-      <div className="space-y-4 rounded-xl p-4 ring-1 ring-border/50 shadow-sm">
-        <MacroProgressBars
-          calories={{ consumed: summary.consumed.calories, target: summary.target.calories }}
-          proteinG={{ consumed: summary.consumed.proteinG, target: summary.target.proteinG }}
-          carbsG={{ consumed: summary.consumed.carbsG, target: summary.target.carbsG }}
-          fatG={{ consumed: summary.consumed.fatG, target: summary.target.fatG }}
+    <PageShell>
+      <Tabs defaultValue="today" className="gap-6">
+        <PageHeader
+          breadcrumb={[{ label: "Nutrition", href: "/nutrition" }, { label: clientName }]}
+          title={clientName}
+          description={`${summary.mealsLogged} meal${summary.mealsLogged !== 1 ? "s" : ""} logged today`}
+          primaryAction={
+            <NutritionGoalsDialog clientId={clientId} role="TRAINER" target={summary.target} variant="default" />
+          }
+          meta={
+            summary.adherencePct !== null ? (
+              <span className="tabular-nums">{summary.adherencePct}% adherence today</span>
+            ) : undefined
+          }
+          tabs={
+            <TabsList variant="line">
+              <TabsTrigger value="today">
+                <UtensilsCrossed />
+                Today
+              </TabsTrigger>
+              <TabsTrigger value="insights">
+                <TrendingUp />
+                Insights
+              </TabsTrigger>
+            </TabsList>
+          }
         />
-        <div className="border-t border-border/50 pt-4">
-          <WaterTracker
-            clientId={clientId}
-            date={today}
-            consumedMl={summary.consumed.waterMl}
-            targetMl={summary.target.waterMl}
-            readOnly
-          />
-        </div>
-      </div>
 
-      <Tabs defaultValue="today">
-        <TabsList>
-          <TabsTrigger value="today">
-            <UtensilsCrossed />
-            Today
-          </TabsTrigger>
-          <TabsTrigger value="insights">
-            <TrendingUp />
-            Insights
-          </TabsTrigger>
-        </TabsList>
+        <SectionCard title="Today's Nutrition">
+          <div className="space-y-4">
+            <MacroProgressBars
+              calories={{ consumed: summary.consumed.calories, target: summary.target.calories }}
+              proteinG={{ consumed: summary.consumed.proteinG, target: summary.target.proteinG }}
+              carbsG={{ consumed: summary.consumed.carbsG, target: summary.target.carbsG }}
+              fatG={{ consumed: summary.consumed.fatG, target: summary.target.fatG }}
+            />
+            <div className="border-t border-border/50 pt-4">
+              <WaterTracker
+                clientId={clientId}
+                date={today}
+                consumedMl={summary.consumed.waterMl}
+                targetMl={summary.target.waterMl}
+                readOnly
+              />
+            </div>
+          </div>
+        </SectionCard>
 
         <TabsContent value="today" className="space-y-5 pt-1">
           <div className="flex items-center justify-between">
@@ -130,29 +133,27 @@ export default async function ClientNutritionDetailPage({
         </TabsContent>
 
         <TabsContent value="insights" className="space-y-5 pt-1">
-          <div className="rounded-xl p-4 ring-1 ring-border/50 shadow-sm">
-            <h3 className="mb-3 text-sm font-semibold">Accountability Score</h3>
+          <SectionCard title="Accountability Score">
             <AccountabilityScoreCard
               dailyScore={daily.score}
               dailyBreakdown={daily.breakdown}
               weeklyScore={weekly.weeklyScore}
             />
-          </div>
+          </SectionCard>
 
-          <div className="rounded-xl p-4 ring-1 ring-border/50 shadow-sm">
-            <h3 className="mb-3 text-sm font-semibold">Trends</h3>
+          <SectionCard title="Trends">
             <TrendRangeToggle history7={history7} history30={history30} streak={streak} />
-          </div>
+          </SectionCard>
 
-          <div className="rounded-xl p-4 ring-1 ring-border/50 shadow-sm">
+          <div className="rounded-xl p-4 ring-1 ring-border">
             <WeeklyReviewCard
               clientId={clientId}
               referenceDate={today}
-              title={`${client.firstName}'s Weekly Nutrition Summary`}
+              title={`${clientName}'s Weekly Nutrition Summary`}
             />
           </div>
         </TabsContent>
       </Tabs>
-    </div>
+    </PageShell>
   );
 }

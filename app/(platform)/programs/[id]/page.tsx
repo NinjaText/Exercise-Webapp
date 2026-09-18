@@ -1,16 +1,14 @@
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import { getCurrentUser } from "@/lib/current-user";
 import { prisma } from "@/lib/prisma";
 import * as programService from "@/lib/services/program.service";
 import { getClientsForTrainer } from "@/lib/services/client.service";
-import { Button } from "@/components/ui/button";
-import { ArrowLeft } from "lucide-react";
+import { PageShell } from "@/components/shared/page-shell";
 import { ProgramDetailView } from "@/components/programs/program-detail-view";
 
 interface Props {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ assign?: string; workoutId?: string }>;
+  searchParams: Promise<{ assign?: string; workoutId?: string; clientId?: string }>;
 }
 
 export default async function ProgramDetailPage({
@@ -19,7 +17,7 @@ export default async function ProgramDetailPage({
 }: Props) {
   const user = await getCurrentUser();
   const { id } = await params;
-  const { assign, workoutId } = await searchParams;
+  const { assign, workoutId, clientId } = await searchParams;
 
   const program = await programService.getProgramById(id);
   if (!program) notFound();
@@ -75,21 +73,16 @@ export default async function ProgramDetailPage({
   }
 
   return (
-    <div className="space-y-4">
-      <Button variant="ghost" size="sm" asChild>
-        <Link href="/programs">
-          <ArrowLeft className="mr-1 h-4 w-4" />
-          Back to Programs
-        </Link>
-      </Button>
+    <PageShell>
       <ProgramDetailView
         program={program as unknown as Record<string, unknown>}
         isTrainer={user.role === "TRAINER"}
         clients={clients}
         sessions={sessions as Record<string, unknown>[]}
         showAssignDialog={assign === "true"}
+        initialAssignClientId={clientId}
         initialWorkoutId={workoutId}
       />
-    </div>
+    </PageShell>
   );
 }

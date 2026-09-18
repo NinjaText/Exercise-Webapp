@@ -63,21 +63,17 @@ function AnswerDisplay({
     const val = Number(answer);
     const pct = ((val - 1) / 9) * 100;
     const color =
-      val <= 3
-        ? "from-emerald-400 to-teal-500"
-        : val <= 6
-        ? "from-amber-400 to-orange-500"
-        : "from-rose-400 to-red-500";
+      val <= 3 ? "bg-success" : val <= 6 ? "bg-warning" : "bg-danger";
 
     return (
       <div className="flex items-center gap-4">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-linear-to-br from-blue-500 to-indigo-500 text-lg font-bold text-white shadow-sm">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary text-lg font-bold text-primary-foreground shadow-none">
           {val}
         </div>
         <div className="flex-1 space-y-1">
           <div className="h-2 overflow-hidden rounded-full bg-muted">
             <div
-              className={`h-full rounded-full bg-linear-to-r ${color} transition-all`}
+              className={`h-full rounded-full transition-all ${color}`}
               style={{ width: `${pct}%` }}
             />
           </div>
@@ -93,8 +89,8 @@ function AnswerDisplay({
       <Badge
         className={`text-sm font-semibold border-0 ${
           boolVal
-            ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
-            : "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400"
+            ? "bg-success-soft text-success-foreground"
+            : "bg-danger-soft text-danger-foreground"
         }`}
       >
         {boolVal ? "Yes" : "No"}
@@ -178,16 +174,16 @@ export function ReviewClient({ response, questions, answers }: Props) {
             <h2 className="text-2xl font-bold tracking-tight">
               {response.templateName}
             </h2>
-            <Badge className="bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400 border-0 text-xs">
+            <Badge className="bg-info-soft text-info-foreground border-0 text-xs">
               {frequencyLabel(response.frequency)}
             </Badge>
             {isReviewed ? (
-              <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border-0 text-xs gap-1">
+              <Badge className="bg-success-soft text-success-foreground border-0 text-xs gap-1">
                 <CheckCircle2 className="h-3 w-3" />
                 Reviewed
               </Badge>
             ) : (
-              <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-0 text-xs gap-1">
+              <Badge className="bg-warning-soft text-warning-foreground border-0 text-xs gap-1">
                 <Clock className="h-3 w-3" />
                 Needs Review
               </Badge>
@@ -208,7 +204,7 @@ export function ReviewClient({ response, questions, answers }: Props) {
         {questions.map((q, idx) => (
           <Card
             key={q.id}
-            className="border-0 shadow-sm ring-1 ring-border/50"
+            className="ring-1 ring-border shadow-none"
           >
             <CardHeader className="pb-2">
               <CardTitle className="flex items-start gap-2 text-sm font-semibold text-muted-foreground">
@@ -229,7 +225,7 @@ export function ReviewClient({ response, questions, answers }: Props) {
       </div>
 
       {/* Coach notes */}
-      <Card className="border-0 shadow-sm ring-1 ring-border/50">
+      <Card className="ring-1 ring-border shadow-none">
         <CardHeader className="pb-3">
           <CardTitle className="text-base">Coach Notes</CardTitle>
         </CardHeader>
@@ -258,7 +254,7 @@ export function ReviewClient({ response, questions, answers }: Props) {
                 size="sm"
                 onClick={handleSaveNotes}
                 disabled={savingNotes}
-                className="gap-2 bg-linear-to-r from-blue-500 to-indigo-500 border-0 text-white shadow-md shadow-blue-500/20 hover:from-blue-600 hover:to-indigo-600"
+                className="gap-2"
               >
                 <Save className="h-4 w-4" />
                 {savingNotes ? "Saving..." : "Save Notes"}

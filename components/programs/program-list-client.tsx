@@ -28,6 +28,11 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CreateProgramMenu } from "@/components/programs/create-program-menu";
+import { PageHeader } from "@/components/shared/page-header";
+import { PageToolbar } from "@/components/shared/page-toolbar";
+import { StatusBadge } from "@/components/shared/status-badge";
+import { EmptyState } from "@/components/shared/empty-state";
+import { ROLE_CLASSES, statusRole } from "@/lib/ui/status";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -51,7 +56,6 @@ import {
   UserPlus,
   Archive,
   Trash2,
-  Sparkles,
   Library,
   Pencil,
   Dumbbell,
@@ -63,7 +67,6 @@ import {
   FolderPlus,
   Folder,
   SlidersHorizontal,
-  Grid3x3,
   Users,
   CalendarClock,
   PauseCircle,
@@ -97,12 +100,6 @@ import { getDisplayName, getInitials } from "@/lib/utils/display-name";
 import type { ProgramProgress, ProgramUsage } from "@/lib/services/program.service";
 
 const RECENT_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
-
-// Collections grid shows the 4 most recently opened up front — together with
-// "All Programs", "View All Collections" (when needed) and "Create
-// Collection" that's up to 6-7 tiles, sized to fit in one row. The rest sit
-// behind the "View All Collections" tile.
-const TOP_COLLECTIONS_LIMIT = 4;
 
 const SPORT_OPTIONS = ["Tennis", "Golf", "Running", "Basketball", "Soccer", "Swimming", "General Fitness"];
 const BODY_AREA_OPTIONS = ["Shoulder", "Elbow", "Wrist/Hand", "Chest", "Back", "Hip", "Knee", "Ankle/Foot", "Core"];
@@ -223,31 +220,25 @@ function SchedulingPillFilter({
   onChange: (next: SchedulingPill) => void;
 }) {
   return (
-    <div className="inline-flex items-center gap-1 rounded-lg border border-border/60 bg-muted/40 p-1">
-      {SCHEDULING_PILLS.map((pill) => (
-        <button
-          key={pill.value}
-          type="button"
-          aria-pressed={value === pill.value}
-          onClick={() => onChange(pill.value)}
-          className={cn(
-            "rounded-md px-3 py-1 text-xs font-medium transition-colors",
-            value === pill.value
-              ? "bg-background text-foreground shadow-sm"
-              : "text-muted-foreground hover:text-foreground"
-          )}
-        >
-          {pill.label}
-        </button>
-      ))}
-    </div>
+    <Select value={value} onValueChange={(v) => onChange((v as SchedulingPill) ?? "all")}>
+      <SelectTrigger className="h-9 w-44">
+        <SelectValue>
+          {(v: string | null) => SCHEDULING_PILLS.find((o) => o.value === v)?.label ?? "All Programs"}
+        </SelectValue>
+      </SelectTrigger>
+      <SelectContent>
+        {SCHEDULING_PILLS.map((pill) => (
+          <SelectItem key={pill.value} value={pill.value}>{pill.label}</SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }
 
 function ResourcesCallout({ onDismiss }: { onDismiss: () => void }) {
   return (
-    <div className="flex items-start gap-3 rounded-lg border border-violet-200 bg-violet-500/5 p-3 text-sm">
-      <Info className="mt-0.5 h-4 w-4 shrink-0 text-violet-600" />
+    <div className="flex items-start gap-3 rounded-lg border border-info-border bg-info-soft p-3 text-sm">
+      <Info className="mt-0.5 h-4 w-4 shrink-0 text-info-foreground" />
       <p className="flex-1 text-muted-foreground">
         <span className="font-medium text-foreground">What are Resources?</span>{" "}
         Resources are on-demand programs (warm-ups, mobility routines, recovery,
@@ -269,17 +260,11 @@ function ResourcesCallout({ onDismiss }: { onDismiss: () => void }) {
 function SchedulingTypeBadge({ program }: { program: { schedulingType?: string | null } }) {
   const resource = isResource(program);
   return (
-    <Badge
-      variant="outline"
-      className={cn(
-        "text-[10px] font-medium",
-        resource
-          ? "border-violet-200 bg-violet-500/10 text-violet-700"
-          : "border-border bg-muted text-muted-foreground"
-      )}
-    >
-      {resource ? "Resource" : "Scheduled"}
-    </Badge>
+    <StatusBadge
+      status={resource ? "RESOURCE" : "SCHEDULED"}
+      label={resource ? "Resource" : "Scheduled"}
+      size="sm"
+    />
   );
 }
 
@@ -364,12 +349,12 @@ function deriveAssignedStatus(program: { status: string; startDate?: Date | null
   return "OTHER";
 }
 
-const assignedStatusConfig: Record<AssignedStatus, { label: string; className: string; dot: string }> = {
-  ACTIVE:         { label: "Active",        className: "bg-emerald-500/10 text-emerald-700 border-emerald-200", dot: "bg-emerald-500" },
-  STARTING_SOON:  { label: "Starting Soon", className: "bg-blue-500/10 text-blue-700 border-blue-200",         dot: "bg-blue-500" },
-  ON_HOLD:        { label: "On Hold",       className: "bg-amber-500/10 text-amber-700 border-amber-200",     dot: "bg-amber-500" },
-  COMPLETED:      { label: "Completed",     className: "bg-purple-500/10 text-purple-700 border-purple-200",  dot: "bg-purple-500" },
-  OTHER:          { label: "Draft",         className: "bg-muted text-muted-foreground border-border",         dot: "bg-muted-foreground" },
+const assignedStatusConfig: Record<AssignedStatus, { label: string }> = {
+  ACTIVE:         { label: "Active" },
+  STARTING_SOON:  { label: "Starting Soon" },
+  ON_HOLD:        { label: "On Hold" },
+  COMPLETED:      { label: "Completed" },
+  OTHER:          { label: "Draft" },
 };
 
 function formatDueLabel(date: Date): string {
@@ -482,9 +467,7 @@ function LibraryProgramRow({
               {program.name}
             </Link>
             <div className="mt-0.5 flex flex-wrap items-center gap-1">
-              {program.isTemplate && (
-                <Badge variant="outline" className="text-[10px] font-medium">Template</Badge>
-              )}
+              {program.isTemplate && <StatusBadge status="TEMPLATE" size="sm" dot={false} />}
               {updatableSet.has(program.id) && (
                 <Badge variant="outline" className="text-[10px] font-medium">Update available</Badge>
               )}
@@ -492,17 +475,17 @@ function LibraryProgramRow({
           </div>
         </div>
       </TableCell>
-      <TableCell>
+      <TableCell className="hidden sm:table-cell">
         <SchedulingTypeBadge program={program} />
       </TableCell>
-      <TableCell className="text-muted-foreground">
+      <TableCell className="hidden md:table-cell text-muted-foreground">
         {collectionNames.length === 0
           ? "—"
           : collectionNames.length === 1
           ? collectionNames[0]
           : `${collectionNames[0]} +${collectionNames.length - 1}`}
       </TableCell>
-      <TableCell>
+      <TableCell className="hidden lg:table-cell">
         <div className="flex max-w-56 flex-wrap items-center gap-1">
           {allTags.slice(0, 3).map((t) => (
             <Badge key={t} variant="secondary" className="text-[10px]">{t}</Badge>
@@ -513,10 +496,10 @@ function LibraryProgramRow({
           {allTags.length === 0 && <span className="text-muted-foreground">—</span>}
         </div>
       </TableCell>
-      <TableCell>
+      <TableCell className="hidden sm:table-cell">
         <WorkoutCount count={program._count.workouts} />
       </TableCell>
-      <TableCell>
+      <TableCell className="hidden md:table-cell">
         <UpdatedAt date={program.updatedAt} />
       </TableCell>
       <TableCell className="text-right">
@@ -529,7 +512,7 @@ function LibraryProgramRow({
             className={cn(
               "inline-flex h-7 w-7 items-center justify-center rounded-md transition-opacity hover:bg-muted disabled:opacity-60",
               program.isFavorite
-                ? "text-amber-500 opacity-100"
+                ? "text-warning opacity-100"
                 : "text-muted-foreground opacity-0 group-hover:opacity-100"
             )}
           >
@@ -609,11 +592,11 @@ function GlobalProgramRow({
           </div>
         </div>
       </TableCell>
-      <TableCell>
+      <TableCell className="hidden sm:table-cell">
         <SchedulingTypeBadge program={program} />
       </TableCell>
-      <TableCell className="text-muted-foreground">—</TableCell>
-      <TableCell>
+      <TableCell className="hidden md:table-cell text-muted-foreground">—</TableCell>
+      <TableCell className="hidden lg:table-cell">
         <div className="flex flex-wrap items-center gap-1.5">
           <Badge variant="secondary" className="text-[11px] font-medium">
             {program.isGlobal ? "Global" : "Community"}
@@ -628,10 +611,10 @@ function GlobalProgramRow({
           ))}
         </div>
       </TableCell>
-      <TableCell>
+      <TableCell className="hidden sm:table-cell">
         <WorkoutCount count={program._count.workouts} />
       </TableCell>
-      <TableCell className="text-muted-foreground">
+      <TableCell className="hidden md:table-cell text-muted-foreground">
         {program.globalUpdatedAt ? formatDistanceToNow(new Date(program.globalUpdatedAt), { addSuffix: true }) : "—"}
       </TableCell>
       <TableCell className="text-right">
@@ -665,7 +648,8 @@ function AssignedProgramRow({
   onRequestHardDelete: (id: string, name: string) => void;
 }) {
   const router = useRouter();
-  const assignedStatus = assignedStatusConfig[deriveAssignedStatus(program)];
+  const derivedStatus = deriveAssignedStatus(program);
+  const assignedStatus = assignedStatusConfig[derivedStatus];
   const total = progress?.total ?? 0;
   const completed = progress?.completed ?? 0;
   const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
@@ -676,13 +660,13 @@ function AssignedProgramRow({
 
   return (
     <TableRow className="group">
-      <TableCell>
+      <TableCell className="max-w-36 sm:max-w-none">
         {program.client ? (
-          <Link href={`/clients/${program.client.id}`} className="flex items-center gap-2.5 hover:underline">
+          <Link href={`/clients/${program.client.id}`} className="flex min-w-0 items-center gap-2.5 hover:underline">
             <Avatar size="sm" className="h-8 w-8 shrink-0">
               <AvatarFallback className="text-xs">{initials(program.client)}</AvatarFallback>
             </Avatar>
-            <span className="font-medium">{clientLabel(program.client)}</span>
+            <span className="truncate font-medium">{clientLabel(program.client)}</span>
           </Link>
         ) : (
           <span className="text-muted-foreground">Unassigned</span>
@@ -698,23 +682,26 @@ function AssignedProgramRow({
           </Badge>
         )}
       </TableCell>
-      <TableCell>
+      <TableCell className="hidden md:table-cell">
         <SchedulingTypeBadge program={program} />
       </TableCell>
       {resource ? (
-        <TableCell colSpan={2} className="min-w-44">
-          <div className="flex items-center gap-1.5 text-sm">
-            <Repeat className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-            <span className="font-medium">
-              Used {usageCount} time{usageCount === 1 ? "" : "s"}
-            </span>
-          </div>
-          <p className="text-[11px] text-muted-foreground">
-            {usage?.lastUsedAt
-              ? `Last used ${format(new Date(usage.lastUsedAt), "d MMM yyyy")}`
-              : "Not used yet"}
-          </p>
-        </TableCell>
+        <>
+          <TableCell className="min-w-44">
+            <div className="flex items-center gap-1.5 text-sm">
+              <Repeat className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+              <span className="font-medium">
+                Used {usageCount} time{usageCount === 1 ? "" : "s"}
+              </span>
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              {usage?.lastUsedAt
+                ? `Last used ${format(new Date(usage.lastUsedAt), "d MMM yyyy")}`
+                : "Not used yet"}
+            </p>
+          </TableCell>
+          <TableCell className="hidden sm:table-cell" />
+        </>
       ) : (
         <>
           <TableCell className="min-w-36">
@@ -730,7 +717,7 @@ function AssignedProgramRow({
               </div>
             )}
           </TableCell>
-          <TableCell>
+          <TableCell className="hidden sm:table-cell">
             {progress?.nextSession ? (
               <div>
                 <p className="truncate text-sm">{progress.nextSession.workoutName}</p>
@@ -743,11 +730,9 @@ function AssignedProgramRow({
         </>
       )}
       <TableCell>
-        <Badge className={`border text-[11px] font-medium ${assignedStatus.className}`}>
-          {assignedStatus.label}
-        </Badge>
+        <StatusBadge status={derivedStatus} label={assignedStatus.label} size="sm" />
       </TableCell>
-      <TableCell>
+      <TableCell className="hidden lg:table-cell">
         <UpdatedAt date={program.updatedAt} />
       </TableCell>
       <TableCell className="text-right">
@@ -791,33 +776,36 @@ function AssignedProgramRow({
   );
 }
 
-function ProgramsEmptyState({ title, description, showCreateActions }: { title: string; description: string; showCreateActions: boolean }) {
+function ProgramsEmptyState({
+  title,
+  description,
+  showCreateActions,
+  onUseTemplate,
+}: {
+  title: string;
+  description: string;
+  showCreateActions: boolean;
+  onUseTemplate?: () => void;
+}) {
   return (
-    <div className="rounded-xl border border-dashed border-border p-12 text-center">
-      <Library className="mx-auto h-12 w-12 text-muted-foreground/40" />
-      <h3 className="mt-4 font-semibold">{title}</h3>
-      <p className="mt-1 text-sm text-muted-foreground">{description}</p>
-      {showCreateActions && (
-        <div className="mt-4 flex justify-center gap-2">
-          <Button variant="outline" size="sm" asChild>
-            <Link href="/programs/generate">
-              <Sparkles className="mr-1.5 h-3.5 w-3.5 text-blue-600" />
-              Generate with AI
-            </Link>
-          </Button>
-          <Button size="sm" asChild>
-            <Link href="/programs/new">
-              <Plus className="mr-1.5 h-3.5 w-3.5" />
-              New Program
-            </Link>
-          </Button>
-        </div>
-      )}
-    </div>
+    <EmptyState
+      icon={Library}
+      title={title}
+      description={description}
+      action={
+        showCreateActions ? (
+          <CreateProgramMenu onUseTemplate={onUseTemplate} trigger={<Button variant="outline" size="sm" />}>
+            <Plus className="size-4" />
+            Create Program
+          </CreateProgramMenu>
+        ) : undefined
+      }
+    />
   );
 }
 
-function CollectionTile({
+// --- Collections chip strip: "All programs" + one chip per collection ---
+function CollectionChip({
   label,
   count,
   selected,
@@ -832,35 +820,55 @@ function CollectionTile({
   onRename?: () => void;
   onDelete?: () => void;
 }) {
+  const hasMenu = Boolean(onRename || onDelete);
+
   return (
     <div
       className={cn(
-        "group relative flex items-center gap-3 rounded-xl border p-4 text-left shadow-sm transition-colors",
+        "inline-flex h-8 items-center rounded-full border text-sm transition-colors",
         selected
-          ? "border-primary bg-primary/5"
-          : "border-border/50 hover:border-primary/40 hover:bg-muted/40"
+          ? "border-primary bg-primary text-primary-foreground"
+          : "border-border bg-card text-foreground"
       )}
     >
-      <button type="button" onClick={onClick} className="flex flex-1 min-w-0 items-center gap-3 text-left">
-        <div className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-lg", selected ? "bg-primary/15 text-primary" : "bg-primary/10 text-primary")}>
-          {label === "All Programs" ? <Grid3x3 className="h-4.5 w-4.5" /> : <Folder className="h-4.5 w-4.5" />}
-        </div>
-        <div className="min-w-0">
-          <p className="truncate font-medium text-sm">{label}</p>
-          <p className="text-xs text-muted-foreground">
-            {count} program{count === 1 ? "" : "s"}
-          </p>
-        </div>
+      <button
+        type="button"
+        aria-pressed={selected}
+        onClick={onClick}
+        className={cn(
+          "inline-flex h-full items-center gap-1.5 rounded-full pl-3 outline-none focus-visible:ring-2 focus-visible:ring-ring",
+          hasMenu ? "pr-1.5" : "pr-3",
+          !selected && "hover:bg-muted"
+        )}
+      >
+        <span className="max-w-40 truncate">{label}</span>
+        <span
+          className={cn(
+            "tabular-nums text-xs",
+            selected ? "text-primary-foreground/80" : "text-muted-foreground"
+          )}
+        >
+          {count}
+        </span>
       </button>
-      {(onRename || onDelete) && (
+      {hasMenu && (
         <DropdownMenu>
           <DropdownMenuTrigger
-            className="shrink-0 flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity hover:bg-muted group-hover:opacity-100 data-[state=open]:opacity-100"
-            aria-label="Collection actions"
+            render={
+              <Button
+                variant="ghost"
+                size="icon-xs"
+                aria-label={`${label} options`}
+                className={cn(
+                  "mr-1 rounded-full",
+                  selected && "text-primary-foreground hover:bg-primary-foreground/15 hover:text-primary-foreground"
+                )}
+              />
+            }
           >
-            <MoreVertical className="h-4 w-4" />
+            <MoreVertical className="size-3.5" />
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-40">
+          <DropdownMenuContent align="end" className="w-36">
             {onRename && (
               <DropdownMenuItem onClick={onRename}>
                 <Pencil className="mr-2 h-4 w-4" /> Rename
@@ -875,51 +883,6 @@ function CollectionTile({
         </DropdownMenu>
       )}
     </div>
-  );
-}
-
-function ViewAllCollectionsCard({
-  expanded,
-  hiddenCount,
-  onClick,
-}: {
-  expanded: boolean;
-  hiddenCount: number;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="flex items-center gap-3 rounded-xl border border-border/50 p-4 text-left shadow-sm transition-colors hover:border-primary/40 hover:bg-muted/40"
-    >
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-        <Grid3x3 className="h-4.5 w-4.5" />
-      </div>
-      <div className="min-w-0">
-        <p className="truncate text-sm font-medium">
-          {expanded ? "Show Fewer" : "View All Collections"}
-        </p>
-        <p className="text-xs text-muted-foreground">
-          {expanded ? "Back to the top collections" : `${hiddenCount} more`}
-        </p>
-      </div>
-    </button>
-  );
-}
-
-function CreateCollectionCard({ onClick }: { onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="flex items-center gap-3 rounded-xl border border-dashed border-border p-4 text-left text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
-    >
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted">
-        <FolderPlus className="h-4.5 w-4.5" />
-      </div>
-      <p className="text-sm font-medium">Create Collection</p>
-    </button>
   );
 }
 
@@ -1159,8 +1122,6 @@ export function ProgramListClient({
   const [assignedSearch, setAssignedSearch] = useState("");
   const [assignedSort, setAssignedSort] = useState<AssignedSort>("updated_desc");
 
-  // Collections grid shows only the most recently opened few by default.
-  const [showAllCollections, setShowAllCollections] = useState(false);
   const [resourcesCalloutDismissed, setResourcesCalloutDismissed] = useState(false);
   // Optimistic "just opened" timestamps, keyed by collection id, so clicking a
   // tile reorders the grid immediately instead of waiting on the server write.
@@ -1195,10 +1156,9 @@ export function ProgramListClient({
     }
   }
 
-  // The grid leads with whichever collections were opened most recently; the
-  // rest are behind the "View All Collections" tile so the tab doesn't open
-  // on a wall of folders. Never-viewed collections (pre-dating this feature)
-  // sort last, by name.
+  // The chip strip leads with whichever collections were opened most
+  // recently. Never-viewed collections (pre-dating this feature) sort last,
+  // by name.
   const sortedCollections = useMemo(
     () =>
       [...allCollections].sort(
@@ -1207,18 +1167,6 @@ export function ProgramListClient({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [allCollections, viewedOverrides]
   );
-  const visibleCollections = useMemo(() => {
-    if (showAllCollections) return sortedCollections;
-    const top = sortedCollections.slice(0, TOP_COLLECTIONS_LIMIT);
-    // Keep the active collection on screen even if it isn't in the top slice,
-    // otherwise the selected tile vanishes and the filtered list looks broken.
-    if (selectedCollectionId && !top.some((c) => c.id === selectedCollectionId)) {
-      const selected = sortedCollections.find((c) => c.id === selectedCollectionId);
-      if (selected) return [...top, selected];
-    }
-    return top;
-  }, [showAllCollections, sortedCollections, selectedCollectionId]);
-  const hasHiddenCollections = sortedCollections.length > TOP_COLLECTIONS_LIMIT;
 
   const activeTab = searchParams.get("tab") === "programs" ? "programs" : "templates";
 
@@ -1643,46 +1591,56 @@ export function ProgramListClient({
   }
 
   return (
-    <div className="space-y-6">
-      <Tabs value={activeTab} onValueChange={handleTabChange}>
-        <TabsList className="grid w-full max-w-xs grid-cols-2">
-          <TabsTrigger value="templates"><Library className="h-3.5 w-3.5" /> Library</TabsTrigger>
-          <TabsTrigger value="programs"><Users className="h-3.5 w-3.5" /> Assigned</TabsTrigger>
-        </TabsList>
-      </Tabs>
+    <Tabs value={activeTab} onValueChange={handleTabChange} className="gap-6">
+      <PageHeader
+        title="Programs"
+        description="Build programs in your Library, then assign them to clients."
+        primaryAction={
+          <CreateProgramMenu
+            onUseTemplate={() => handleTabChange("templates")}
+            trigger={<Button />}
+          >
+            <Plus className="size-4" />
+            Create Program
+          </CreateProgramMenu>
+        }
+        tabs={
+          <TabsList variant="line">
+            <TabsTrigger value="templates">
+              <Library className="size-4" /> Library
+            </TabsTrigger>
+            <TabsTrigger value="programs">
+              <Users className="size-4" /> Assigned
+            </TabsTrigger>
+          </TabsList>
+        }
+      />
 
       {/* ================= LIBRARY TAB ================= */}
       {activeTab === "templates" && (
         <div className="space-y-5">
-          <div className="space-y-2">
-            <h3 className="text-sm font-semibold text-muted-foreground">Collections</h3>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-              <CollectionTile
-                label="All Programs"
-                count={programs.filter((p) => p.status !== "ARCHIVED").length}
-                selected={selectedCollectionId === null}
-                onClick={() => setSelectedCollectionId(null)}
+          <div className="flex flex-wrap items-center gap-2">
+            <CollectionChip
+              label="All programs"
+              count={programs.filter((p) => p.status !== "ARCHIVED").length}
+              selected={selectedCollectionId === null}
+              onClick={() => setSelectedCollectionId(null)}
+            />
+            {sortedCollections.map((c) => (
+              <CollectionChip
+                key={c.id}
+                label={c.name}
+                count={c.programCount}
+                selected={selectedCollectionId === c.id}
+                onClick={() => handleSelectCollection(c.id)}
+                onRename={() => openRenameCollection(c)}
+                onDelete={() => setPendingDeleteCollection(c)}
               />
-              {visibleCollections.map((c) => (
-                <CollectionTile
-                  key={c.id}
-                  label={c.name}
-                  count={c.programCount}
-                  selected={selectedCollectionId === c.id}
-                  onClick={() => handleSelectCollection(c.id)}
-                  onRename={() => openRenameCollection(c)}
-                  onDelete={() => setPendingDeleteCollection(c)}
-                />
-              ))}
-              {hasHiddenCollections && (
-                <ViewAllCollectionsCard
-                  expanded={showAllCollections}
-                  hiddenCount={sortedCollections.length - TOP_COLLECTIONS_LIMIT}
-                  onClick={() => setShowAllCollections((v) => !v)}
-                />
-              )}
-              <CreateCollectionCard onClick={() => setCreateCollectionOpen(true)} />
-            </div>
+            ))}
+            <Button variant="ghost" size="sm" onClick={() => setCreateCollectionOpen(true)}>
+              <Plus className="size-4" />
+              New collection
+            </Button>
           </div>
 
           {selectedCollectionId && (
@@ -1697,84 +1655,74 @@ export function ProgramListClient({
             </div>
           )}
 
-          <SchedulingPillFilter value={schedulingPill} onChange={handleSchedulingPillChange} />
-
-          {schedulingPill === "resources" && !resourcesCalloutDismissed && (
-            <ResourcesCallout onDismiss={() => setResourcesCalloutDismissed(true)} />
-          )}
-
-          {/* Toolbar */}
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex flex-1 flex-wrap items-center gap-3">
-              <div className="relative flex-1 min-w-48 max-w-sm">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search programs..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="pl-9"
-                />
-              </div>
-              <Select value={chipFilter} onValueChange={(v) => setChipFilter((v as typeof chipFilter) ?? "all")}>
-                <SelectTrigger className="w-40">
-                  <SelectValue>
-                    {(value: string | null) => `View: ${VIEW_OPTIONS.find((o) => o.value === value)?.label ?? "All"}`}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {VIEW_OPTIONS.map((o) => (
-                    <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={librarySort} onValueChange={(v) => setLibrarySort((v as LibrarySort) ?? "recent")}>
-                <SelectTrigger className="w-44">
-                  <SelectValue>
-                    {(value: string | null) => `Sort: ${LIBRARY_SORT_OPTIONS.find((o) => o.value === value)?.label ?? "Recently Used"}`}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {LIBRARY_SORT_OPTIONS.map((o) => (
-                    <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Button
-                variant={filtersOpen ? "secondary" : "outline"}
-                className="gap-1.5"
-                onClick={() => setFiltersOpen((v) => !v)}
-              >
-                <SlidersHorizontal className="h-3.5 w-3.5" />
-                Filters
-                {activeFilterCount > 0 && (
-                  <Badge className="ml-0.5 h-5 min-w-5 justify-center border-0 bg-primary px-1.5 text-[10px] font-bold text-primary-foreground">
-                    {activeFilterCount}
-                  </Badge>
-                )}
-              </Button>
-              {(search || activeFilterCount > 0 || chipFilter !== "all") && (
+          <PageToolbar
+            end={
+              (search || activeFilterCount > 0 || chipFilter !== "all") && (
                 <Button
                   variant="ghost"
-                  className="h-8 gap-1.5 px-2.5 text-muted-foreground hover:text-foreground"
+                  className="h-9"
                   onClick={() => {
                     setSearch("");
                     setChipFilter("all");
                     handleResetFilters();
                   }}
                 >
-                  <X className="h-3.5 w-3.5" />
-                  Clear filters
+                  <X className="size-4" />
+                  Clear
                 </Button>
-              )}
+              )
+            }
+          >
+            <div className="relative min-w-48 max-w-sm flex-1">
+              <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Search programs..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="h-9 pl-9"
+              />
             </div>
-            <CreateProgramMenu
-              onUseTemplate={() => handleTabChange("templates")}
-              trigger={<Button className="gap-2" />}
+            <SchedulingPillFilter value={schedulingPill} onChange={handleSchedulingPillChange} />
+            <Select value={chipFilter} onValueChange={(v) => setChipFilter((v as typeof chipFilter) ?? "all")}>
+              <SelectTrigger className="h-9 w-40">
+                <SelectValue>
+                  {(value: string | null) => `View: ${VIEW_OPTIONS.find((o) => o.value === value)?.label ?? "All"}`}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {VIEW_OPTIONS.map((o) => (
+                  <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={librarySort} onValueChange={(v) => setLibrarySort((v as LibrarySort) ?? "recent")}>
+              <SelectTrigger className="h-9 w-44">
+                <SelectValue>
+                  {(value: string | null) => `Sort: ${LIBRARY_SORT_OPTIONS.find((o) => o.value === value)?.label ?? "Recently Used"}`}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {LIBRARY_SORT_OPTIONS.map((o) => (
+                  <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button
+              variant={filtersOpen ? "secondary" : "outline"}
+              className="h-9"
+              onClick={() => setFiltersOpen((v) => !v)}
             >
-              <Plus className="h-4 w-4" />
-              Create Program
-            </CreateProgramMenu>
-          </div>
+              <SlidersHorizontal className="h-3.5 w-3.5" />
+              Filters
+              {activeFilterCount > 0 && (
+                <StatusBadge status="count" role="brand" dot={false} size="sm" label={String(activeFilterCount)} />
+              )}
+            </Button>
+          </PageToolbar>
+
+          {schedulingPill === "resources" && !resourcesCalloutDismissed && (
+            <ResourcesCallout onDismiss={() => setResourcesCalloutDismissed(true)} />
+          )}
 
           {filtersOpen && (
             <ProgramFiltersPanel
@@ -1808,16 +1756,16 @@ export function ProgramListClient({
               showCreateActions={typeFilter !== "global"}
             />
           ) : (
-            <div className="rounded-xl border border-border/50 shadow-sm">
+            <div className="overflow-hidden rounded-xl bg-card ring-1 ring-border">
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Program</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Collection</TableHead>
-                    <TableHead>Tags</TableHead>
-                    <TableHead>Workouts</TableHead>
-                    <TableHead>Updated</TableHead>
+                    <TableHead className="hidden sm:table-cell">Type</TableHead>
+                    <TableHead className="hidden md:table-cell">Collection</TableHead>
+                    <TableHead className="hidden lg:table-cell">Tags</TableHead>
+                    <TableHead className="hidden sm:table-cell">Workouts</TableHead>
+                    <TableHead className="hidden md:table-cell">Updated</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -1858,94 +1806,86 @@ export function ProgramListClient({
       {activeTab === "programs" && (
         <div className="space-y-5">
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-            <StatCard size="compact" label="Active" value={assignedStatCounts.ACTIVE} icon={CheckCircle2} href={hrefWithParams({ status: "ACTIVE" })} iconClassName="bg-emerald-500/10 text-emerald-600" />
-            <StatCard size="compact" label="Starting Soon" value={assignedStatCounts.STARTING_SOON} icon={CalendarClock} href={hrefWithParams({ status: "STARTING_SOON" })} iconClassName="bg-blue-500/10 text-blue-600" />
-            <StatCard size="compact" label="Total Assigned" value={assignedPrograms.length} icon={ClipboardList} href={hrefWithParams({ status: null })} iconClassName="bg-indigo-500/10 text-indigo-600" />
-            <StatCard size="compact" label="On Hold" value={assignedStatCounts.ON_HOLD} icon={PauseCircle} href={hrefWithParams({ status: "ON_HOLD" })} iconClassName="bg-amber-500/10 text-amber-600" />
-            <StatCard size="compact" label="Completed" value={assignedStatCounts.COMPLETED} icon={CheckCircle2} href={hrefWithParams({ status: "COMPLETED" })} iconClassName="bg-purple-500/10 text-purple-600" />
+            <StatCard size="compact" label="Active" value={assignedStatCounts.ACTIVE} icon={CheckCircle2} href={hrefWithParams({ status: "ACTIVE" })} role="success" />
+            <StatCard size="compact" label="Starting Soon" value={assignedStatCounts.STARTING_SOON} icon={CalendarClock} href={hrefWithParams({ status: "STARTING_SOON" })} role="info" />
+            <StatCard size="compact" label="Total Assigned" value={assignedPrograms.length} icon={ClipboardList} href={hrefWithParams({ status: null })} role="brand" />
+            <StatCard size="compact" label="On Hold" value={assignedStatCounts.ON_HOLD} icon={PauseCircle} href={hrefWithParams({ status: "ON_HOLD" })} role="warning" />
+            <StatCard size="compact" label="Completed" value={assignedStatCounts.COMPLETED} icon={CheckCircle2} href={hrefWithParams({ status: "COMPLETED" })} role="neutral" />
           </div>
 
-          <SchedulingPillFilter value={schedulingPill} onChange={handleSchedulingPillChange} />
+          <PageToolbar
+            end={
+              <Button variant="outline" className="h-9" onClick={handleExportAssigned}>
+                <Download className="h-3.5 w-3.5" />
+                Export
+              </Button>
+            }
+          >
+            <div className="relative min-w-48 max-w-sm flex-1">
+              <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Search client or program..."
+                value={assignedSearch}
+                onChange={(e) => setAssignedSearch(e.target.value)}
+                className="h-9 pl-9"
+              />
+            </div>
+            <SchedulingPillFilter value={schedulingPill} onChange={handleSchedulingPillChange} />
+            <Select value={assignedStatusFilter} onValueChange={handleAssignedStatusChange}>
+              <SelectTrigger className="h-9 w-40">
+                <SelectValue>
+                  {(value: string | null) => `Status: ${value && value !== "all" ? assignedStatusConfig[value as AssignedStatus]?.label : "All"}`}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All</SelectItem>
+                {(["ACTIVE", "STARTING_SOON", "ON_HOLD", "COMPLETED"] as AssignedStatus[]).map((s) => (
+                  <SelectItem key={s} value={s}>
+                    <span className="flex items-center gap-2">
+                      <span className={cn("h-2 w-2 rounded-full", ROLE_CLASSES[statusRole(s)].dot)} />
+                      {assignedStatusConfig[s].label}
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={assignedSort} onValueChange={(v) => setAssignedSort((v as AssignedSort) ?? "updated_desc")}>
+              <SelectTrigger className="h-9 w-52">
+                <SelectValue>
+                  {(value: string | null) => `Sort by: ${SORT_OPTIONS.find((o) => o.value === value)?.label ?? "Recently Updated"}`}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {SORT_OPTIONS.map((o) => (
+                  <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </PageToolbar>
 
           {schedulingPill === "resources" && !resourcesCalloutDismissed && (
             <ResourcesCallout onDismiss={() => setResourcesCalloutDismissed(true)} />
           )}
-
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex flex-1 flex-wrap items-center gap-3">
-              <div className="relative flex-1 min-w-48 max-w-sm">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search client or program..."
-                  value={assignedSearch}
-                  onChange={(e) => setAssignedSearch(e.target.value)}
-                  className="pl-9"
-                />
-              </div>
-              <Select value={assignedStatusFilter} onValueChange={handleAssignedStatusChange}>
-                <SelectTrigger className="w-40">
-                  <SelectValue>
-                    {(value: string | null) => `Status: ${value && value !== "all" ? assignedStatusConfig[value as AssignedStatus]?.label : "All"}`}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All</SelectItem>
-                  {(["ACTIVE", "STARTING_SOON", "ON_HOLD", "COMPLETED"] as AssignedStatus[]).map((s) => (
-                    <SelectItem key={s} value={s}>
-                      <span className="flex items-center gap-2">
-                        <span className={cn("h-2 w-2 rounded-full", assignedStatusConfig[s].dot)} />
-                        {assignedStatusConfig[s].label}
-                      </span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={assignedSort} onValueChange={(v) => setAssignedSort((v as AssignedSort) ?? "updated_desc")}>
-                <SelectTrigger className="w-52">
-                  <SelectValue>
-                    {(value: string | null) => `Sort by: ${SORT_OPTIONS.find((o) => o.value === value)?.label ?? "Recently Updated"}`}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {SORT_OPTIONS.map((o) => (
-                    <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" className="gap-1.5" onClick={handleExportAssigned}>
-                <Download className="h-3.5 w-3.5" />
-                Export
-              </Button>
-              <CreateProgramMenu
-                onUseTemplate={() => handleTabChange("templates")}
-                trigger={<Button className="gap-2" />}
-              >
-                <Plus className="h-4 w-4" />
-                Create Program
-              </CreateProgramMenu>
-            </div>
-          </div>
 
           {filteredAssigned.length === 0 ? (
             <ProgramsEmptyState
               title="No assigned programs"
               description="Assign a program from your Library to a client to see it here."
               showCreateActions
+              onUseTemplate={() => handleTabChange("templates")}
             />
           ) : (
-            <div className="rounded-xl border border-border/50 shadow-sm">
+            <div className="overflow-hidden rounded-xl bg-card ring-1 ring-border">
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Client</TableHead>
                     <TableHead>Program</TableHead>
-                    <TableHead>Type</TableHead>
+                    <TableHead className="hidden md:table-cell">Type</TableHead>
                     <TableHead>Progress</TableHead>
-                    <TableHead>Next Workout</TableHead>
+                    <TableHead className="hidden sm:table-cell">Next Workout</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead>Last Updated</TableHead>
+                    <TableHead className="hidden lg:table-cell">Last Updated</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -2221,6 +2161,6 @@ export function ProgramListClient({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </Tabs>
   );
 }

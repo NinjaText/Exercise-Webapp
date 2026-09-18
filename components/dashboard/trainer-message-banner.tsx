@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { formatDistanceToNow } from "date-fns";
 import { ChevronRight, MessageSquare } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { StatusBadge } from "@/components/shared/status-badge";
 
 export interface TrainerMessagePreview {
   /** The trainer's user id — doubles as the client thread route segment (/messages/{trainerId}). */
@@ -26,20 +28,21 @@ export function TrainerMessageBanner({ message }: { message: TrainerMessagePrevi
   const previewText = message.preview.trim() || "Sent you a voice message";
 
   return (
-    <Link
-      href={`/messages/${message.trainerId}`}
-      className="flex items-center gap-3 rounded-xl border border-primary/30 bg-primary/5 p-3.5 transition-colors hover:bg-primary/10"
-    >
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-primary">
+    <div className="flex items-center gap-3 rounded-xl border border-brand-border bg-brand-soft p-3.5 text-brand-foreground">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand/15 text-brand-foreground">
         <MessageSquare className="h-4.5 w-4.5" />
       </span>
       <span className="min-w-0 flex-1">
         <span className="flex items-center gap-2">
           <span className="text-sm font-semibold">New message from your trainer</span>
           {message.unreadCount > 1 && (
-            <span className="rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-bold text-primary-foreground">
-              {message.unreadCount}
-            </span>
+            <StatusBadge
+              status="unread"
+              role="brand"
+              dot={false}
+              size="sm"
+              label={`${message.unreadCount} new`}
+            />
           )}
         </span>
         <span className="mt-0.5 block truncate text-xs text-muted-foreground">
@@ -49,7 +52,12 @@ export function TrainerMessageBanner({ message }: { message: TrainerMessagePrevi
       <span className="hidden shrink-0 text-xs text-muted-foreground sm:block">
         {formatDistanceToNow(new Date(message.sentAt), { addSuffix: true })}
       </span>
-      <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
-    </Link>
+      <Button variant="outline" size="sm" className="shrink-0" asChild>
+        <Link href={`/messages/${message.trainerId}`}>
+          Reply
+          <ChevronRight className="h-3.5 w-3.5" />
+        </Link>
+      </Button>
+    </div>
   );
 }

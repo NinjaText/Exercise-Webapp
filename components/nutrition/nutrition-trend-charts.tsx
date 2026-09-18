@@ -52,8 +52,8 @@ export function NutritionTrendCharts({ history, streak }: NutritionTrendChartsPr
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-2 rounded-lg bg-orange-500/10 px-3 py-2 text-sm">
-        <Flame className="h-4 w-4 text-orange-500" />
+      <div className="flex items-center gap-2 rounded-lg bg-warning-soft px-3 py-2 text-sm">
+        <Flame className="h-4 w-4 text-warning-foreground" />
         <span className="font-semibold">{streak}</span>
         <span className="text-muted-foreground">day logging streak</span>
       </div>

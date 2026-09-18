@@ -3,6 +3,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatDate } from "@/lib/utils/dates";
+import { cn } from "@/lib/utils";
 
 /**
  * Everything the Create Program form needs to know about a client: the name for
@@ -64,7 +65,7 @@ export function ClientDetailsPanel({ client, className }: ClientDetailsPanelProp
     availableEquipment.length > 0;
 
   return (
-    <Card className={className}>
+    <Card className={cn("ring-1 ring-border shadow-none", className)}>
       <CardHeader>
         <CardTitle className="text-base">Client Details</CardTitle>
         <p className="text-sm text-muted-foreground">
@@ -79,11 +80,11 @@ export function ClientDetailsPanel({ client, className }: ClientDetailsPanelProp
         )}
 
         {client.primaryDiagnosis && (
-          <div className="rounded-md border border-blue-100 bg-blue-50 px-3 py-2">
-            <span className="font-semibold text-blue-800">Primary Diagnosis: </span>
-            <span className="text-blue-700">{client.primaryDiagnosis}</span>
+          <div className="rounded-md border border-info-border bg-info-soft px-3 py-2">
+            <span className="font-semibold text-info-foreground">Primary Diagnosis: </span>
+            <span className="text-info-foreground">{client.primaryDiagnosis}</span>
             {secondaryDiagnoses.length > 0 && (
-              <p className="mt-0.5 text-xs text-blue-600">
+              <p className="mt-0.5 text-xs text-info-foreground">
                 Also: {secondaryDiagnoses.join(", ")}
               </p>
             )}
@@ -178,10 +179,10 @@ function PainScore({ score }: { score: number }) {
             className={`h-2.5 w-2.5 rounded-full ${
               i < score
                 ? i < 3
-                  ? "bg-green-400"
+                  ? "bg-success"
                   : i < 6
-                  ? "bg-amber-400"
-                  : "bg-red-500"
+                  ? "bg-warning"
+                  : "bg-danger"
                 : "bg-muted"
             }`}
           />

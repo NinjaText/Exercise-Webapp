@@ -1,13 +1,11 @@
 import { notFound, redirect } from "next/navigation";
-import Link from "next/link";
 import { requireSuperAdmin } from "@/lib/current-user";
 import { prisma } from "@/lib/prisma";
 import * as programService from "@/lib/services/program.service";
 import { getClientsForTrainer } from "@/lib/services/client.service";
-import { Button } from "@/components/ui/button";
-import { ArrowLeft } from "lucide-react";
 import { ProgramDetailView } from "@/components/programs/program-detail-view";
 import { assignAdminProgramAction } from "@/actions/admin-program-actions";
+import { PageShell } from "@/components/shared/page-shell";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -70,13 +68,7 @@ export default async function AdminProgramDetailPage({ params }: Props) {
     : "Unknown trainer";
 
   return (
-    <div className="space-y-4">
-      <Button variant="ghost" size="sm" asChild>
-        <Link href="/admin/programs">
-          <ArrowLeft className="mr-1 h-4 w-4" />
-          Back to Programs
-        </Link>
-      </Button>
+    <PageShell>
       <ProgramDetailView
         program={program as unknown as Record<string, unknown>}
         isTrainer={false}
@@ -87,6 +79,6 @@ export default async function AdminProgramDetailPage({ params }: Props) {
         assignAction={assignAdminProgramAction}
         trainerName={trainerName}
       />
-    </div>
+    </PageShell>
   );
 }

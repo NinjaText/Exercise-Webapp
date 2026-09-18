@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { COMMON_EQUIPMENT, FITNESS_GOALS } from "@/lib/utils/constants";
+import { ACTIVITY_LEVELS, COMMON_EQUIPMENT, FITNESS_GOALS } from "@/lib/utils/constants";
 import { completeClientOnboarding } from "@/actions/onboarding-actions";
 import { toast } from "sonner";
 import { Loader2, ArrowRight, ArrowLeft } from "lucide-react";
@@ -80,7 +80,7 @@ export function ClientOnboardingForm() {
           <div
             key={s}
             className={`h-2 w-12 rounded-full transition-colors ${
-              s <= step ? "bg-blue-600" : "bg-slate-200"
+              s <= step ? "bg-primary" : "bg-muted"
             }`}
           />
         ))}
@@ -186,10 +186,11 @@ export function ClientOnboardingForm() {
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                 >
                   <option value="">Select level</option>
-                  <option value="SEDENTARY">Sedentary</option>
-                  <option value="LIGHT">Light</option>
-                  <option value="MODERATE">Moderate</option>
-                  <option value="ACTIVE">Active</option>
+                  {ACTIVITY_LEVELS.map((level) => (
+                    <option key={level.value} value={level.value}>
+                      {level.label}
+                    </option>
+                  ))}
                 </select>
               </div>
             </div>

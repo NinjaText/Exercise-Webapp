@@ -10,6 +10,11 @@ import {
   SessionActivityChart,
   RoleDistributionChart,
 } from "@/components/admin/analytics-charts";
+import { PageShell } from "@/components/shared/page-shell";
+import { PageHeader } from "@/components/shared/page-header";
+import { StatCard } from "@/components/shared/stat-card";
+import { SectionCard } from "@/components/shared/section-card";
+import { Users, Library, Activity } from "lucide-react";
 
 export default async function AdminAnalyticsPage() {
   const [userGrowth, programData, sessionData, stats] = await Promise.all([
@@ -20,8 +25,8 @@ export default async function AdminAnalyticsPage() {
   ]);
 
   const roleDistribution = [
-    { name: "Trainers", value: stats.trainers, color: "#3b82f6" },
-    { name: "Clients",   value: stats.clients,   color: "#06b6d4" },
+    { name: "Trainers", value: stats.trainers, color: "var(--chart-2)" },
+    { name: "Clients", value: stats.clients, color: "var(--chart-1)" },
   ];
 
   const totalNewUsers    = userGrowth.reduce((s, d) => s + d.users, 0);
@@ -29,47 +34,33 @@ export default async function AdminAnalyticsPage() {
   const totalNewSessions = sessionData.reduce((s, d) => s + d.sessions, 0);
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Platform Analytics</h1>
-        <p className="mt-0.5 text-sm text-muted-foreground">
-          Growth and activity trends over the last 6 months.
-        </p>
-      </div>
+    <PageShell>
+      <PageHeader
+        breadcrumb={[{ label: "Admin", href: "/admin" }, { label: "Analytics" }]}
+        title="Platform Analytics"
+        description="Growth and activity trends over the last 6 months."
+      />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div className="rounded-2xl border border-border bg-card p-5">
-          <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">New Users (6 mo)</p>
-          <p className="mt-1.5 text-3xl font-bold tabular-nums text-foreground">{totalNewUsers}</p>
-        </div>
-        <div className="rounded-2xl border border-border bg-card p-5">
-          <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Programs Created (6 mo)</p>
-          <p className="mt-1.5 text-3xl font-bold tabular-nums text-foreground">{totalNewPrograms}</p>
-        </div>
-        <div className="rounded-2xl border border-border bg-card p-5">
-          <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Sessions Completed (6 mo)</p>
-          <p className="mt-1.5 text-3xl font-bold tabular-nums text-foreground">{totalNewSessions}</p>
-        </div>
+        <StatCard label="New Users (6 mo)" value={totalNewUsers} icon={Users} role="info" />
+        <StatCard label="Programs Created (6 mo)" value={totalNewPrograms} icon={Library} role="success" />
+        <StatCard label="Sessions Completed (6 mo)" value={totalNewSessions} icon={Activity} role="brand" />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <div className="rounded-2xl border border-border bg-card p-5">
-          <h2 className="mb-4 text-sm font-semibold text-foreground">New User Registrations</h2>
+        <SectionCard title="New User Registrations">
           <UserGrowthChart data={userGrowth} />
-        </div>
-        <div className="rounded-2xl border border-border bg-card p-5">
-          <h2 className="mb-4 text-sm font-semibold text-foreground">User Role Distribution</h2>
+        </SectionCard>
+        <SectionCard title="User Role Distribution">
           <RoleDistributionChart data={roleDistribution} />
-        </div>
-        <div className="rounded-2xl border border-border bg-card p-5">
-          <h2 className="mb-4 text-sm font-semibold text-foreground">Programs Created per Month</h2>
+        </SectionCard>
+        <SectionCard title="Programs Created per Month">
           <ProgramCreationChart data={programData} />
-        </div>
-        <div className="rounded-2xl border border-border bg-card p-5">
-          <h2 className="mb-4 text-sm font-semibold text-foreground">Completed Sessions per Month</h2>
+        </SectionCard>
+        <SectionCard title="Completed Sessions per Month">
           <SessionActivityChart data={sessionData} />
-        </div>
+        </SectionCard>
       </div>
-    </div>
+    </PageShell>
   );
 }

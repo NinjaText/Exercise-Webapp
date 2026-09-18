@@ -8,18 +8,34 @@ import * as programService from "@/lib/services/program.service";
 import { getThreadItems } from "@/lib/services/inbox.service";
 import { getExercisesForPicker } from "@/lib/services/exercise.service";
 import { getOrganizationProfile } from "@/actions/organization-actions";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { PlanStatusBadge } from "@/components/workout/plan-status-badge";
-import { ArrowLeft, BarChart3, Activity, MessageSquare, TrendingUp } from "lucide-react";
+import { PageShell } from "@/components/shared/page-shell";
+import { PageHeader } from "@/components/shared/page-header";
+import { SectionCard } from "@/components/shared/section-card";
+import {
+  ClinicalProfileCard,
+  type ClinicalProfile,
+} from "@/components/clients/clinical-profile-card";
+import { ClientProfileEditButton } from "@/components/clients/client-profile-dialog";
+import { ClientProgressTrigger } from "@/components/clients/client-progress-trigger";
+import {
+  BarChart3,
+  Activity,
+  MessageSquare,
+  Pencil,
+  Sparkles,
+  Upload,
+  Camera,
+  Library,
+} from "lucide-react";
+import { AssignProgramButton } from "@/components/clients/assign-program-button";
 import { ClientCalendar } from "@/components/calendar/client-calendar";
 import { AssignedProgramsList } from "@/components/clients/assigned-programs-list";
 import { ClientAdherenceSummary } from "@/components/clients/client-adherence-summary";
 import { MessageThread } from "@/components/messages/message-thread";
-import { getDisplayName, getInitials } from "@/lib/utils/display-name";
+import { getDisplayName } from "@/lib/utils/display-name";
 
 /** Tabs that `?tab=` may select. Anything else falls back to the Calendar default. */
 const CLIENT_DETAIL_TABS = ["calendar", "programs", "messages"] as const;
@@ -81,197 +97,89 @@ export default async function ClientDetailPage({ params, searchParams }: Props) 
     },
   }));
 
+  const displayName = getDisplayName(client);
+  const showEmail = Boolean(client.email) && displayName !== client.email;
+  const clinicalProfile = client.clientProfile as ClinicalProfile | null;
+
   return (
-    <div className="space-y-8">
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="sm" asChild>
-          <Link href="/clients">
-            <ArrowLeft className="mr-1 h-4 w-4" />
-            Back
-          </Link>
-        </Button>
-      </div>
+    <PageShell>
+      <Tabs defaultValue={initialTab} className="gap-6">
+        <PageHeader
+          breadcrumb={[{ label: "Clients", href: "/clients" }, { label: displayName }]}
+          title={displayName}
+          description={
+            [showEmail ? client.email : null, client.dateOfBirth ? `Born ${client.dateOfBirth}` : null]
+              .filter(Boolean)
+              .join(" · ") || undefined
+          }
+          primaryAction={
+            <AssignProgramButton
+              client={{
+                id: client.id,
+                firstName: client.firstName,
+                lastName: client.lastName,
+                email: client.email,
+                imageUrl: client.imageUrl,
+              }}
+            />
+          }
+          secondaryActions={
+            <>
+              <Button variant="outline" asChild>
+                <Link href={`/messages/${client.id}`}>
+                  <MessageSquare className="size-4" />
+                  Message
+                </Link>
+              </Button>
+              <ClientProgressTrigger clientId={id} clientName={displayName} />
+            </>
+          }
+          overflow={[
+            { label: "Create program", href: `/programs/new?clientId=${id}`, icon: Pencil },
+            { label: "Generate with AI", href: `/programs/generate?clientId=${id}`, icon: Sparkles },
+            { label: "Upload a program", href: `/programs/upload?clientId=${id}`, icon: Upload },
+            { label: "Sessions", href: `/clients/${id}/adherence`, icon: Activity },
+            { label: "Outcomes", href: `/clients/${id}/outcomes`, icon: BarChart3 },
+            { label: "Photos & notes", href: `/clients/${id}/progress`, icon: Camera },
+          ]}
+          tabs={
+            <TabsList variant="line">
+              <TabsTrigger value="calendar">Calendar</TabsTrigger>
+              <TabsTrigger value="programs">Programs ({assignedPrograms.length})</TabsTrigger>
+              <TabsTrigger value="messages">Messages</TabsTrigger>
+            </TabsList>
+          }
+        />
 
-      {/* Client info */}
-      <Card className="shadow-sm ring-1 ring-border/50">
-        <CardContent className="flex flex-col gap-4 p-4 sm:p-6 sm:flex-row sm:items-center sm:gap-6">
-          <Avatar className="h-16 w-16 shrink-0">
-            <AvatarImage src={client.imageUrl || undefined} />
-            <AvatarFallback className="text-lg">
-              {getInitials(client)}
-            </AvatarFallback>
-          </Avatar>
-          <div className="min-w-0 flex-1">
-            <h2 className="text-2xl font-bold tracking-tight">
-              {getDisplayName(client)}
-            </h2>
-            <p className="text-muted-foreground truncate">{client.email}</p>
-            {client.dateOfBirth && (
-              <p className="text-sm text-muted-foreground/70">DOB: {client.dateOfBirth}</p>
-            )}
-          </div>
-          <div className="flex flex-wrap gap-2 sm:ml-auto">
-            <Button variant="outline" size="sm" asChild>
-              <Link href={`/messages/${client.id}`}>
-                <MessageSquare className="mr-1 h-4 w-4" />
-                Message
-              </Link>
-            </Button>
-            <Button variant="outline" size="sm" asChild>
-              <Link href={`/clients/${id}/adherence`}>
-                <Activity className="mr-1 h-4 w-4" />
-                Sessions
-              </Link>
-            </Button>
-            <Button variant="outline" size="sm" asChild>
-              <Link href={`/clients/${id}/outcomes`}>
-                <BarChart3 className="mr-1 h-4 w-4" />
-                Outcomes
-              </Link>
-            </Button>
-            {/* <Button variant="outline" size="sm" asChild>
-              <Link href={`/clients/${id}/progress`}>
-                <TrendingUp className="mr-1 h-4 w-4" />
-                Progress
-              </Link>
-            </Button> */}
-          </div>
-        </CardContent>
-      </Card>
+        <ClientAdherenceSummary
+          clientId={id}
+          completionRate={adherence.completionRate}
+          completed={adherence.completed}
+          missedOrSkipped={adherence.missed + adherence.skipped}
+          avgRPE={adherence.avgRPE}
+          total={adherence.total}
+        />
 
-      {/* Client profile */}
-      {client.clientProfile && (
-        <Card className="shadow-sm ring-1 ring-border/50">
-          <CardHeader>
-            <CardTitle className="text-base">Clinical Profile</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3 text-sm">
-            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-            {(client.clientProfile as any).primaryDiagnosis && (
-              <div className="rounded-md bg-blue-50 border border-blue-100 px-3 py-2">
-                <span className="font-semibold text-blue-800">Primary Diagnosis: </span>
-                {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                <span className="text-blue-700">{(client.clientProfile as any).primaryDiagnosis}</span>
-                {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                {(client.clientProfile as any).secondaryDiagnoses?.length > 0 && (
-                  <p className="mt-0.5 text-xs text-blue-600">
-                    {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                    Also: {(client.clientProfile as any).secondaryDiagnoses.join(", ")}
-                  </p>
-                )}
-              </div>
-            )}
-            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-            {(client.clientProfile as any).painScore != null && (
-              <div className="flex items-center gap-3">
-                <span className="font-medium">Pain Score:</span>
-                <div className="flex items-center gap-1.5">
-                  {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                  {Array.from({ length: 10 }).map((_, i) => (
-                    <div
-                      key={i}
-                      className={`h-2.5 w-2.5 rounded-full ${
-                        /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
-                        i < (client.clientProfile as any).painScore
-                          ? i < 3 ? "bg-green-400" : i < 6 ? "bg-amber-400" : "bg-red-500"
-                          : "bg-muted"
-                      }`}
-                    />
-                  ))}
-                  {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                  <span className="ml-1 text-muted-foreground">{(client.clientProfile as any).painScore}/10</span>
-                </div>
-              </div>
-            )}
-            <div className="grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-2">
-              {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-              {(client.clientProfile as any).activityLevel && (
-                <div>
-                  <span className="font-medium">Activity Level: </span>
-                  {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                  <span className="text-muted-foreground capitalize">{((client.clientProfile as any).activityLevel as string).toLowerCase()}</span>
-                </div>
-              )}
-              {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-              {(client.clientProfile as any).occupation && (
-                <div>
-                  <span className="font-medium">Occupation: </span>
-                  {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                  <span className="text-muted-foreground">{(client.clientProfile as any).occupation}</span>
-                </div>
-              )}
-              {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-              {(client.clientProfile as any).injuryDate && (
-                <div>
-                  <span className="font-medium">Injury Date: </span>
-                  {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                  <span className="text-muted-foreground">{new Date((client.clientProfile as any).injuryDate).toLocaleDateString()}</span>
-                </div>
-              )}
-            </div>
-            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-            {(client.clientProfile as any).surgeryHistory && (
-              <div>
-                <span className="font-medium">Surgery History: </span>
-                {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                <span className="text-muted-foreground">{(client.clientProfile as any).surgeryHistory}</span>
-              </div>
-            )}
-            {client.clientProfile.limitations && (
-              <div>
-                <span className="font-medium">Limitations: </span>
-                <span className="text-muted-foreground">{client.clientProfile.limitations}</span>
-              </div>
-            )}
-            {client.clientProfile.comorbidities && (
-              <div>
-                <span className="font-medium">Comorbidities: </span>
-                <span className="text-muted-foreground">{client.clientProfile.comorbidities}</span>
-              </div>
-            )}
-            {client.clientProfile.fitnessGoals.length > 0 && (
-              <div>
-                <span className="font-medium">Goals: </span>
-                <div className="mt-1 flex flex-wrap gap-1">
-                  {client.clientProfile.fitnessGoals.map((g) => (
-                    <Badge key={g} variant="secondary" className="text-xs">{g}</Badge>
-                  ))}
-                </div>
-              </div>
-            )}
-            {client.clientProfile.availableEquipment.length > 0 && (
-              <div>
-                <span className="font-medium">Equipment: </span>
-                <div className="mt-1 flex flex-wrap gap-1">
-                  {client.clientProfile.availableEquipment.map((eq) => (
-                    <Badge key={eq} variant="outline" className="text-xs">{eq}</Badge>
-                  ))}
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
+        {/* Always rendered, even when empty: a client who clicked through the intake
+            questions leaves nothing here, and the trainer needs somewhere to put
+            what they learn in the first session. */}
+        <ClinicalProfileCard
+          profile={clinicalProfile}
+          action={
+            <ClientProfileEditButton
+              clientId={client.id}
+              client={{
+                firstName: client.firstName,
+                lastName: client.lastName,
+                phone: client.phone,
+                dateOfBirth: client.dateOfBirth,
+                ...(clinicalProfile ?? {}),
+              }}
+            />
+          }
+        />
 
-      {/* At-a-glance adherence summary (full breakdown lives on the Sessions page) */}
-      <ClientAdherenceSummary
-        clientId={id}
-        completionRate={adherence.completionRate}
-        completed={adherence.completed}
-        missedOrSkipped={adherence.missed + adherence.skipped}
-        avgRPE={adherence.avgRPE}
-        total={adherence.total}
-      />
-
-      {/* Tabbed content: Calendar (default), Programs, Messages */}
-      <Tabs defaultValue={initialTab}>
-        <TabsList>
-          <TabsTrigger value="calendar">Calendar</TabsTrigger>
-          <TabsTrigger value="programs">Programs ({assignedPrograms.length})</TabsTrigger>
-          <TabsTrigger value="messages">Messages</TabsTrigger>
-          </TabsList>
-
-        <TabsContent value="calendar" className="mt-4">
+        <TabsContent value="calendar">
           <ClientCalendar
             clientId={client.id}
             trainerId={user.id}
@@ -282,19 +190,14 @@ export default async function ClientDetailPage({ params, searchParams }: Props) 
           />
         </TabsContent>
 
-        <TabsContent value="programs" className="mt-4">
-          <Card className="shadow-sm ring-1 ring-border/50">
-            <CardHeader>
-              <CardTitle className="text-base">Assigned Programs</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <AssignedProgramsList programs={assignedPrograms} />
-            </CardContent>
-          </Card>
+        <TabsContent value="programs">
+          <SectionCard title="Assigned programs" icon={Library} count={assignedPrograms.length}>
+            <AssignedProgramsList programs={assignedPrograms} />
+          </SectionCard>
         </TabsContent>
 
-        <TabsContent value="messages" className="mt-4">
-          <Card className="overflow-hidden p-0 shadow-sm ring-1 ring-border/50">
+        <TabsContent value="messages">
+          <Card className="overflow-hidden p-0 ring-1 ring-border shadow-none">
             <div className="h-[70dvh] max-h-[640px]">
               <MessageThread
                 items={threadItems}
@@ -306,6 +209,6 @@ export default async function ClientDetailPage({ params, searchParams }: Props) 
           </Card>
         </TabsContent>
       </Tabs>
-    </div>
+    </PageShell>
   );
 }

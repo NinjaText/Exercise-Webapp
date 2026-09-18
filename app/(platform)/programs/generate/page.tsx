@@ -3,10 +3,8 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { GenerateProgramForm } from "@/components/programs/generate-program-form";
 import type { ClientSummary } from "@/components/programs/client-details-panel";
-import { ArrowLeft } from "lucide-react";
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/shared/page-header";
+import { PageShell } from "@/components/shared/page-shell";
 
 export const maxDuration = 120; // parallel per-week LLM calls can take up to ~30s; 120s gives headroom for larger programs
 
@@ -92,21 +90,17 @@ export default async function GenerateProgramPage({
   }))
 
   return (
-    <div>
-      <Button variant="ghost" size="sm" asChild className="mb-2">
-        <Link href="/programs">
-          <ArrowLeft className="mr-1 h-4 w-4" />
-          Back to Programs
-        </Link>
-      </Button>
+    <PageShell width="default">
       <PageHeader
+        back={{ label: "Back to Programs", href: "/programs" }}
+        breadcrumb={[{ label: "Programs", href: "/programs" }, { label: "Generate Program" }]}
         title="Generate Program"
         description="Use AI to create a personalised program for a client."
       />
 
-      {/* Width is owned by the form — it widens itself when the client details
-          panel takes the second column. */}
+      {/* The shell gives room for the two-column layout; the form still
+          self-centers narrower (max-w-2xl) when no client panel is shown. */}
       <GenerateProgramForm clients={clients} initialClientId={clientId} />
-    </div>
+    </PageShell>
   );
 }

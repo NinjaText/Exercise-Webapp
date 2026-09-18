@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { MoreVertical, Pencil, Send, Trash2, Building2 } from "lucide-react";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
 import {
   pushGlobalProgramUpdateAction,
   deleteGlobalProgramAction,
@@ -69,8 +70,10 @@ export function GlobalProgramActions({
     <>
       <DropdownMenu>
         <DropdownMenuTrigger
+          render={<Button variant="ghost" size="icon-sm" aria-label="Global program actions" />}
           disabled={loading}
-          className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors disabled:opacity-50"
+          onClick={(e) => e.stopPropagation()}
+          onMouseDown={(e) => e.stopPropagation()}
         >
           <MoreVertical className="h-4 w-4" />
         </DropdownMenuTrigger>

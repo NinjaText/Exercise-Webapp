@@ -21,7 +21,7 @@ import { enUS } from "date-fns/locale";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Dumbbell, ChevronLeft, ChevronRight, Sparkles, MoreHorizontal, Copy } from "lucide-react";
+import { Plus, ChevronLeft, ChevronRight, MoreHorizontal, Copy } from "lucide-react";
 import { rescheduleSessionAction } from "@/actions/session-actions";
 import { toLocalCalendarDate, toUtcCalendarDate } from "@/lib/utils/calendar-date";
 import {
@@ -45,7 +45,6 @@ import {
 } from "@/actions/calendar-workout-actions";
 import { WorkoutEditorPanel } from "@/components/calendar/workout-editor-panel";
 import type { ExerciseSourcePreference } from "@/lib/utils/exercise-picker";
-import { AssignProgramDialog } from "@/components/calendar/assign-program-dialog";
 import { AiGenerateProgramDialog } from "@/components/calendar/ai-generate-program-dialog";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -284,14 +283,12 @@ function CustomToolbar({
   onNavigate,
   onView,
   onCreateClick,
-  onAiGenerateClick,
 }: {
   date: Date;
   view: View;
   onNavigate: (action: "PREV" | "NEXT" | "TODAY") => void;
   onView: (view: View) => void;
   onCreateClick: () => void;
-  onAiGenerateClick: () => void;
 }) {
   const title =
     view === Views.WEEK
@@ -325,11 +322,13 @@ function CustomToolbar({
       </div>
 
       {/* Title */}
-      <h2 className="flex-1 text-base font-bold tracking-tight sm:text-lg">
+      <h2 className="order-first w-full basis-full text-base font-bold tracking-tight sm:order-none sm:w-auto sm:flex-1 sm:basis-auto sm:text-lg">
         {title}
       </h2>
 
-      {/* View toggle */}
+      {/* View toggle — Month/Week grids need real width to be usable, so they're
+          desktop/tablet-only; phones are steered to Day view (see the mount
+          effect below) and only get that option here. */}
       <div className="flex items-center overflow-hidden rounded-lg border border-border bg-muted/40 p-0.5">
         {([Views.MONTH, Views.WEEK, Views.DAY] as View[]).map((v) => (
           <button
@@ -337,6 +336,7 @@ function CustomToolbar({
             onClick={() => onView(v)}
             className={cn(
               "h-7 rounded-md px-3 text-xs font-medium transition-all",
+              v !== Views.DAY && "hidden sm:inline-flex",
               view === v
                 ? "bg-background text-foreground shadow-sm"
                 : "text-muted-foreground hover:text-foreground"
@@ -347,19 +347,9 @@ function CustomToolbar({
         ))}
       </div>
 
-      {/* Generate with AI */}
-      <Button
-        size="sm"
-        className="h-8 gap-1.5"
-        onClick={onAiGenerateClick}
-      >
-        <Sparkles className="h-3.5 w-3.5" />
-        <span className="hidden sm:inline">Generate with AI</span>
-        <span className="sm:hidden">AI</span>
-      </Button>
-
       {/* Create workout manually */}
       <Button
+        variant="outline"
         size="sm"
         className="h-8 gap-1.5"
         onClick={onCreateClick}
@@ -463,10 +453,6 @@ export function ClientCalendar({
     () => setPanelState({ mode: "creating", date: new Date() }),
     []
   );
-  const handleAiGenerateClick = useCallback(
-    () => setAiDialogDate(new Date()),
-    []
-  );
   const handleAiGenerateFromDate = useCallback((date: Date) => {
     setPanelState({ mode: "closed" });
     setAiDialogDate(date);
@@ -475,27 +461,17 @@ export function ClientCalendar({
   return (
     <CalendarPillCtx.Provider value={{ onRefresh: handleRefresh }}>
     <div className="space-y-4">
-      {/* Top bar: legend + assign program */}
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        {/* Status legend */}
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
-          {Object.entries(statusConfig).map(([key, c]) => (
-            <div key={key} className="flex items-center gap-1.5">
-              <span
-                className="h-2 w-2 rounded-full shrink-0"
-                style={{ backgroundColor: c.dot }}
-              />
-              <span className="text-xs text-muted-foreground">{c.label}</span>
-            </div>
-          ))}
-        </div>
-
-        <AssignProgramDialog clientId={clientId} onSuccess={handleRefresh}>
-          <Button variant="outline" size="sm" className="h-8 gap-1.5 font-medium">
-            <Dumbbell className="h-3.5 w-3.5" />
-            Assign Program
-          </Button>
-        </AssignProgramDialog>
+      {/* Top bar: status legend */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+        {Object.entries(statusConfig).map(([key, c]) => (
+          <div key={key} className="flex items-center gap-1.5">
+            <span
+              className="h-2 w-2 rounded-full shrink-0"
+              style={{ backgroundColor: c.dot }}
+            />
+            <span className="text-xs text-muted-foreground">{c.label}</span>
+          </div>
+        ))}
       </div>
 
       {/* Calendar */}
@@ -525,7 +501,6 @@ export function ClientCalendar({
                 onNavigate={props.onNavigate}
                 onView={props.onView}
                 onCreateClick={handleCreateClick}
-                onAiGenerateClick={handleAiGenerateClick}
               />
             ),
           }}

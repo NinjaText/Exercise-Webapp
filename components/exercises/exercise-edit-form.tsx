@@ -7,7 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { SectionCard } from "@/components/shared/section-card";
 import { BODY_REGIONS, DIFFICULTY_LEVELS, COMMON_EQUIPMENT } from "@/lib/utils/constants";
 import { updateExerciseAction, addExerciseMediaAction, deleteExerciseMediaAction } from "@/actions/exercise-actions";
 import { toast } from "sonner";
@@ -133,12 +133,7 @@ export function ExerciseEditForm({ exercise }: Props) {
 
   return (
     <form onSubmit={handleSubmit}>
-      <Card>
-        <CardHeader>
-          <CardTitle>Edit: {exercise.name}</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-6">
-
+      <SectionCard title={`Edit: ${exercise.name}`} contentClassName="space-y-6">
           {/* Name */}
           <div className="space-y-2">
             <Label htmlFor="name">Exercise Name *</Label>
@@ -227,7 +222,7 @@ export function ExerciseEditForm({ exercise }: Props) {
           </div>
 
           {/* Assessment exercise toggle */}
-          <div className="flex items-start gap-3 rounded-lg border border-blue-200 bg-blue-50/60 p-4">
+          <div className="flex items-start gap-3 rounded-lg border border-info-border bg-info-soft p-4">
             <Checkbox
               id="isAssessment"
               checked={isAssessment}
@@ -236,7 +231,7 @@ export function ExerciseEditForm({ exercise }: Props) {
             />
             <div className="space-y-1">
               <Label htmlFor="isAssessment" className="flex items-center gap-1.5 font-medium">
-                <ClipboardCheck className="h-3.5 w-3.5 text-blue-600" />
+                <ClipboardCheck className="h-3.5 w-3.5 text-info" />
                 Assessment exercise
               </Label>
               <p className="text-xs text-muted-foreground">
@@ -298,7 +293,12 @@ export function ExerciseEditForm({ exercise }: Props) {
                       className="inline-flex items-center gap-1 rounded-full bg-primary/10 text-primary border border-primary/20 px-2.5 py-0.5 text-sm font-medium"
                     >
                       {eq}
-                      <button type="button" onClick={() => removeEquipment(eq)} className="hover:text-primary/70">
+                      <button
+                        type="button"
+                        onClick={() => removeEquipment(eq)}
+                        className="hover:text-primary/70"
+                        aria-label={`Remove ${eq}`}
+                      >
                         <X className="h-3 w-3" />
                       </button>
                     </span>
@@ -335,7 +335,7 @@ export function ExerciseEditForm({ exercise }: Props) {
             <div>
               <h3 className="font-semibold text-foreground">Video Demo</h3>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Paste a YouTube link — it plays inline in the client&apos;s plan. The <span className="font-medium text-blue-600">YouTube thumbnail auto-becomes the exercise image</span> if no photo is set.
+                Paste a YouTube link — it plays inline in the client&apos;s plan. The <span className="font-medium text-info">YouTube thumbnail auto-becomes the exercise image</span> if no photo is set.
               </p>
             </div>
 
@@ -364,11 +364,11 @@ export function ExerciseEditForm({ exercise }: Props) {
 
             {/* Uploaded video indicator */}
             {videoUrl && !videoUrl.includes("youtube") && !videoUrl.includes("youtu.be") && (
-              <div className="flex items-center gap-2 rounded-md bg-green-50 border border-green-200 px-3 py-2">
-                <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
-                <span className="text-xs text-green-700 truncate flex-1">{videoUrl}</span>
-                <button type="button" onClick={() => setVideoUrl("")}>
-                  <X className="h-3.5 w-3.5 text-green-600" />
+              <div className="flex items-center gap-2 rounded-md bg-success-soft border border-success-border px-3 py-2">
+                <CheckCircle2 className="h-4 w-4 text-success shrink-0" />
+                <span className="text-xs text-success-foreground truncate flex-1">{videoUrl}</span>
+                <button type="button" onClick={() => setVideoUrl("")} aria-label="Clear video URL">
+                  <X className="h-3.5 w-3.5 text-success" />
                 </button>
               </div>
             )}
@@ -461,7 +461,7 @@ export function ExerciseEditForm({ exercise }: Props) {
                             toast.error(result.error);
                           }
                         }}
-                        className="rounded p-0.5 text-white hover:bg-red-500/80"
+                        className="rounded p-0.5 text-white hover:bg-danger/80"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
@@ -485,8 +485,7 @@ export function ExerciseEditForm({ exercise }: Props) {
             </Button>
           </div>
 
-        </CardContent>
-      </Card>
+      </SectionCard>
     </form>
   );
 }

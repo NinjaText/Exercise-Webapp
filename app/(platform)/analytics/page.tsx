@@ -6,9 +6,11 @@ import {
   AttendanceTrendChart,
 } from "@/components/analytics/business-metrics-charts";
 import { PageHeader } from "@/components/shared/page-header";
+import { PageShell } from "@/components/shared/page-shell";
 import { StatCard } from "@/components/shared/stat-card";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { DollarSign, UserPlus, Repeat, CalendarCheck, Package } from "lucide-react";
+import { SectionCard } from "@/components/shared/section-card";
+import { EmptyState } from "@/components/shared/empty-state";
+import { DollarSign, UserPlus, Repeat, CalendarCheck, Package, Users, Building2 } from "lucide-react";
 
 /**
  * Trainer-facing, organization-scoped business analytics.
@@ -39,72 +41,70 @@ export default async function AnalyticsPage() {
       label: "Revenue This Month",
       value: currencyFormatter.format(metrics.revenueThisMonthCents / 100),
       icon: DollarSign,
+      role: "brand" as const,
     },
     {
       label: "New Clients",
       value: metrics.newClientsThisMonth.toString(),
       icon: UserPlus,
+      role: "info" as const,
     },
     {
       label: "Retention",
       value: metrics.retentionRate === null ? "—" : `${metrics.retentionRate}%`,
       icon: Repeat,
+      role: "success" as const,
     },
     {
       label: "Average Attendance",
       value: `${metrics.averageAttendanceRate}%`,
       icon: CalendarCheck,
+      role: "info" as const,
     },
     {
       label: "Programs Sold",
       value: metrics.programsSold.toString(),
       icon: Package,
+      role: "neutral" as const,
     },
   ];
 
   return (
-    <div className="space-y-8">
+    <PageShell>
       <PageHeader
         title="Analytics"
         description="Business performance for your organization this month."
       />
 
       {!metrics.hasOrganization && (
-        <div className="rounded-2xl border border-dashed border-border p-4 sm:p-6 text-sm text-muted-foreground">
-          Your account isn&apos;t linked to an organization yet, so there&apos;s no data to
-          report. Metrics will populate once your organization is set up.
-        </div>
+        <EmptyState
+          size="compact"
+          icon={Building2}
+          title="No organization yet"
+          description="Your account isn't linked to an organization yet, so there's no data to report. Metrics will populate once your organization is set up."
+        />
       )}
 
-      <div className="grid grid-cols-2 gap-6 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-5 lg:gap-6">
         {statCards.map((card) => (
           <StatCard
             key={card.label}
             label={card.label}
             value={card.value}
             icon={card.icon}
+            role={card.role}
           />
         ))}
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>New Clients per Month</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <NewClientsTrendChart data={metrics.newClientsTrend} />
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Average Attendance per Month</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <AttendanceTrendChart data={metrics.attendanceTrend} />
-          </CardContent>
-        </Card>
+        <SectionCard title="New clients per month" icon={Users}>
+          <NewClientsTrendChart data={metrics.newClientsTrend} />
+        </SectionCard>
+        <SectionCard title="Average attendance per month" icon={CalendarCheck}>
+          <AttendanceTrendChart data={metrics.attendanceTrend} />
+        </SectionCard>
       </div>
-    </div>
+    </PageShell>
   );
 }

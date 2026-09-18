@@ -3,8 +3,9 @@
 import { useMemo, useState, useTransition } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
-import { Loader2, Mail, MailCheck, MailX, MailWarning, RotateCw, Ban } from "lucide-react";
+import { Loader2, Mail, RotateCw, Ban } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { StatusBadge } from "@/components/shared/status-badge";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -36,22 +37,12 @@ const FILTERS: { key: InvitationStatus | "all"; label: string }[] = [
   { key: "revoked", label: "Revoked" },
 ];
 
-const STATUS_STYLES: Record<InvitationStatus, { dot: string; text: string; icon: typeof Mail; label: string }> = {
-  pending: { dot: "bg-amber-500", text: "text-amber-600", icon: MailWarning, label: "Pending" },
-  accepted: { dot: "bg-emerald-500", text: "text-emerald-600", icon: MailCheck, label: "Accepted" },
-  expired: { dot: "bg-muted-foreground", text: "text-muted-foreground", icon: MailX, label: "Expired" },
-  revoked: { dot: "bg-destructive", text: "text-destructive", icon: Ban, label: "Revoked" },
+const STATUS_ROLE: Record<InvitationStatus, "warning" | "success" | "neutral"> = {
+  pending: "warning",
+  accepted: "success",
+  expired: "neutral",
+  revoked: "neutral",
 };
-
-function StatusBadge({ status }: { status: InvitationStatus }) {
-  const s = STATUS_STYLES[status];
-  return (
-    <span className={`inline-flex items-center gap-1.5 text-xs font-medium ${s.text}`}>
-      <span className={`h-1.5 w-1.5 rounded-full ${s.dot}`} />
-      {s.label}
-    </span>
-  );
-}
 
 export function InvitationsTable({ invitations, clerkOrgId, onChanged }: Props) {
   const [filter, setFilter] = useState<InvitationStatus | "all">("all");
@@ -145,7 +136,7 @@ export function InvitationsTable({ invitations, clerkOrgId, onChanged }: Props) 
                   <tr key={invite.id} className="hover:bg-muted/40 transition-colors">
                     <td className="px-5 py-3 text-foreground">{invite.email}</td>
                     <td className="px-5 py-3">
-                      <StatusBadge status={invite.status} />
+                      <StatusBadge status={invite.status} role={STATUS_ROLE[invite.status]} size="sm" />
                     </td>
                     <td className="px-5 py-3 text-xs text-muted-foreground whitespace-nowrap">
                       {formatDistanceToNow(new Date(invite.createdAt), { addSuffix: true })}

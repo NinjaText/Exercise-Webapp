@@ -50,10 +50,10 @@ interface DayGroup {
 }
 
 const MEAL_BADGE_STYLE: Record<string, string> = {
-  BREAKFAST: "bg-amber-500/10 text-amber-600",
-  LUNCH: "bg-emerald-500/10 text-emerald-600",
-  DINNER: "bg-indigo-500/10 text-indigo-600",
-  SNACK: "bg-fuchsia-500/10 text-fuchsia-600",
+  BREAKFAST: "bg-warning-soft text-warning-foreground",
+  LUNCH: "bg-success-soft text-success-foreground",
+  DINNER: "bg-info-soft text-info-foreground",
+  SNACK: "bg-brand-soft text-brand-foreground",
 };
 
 const MEAL_LABELS: Record<string, string> = {

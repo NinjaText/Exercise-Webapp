@@ -10,7 +10,7 @@ import {
   Dumbbell,
   Library,
   Shield,
-  ExternalLink,
+  ArrowLeft,
   Globe,
   ScrollText,
 } from "lucide-react";
@@ -30,7 +30,6 @@ const adminLinks = [
 interface AdminSidebarProps {
   userName: string;
   userEmail: string;
-  userImageUrl?: string | null;
   mobileMode?: boolean;
 }
 
@@ -45,7 +44,7 @@ export function AdminSidebar({ userName, userEmail, mobileMode = false }: AdminS
         key={href}
         href={href}
         className={cn(
-          "group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-150",
+          "group relative flex items-center gap-3 h-9 rounded-lg px-3 text-sm font-medium transition-all duration-150",
           isActive
             ? "bg-sidebar-primary/15 text-sidebar-primary shadow-sm"
             : "text-sidebar-foreground/60 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground"
@@ -53,7 +52,7 @@ export function AdminSidebar({ userName, userEmail, mobileMode = false }: AdminS
       >
         <Icon
           className={cn(
-            "h-4.5 w-4.5 shrink-0 transition-transform duration-150 group-hover:scale-105",
+            "size-4 shrink-0",
             isActive ? "text-sidebar-primary" : "text-sidebar-foreground/50"
           )}
         />
@@ -80,7 +79,7 @@ export function AdminSidebar({ userName, userEmail, mobileMode = false }: AdminS
       {/* Navigation */}
       <ScrollArea className="flex-1 px-3 py-5">
         <div className="mb-1 px-3 pb-2">
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-sidebar-foreground/30">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-sidebar-foreground/30">
             Administration
           </p>
         </div>
@@ -91,16 +90,16 @@ export function AdminSidebar({ userName, userEmail, mobileMode = false }: AdminS
         <div className="my-5 h-px bg-sidebar-border/40" />
 
         <div className="mb-1 px-3 pb-2">
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-sidebar-foreground/30">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-sidebar-foreground/30">
             Platform
           </p>
         </div>
         <Link
           href="/dashboard"
-          className="group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-sidebar-foreground/60 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground transition-all duration-150"
+          className="group flex items-center gap-3 h-9 rounded-lg px-3 text-sm font-medium text-sidebar-foreground/60 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground transition-all duration-150"
         >
-          <ExternalLink className="h-4.5 w-4.5 shrink-0 text-sidebar-foreground/50 group-hover:scale-105 transition-transform duration-150" />
-          <span>Go to Platform</span>
+          <ArrowLeft className="size-4 shrink-0 text-sidebar-foreground/50" />
+          <span className="flex-1">Back to app</span>
         </Link>
       </ScrollArea>
 

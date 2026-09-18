@@ -11,17 +11,17 @@ const FLAG_META: Record<ExerciseMatchFlag, { label: string; icon: typeof AlertTr
   needs_review: {
     label: "Needs review",
     icon: HelpCircle,
-    className: "bg-amber-50 text-amber-700 border-amber-200",
+    className: "bg-warning-soft text-warning-foreground border-warning-border",
   },
   not_in_library: {
     label: "Not in library",
     icon: AlertTriangle,
-    className: "bg-red-50 text-red-700 border-red-200",
+    className: "bg-danger-soft text-danger-foreground border-danger-border",
   },
   not_in_document: {
     label: "Couldn't verify in document",
     icon: FileWarning,
-    className: "bg-purple-50 text-purple-700 border-purple-200",
+    className: "bg-brand-soft text-brand-foreground border-brand-border",
   },
 };
 
@@ -75,7 +75,7 @@ export function FlaggedExerciseRow({
           })}
         </div>
         {resolved && resolvedLabel && (
-          <p className="mt-1 text-xs text-emerald-700">Resolved: {resolvedLabel}</p>
+          <p className="mt-1 text-xs text-success-foreground">Resolved: {resolvedLabel}</p>
         )}
         {!resolved && duplicateCount > 0 && (
           <label className="mt-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">

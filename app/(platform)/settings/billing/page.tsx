@@ -4,7 +4,8 @@ import { differenceInDays } from "date-fns";
 import { SubscriptionStatus } from "@/components/billing/subscription-status";
 import { PricingCards } from "@/components/billing/pricing-cards";
 import { PageHeader } from "@/components/shared/page-header";
-import { Card, CardContent } from "@/components/ui/card";
+import { PageShell } from "@/components/shared/page-shell";
+import { SectionCard } from "@/components/shared/section-card";
 import { CreditCard, Clock, AlertCircle, XCircle } from "lucide-react";
 
 export default async function BillingSettingsPage() {
@@ -21,7 +22,7 @@ export default async function BillingSettingsPage() {
       : 0;
 
   return (
-    <div className="mx-auto max-w-3xl space-y-8">
+    <PageShell width="narrow">
       <PageHeader
         title="Billing & Subscription"
         description="Manage your plan and payment details"
@@ -31,6 +32,7 @@ export default async function BillingSettingsPage() {
       {sub?.status === "ACTIVE" && (
         <SubscriptionStatus
           plan={sub.plan}
+          status={sub.status}
           currentPeriodEnd={sub.currentPeriodEnd}
           cancelAtPeriodEnd={sub.cancelAtPeriodEnd}
         />
@@ -39,14 +41,14 @@ export default async function BillingSettingsPage() {
       {/* TRIALING — show trial status + upgrade options */}
       {sub?.status === "TRIALING" && (
         <>
-          <div className="flex items-start gap-4 rounded-xl border border-blue-200 bg-blue-50 p-5">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-100">
-              <Clock className="h-5 w-5 text-blue-600" />
+          <div className="flex items-start gap-4 rounded-xl border border-info-border bg-info-soft p-5">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-info/15">
+              <Clock className="h-5 w-5 text-info-foreground" />
             </div>
             <div>
-              <p className="font-semibold text-blue-900">Free trial active</p>
+              <p className="font-semibold text-info-foreground">Free trial active</p>
               {trialDaysRemaining > 0 ? (
-                <p className="mt-0.5 text-sm text-blue-700">
+                <p className="mt-0.5 text-sm text-info-foreground">
                   You have{" "}
                   <span className="font-bold">
                     {trialDaysRemaining} day{trialDaysRemaining !== 1 ? "s" : ""}
@@ -54,7 +56,7 @@ export default async function BillingSettingsPage() {
                   remaining. Choose a plan below to continue after your trial ends.
                 </p>
               ) : (
-                <p className="mt-0.5 text-sm text-blue-700">
+                <p className="mt-0.5 text-sm text-info-foreground">
                   Your trial ends today. Choose a plan to keep access.
                 </p>
               )}
@@ -70,13 +72,13 @@ export default async function BillingSettingsPage() {
       {/* PAST_DUE / UNPAID — payment issue */}
       {(sub?.status === "PAST_DUE" || sub?.status === "UNPAID") && (
         <div className="space-y-6">
-          <div className="flex items-start gap-4 rounded-xl border border-red-200 bg-red-50 p-5">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-100">
-              <AlertCircle className="h-5 w-5 text-red-600" />
+          <div className="flex items-start gap-4 rounded-xl border border-danger-border bg-danger-soft p-5">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-danger/15">
+              <AlertCircle className="h-5 w-5 text-danger-foreground" />
             </div>
             <div>
-              <p className="font-semibold text-red-900">Payment issue</p>
-              <p className="mt-0.5 text-sm text-red-700">
+              <p className="font-semibold text-danger-foreground">Payment issue</p>
+              <p className="mt-0.5 text-sm text-danger-foreground">
                 Your last payment failed. Update your payment method to restore
                 full access.
               </p>
@@ -84,6 +86,7 @@ export default async function BillingSettingsPage() {
           </div>
           <SubscriptionStatus
             plan={sub.plan}
+            status={sub.status}
             currentPeriodEnd={sub.currentPeriodEnd}
             cancelAtPeriodEnd={sub.cancelAtPeriodEnd}
           />
@@ -112,22 +115,16 @@ export default async function BillingSettingsPage() {
       )}
 
       {/* What's included callout */}
-      <Card>
-        <CardContent className="p-4 sm:p-6">
-          <div className="flex items-center gap-2 mb-3">
-            <CreditCard className="h-4 w-4 text-muted-foreground" />
-            <p className="text-sm font-semibold text-muted-foreground">All plans include</p>
-          </div>
-          <ul className="grid grid-cols-1 gap-x-8 gap-y-1.5 text-sm text-muted-foreground sm:grid-cols-2">
-            <li>✓ AI workout generation</li>
-            <li>✓ Client progress tracking</li>
-            <li>✓ Assessments &amp; check-ins</li>
-            <li>✓ Messaging</li>
-            <li>✓ Program library</li>
-            <li>✓ 14-day free trial</li>
-          </ul>
-        </CardContent>
-      </Card>
-    </div>
+      <SectionCard title="All plans include" icon={CreditCard}>
+        <ul className="grid grid-cols-1 gap-x-8 gap-y-1.5 text-sm text-muted-foreground sm:grid-cols-2">
+          <li>✓ AI workout generation</li>
+          <li>✓ Client progress tracking</li>
+          <li>✓ Assessments &amp; check-ins</li>
+          <li>✓ Messaging</li>
+          <li>✓ Program library</li>
+          <li>✓ 14-day free trial</li>
+        </ul>
+      </SectionCard>
+    </PageShell>
   );
 }

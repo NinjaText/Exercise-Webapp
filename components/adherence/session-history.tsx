@@ -1,5 +1,4 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import {
   Table,
   TableBody,
@@ -8,6 +7,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { StatusBadge } from "@/components/shared/status-badge";
 import { formatDateTime } from "@/lib/utils/dates";
 
 interface SessionHistoryProps {
@@ -25,12 +25,6 @@ interface SessionHistoryProps {
   }>;
 }
 
-const statusColors: Record<string, string> = {
-  completed: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
-  in_progress: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
-  abandoned: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
-};
-
 export function SessionHistory({ sessions }: SessionHistoryProps) {
   return (
     <Card>
@@ -45,9 +39,9 @@ export function SessionHistory({ sessions }: SessionHistoryProps) {
                 <TableHead>Date</TableHead>
                 <TableHead>Plan</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Exercises</TableHead>
-                <TableHead>Pain</TableHead>
-                <TableHead>Notes</TableHead>
+                <TableHead className="hidden sm:table-cell">Exercises</TableHead>
+                <TableHead className="hidden sm:table-cell">Pain</TableHead>
+                <TableHead className="hidden md:table-cell">Notes</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -65,20 +59,18 @@ export function SessionHistory({ sessions }: SessionHistoryProps) {
                     </TableCell>
                     <TableCell className="text-sm">{s.planTitle}</TableCell>
                     <TableCell>
-                      <Badge className={`text-xs ${statusColors[s.status] ?? ""}`}>
-                        {s.status.replace(/_/g, " ")}
-                      </Badge>
+                      <StatusBadge status={s.status} size="sm" />
                     </TableCell>
-                    <TableCell className="text-sm">
+                    <TableCell className="hidden text-sm sm:table-cell">
                       {s.exercisesCompleted}/{s.exercisesTotal}
                       {s.exercisesSkipped > 0 && (
                         <span className="text-muted-foreground"> ({s.exercisesSkipped} skipped)</span>
                       )}
                     </TableCell>
-                    <TableCell className="text-sm">
+                    <TableCell className="hidden text-sm sm:table-cell">
                       {s.overallPainLevel !== null ? `${s.overallPainLevel}/10` : "-"}
                     </TableCell>
-                    <TableCell className="text-sm text-muted-foreground max-w-[200px] truncate">
+                    <TableCell className="hidden max-w-[200px] truncate text-sm text-muted-foreground md:table-cell">
                       {s.notes ?? "-"}
                     </TableCell>
                   </TableRow>

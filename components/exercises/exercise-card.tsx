@@ -14,6 +14,8 @@ import { adoptUniversalExerciseAction, toggleExerciseFavoriteAction } from "@/ac
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { hasRealVideoUrl } from "@/lib/utils/video";
+import { StatusBadge } from "@/components/shared/status-badge";
+import { DIFFICULTY_ROLE } from "@/lib/ui/status";
 
 interface ExerciseCardProps {
   id: string;
@@ -35,18 +37,12 @@ interface ExerciseCardProps {
   isFavorite?: boolean;
 }
 
-const difficultyConfig: Record<string, { label: string; className: string }> = {
-  BEGINNER: { label: "Beginner", className: "bg-emerald-100 text-emerald-700 border-emerald-200" },
-  INTERMEDIATE: { label: "Intermediate", className: "bg-amber-100 text-amber-700 border-amber-200" },
-  ADVANCED: { label: "Advanced", className: "bg-red-100 text-red-700 border-red-200" },
-};
-
-const phaseConfig: Record<string, { label: string; className: string }> = {
-  WARMUP: { label: "Warmup", className: "bg-orange-900/70 text-orange-200" },
-  ACTIVATION: { label: "Activation", className: "bg-yellow-900/70 text-yellow-200" },
-  STRENGTHENING: { label: "Strengthening", className: "bg-blue-900/70 text-blue-200" },
-  MOBILITY: { label: "Mobility", className: "bg-purple-900/70 text-purple-200" },
-  COOLDOWN: { label: "Cooldown", className: "bg-teal-900/70 text-teal-200" },
+const phaseConfig: Record<string, { label: string }> = {
+  WARMUP: { label: "Warmup" },
+  ACTIVATION: { label: "Activation" },
+  STRENGTHENING: { label: "Strengthening" },
+  MOBILITY: { label: "Mobility" },
+  COOLDOWN: { label: "Cooldown" },
 };
 
 export function ExerciseCard({
@@ -77,15 +73,7 @@ export function ExerciseCard({
     });
   }
 
-  const difficulty = difficultyLevel
-    ? difficultyConfig[difficultyLevel] ?? {
-        label: formatDifficulty(difficultyLevel),
-        className: "bg-muted text-muted-foreground border-border",
-      }
-    : null;
-  const phases = (exercisePhases ?? []).map(
-    (p) => phaseConfig[p] ?? { label: p, className: "bg-black/60 text-white" }
-  );
+  const phases = (exercisePhases ?? []).map((p) => phaseConfig[p] ?? { label: p });
 
   function handleAdopt() {
     startAdopting(async () => {
@@ -101,7 +89,7 @@ export function ExerciseCard({
 
   return (
     <Card className={cn(
-      "group relative flex flex-col overflow-hidden border-0 shadow-sm ring-1 ring-border/50 transition-all duration-250 hover:-translate-y-1 hover:shadow-xl hover:ring-border/80",
+      "group relative flex flex-col overflow-hidden ring-1 ring-border shadow-none transition-shadow duration-250 hover:shadow-sm hover:ring-border-strong",
       isActive === false && "opacity-60",
       selected && "ring-2 ring-primary"
     )}>
@@ -116,7 +104,7 @@ export function ExerciseCard({
         </div>
       )}
       <Link href={`/exercises/${id}`} className="relative block h-44 overflow-hidden bg-muted">
-        <ExerciseImage src={null} alt={name} bodyRegion={bodyRegion[0]} videoUrl={videoUrl} label={name.split(" ").slice(0, 3).join(" ")} />
+        <ExerciseImage src={null} alt={name} videoUrl={videoUrl} label={name.split(" ").slice(0, 3).join(" ")} />
         <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
           <div className="flex items-center gap-1.5 rounded-full bg-white/90 px-4 py-1.5 text-sm font-semibold text-foreground shadow-lg backdrop-blur-sm">
             <ArrowRight className="h-3.5 w-3.5" />
@@ -127,7 +115,10 @@ export function ExerciseCard({
           {phases.length > 0 && (
             <div className="flex flex-wrap gap-1">
               {phases.map((phase) => (
-                <span key={phase.label} className={`rounded-full px-2 py-0.5 text-[10px] font-semibold backdrop-blur-sm ${phase.className}`}>
+                <span
+                  key={phase.label}
+                  className="rounded-full bg-foreground/75 px-2 py-0.5 text-[10px] font-semibold text-background backdrop-blur-sm"
+                >
                   {phase.label}
                 </span>
               ))}
@@ -160,15 +151,20 @@ export function ExerciseCard({
             title={favorite ? "Remove from favorites" : "Add to favorites"}
             className={cn(
               "shrink-0 rounded-md p-0.5 transition-colors disabled:opacity-60",
-              favorite ? "text-amber-500" : "text-muted-foreground hover:text-foreground"
+              favorite ? "text-warning" : "text-muted-foreground hover:text-foreground"
             )}
           >
             <Bookmark className={cn("h-4 w-4", favorite && "fill-current")} />
           </button>
-          {difficulty && (
-            <Badge className={`shrink-0 border text-[10px] font-semibold ${difficulty.className}`}>
-              {difficulty.label}
-            </Badge>
+          {difficultyLevel && (
+            <StatusBadge
+              status={difficultyLevel}
+              label={formatDifficulty(difficultyLevel)}
+              role={DIFFICULTY_ROLE[difficultyLevel] ?? "neutral"}
+              size="sm"
+              dot={false}
+              className="shrink-0"
+            />
           )}
         </div>
 

@@ -5,6 +5,7 @@ import { Trash2, Loader2 } from "lucide-react";
 import { deleteExerciseAction } from "@/actions/exercise-actions";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
 
 export function DeleteExerciseButton({ exerciseId, exerciseName }: { exerciseId: string; exerciseName: string }) {
   const [confirming, setConfirming] = useState(false);
@@ -32,26 +33,23 @@ export function DeleteExerciseButton({ exerciseId, exerciseName }: { exerciseId:
 
   if (confirming) {
     return (
-      <button
+      <Button
         type="button"
+        variant="destructive"
+        size="sm"
         onClick={handleClick}
         disabled={isPending}
-        className="inline-flex items-center gap-1.5 rounded-lg bg-destructive px-3 py-1.5 text-xs font-medium text-destructive-foreground hover:bg-destructive/90 transition-colors"
       >
         {isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
         Confirm?
-      </button>
+      </Button>
     );
   }
 
   return (
-    <button
-      type="button"
-      onClick={handleClick}
-      className="inline-flex items-center gap-1.5 rounded-lg bg-muted px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-red-50 hover:text-red-600 transition-colors"
-    >
+    <Button type="button" variant="outline" size="sm" onClick={handleClick}>
       <Trash2 className="h-3 w-3" />
       Delete
-    </button>
+    </Button>
   );
 }

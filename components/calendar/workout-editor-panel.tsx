@@ -33,6 +33,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ExercisePickerDialog } from "@/components/programs/exercise-picker-dialog";
+import { StatusBadge } from "@/components/shared/status-badge";
 import {
   Select,
   SelectContent,
@@ -144,13 +145,13 @@ interface WorkoutEditorPanelProps {
 // ---------------------------------------------------------------------------  
 
 const BLOCK_TYPES = [
-  { value: 'NORMAL', label: 'Normal', color: 'bg-gray-100 text-gray-700' },
-  { value: 'WARMUP', label: 'Warmup', color: 'bg-green-100 text-green-700' },
-  { value: 'COOLDOWN', label: 'Cooldown', color: 'bg-teal-100 text-teal-700' },
-  { value: 'CIRCUIT', label: 'Circuit', color: 'bg-purple-100 text-purple-700' },
-  { value: 'SUPERSET', label: 'Superset', color: 'bg-orange-100 text-orange-700' },
-  { value: 'AMRAP', label: 'AMRAP', color: 'bg-red-100 text-red-700' },
-  { value: 'EMOM', label: 'EMOM', color: 'bg-blue-100 text-blue-700' },
+  { value: 'NORMAL', label: 'Normal', color: 'bg-neutral' },
+  { value: 'WARMUP', label: 'Warmup', color: 'bg-success' },
+  { value: 'COOLDOWN', label: 'Cooldown', color: 'bg-info' },
+  { value: 'CIRCUIT', label: 'Circuit', color: 'bg-brand' },
+  { value: 'SUPERSET', label: 'Superset', color: 'bg-warning' },
+  { value: 'AMRAP', label: 'AMRAP', color: 'bg-danger' },
+  { value: 'EMOM', label: 'EMOM', color: 'bg-info' },
 ] as const;
 
 function getBlockTypeConfig(type: string) {
@@ -351,7 +352,7 @@ function SortableExercise({
           <input
             type="checkbox"
             className={cn(
-              "h-4 w-4 shrink-0 rounded border-gray-300 cursor-pointer transition-opacity mt-1",
+              "h-4 w-4 shrink-0 rounded border-border cursor-pointer transition-opacity mt-1",
               isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100"
             )}
             checked={!!isSelected}
@@ -1324,20 +1325,7 @@ export function WorkoutEditorPanel({
                   <CalendarIcon className="h-3.5 w-3.5" />
                   <span>{dateLabel}</span>
                   {session && (
-                    <Badge
-                      variant="secondary"
-                      className={`ml-2 text-xs ${
-                        session.status === "COMPLETED"
-                          ? "bg-green-100 text-green-700"
-                          : session.status === "IN_PROGRESS"
-                            ? "bg-amber-100 text-amber-700"
-                            : session.status === "MISSED"
-                              ? "bg-red-100 text-red-700"
-                              : "bg-blue-100 text-blue-700"
-                      }`}
-                    >
-                      {session.status}
-                    </Badge>
+                    <StatusBadge status={session.status} size="sm" className="ml-2" />
                   )}
                 </div>
               </div>
@@ -1410,9 +1398,9 @@ export function WorkoutEditorPanel({
                     <button
                       onClick={handleCreateWorkout}
                       disabled={saving || !workoutName.trim()}
-                      className="group flex flex-col items-center gap-3 rounded-xl border-2 border-border bg-background p-4 sm:p-6 text-left transition-all hover:border-blue-400 hover:bg-blue-50/50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="group flex flex-col items-center gap-3 rounded-xl border-2 border-border bg-background p-4 sm:p-6 text-left transition-all hover:border-info-border hover:bg-info-soft disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-100 text-blue-600 group-hover:bg-blue-200 transition-colors">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-info-soft text-info-foreground group-hover:bg-info-border transition-colors">
                         {saving ? (
                           <Loader2 className="h-5 w-5 animate-spin" />
                         ) : (
@@ -1435,9 +1423,9 @@ export function WorkoutEditorPanel({
                           panelState.mode === "creating" ? panelState.date : new Date()
                         );
                       }}
-                      className="group flex flex-col items-center gap-3 rounded-xl border-2 border-border bg-background p-4 sm:p-6 text-left transition-all hover:border-violet-400 hover:bg-violet-50/50"
+                      className="group flex flex-col items-center gap-3 rounded-xl border-2 border-border bg-background p-4 sm:p-6 text-left transition-all hover:border-brand-border hover:bg-brand-soft"
                     >
-                      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-violet-100 text-violet-600 group-hover:bg-violet-200 transition-colors">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-brand-soft text-brand-foreground group-hover:bg-brand-border transition-colors">
                         <Sparkles className="h-5 w-5" />
                       </div>
                       <div className="text-center">
@@ -1453,7 +1441,7 @@ export function WorkoutEditorPanel({
                 /* Edit mode - show blocks & exercises */
                 <>
                   {session.status === "COMPLETED" && (session.overallRPE !== null || session.overallNotes) && (
-                    <div className="bg-green-50 border border-green-200 rounded-md p-4 text-sm text-green-800 mb-6">
+                    <div className="bg-success-soft border border-success-border rounded-md p-4 text-sm text-success-foreground mb-6">
                       <div className="flex items-center gap-2 font-semibold mb-1">
                         <CheckCircle className="h-4 w-4" />
                         Client Feedback
@@ -1461,12 +1449,12 @@ export function WorkoutEditorPanel({
                       <div className="grid gap-1">
                         {session.overallRPE !== null && (
                           <div>
-                            <span className="font-medium text-green-900">Overall RPE:</span> {session.overallRPE}/10
+                            <span className="font-medium text-success-foreground">Overall RPE:</span> {session.overallRPE}/10
                           </div>
                         )}
                         {session.overallNotes && (
                           <div>
-                            <span className="font-medium text-green-900">Notes:</span> {session.overallNotes}
+                            <span className="font-medium text-success-foreground">Notes:</span> {session.overallNotes}
                           </div>
                         )}
                       </div>
@@ -1482,11 +1470,11 @@ export function WorkoutEditorPanel({
                         className={cn(
                           "mb-6 relative rounded-lg transition-shadow",
                           selection.level === "block" && selection.blockIndex === blockIndex
-                            ? "ring-2 ring-blue-400"
+                            ? "ring-2 ring-info/40"
                             : "",
                           clipboard?.type === "exercises" &&
                           hoveredPasteTarget === `block-${blockIndex}`
-                            ? "outline outline-2 outline-dashed outline-blue-400"
+                            ? "outline outline-2 outline-dashed outline-info"
                             : ""
                         )}
                         onMouseEnter={() => {

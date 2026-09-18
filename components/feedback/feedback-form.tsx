@@ -47,10 +47,10 @@ export function FeedbackForm({ planExerciseId, exerciseName, onSuccess }: Feedba
   }
 
   const ratingColors: Record<string, string> = {
-    FELT_GOOD: "border-green-300 bg-green-50 text-green-700",
-    MILD_DISCOMFORT: "border-amber-300 bg-amber-50 text-amber-700",
-    PAINFUL: "border-red-300 bg-red-50 text-red-700",
-    UNSURE_HOW_TO_PERFORM: "border-blue-300 bg-blue-50 text-blue-700",
+    FELT_GOOD: "border-success-border bg-success-soft text-success-foreground",
+    MILD_DISCOMFORT: "border-warning-border bg-warning-soft text-warning-foreground",
+    PAINFUL: "border-danger-border bg-danger-soft text-danger-foreground",
+    UNSURE_HOW_TO_PERFORM: "border-info-border bg-info-soft text-info-foreground",
   };
 
   return (

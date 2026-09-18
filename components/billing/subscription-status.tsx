@@ -2,19 +2,21 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { SectionCard } from "@/components/shared/section-card";
+import { StatusBadge } from "@/components/shared/status-badge";
 import { TIER_CONFIG, type PlanTier } from "@/lib/stripe-config";
 import { format } from "date-fns";
 
 interface SubscriptionStatusProps {
   plan: string;
+  status: string;
   currentPeriodEnd: Date | null;
   cancelAtPeriodEnd: boolean;
 }
 
 export function SubscriptionStatus({
   plan,
+  status,
   currentPeriodEnd,
   cancelAtPeriodEnd,
 }: SubscriptionStatusProps) {
@@ -36,14 +38,11 @@ export function SubscriptionStatus({
     TIER_CONFIG[plan as PlanTier]?.label ?? plan;
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base">Current Plan</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
+    <SectionCard title="Current plan">
+      <div className="space-y-4">
         <div className="flex items-center gap-2">
           <span className="font-medium">{tierLabel}</span>
-          <Badge variant="secondary">Active</Badge>
+          <StatusBadge status={status} size="sm" />
         </div>
         {currentPeriodEnd && (
           <p className="text-sm text-muted-foreground">
@@ -52,7 +51,7 @@ export function SubscriptionStatus({
           </p>
         )}
         {cancelAtPeriodEnd && (
-          <p className="text-sm text-yellow-600">
+          <p className="text-sm text-warning-foreground">
             Your subscription will cancel at the end of the current billing
             period.
           </p>
@@ -60,7 +59,7 @@ export function SubscriptionStatus({
         <Button onClick={handleManage} disabled={loading} variant="outline">
           {loading ? "Redirecting…" : "Manage Subscription"}
         </Button>
-      </CardContent>
-    </Card>
+      </div>
+    </SectionCard>
   );
 }

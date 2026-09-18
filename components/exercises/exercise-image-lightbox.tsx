@@ -9,7 +9,6 @@ interface ExerciseImageLightboxProps {
   src: string | null | undefined;
   videoUrl?: string | null;
   alt: string;
-  bodyRegion: string;
   label?: string;
   /** Extra classes for the trigger thumbnail wrapper */
   thumbnailClassName?: string;
@@ -19,7 +18,6 @@ export function ExerciseImageLightbox({
   src,
   videoUrl,
   alt,
-  bodyRegion,
   label,
   thumbnailClassName = "relative w-24 h-24 shrink-0",
 }: ExerciseImageLightboxProps) {
@@ -37,7 +35,6 @@ export function ExerciseImageLightbox({
         <ExerciseImage
           src={src}
           alt={alt}
-          bodyRegion={bodyRegion}
           videoUrl={videoUrl}
           label={label}
         />
@@ -57,7 +54,6 @@ export function ExerciseImageLightbox({
               <ExerciseImage
                 src={src}
                 alt={alt}
-                bodyRegion={bodyRegion}
                 videoUrl={videoUrl}
                 label={label}
                 className="absolute inset-0 h-full w-full object-contain"

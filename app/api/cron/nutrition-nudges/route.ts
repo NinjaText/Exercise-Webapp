@@ -2,9 +2,10 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import * as nutritionService from "@/lib/services/nutrition.service";
 import { createNotification, NOTIFICATION_TYPES } from "@/lib/services/notification.service";
+import { ML_PER_OZ } from "@/lib/constants/nutrition";
 
-const ML_PER_OZ = 29.5735;
 const PROTEIN_SHORTFALL_THRESHOLD_G = 15;
+
 const WATER_SHORTFALL_THRESHOLD_ML = 8 * ML_PER_OZ;
 const MIN_EXPECTED_MEALS = 2;
 

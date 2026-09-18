@@ -9,16 +9,17 @@ import { Badge } from "@/components/ui/badge";
 import { Plus, BarChart3, TrendingUp } from "lucide-react";
 import { formatDate } from "@/lib/utils/formatting";
 import { PageHeader } from "@/components/shared/page-header";
+import { PageShell } from "@/components/shared/page-shell";
 import { EmptyState } from "@/components/shared/empty-state";
 
 // Color-code assessment value based on pain/functional scores
 const assessmentColors = [
-  "from-blue-400 to-indigo-500",
-  "from-emerald-400 to-teal-500",
-  "from-violet-400 to-purple-500",
-  "from-amber-400 to-orange-500",
-  "from-rose-400 to-pink-500",
-  "from-cyan-400 to-blue-500",
+  "bg-info",
+  "bg-success",
+  "bg-brand",
+  "bg-warning",
+  "bg-danger",
+  "bg-info",
 ];
 
 function getAssessmentColor(type: string) {
@@ -48,7 +49,7 @@ export default async function AssessmentsPage() {
   }
 
   return (
-    <div>
+    <PageShell>
       <PageHeader
         title="Assessments"
         description={
@@ -56,7 +57,7 @@ export default async function AssessmentsPage() {
             ? `${assessments.length} measurement${assessments.length !== 1 ? "s" : ""} recorded`
             : "Track measurements and outcomes over time"
         }
-        action={
+        primaryAction={
           <Button className="gap-2" asChild>
             <Link href="/assessments/new">
               <Plus className="h-4 w-4" />
@@ -77,15 +78,15 @@ export default async function AssessmentsPage() {
       ) : (
         <div className="space-y-2.5">
           {assessments.map((a) => {
-            const gradient = getAssessmentColor(a.assessmentType);
+            const roleClass = getAssessmentColor(a.assessmentType);
             return (
               <Card
                 key={a.id}
-                className="group border-0 shadow-sm ring-1 ring-border/50 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md hover:ring-border"
+                className="group ring-1 ring-border shadow-none transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm hover:ring-border-strong"
               >
                 <CardContent className="flex items-center gap-5 py-4 px-5">
                   {/* Icon */}
-                  <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-linear-to-br ${gradient} shadow-sm`}>
+                  <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl shadow-none ${roleClass}`}>
                     <TrendingUp className="h-4.5 w-4.5 text-white" />
                   </div>
 
@@ -123,6 +124,6 @@ export default async function AssessmentsPage() {
           })}
         </div>
       )}
-    </div>
+    </PageShell>
   );
 }

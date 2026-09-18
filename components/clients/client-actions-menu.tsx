@@ -7,6 +7,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
 import { MoreHorizontal, Archive, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import { archiveClientAction, restoreClientAction } from "@/actions/client-actions";
@@ -38,11 +39,10 @@ export function ClientActionsMenu({ clientId, isActive }: ClientActionsMenuProps
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
+        render={<Button variant="ghost" size="icon-sm" aria-label="Client actions" />}
         onClick={(e) => e.stopPropagation()}
         onMouseDown={(e) => e.stopPropagation()}
-        className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50"
         disabled={isPending}
-        aria-label="Client actions"
       >
         <MoreHorizontal className="h-4 w-4" />
       </DropdownMenuTrigger>
@@ -54,7 +54,7 @@ export function ClientActionsMenu({ clientId, isActive }: ClientActionsMenuProps
         onMouseDown={(e) => e.stopPropagation()}
       >
         {isActive ? (
-          <DropdownMenuItem onClick={handleArchive} className="gap-2 text-amber-600">
+          <DropdownMenuItem onClick={handleArchive} className="gap-2">
             <Archive className="h-4 w-4" />
             Mark inactive
           </DropdownMenuItem>

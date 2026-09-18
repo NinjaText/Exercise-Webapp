@@ -56,6 +56,13 @@ import { toast } from "sonner";
 import { type ExerciseSourcePreference } from "@/lib/utils/exercise-picker";
 import { hasRealVideoUrl } from "@/lib/utils/video";
 import { suggestExerciseReplacementsAction } from "@/actions/ai-program-actions";
+import {
+  exerciseKey,
+  resolveOpenKeys,
+  isExerciseOpen,
+  type BuilderViewMode,
+} from "@/lib/utils/builder-view";
+import { CollapsedExerciseRow } from "./collapsed-exercise-row";
 
 interface Props {
   workouts: WorkoutInput[];
@@ -149,6 +156,8 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
   const [aiRevisionOpen, setAiRevisionOpen] = useState(false);
   const [aiRevisionInstructions, setAiRevisionInstructions] = useState("");
   const [aiRevisionLoading, setAiRevisionLoading] = useState(false);
+  const [viewMode, setViewMode] = useState<BuilderViewMode>("focus");
+  const [openKeys, setOpenKeys] = useState<Set<string>>(new Set());
   const { clipboard, copy } = useClipboard();
 
   function dayKey(weekIndex: number, dayIndex: number) {
@@ -403,6 +412,9 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
       },
     ];
     onChange(next);
+    const newIdx = block.exercises.length - 1;
+    const key = exerciseKey(workoutIdx, blockIdx, newIdx);
+    setOpenKeys((prev) => resolveOpenKeys("focus", prev, key, "select"));
     setPickerOpen(false);
   }
 
@@ -683,11 +695,29 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
             Organize your program into weeks, with up to 7 days each. Drag blocks or exercises to reorder.
           </p>
         </div>
+        <div className="flex items-center gap-1 rounded-lg border bg-muted/40 p-0.5 w-fit">
+          {(["focus", "all"] as const).map((mode) => (
+            <button
+              key={mode}
+              type="button"
+              onClick={() => setViewMode(mode)}
+              aria-pressed={viewMode === mode}
+              className={cn(
+                "rounded-md px-3 py-1 text-xs font-medium transition-colors",
+                viewMode === mode
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              {mode === "focus" ? "Focus" : "View All"}
+            </button>
+          ))}
+        </div>
       </div>
 
       {selection.level === "exercises" && selection.exerciseIdxs.size > 0 && (
-        <div className="flex items-center justify-between gap-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3">
-          <p className="text-sm font-medium text-blue-950">
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-info-border bg-info-soft px-4 py-3">
+          <p className="text-sm font-medium text-info-foreground">
             {selection.exerciseIdxs.size} exercise{selection.exerciseIdxs.size === 1 ? "" : "s"} selected
           </p>
           <Button
@@ -790,7 +820,7 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
           className={cn(
             "border-2 transition-shadow",
             selection.level === "workout" && selection.workoutIdx === wi
-              ? "ring-2 ring-blue-500"
+              ? "ring-2 ring-ring"
               : ""
           )}
           onClick={(e) => {
@@ -878,11 +908,11 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
                           selection.level === "block" &&
                           selection.workoutIdx === wi &&
                           selection.blockIdx === bi
-                            ? "ring-2 ring-blue-400"
+                            ? "ring-2 ring-ring"
                             : "",
                           clipboard?.type === "exercises" &&
                           hoveredPasteTarget === `block-${wi}-${bi}`
-                            ? "border-dashed border-blue-400"
+                            ? "border-dashed border-info-border"
                             : ""
                         )}
                         onMouseEnter={() => {
@@ -1006,7 +1036,13 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
                                   key={ei}
                                   id={`ex-${wi}-${bi}-${ex.orderIndex}`}
                                 >
-                                  {(exDragHandleProps) => (
+                                  {(exDragHandleProps) => {
+                                    const key = exerciseKey(wi, bi, ei);
+                                    const open = isExerciseOpen(viewMode, openKeys, key);
+                                    const collapsedLib = exerciseLibrary.find(
+                                      (e) => e.id === ex.exerciseId
+                                    );
+                                    return open ? (
                                     <div
                                       className={cn(
                                         "border rounded-md p-3 group",
@@ -1014,7 +1050,7 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
                                         selection.workoutIdx === wi &&
                                         selection.blockIdx === bi &&
                                         selection.exerciseIdxs.has(ei)
-                                          ? "bg-blue-50"
+                                          ? "bg-info-soft"
                                           : "bg-background"
                                       )}
                                     >
@@ -1022,7 +1058,7 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
                                         <input
                                           type="checkbox"
                                           className={cn(
-                                            "h-4 w-4 shrink-0 rounded border-gray-300 cursor-pointer transition-opacity",
+                                            "h-4 w-4 shrink-0 rounded border-border cursor-pointer transition-opacity",
                                             selection.level === "exercises" &&
                                             selection.workoutIdx === wi &&
                                             selection.blockIdx === bi &&
@@ -1091,7 +1127,7 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
                                                     name: lib.name,
                                                   });
                                                 }}
-                                                className="inline-flex items-center gap-0.5 text-[10px] bg-blue-50 text-blue-600 border border-blue-200 px-1.5 py-0.5 rounded-sm font-medium shrink-0 hover:bg-blue-100"
+                                                className="inline-flex items-center gap-0.5 text-[10px] bg-info-soft text-info-foreground border border-info-border px-1.5 py-0.5 rounded-sm font-medium shrink-0 hover:bg-info-border"
                                               >
                                                 <Play className="h-2.5 w-2.5" />
                                                 Video
@@ -1100,6 +1136,24 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
                                           })()}
                                         </div>
                                         <div className="flex items-center gap-0.5">
+                                          {viewMode !== "all" && (
+                                            <button
+                                              type="button"
+                                              onClick={() =>
+                                                setOpenKeys((prev) =>
+                                                  resolveOpenKeys(viewMode, prev, key, "toggle")
+                                                )
+                                              }
+                                              aria-label={`Collapse ${getExerciseName(
+                                                ex.exerciseId,
+                                                (ex as typeof ex & { _exerciseName?: string })
+                                                  ._exerciseName
+                                              )}`}
+                                              className="text-muted-foreground hover:text-foreground"
+                                            >
+                                              <ChevronDown className="h-4 w-4" />
+                                            </button>
+                                          )}
                                           <Button
                                             variant="ghost"
                                             size="icon"
@@ -1136,7 +1190,32 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
                                         }
                                       />
                                     </div>
-                                  )}
+                                    ) : (
+                                      <CollapsedExerciseRow
+                                        name={getExerciseName(
+                                          ex.exerciseId,
+                                          (ex as typeof ex & { _exerciseName?: string })
+                                            ._exerciseName
+                                        )}
+                                        sets={ex.sets}
+                                        hasVideo={
+                                          !!collapsedLib?.videoUrl &&
+                                          hasRealVideoUrl(collapsedLib.videoUrl)
+                                        }
+                                        dragHandleProps={exDragHandleProps}
+                                        onSelect={() =>
+                                          setOpenKeys((prev) =>
+                                            resolveOpenKeys(viewMode, prev, key, "select")
+                                          )
+                                        }
+                                        onToggle={() =>
+                                          setOpenKeys((prev) =>
+                                            resolveOpenKeys(viewMode, prev, key, "toggle")
+                                          )
+                                        }
+                                      />
+                                    );
+                                  }}
                                 </SortableExercise>
                               ))}
                             </div>

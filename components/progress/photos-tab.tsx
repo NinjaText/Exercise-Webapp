@@ -22,9 +22,9 @@ interface PhotosTabProps {
 }
 
 const ANGLE_COLORS: Record<string, string> = {
-  Front: "border-blue-200 bg-blue-100 text-blue-700",
-  Back: "border-violet-200 bg-violet-100 text-violet-700",
-  Side: "border-emerald-200 bg-emerald-100 text-emerald-700",
+  Front: "border-info-border bg-info-soft text-info-foreground",
+  Back: "border-brand-border bg-brand-soft text-brand-foreground",
+  Side: "border-success-border bg-success-soft text-success-foreground",
 };
 
 function groupByMonth(photos: ProgressPhoto[]): Map<string, ProgressPhoto[]> {

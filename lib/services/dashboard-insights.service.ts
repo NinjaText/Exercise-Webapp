@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
 import { getClientsForTrainer } from "@/lib/services/client.service";
 import { getDisplayName } from "@/lib/utils/display-name";
-import { startOfDay, endOfDay } from "date-fns";
+import { startOfDay, endOfDay, format } from "date-fns";
 
 /**
  * Matches only Scheduled programs — i.e. everything that is NOT an On-Demand
@@ -44,6 +44,8 @@ export interface PriorityAlert {
   severity: AlertSeverity;
   kind: AlertKind;
   message: string;
+  /** Concrete evidence for why this was flagged, shown under the message. */
+  reason: string;
   href: string;
 }
 
@@ -75,7 +77,13 @@ export interface ClientSnapshot {
   clientName: string;
   sessions: ClientSessionSummary[];
   activeProgram: ClientActiveProgram | null;
-  recentFeedback: { rating: string; createdAt: Date }[];
+  recentFeedback: {
+    rating: string;
+    createdAt: Date;
+    comment: string | null;
+    /** Null when the feedback's V1 PlanExercise no longer resolves to an exercise. */
+    exerciseName: string | null;
+  }[];
 }
 
 export interface ClientMetrics {
@@ -159,14 +167,14 @@ export function computeCompletionRate(
   sessions: ClientSessionSummary[],
   now: Date,
   windowDays = COMPLETION_WINDOW_DAYS
-): { rate: number; scheduled: number } {
+): { rate: number; scheduled: number; completed: number } {
   const windowStart = new Date(now.getTime() - windowDays * DAY_MS);
   const inWindow = sessions.filter(
     (s) => s.scheduledDate >= windowStart && s.scheduledDate <= now
   );
-  if (inWindow.length === 0) return { rate: 0, scheduled: 0 };
+  if (inWindow.length === 0) return { rate: 0, scheduled: 0, completed: 0 };
   const completed = inWindow.filter((s) => s.status === "COMPLETED").length;
-  return { rate: completed / inWindow.length, scheduled: inWindow.length };
+  return { rate: completed / inWindow.length, scheduled: inWindow.length, completed };
 }
 
 /**
@@ -227,6 +235,9 @@ export function buildPriorityAlerts(snapshots: ClientSnapshot[], now: Date): Pri
         severity: "high",
         kind: "pain_feedback",
         message: `${clientName} reported pain on a recent exercise`,
+        reason:
+          [painFeedback.exerciseName, painFeedback.comment].filter(Boolean).join(" — ") ||
+          "Reported pain on a recent exercise",
         href,
       });
     }
@@ -242,6 +253,11 @@ export function buildPriorityAlerts(snapshots: ClientSnapshot[], now: Date): Pri
             severity: "high",
             kind: "no_sessions_started",
             message: `${clientName} hasn't started any sessions yet`,
+            reason: `${snap.activeProgram.name} started ${
+              snap.activeProgram.startDate
+                ? format(snap.activeProgram.startDate, "MMM d")
+                : "with no start date"
+            } and has no completed sessions`,
             href,
           });
         }
@@ -254,6 +270,7 @@ export function buildPriorityAlerts(snapshots: ClientSnapshot[], now: Date): Pri
             severity: "high",
             kind: "inactive",
             message: `${clientName} has been inactive for ${daysSince} days`,
+            reason: `Last completed a workout ${daysSince} days ago`,
             href,
           });
         }
@@ -268,11 +285,14 @@ export function buildPriorityAlerts(snapshots: ClientSnapshot[], now: Date): Pri
         severity: "medium",
         kind: "discomfort",
         message: `${clientName} reported mild discomfort recently`,
+        reason:
+          [discomfort.exerciseName, discomfort.comment].filter(Boolean).join(" — ") ||
+          "Reported mild discomfort recently",
         href,
       });
     }
 
-    const { rate, scheduled } = computeCompletionRate(snap.sessions, now);
+    const { rate, scheduled, completed } = computeCompletionRate(snap.sessions, now);
     if (scheduled >= MIN_SESSIONS_FOR_RATE && rate < LOW_COMPLETION_THRESHOLD) {
       alerts.push({
         clientId,
@@ -280,6 +300,7 @@ export function buildPriorityAlerts(snapshots: ClientSnapshot[], now: Date): Pri
         severity: "medium",
         kind: "low_completion",
         message: `${clientName} completed ${Math.round(rate * 100)}% of scheduled workouts recently`,
+        reason: `${completed} of ${scheduled} scheduled workouts completed in the last 14 days`,
         href,
       });
     }
@@ -295,6 +316,9 @@ export function buildPriorityAlerts(snapshots: ClientSnapshot[], now: Date): Pri
         severity: "medium",
         kind: "delayed_pattern",
         message: `${clientName} tends to complete workouts after their scheduled date`,
+        reason: `${variance.delayed} of ${
+          variance.delayed + variance.onTime + variance.early
+        } workouts completed 2+ days after their scheduled date`,
         href,
       });
     }
@@ -311,6 +335,7 @@ export function buildPriorityAlerts(snapshots: ClientSnapshot[], now: Date): Pri
           severity: "medium",
           kind: "program_ending",
           message: `${clientName}'s program ends in ${daysToEnd} day${daysToEnd === 1 ? "" : "s"}`,
+          reason: `${snap.activeProgram.name} ends ${format(endDate, "MMM d")}`,
           href,
         });
       }
@@ -323,6 +348,7 @@ export function buildPriorityAlerts(snapshots: ClientSnapshot[], now: Date): Pri
         severity: "low",
         kind: "fully_completed",
         message: `${clientName} completed every scheduled workout recently`,
+        reason: `${scheduled} of ${scheduled} scheduled workouts completed`,
         href,
       });
     }
@@ -409,7 +435,13 @@ export async function getClientSnapshots(
     }),
     prisma.exerciseFeedback.findMany({
       where: { clientId: { in: clientIds }, createdAt: { gte: feedbackStart } },
-      select: { clientId: true, rating: true, createdAt: true },
+      select: {
+        clientId: true,
+        rating: true,
+        createdAt: true,
+        comment: true,
+        planExercise: { select: { exercise: { select: { name: true } } } },
+      },
       orderBy: { createdAt: "desc" },
     }),
   ]);
@@ -439,10 +471,15 @@ export async function getClientSnapshots(
     }
   }
 
-  const feedbackByClient = new Map<string, { rating: string; createdAt: Date }[]>();
+  const feedbackByClient = new Map<string, ClientSnapshot["recentFeedback"]>();
   for (const f of recentFeedback) {
     const list = feedbackByClient.get(f.clientId) ?? [];
-    list.push({ rating: f.rating, createdAt: f.createdAt });
+    list.push({
+      rating: f.rating,
+      createdAt: f.createdAt,
+      comment: f.comment ?? null,
+      exerciseName: f.planExercise?.exercise?.name ?? null,
+    });
     feedbackByClient.set(f.clientId, list);
   }
 

@@ -51,7 +51,7 @@ function ScaleSelector({
           className={cn(
             "h-10 w-10 rounded-lg border text-sm font-semibold transition-all",
             value === n
-              ? "border-transparent bg-linear-to-br from-blue-500 to-indigo-500 text-white shadow-md shadow-blue-500/20"
+              ? "border-transparent bg-primary text-primary-foreground shadow-none"
               : "border-border bg-muted/40 text-muted-foreground hover:border-border hover:bg-muted hover:text-foreground"
           )}
         >
@@ -84,7 +84,7 @@ function BooleanSelector({
           className={cn(
             "min-w-[80px] rounded-lg border px-5 py-2.5 text-sm font-semibold transition-all",
             value === val
-              ? "border-transparent bg-linear-to-br from-blue-500 to-indigo-500 text-white shadow-md shadow-blue-500/20"
+              ? "border-transparent bg-primary text-primary-foreground shadow-none"
               : "border-border bg-muted/40 text-muted-foreground hover:border-border hover:bg-muted hover:text-foreground"
           )}
         >
@@ -116,7 +116,7 @@ function MultipleChoiceSelector({
           className={cn(
             "rounded-lg border px-4 py-2 text-sm font-medium transition-all",
             value === opt
-              ? "border-transparent bg-linear-to-br from-blue-500 to-indigo-500 text-white shadow-md shadow-blue-500/20"
+              ? "border-transparent bg-primary text-primary-foreground shadow-none"
               : "border-border bg-muted/40 text-muted-foreground hover:border-border hover:bg-muted hover:text-foreground"
           )}
         >
@@ -195,7 +195,7 @@ export function RespondForm({ assignment, questions }: Props) {
             <h2 className="text-2xl font-bold tracking-tight">
               {assignment.templateName}
             </h2>
-            <Badge className="bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400 border-0 text-xs">
+            <Badge className="bg-info-soft text-info-foreground border-0 text-xs">
               {frequencyLabel(assignment.frequency)}
             </Badge>
           </div>
@@ -210,7 +210,7 @@ export function RespondForm({ assignment, questions }: Props) {
         {questions.map((q, idx) => (
           <Card
             key={q.id}
-            className="border-0 shadow-sm ring-1 ring-border/50"
+            className="ring-1 ring-border shadow-none"
           >
             <CardHeader className="pb-3">
               <CardTitle className="flex items-start gap-2 text-base font-semibold leading-snug">
@@ -283,7 +283,7 @@ export function RespondForm({ assignment, questions }: Props) {
         <Button
           onClick={handleSubmit}
           disabled={submitting}
-          className="gap-2 bg-linear-to-r from-blue-500 to-indigo-500 border-0 text-white shadow-md shadow-blue-500/20 hover:from-blue-600 hover:to-indigo-600"
+          className="gap-2"
         >
           <Send className="h-4 w-4" />
           {submitting ? "Submitting..." : "Submit Check-in"}
