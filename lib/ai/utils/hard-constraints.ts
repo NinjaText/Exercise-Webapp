@@ -29,13 +29,44 @@ const NO_PLYOMETRICS_PATTERNS = [
   /\bskater\w*\b/i,
   /\bdepth jump\b/i,
   /\bdrop jump\b/i,
+  // Skipping drills (A-skip, B-skip, "Skips for Distance") are repeated
+  // takeoff/landing work — plyometric by any trainer's definition.
+  /\bskips?\b/i,
+  /\bskipping\b/i,
 ]
 
 const NO_RUNNING_PATTERNS = [/\brun(?:ning|s)?\b/i, /\bjog(?:ging)?\b/i]
 const NO_SPRINTING_PATTERNS = [/\bsprint\w*\b/i]
 const NO_OVERHEAD_PATTERNS = [/\boverhead\b/i]
+const NO_SINGLE_LEG_BALANCE_PATTERNS = [
+  /\bsingle[- ]leg (?:stand|stance|balance)\w*\b/i,
+  /\bone[- ]leg(?:ged)? (?:stand|stance|balance)\w*\b/i,
+  /\bsingle[- ]leg\b.*\beyes closed\b/i,
+  /\btandem stance\b/i,
+  /\bbalance board\b/i,
+  /\bbosu\b/i,
+]
+
+const NO_SPINAL_FLEXION_PATTERNS = [
+  /\bcrunch\w*\b/i,
+  /\bsit-?ups?\b/i,
+  /\bcurl-?ups?\b/i,
+  /\bv-?ups?\b/i,
+  /\bjackknife\b/i,
+  /\brussian twist\w*\b/i,
+  /\btoe touch\w*\b/i,
+  /\bknees? to elbows?\b/i,
+]
 
 export const HARD_CONSTRAINT_CATEGORIES: HardConstraintCategory[] = [
+  {
+    id: 'NO_SPINAL_FLEXION',
+    triggerPatterns: [
+      /(?:\bno\b|\bavoid\b|do not|don't|\bwithout\b|\bexclude\b)[^.;\n]*(?:loaded |repeated |end-range )?(?:spinal|lumbar|trunk|spine) flexion/i,
+      /(?:\bno\b|\bavoid\b|do not|don't|\bexclude\b)[^.;\n]*\b(?:sit-?ups?|crunch\w*|curl-?ups?)\b/i,
+    ],
+    prohibitedPatterns: NO_SPINAL_FLEXION_PATTERNS,
+  },
   {
     id: 'NO_PLYOMETRICS',
     triggerPatterns: [/no plyometric/i, /no jump/i, /avoid jump/i, /no hopping/i, /no bounding/i, /avoid plyometric/i],
@@ -55,6 +86,14 @@ export const HARD_CONSTRAINT_CATEGORIES: HardConstraintCategory[] = [
     id: 'NO_OVERHEAD',
     triggerPatterns: [/no overhead/i, /avoid overhead/i],
     prohibitedPatterns: NO_OVERHEAD_PATTERNS,
+  },
+  {
+    id: 'NO_SINGLE_LEG_BALANCE',
+    triggerPatterns: [
+      /(?:\bno\b|\bavoid\b|do not use|don't use|\bwithout\b|\bexclude\b|\bskip\b)[^.;\n]*(?:single|one)[- ]leg(?:ged)? (?:balance|stance|stand)/i,
+      /(?:\bno\b|\bavoid\b|do not use|don't use|\bexclude\b)[^.;\n]*\bbalance (?:work|exercises|drills|training)/i,
+    ],
+    prohibitedPatterns: NO_SINGLE_LEG_BALANCE_PATTERNS,
   },
   {
     id: 'STRENGTH_ONLY',

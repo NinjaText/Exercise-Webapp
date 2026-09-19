@@ -1,23 +1,41 @@
 import OpenAI from "openai";
 import { prisma } from "@/lib/prisma";
 import type { BodyRegion, Exercise } from "@prisma/client";
-import type { ClinicalPlan, ClinicalPlanParams, ProgramPhaseGroup, WeekPlan } from '@/lib/ai/types/program-generation'
+import type { ClinicalPlan, ClinicalPlanParams, WeekPlan } from '@/lib/ai/types/program-generation'
 import type { ProgramMode } from '@/lib/ai/utils/clinical-context'
 import {
   filterByContraindications,
   filterByEquipment,
-  buildPhasePoolPrimaryWhereClause,
-  buildPhasePoolFallbackWhereClause,
+  orderPoolByDifficultyPreference,
+  poolItemMatchesCircuitFocus,
+  poolItemFitsCircuit,
+  isEarlyRehabExercise,
+  isPlyometricName,
+  isRehabFlavouredName,
+  scoreCircuitRelevance,
 } from '@/lib/ai/utils/exercise-pool'
 import { determineProgramMode, buildClientContextBlock } from '@/lib/ai/utils/clinical-context'
 import { groupWeeksIntoPhases } from '@/lib/ai/utils/program-phasing'
 import { computeProgressedRx, isDeloadWeek, type PhaseTemplateExercise } from '@/lib/ai/utils/progression-rules'
-import { enforceCircuitExerciseCounts } from '@/lib/ai/utils/circuit-counts'
+import { enforceCircuitExerciseCounts, type CircuitCountPoolItem } from '@/lib/ai/utils/circuit-counts'
+import { fitDosageToDuration } from '@/lib/ai/utils/session-duration'
 import {
   extractHardConstraints,
   filterPoolByHardConstraints,
   auditAndReplaceViolations,
+  exerciseViolatesHardConstraints,
+  type HardConstraintCategory,
 } from '@/lib/ai/utils/hard-constraints'
+import { findTrainerNamedExerciseRequirements, textPrescribesDosage, type TrainerExerciseRequirement } from '@/lib/ai/utils/trainer-named-exercises'
+import {
+  buildProgramSystemPrompt,
+  buildTrainerDirectivesBlock,
+  buildVarietyBlock,
+  buildFinalAuditBlock,
+  buildCircuitCandidateIndex,
+  formatCircuitStructure,
+  formatExercisePoolLine,
+} from '@/lib/ai/prompts/program-generation'
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -39,6 +57,8 @@ type ExercisePoolItem = {
   defaultHoldSeconds: number | null
   cuesThumbnail: string | null
   videoUrl: string | null
+  rehabStage: string | null
+  indicationTags: string[]
 }
 
 interface CircuitConfig {
@@ -87,6 +107,8 @@ interface GeneratedExercise {
   dayOfWeek?: number;
   orderIndex: number;
   notes?: string;
+  /** Trainer explicitly stated this exercise's sets/reps/hold; keep them fixed. */
+  trainerPrescribedDosage?: boolean;
 }
 
 interface GeneratedPlan {
@@ -190,6 +212,7 @@ export type ExerciseMatchResult = {
 
 const AUTO_ACCEPT_SCORE = 0.9;
 const NEEDS_REVIEW_SCORE = 0.5;
+const SUBSTRING_MATCH_SCORE = 0.85;
 
 /**
  * Private scoring function for resolveExerciseMatch.
@@ -197,10 +220,24 @@ const NEEDS_REVIEW_SCORE = 0.5;
  * harmonic-mean-style token overlap to distinguish single-word overlaps
  * from true substring matches.
  */
+function singularizeTokens(name: string): string {
+  return name
+    .split(" ")
+    .map((t) => (t.length > 3 && t.endsWith("s") && !t.endsWith("ss") ? t.slice(0, -1) : t))
+    .join(" ");
+}
+
 function scoreExerciseMatchSimilarity(a: string, b: string): number {
   if (!a || !b) return 0;
   if (a === b) return 1;
-  if ((a.includes(b) && b.includes(" ")) || (b.includes(a) && a.includes(" "))) return 0.9;
+  // "Band Pull-Aparts" vs "Band Pull-Apart" is the same exercise.
+  if (singularizeTokens(a) === singularizeTokens(b)) return 1;
+  // One name contains the other as a multi-word phrase ("Push-Up" inside
+  // "Wall Push-Up", "Back Squat" inside "Barbell Back Squat"). The extra
+  // words are usually a modifier that changes the exercise (wall, assisted,
+  // chair, single-leg), so this scores just below the auto-accept threshold
+  // and lands in the trainer's review queue with the candidate pre-selected.
+  if ((a.includes(b) && b.includes(" ")) || (b.includes(a) && a.includes(" "))) return SUBSTRING_MATCH_SCORE;
   const aTokens = new Set(a.split(" "));
   const bTokens = new Set(b.split(" "));
   let overlap = 0;
@@ -294,7 +331,7 @@ const EXERCISE_POOL_SELECT = {
   equipmentRequired: true, contraindications: true, description: true,
   musclesTargeted: true, exercisePhases: true, commonMistakes: true,
   defaultSets: true, defaultReps: true, defaultHoldSeconds: true,
-  cuesThumbnail: true, videoUrl: true,
+  cuesThumbnail: true, videoUrl: true, rehabStage: true, indicationTags: true,
 }
 
 const VALID_BODY_REGIONS = new Set(['LOWER_BODY', 'UPPER_BODY', 'CORE', 'FULL_BODY', 'BALANCE', 'FLEXIBILITY'])
@@ -304,189 +341,505 @@ const VALID_BODY_REGIONS = new Set(['LOWER_BODY', 'UPPER_BODY', 'CORE', 'FULL_BO
 // skip the wasted attempt and filter by difficultyLevel instead.
 const NON_EXACT_MATCHABLE_STAGES = new Set(['MAINTENANCE', 'BASE_BUILD', 'BUILD', 'PEAK', 'TAPER', 'GENERAL_FITNESS'])
 
-async function buildExercisePoolForPhase(
-  phase: ProgramPhaseGroup,
-  usedIds: Set<string>,
-  clientLimitations: string[],
-  availableEquipment?: string[]
-): Promise<ExercisePoolItem[]> {
-  const allFocusAreas = [...new Set(phase.weeks.flatMap(w => w.focusAreas))]
-  const validRegions = allFocusAreas.filter(r => VALID_BODY_REGIONS.has(r))
-  const regionsForQuery = validRegions.length > 0 ? validRegions : [...VALID_BODY_REGIONS]
-  const allTags = [...new Set(phase.weeks.flatMap(w => w.derivedIndicationTags))]
+// ---------------------------------------------------------------------------
+// Exercise pool assembly (shared by both generation paths)
+// ---------------------------------------------------------------------------
 
-  let pool: ExercisePoolItem[] = []
+/** Pool items handed to deterministic backfill — the full pool item is
+ *  always passed at runtime; cuesThumbnail gives a backfilled exercise a cue. */
+type BackfillPoolItem = CircuitCountPoolItem & { cuesThumbnail?: string | null }
 
-  if (!NON_EXACT_MATCHABLE_STAGES.has(phase.label)) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    pool = (await (prisma.exercise.findMany as any)({
-      where: buildPhasePoolPrimaryWhereClause(
-        { rehabStage: phase.label, focusAreas: regionsForQuery, derivedIndicationTags: allTags },
-        usedIds
-      ),
-      select: EXERCISE_POOL_SELECT,
-      take: 80,
-    })) as ExercisePoolItem[]
+/** Upper bound on pool lines sent to the model per call. */
+const POOL_CAP = 120
+/** Below this, the keyword hard-constraint pre-filter is skipped (prompt + audit still apply). */
+const MIN_ELIGIBLE_POOL_SIZE = 10
+
+async function fetchActiveExerciseLibrary(): Promise<ExercisePoolItem[]> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (await (prisma.exercise.findMany as any)({
+    where: { isActive: true, isAssessment: false },
+    select: EXERCISE_POOL_SELECT,
+  })) as ExercisePoolItem[]
+}
+
+interface PoolAssemblyInput {
+  candidates: ExercisePoolItem[]
+  /** Candidates that should sort ahead of the rest (e.g. exact rehab-stage matches). */
+  priorityIds?: Set<string>
+  circuits: CircuitConfig[]
+  programMode: ProgramMode
+  clientLimitations: string[]
+  availableEquipment: string[]
+  requestedDifficulty?: string
+  hardConstraints: HardConstraintCategory[]
+  /** Trainer-named exercises: bypass equipment/difficulty/cap, never safety filters. */
+  pinned: ExercisePoolItem[]
+  seed?: number
+}
+
+interface AssembledPool {
+  pool: ExercisePoolItem[]
+  hardConstraintFilterApplied: boolean
+}
+
+/**
+ * Turns a raw candidate set into the pool offered to the model:
+ *   1. dedupe → contraindication filter → equipment filter
+ *   2. keyword hard-constraint pre-filter (skipped if it would starve the pool)
+ *   3. order by difficulty preference (soft), priority tier first, seeded jitter
+ *   4. guarantee candidates for every configured circuit focus, then fill to cap
+ *   5. prepend trainer-named exercises
+ */
+function assembleExercisePool(input: PoolAssemblyInput): AssembledPool {
+  const byId = new Map<string, ExercisePoolItem>()
+  for (const c of input.candidates) byId.set(c.id, c)
+  let pool = [...byId.values()]
+
+  pool = filterByContraindications(pool, input.clientLimitations)
+  pool = filterByEquipment(pool, input.availableEquipment)
+
+  let hardConstraintFilterApplied = false
+  if (input.hardConstraints.length > 0) {
+    const filtered = filterPoolByHardConstraints(pool, input.hardConstraints)
+    if (filtered.length >= MIN_ELIGIBLE_POOL_SIZE) {
+      pool = filtered
+      hardConstraintFilterApplied = true
+    }
   }
 
-  if (pool.length < 20) {
-    const difficultyLevel = phase.weeks[0]?.difficultyLevel
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    pool = (await (prisma.exercise.findMany as any)({
-      where: buildPhasePoolFallbackWhereClause(regionsForQuery, usedIds, difficultyLevel),
-      select: EXERCISE_POOL_SELECT,
-      take: 80,
-    })) as ExercisePoolItem[]
+  const ordered = orderPoolByDifficultyPreference(pool, input.requestedDifficulty, input.seed)
+  if (input.programMode === 'PERFORMANCE') {
+    // Healthy client: early-rehab content (ankle pumps, pelvic tilts…) sorts
+    // last so it only reaches the offered pool when nothing else is left.
+    ordered.sort((a, b) => Number(isEarlyRehabExercise(a)) - Number(isEarlyRehabExercise(b)))
+  }
+  if (input.priorityIds && input.priorityIds.size > 0) {
+    const priority = input.priorityIds
+    ordered.sort((a, b) => Number(priority.has(b.id)) - Number(priority.has(a.id)))
   }
 
-  const afterContraFilter = filterByContraindications(pool, clientLimitations)
-  return filterByEquipment(afterContraFilter, availableEquipment ?? [])
+  const selected: ExercisePoolItem[] = []
+  const selectedIds = new Set<string>()
+  const take = (item: ExercisePoolItem) => {
+    if (selectedIds.has(item.id)) return
+    selected.push(item)
+    selectedIds.add(item.id)
+  }
+  for (const circuit of input.circuits) {
+    const want = Math.max(8, circuit.exerciseCount * 4)
+    let taken = 0
+    for (const item of ordered) {
+      if (taken >= want) break
+      if (selectedIds.has(item.id)) continue
+      if (poolItemFitsCircuit(item, circuit.focusType)) {
+        take(item)
+        taken++
+      }
+    }
+  }
+  for (const item of ordered) {
+    if (selected.length >= POOL_CAP) break
+    take(item)
+  }
+
+  const pinnedEligible = filterByContraindications(input.pinned, input.clientLimitations).filter(
+    p => !exerciseViolatesHardConstraints(p.name, input.hardConstraints)
+  )
+  const finalPool = [...pinnedEligible.filter(p => !selectedIds.has(p.id)), ...selected]
+  return { pool: finalPool, hardConstraintFilterApplied }
+}
+
+function regionsOverlap(item: ExercisePoolItem, regions: string[]): boolean {
+  return item.bodyRegion.some(r => regions.includes(r))
+}
+
+/**
+ * Drops repeats within one session, keeping the first occurrence. Matches on
+ * exerciseId AND on normalized name — the library holds several entries
+ * with identical names (e.g. two "Scapular Retraction" rows).
+ */
+function dedupeWithinSession<T extends { exerciseId: string }>(
+  exercises: T[],
+  nameOf: (exerciseId: string) => string | undefined = () => undefined
+): T[] {
+  const seenIds = new Set<string>()
+  const seenNames = new Set<string>()
+  return exercises.filter(e => {
+    // Word order and plurals don't make a different exercise:
+    // "McGill Curl-Up" == "Curl-Ups (McGill)", "Glute Bridges" == "Glute Bridge".
+    const raw = nameOf(e.exerciseId)?.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+    const name = raw ? singularizeTokens(raw).split(' ').sort().join(' ') : undefined
+    if (seenIds.has(e.exerciseId) || (name && seenNames.has(name))) return false
+    seenIds.add(e.exerciseId)
+    if (name) seenNames.add(name)
+    return true
+  })
+}
+
+/**
+ * Deterministic backstop for circuit content: an exercise that does not fit
+ * its circuit (a stretch in a strength block, a lower-body move in an
+ * UPPER_BODY circuit, a non-balance exercise in a BALANCE block) is swapped
+ * for a fitting pool exercise not yet used in that session. Trainer-required
+ * exercises are exempt — the trainer placed them deliberately.
+ */
+/**
+ * Program-aware circuit fit, shared by the candidate index the model sees,
+ * the post-generation fit pass, and the count backfill — so all three agree
+ * on what belongs in a circuit for THIS program:
+ *  - base: poolItemFitsCircuit (phase/region rules)
+ *  - healthy client: no rehab-flavoured names in working circuits
+ *  - clinical or beginner program: no jump/hop/skip drills unless the trainer
+ *    asked for power/plyometric work
+ *  - warm-up / cool-down: prefer exercises for the regions this session trains,
+ *    falling back to the base rule when that leaves too few candidates
+ */
+function makeCircuitFitPredicate(
+  pool: ExercisePoolItem[],
+  circuits: CircuitConfig[],
+  programMode: ProgramMode,
+  requestedDifficulty: string | undefined,
+  allowPlyometrics: boolean
+): (item: { name: string; bodyRegion: string[]; exercisePhases: string[] }, focusType: string) => boolean {
+  const sessionRegions = new Set(circuits.flatMap(c => WORKING_CIRCUIT_REGIONS[c.focusType] ?? []))
+  const beginner = requestedDifficulty?.toUpperCase() === 'BEGINNER'
+  const restrictPlyo = !allowPlyometrics && (programMode === 'CLINICAL' || beginner)
+
+  const strict = (item: { name: string; bodyRegion: string[]; exercisePhases: string[] }, focusType: string): boolean => {
+    if (!poolItemFitsCircuit(item, focusType)) return false
+    const focus = focusType.toUpperCase()
+    if (restrictPlyo && isPlyometricName(item.name)) return false
+    if (programMode === 'PERFORMANCE' && isRehabFlavouredName(item.name)) return false
+    if ((focus === 'WARMUP' || focus === 'COOLDOWN') && sessionRegions.size > 0) {
+      const relevant = item.bodyRegion.some(r => sessionRegions.has(r) || r === 'FULL_BODY' || (focus === 'COOLDOWN' && r === 'FLEXIBILITY'))
+      if (!relevant) return false
+    }
+    return true
+  }
+  // Fall back per focus type when the strict rule starves a circuit.
+  const enoughStrict = new Map<string, boolean>()
+  for (const c of circuits) {
+    const strictCount = pool.filter(item => strict(item, c.focusType)).length
+    enoughStrict.set(c.focusType.toUpperCase(), strictCount >= Math.max(6, c.exerciseCount * 2))
+  }
+  return (item, focusType) =>
+    enoughStrict.get(focusType.toUpperCase()) === false
+      ? poolItemFitsCircuit(item, focusType) && !(restrictPlyo && isPlyometricName(item.name))
+      : strict(item, focusType)
+}
+
+const WORKING_CIRCUIT_REGIONS: Record<string, string[]> = {
+  LOWER_BODY: ['LOWER_BODY'],
+  UPPER_BODY: ['UPPER_BODY'],
+  CORE: ['CORE'],
+  FULL_BODY: ['FULL_BODY', 'LOWER_BODY', 'UPPER_BODY', 'CORE'],
+  BALANCE: ['BALANCE', 'LOWER_BODY'],
+}
+
+function enforceCircuitFit<T extends { exerciseId: string; circuitIndex?: number }>(
+  exercisesByDay: Map<number, T[]>,
+  circuits: CircuitConfig[],
+  pool: ExercisePoolItem[],
+  requiredIds: Set<string>,
+  programMode: ProgramMode,
+  requestedDifficulty: string | undefined,
+  fits: (item: ExercisePoolItem, focusType: string) => boolean,
+  createExercise: (poolItem: ExercisePoolItem, circuitIndex: number, orderIndex: number, dayOfWeek: number) => T
+): { exercisesByDay: Map<number, T[]>; swapped: string[] } {
+  if (circuits.length === 0) return { exercisesByDay, swapped: [] }
+  const poolById = new Map(pool.map(p => [p.id, p]))
+  const usedAnywhere = new Set([...exercisesByDay.values()].flat().map(e => e.exerciseId))
+  const sessionRegions = [...new Set(circuits.flatMap(c => WORKING_CIRCUIT_REGIONS[c.focusType] ?? []))]
+  const swapped: string[] = []
+  for (const [day, list] of exercisesByDay) {
+    const sessionIds = new Set(list.map(e => e.exerciseId))
+    list.forEach((ex, idx) => {
+      if (ex.circuitIndex == null || requiredIds.has(ex.exerciseId)) return
+      const focus = circuits[ex.circuitIndex]?.focusType
+      const item = poolById.get(ex.exerciseId)
+      if (!focus || !item || fits(item, focus)) return
+      // Best-scoring fitting candidate; prefer one not yet used anywhere in
+      // the program, fall back to one merely unused in this session.
+      const rank = (p: ExercisePoolItem) =>
+        scoreCircuitRelevance(p, focus, sessionRegions, programMode, requestedDifficulty) + (usedAnywhere.has(p.id) ? -1 : 0)
+      const replacement = pool
+        .filter(p => !sessionIds.has(p.id) && fits(p, focus))
+        .sort((a, b) => rank(b) - rank(a))[0]
+      if (!replacement) return
+      swapped.push(`${item.name} → ${replacement.name} [${focus}]`)
+      sessionIds.add(replacement.id)
+      usedAnywhere.add(replacement.id)
+      list[idx] = createExercise(replacement, ex.circuitIndex, idx, day)
+    })
+  }
+  return { exercisesByDay, swapped }
+}
+
+/**
+ * Deterministic backstop for trainer-named exercises. An exercise the trainer
+ * asked for in "every"/"each" session is inserted into every session that
+ * lacks it; any other named exercise is inserted into every session only if
+ * the model dropped it entirely (its wording may have been day-specific).
+ * Insertion replaces the last non-required exercise of the circuit whose
+ * focus best fits the exercise, so circuit counts stay exact.
+ */
+function enforceRequiredExercises<T extends { exerciseId: string; exerciseName?: string; circuitIndex?: number }>(
+  exercisesByDay: Map<number, T[]>,
+  requirements: TrainerExerciseRequirement<ExercisePoolItem>[],
+  circuits: CircuitConfig[],
+  createExercise: (poolItem: ExercisePoolItem, circuitIndex: number | undefined, dayOfWeek: number, existing: T | undefined) => T
+): { exercisesByDay: Map<number, T[]>; inserted: string[] } {
+  const inserted: string[] = []
+  const requiredIds = new Set(requirements.map(r => r.exercise.id))
+  const allExercises = [...exercisesByDay.values()].flat()
+  const allIds = new Set(allExercises.map(e => e.exerciseId))
+
+  for (const { exercise: req, everySession } of requirements) {
+    if (!everySession && allIds.has(req.id)) continue
+    // Reuse the model's own instance (cues, trainer-prescribed dosage) when
+    // it placed the exercise in at least one session.
+    const existing = allExercises.find(e => e.exerciseId === req.id)
+    let insertedSomewhere = false
+    for (const [day, dayExercises] of exercisesByDay) {
+      if (dayExercises.some(e => e.exerciseId === req.id)) continue
+      let targetCircuit: number | undefined
+      if (circuits.length > 0) {
+        const fits = circuits
+          .map((c, i) => ({ c, i }))
+          .filter(({ c }) => c.focusType !== 'WARMUP' && c.focusType !== 'COOLDOWN' && poolItemMatchesCircuitFocus(req, c.focusType))
+        targetCircuit = fits[0]?.i ?? circuits.findIndex(c => c.focusType !== 'WARMUP' && c.focusType !== 'COOLDOWN')
+        if (targetCircuit < 0) targetCircuit = 0
+      }
+      const inTarget = dayExercises
+        .map((e, idx) => ({ e, idx }))
+        .filter(({ e }) => (targetCircuit === undefined || e.circuitIndex === targetCircuit) && !requiredIds.has(e.exerciseId))
+      const victim = inTarget[inTarget.length - 1]
+      const replacement = createExercise(req, targetCircuit, day, existing)
+      if (victim) dayExercises[victim.idx] = replacement
+      else dayExercises.push(replacement)
+      insertedSomewhere = true
+    }
+    if (insertedSomewhere) inserted.push(req.name)
+  }
+  return { exercisesByDay, inserted }
+}
+
+const WEEKDAY_TO_INDEX: Record<string, number> = {
+  monday: 0, tuesday: 1, wednesday: 2, thursday: 3, friday: 4, saturday: 5, sunday: 6,
+}
+const INDEX_TO_WEEKDAY = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+
+function resolveTrainingDayIndices(preferredWeekdays: string[] | undefined, daysPerWeek: number): number[] {
+  const preferred = (preferredWeekdays ?? [])
+    .map(d => WEEKDAY_TO_INDEX[d.toLowerCase().trim()])
+    .filter((d): d is number => Number.isInteger(d))
+  const effective = preferred.length > 0
+    ? preferred
+    : Array.from({ length: Math.max(1, Math.min(daysPerWeek, 7)) }, (_, idx) => idx)
+  return Array.from(new Set(effective)).sort((a, b) => a - b)
+}
+
+/**
+ * Tells the model how much time each exercise slot has to fill so the session
+ * lands on the requested duration. Circuit counts and rounds are fixed by the
+ * trainer, so reps, holds and rest are the only levers.
+ */
+function buildTimeBudgetLine(durationMinutes: number, circuits: CircuitConfig[], totalExercisesPerSession: number): string {
+  const slots = circuits.length > 0
+    ? circuits.reduce((sum, c) => sum + c.exerciseCount * (c.rounds ?? (c.focusType === 'WARMUP' || c.focusType === 'COOLDOWN' ? 1 : 3)), 0)
+    : totalExercisesPerSession * 3
+  const betweenRounds = circuits.reduce((sum, c) => sum + Math.max(0, (c.rounds ?? 1) - 1) * (c.restBetweenRounds ?? 0), 0)
+  const available = Math.max(60, durationMinutes * 60 - betweenRounds)
+  const perSlot = Math.round(available / Math.max(1, slots))
+  return `Time Budget: ${durationMinutes} min ≈ ${slots} exercise slots (exercises × rounds) → about ${perSlot} seconds of work + rest per slot. Size reps (~3 s each), hold times and restSeconds so each slot uses roughly that budget; do not leave the session far under or over the target.`
+}
+
+function circuitFocusToExercisePhase(focusType: string): string {
+  return focusType === 'WARMUP' ? 'WARMUP'
+    : focusType === 'COOLDOWN' ? 'COOLDOWN'
+    : focusType === 'FLEXIBILITY' ? 'MOBILITY'
+    : focusType === 'CARDIO' || focusType === 'BALANCE' ? 'ACTIVATION'
+    : 'STRENGTHENING'
+}
+
+function sortAndReindex(exercises: GeneratedExercise[]): GeneratedExercise[] {
+  const sorted = [...exercises].sort((a, b) => {
+    const weekDiff = (a.weekIndex ?? 0) - (b.weekIndex ?? 0)
+    if (weekDiff !== 0) return weekDiff
+    const dayDiff = (a.dayOfWeek ?? 0) - (b.dayOfWeek ?? 0)
+    if (dayDiff !== 0) return dayDiff
+    if (a.circuitIndex != null && b.circuitIndex != null && a.circuitIndex !== b.circuitIndex) {
+      return a.circuitIndex - b.circuitIndex
+    }
+    const phaseA = PHASE_ORDER[a.phase] ?? 2
+    const phaseB = PHASE_ORDER[b.phase] ?? 2
+    if (phaseA !== phaseB) return phaseA - phaseB
+    return a.orderIndex - b.orderIndex
+  })
+  let lastKey = ''
+  let dayOrder = 0
+  for (const ex of sorted) {
+    const key = `${ex.weekIndex ?? 0}_${ex.dayOfWeek ?? 0}`
+    if (key !== lastKey) { lastKey = key; dayOrder = 0 }
+    ex.orderIndex = dayOrder++
+  }
+  return sorted
 }
 
 export async function generateWorkoutPlan(
   params: GenerateWorkoutParams
 ): Promise<GeneratedPlan> {
-  const weekdayToIndex: Record<string, number> = {
-    monday: 0,
-    tuesday: 1,
-    wednesday: 2,
-    thursday: 3,
-    friday: 4,
-    saturday: 5,
-    sunday: 6,
-  };
-  const indexToWeekday = [
-    "Monday",
-    "Tuesday",
-    "Wednesday",
-    "Thursday",
-    "Friday",
-    "Saturday",
-    "Sunday",
-  ];
+  const uniqueWeekdayIndices = resolveTrainingDayIndices(params.preferredWeekdays, params.daysPerWeek)
+  const scheduleLabel = uniqueWeekdayIndices.map(i => INDEX_TO_WEEKDAY[i]).join(', ')
 
-  const preferredWeekdayIndices =
-    params.preferredWeekdays
-      ?.map((d) => weekdayToIndex[d.toLowerCase().trim()])
-      .filter((d): d is number => Number.isInteger(d)) ?? [];
-
-  const effectiveWeekdayIndices =
-    preferredWeekdayIndices.length > 0
-      ? preferredWeekdayIndices
-      : Array.from(
-          { length: Math.max(1, Math.min(params.daysPerWeek, 7)) },
-          (_, idx) => idx
-        );
-
-  const uniqueWeekdayIndices = Array.from(new Set(effectiveWeekdayIndices)).sort(
-    (a, b) => a - b
-  );
-
-  const scheduleLabel = uniqueWeekdayIndices
-    .map((i) => indexToWeekday[i])
-    .join(", ");
-
-  // Fetch client profile for context
   const client = params.clientId
     ? await prisma.user.findUnique({
         where: { id: params.clientId },
         include: { clientProfile: true },
       })
-    : null;
+    : null
+  const profile = client?.clientProfile ?? null
 
-  const profile = client?.clientProfile ?? null;
-
-  // Map focus areas to body regions for pre-filtering
-  const targetRegions = mapFocusAreasToBodyRegions(params.focusAreas ?? []);
-
-  // Parse client limitations for contraindication filtering
   const clientLimitations = profile?.limitations
-    ? profile.limitations
-        .toLowerCase()
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean)
-    : [];
+    ? profile.limitations.toLowerCase().split(',').map(s => s.trim()).filter(Boolean)
+    : []
 
-  const clientContext = buildClientContextBlock(client, profile);
-  const programMode: ProgramMode = params.weekPlan?.[0]?.programMode ?? determineProgramMode(profile);
+  const availableEquipment = params.availableEquipment ?? []
+  const clientContext = buildClientContextBlock(client, profile, { trainerSelectedEquipment: availableEquipment })
+  const programMode: ProgramMode = params.weekPlan?.[0]?.programMode ?? determineProgramMode(profile)
 
-  // === Multi-week clinical path (Step 1 plan provided) ===
+  const circuits = params.circuits ?? []
+  const hasCircuits = circuits.length > 0
+  const totalExercisesPerSession = hasCircuits
+    ? circuits.reduce((sum, c) => sum + c.exerciseCount, 0)
+    : (params.exercisesPerSession ?? 6)
+
+  // One library read serves both paths; every pool below is filtered in memory.
+  const library = await fetchActiveExerciseLibrary()
+  if (library.length === 0) {
+    throw new Error('No active exercises found in the library.')
+  }
+
+  const hardConstraints = extractHardConstraints(
+    params.subjective,
+    params.trainerPrompt,
+    params.additionalNotes,
+    profile?.limitations
+  )
+  if (hardConstraints.length > 0) {
+    console.log(`[AI] Hard constraints detected: ${hardConstraints.map(c => c.id).join(', ')}`)
+  }
+
+  const requiredExerciseRequirements = findTrainerNamedExerciseRequirements(
+    [params.subjective, params.trainerPrompt, params.additionalNotes],
+    library
+  ).filter(r => !exerciseViolatesHardConstraints(r.exercise.name, hardConstraints))
+  const requiredExercises = requiredExerciseRequirements.map(r => r.exercise)
+  if (requiredExercises.length > 0) {
+    console.log(`[AI] Trainer-named exercises pinned into pool: ${requiredExercises.map(e => e.name).join(', ')}`)
+  }
+
+  // The model may only mark an exercise as trainer-prescribed when the trainer
+  // actually wrote numbers. A named exercise whose clause carried no numbers
+  // can never be prescribed; if no trainer text carries numbers at all, the
+  // flag is ignored everywhere.
+  const trainerTextHasDosage = textPrescribesDosage(params.subjective, params.trainerPrompt, params.additionalNotes)
+  const namedWithoutDosage = new Set(requiredExerciseRequirements.filter(r => !r.prescribesDosage).map(r => r.exercise.id))
+  const dosageFlagAllowed = (exerciseId: string) => trainerTextHasDosage && !namedWithoutDosage.has(exerciseId)
+  const requiredIds = new Set(requiredExercises.map(e => e.id))
+  const libraryNameById = new Map(library.map(e => [e.id, e.name]))
+  const nameOf = (id: string) => libraryNameById.get(id)
+
+  const allowPlyometrics =
+    hardConstraints.every(c => c.id !== 'NO_PLYOMETRICS' && c.id !== 'STRENGTH_ONLY') &&
+    /\b(plyo\w*|jump\w*|power|explosive|athletic|sprint\w*|agility)\b/i.test(
+      [...(params.programGoals ?? []), params.trainerPrompt ?? '', params.subjective ?? '', params.additionalNotes ?? ''].join(' ')
+    )
+
+  const trainerDirectives = buildTrainerDirectivesBlock({
+    subjective: params.subjective,
+    trainerPrompt: params.trainerPrompt,
+    additionalNotes: params.additionalNotes,
+    availableEquipment,
+    requiredExercises,
+  })
+
+  const programParametersBlock = `==================================================
+PROGRAM PARAMETERS
+==================================================
+Program Goals: ${(params.programGoals ?? params.focusAreas ?? []).join(', ') || 'Not specified'}
+Duration: Approximately ${params.durationMinutes} minutes per session
+Days Per Week: ${params.daysPerWeek}
+Difficulty Level: ${params.difficultyLevel}
+Allowed Weekdays: ${scheduleLabel} (${uniqueWeekdayIndices.join(', ')})
+Total Exercises Per Session: EXACTLY ${totalExercisesPerSession}
+${hasCircuits ? `Circuit Structure (EXACT — follow precisely):\n${formatCircuitStructure(circuits)}` : 'Circuits: none configured — use straight sets and sensible phase ordering'}
+${buildTimeBudgetLine(params.durationMinutes, circuits, totalExercisesPerSession)}`
+
+  const warnings: string[] = []
+  const seed = Date.now()
+
+  // === Multi-week path (Step 1 plan provided) — this is what the Generate-with-AI UI always uses ===
   if (params.weekPlan && params.weekPlan.length > 0) {
     const weekPlans = params.weekPlan
     const phases = groupWeeksIntoPhases(weekPlans)
-
-    // Build per-phase exercise pools (parallel DB queries — phases don't
-    // exclude each other's exercise IDs since pools are fetched concurrently,
-    // but each phase's pool is already narrowed by its own stage/tags, so
-    // cross-phase overlap is naturally low).
-    const phasePools: ExercisePoolItem[][] = await Promise.all(
-      phases.map(phase =>
-        buildExercisePoolForPhase(phase, new Set<string>(), clientLimitations, params.availableEquipment)
-      )
-    )
-
-    const hasCircuits = params.circuits && params.circuits.length > 0
-    const circuits = params.circuits ?? []
-    const totalExercisesPerSession = hasCircuits
-      ? circuits.reduce((sum, c) => sum + c.exerciseCount, 0)
-      : (params.exercisesPerSession ?? 6)
-
-    const weekdayToIndex: Record<string, number> = {
-      monday: 0, tuesday: 1, wednesday: 2, thursday: 3,
-      friday: 4, saturday: 5, sunday: 6,
-    }
-    const preferredDayIndices = (params.preferredWeekdays ?? [])
-      .map(d => weekdayToIndex[d.toLowerCase().trim()])
-      .filter((d): d is number => Number.isInteger(d))
-    const effectiveDayIndices = preferredDayIndices.length > 0
-      ? preferredDayIndices
-      : Array.from({ length: Math.max(1, Math.min(params.daysPerWeek, 7)) }, (_, i) => i)
-    const uniqueDayIndices = Array.from(new Set(effectiveDayIndices)).sort((a, b) => a - b)
-
     const totalWeeks = weekPlans.length
 
-    const circuitStructureStr = hasCircuits
-      ? circuits
-          .map((c, i) => `  Circuit ${i} "${c.name}" (${c.focusType}): EXACTLY ${c.exerciseCount} exercises per session/day`)
-          .join('\n')
-      : null
-
-    const personaLine = programMode === 'CLINICAL'
-      ? 'You are an expert DPT and strength & conditioning coach. Design the exercise selection for ONE PHASE of a multi-week rehabilitation program — this phase spans one or more weeks that share the same clinical stage.'
-      : 'You are an expert strength & conditioning coach. Design the exercise selection for ONE PHASE of a periodized training program spanning one or more weeks. This is not a rehabilitation program — do not use clinical/DPT language.'
-    const guidanceLabel = programMode === 'CLINICAL' ? 'clinical guidance' : 'coaching guidance'
-
-    // One call per PHASE (a contiguous run of weeks sharing a stage/label),
-    // not per week — fewer, larger calls than before, still fired in
-    // parallel so wall-clock time doesn't increase. Each call fixes the
-    // "same exercises every day" bug via an explicit variety rule (4) and
-    // hands back WEEK-1-of-phase baseline Rx only; computeProgressedRx below
-    // deterministically ramps sets/reps/duration for the phase's later weeks
-    // instead of relying on the LLM to do that arithmetic.
     const phaseResults = await Promise.all(
       phases.map(async (phase, phaseIdx) => {
-        const pool = phasePools[phaseIdx]
-        const poolStr = pool
-          .map(
-            e =>
-              `ID: ${e.id} | ${e.name} | Phase: ${e.exercisePhases.length ? e.exercisePhases.join('/') : 'STRENGTHENING'} | Region: ${e.bodyRegion.join('/')} | Difficulty: ${e.difficultyLevel} | Muscles: ${e.musclesTargeted.join(', ')} | Equipment: ${e.equipmentRequired.join(', ') || 'None'} | Default Rx: ${e.defaultSets ?? 3}x${e.defaultReps ? e.defaultReps : e.defaultHoldSeconds ? e.defaultHoldSeconds + 's hold' : '10'}`
-          )
-          .join('\n')
+        const allFocusAreas = [...new Set(phase.weeks.flatMap(w => w.focusAreas))]
+        const validRegions = allFocusAreas.filter(r => VALID_BODY_REGIONS.has(r))
+        const regionsForQuery = validRegions.length > 0 ? validRegions : [...VALID_BODY_REGIONS]
+        const allTags = [...new Set(phase.weeks.flatMap(w => w.derivedIndicationTags))]
+        const requestedDifficulty = phase.weeks[0]?.difficultyLevel ?? params.difficultyLevel
 
-        const phaseSystemPrompt = `${personaLine} Use ONLY exercise IDs from the provided pool. Never invent IDs.
+        // Exact rehab-stage matches get priority ordering (never exclusivity).
+        const stageMatches = NON_EXACT_MATCHABLE_STAGES.has(phase.label)
+          ? []
+          : library.filter(
+              e =>
+                e.rehabStage === phase.label &&
+                regionsOverlap(e, regionsForQuery) &&
+                (allTags.length === 0 || e.indicationTags.some(t => allTags.includes(t)))
+            )
+        const regionMatches = library.filter(e => regionsOverlap(e, regionsForQuery))
+        const circuitMatches = library.filter(e => circuits.some(c => poolItemMatchesCircuitFocus(e, c.focusType)))
 
-RULES:
-1. Produce EXACTLY one dayTemplate per weekday index in: ${uniqueDayIndices.join(', ')}.
-2. Each day template must have EXACTLY ${totalExercisesPerSession} exercises.
-3. VARIETY & CONTINUITY: Do NOT require every day template to use completely different exercise IDs. Anchor exercises that directly address the phase's goal MAY repeat across day templates when repetition supports motor learning, rehabilitation, progressive overload, skill, or measurable improvement. Avoid unnecessary duplicate exercises within the SAME day template, and vary accessory exercises when useful.
-4. Follow the ${guidanceLabel} and cautions for this phase strictly.
-5. baseSets/baseReps/baseDurationSeconds represent WEEK 1 of THIS PHASE ONLY — realistic, conservative starting values. The calling system progresses them automatically in this phase's later weeks; do not try to encode week-over-week progression yourself.
-6. Write 1-2 specific technique cues per exercise relevant to this phase's goals.
-${hasCircuits ? `7. Each exercise MUST include circuitIndex (0-based). Circuit structure per session:\n${circuitStructureStr}` : ''}
+        const { pool, hardConstraintFilterApplied } = assembleExercisePool({
+          candidates: [...stageMatches, ...regionMatches, ...circuitMatches],
+          priorityIds: new Set(stageMatches.map(e => e.id)),
+          circuits,
+          programMode,
+          clientLimitations,
+          availableEquipment,
+          requestedDifficulty,
+          hardConstraints,
+          pinned: requiredExercises,
+          seed: seed + phaseIdx,
+        })
+        console.log(`[AI] Phase ${phaseIdx + 1} (${phase.label}) pool: ${pool.length} exercises (stage matches: ${stageMatches.length}, hard-constraint filter ${hardConstraintFilterApplied ? 'applied' : 'skipped'})`)
+        const fitsCircuit = makeCircuitFitPredicate(pool, circuits, programMode, requestedDifficulty, allowPlyometrics)
+        const sessionRegionsForRank = [...new Set(circuits.flatMap(c => WORKING_CIRCUIT_REGIONS[c.focusType] ?? []))]
+        const rankForCircuit = (item: ExercisePoolItem, focusType: string) =>
+          scoreCircuitRelevance(item, focusType, sessionRegionsForRank, programMode, requestedDifficulty)
 
-Respond with valid JSON only.`
+        const systemPrompt = buildProgramSystemPrompt({
+          programMode,
+          scope: {
+            kind: 'PHASE',
+            phaseIndex: phase.phaseIndex,
+            phaseLabel: phase.label,
+            startWeek: phase.startWeek,
+            endWeek: phase.endWeek,
+            totalWeeks,
+          },
+          daysPerWeek: params.daysPerWeek,
+          dayIndices: uniqueWeekdayIndices,
+          totalExercisesPerSession,
+          circuits,
+        })
 
+        const guidanceLabel = programMode === 'CLINICAL' ? 'Clinical guidance' : 'Coaching guidance'
         const guidanceLines = phase.weeks
           .map(w => `  Week ${w.week}: ${w.clinicalGuidance} (Goal: ${w.progressionGoal})`)
           .join('\n')
@@ -496,41 +849,58 @@ Respond with valid JSON only.`
           ? `"title": "Program title",\n  "description": "2-3 sentence program description",\n  `
           : ''
 
-        const phaseUserPrompt = `${clientContext}
+        const userPrompt = `CURRENT PROGRAM REQUEST — PHASE ${phase.phaseIndex + 1} OF ${phases.length}
+Create the exercise selection for this phase using the Inmotus System Programming Rules, Client Context, current trainer information, and supplied exercise library.
 
+${clientContext}
+
+==================================================
+PHASE PLAN (approved by the trainer)
+==================================================
 Phase ${phase.phaseIndex + 1}: ${phase.label} (Weeks ${phase.startWeek}-${phase.endWeek} of ${totalWeeks})
-Guidance across this phase's weeks:
+${guidanceLabel} across this phase's weeks:
 ${guidanceLines}
 Cautions this phase: ${cautions}
 
-Program: ${params.daysPerWeek} sessions/week, ~${params.durationMinutes} min/session
-Total exercises per day template: EXACTLY ${totalExercisesPerSession}
-${params.subjective ? `Trainer Subjective: ${params.subjective}` : ''}
-${params.trainerPrompt ? `Trainer Instructions: ${params.trainerPrompt}` : ''}
+${programParametersBlock}
 
-Available Exercises (use ONLY these IDs):
-${poolStr || 'No tagged exercises found — use general bodyweight exercises appropriate for this phase.'}
+${trainerDirectives}
+${buildVarietyBlock()}
 
-Respond with this exact JSON:
+==================================================
+AVAILABLE EXERCISES
+==================================================
+Use ONLY these exercise IDs (exercises that would violate a hard constraint or need unavailable equipment have already been removed where detectable):
+${pool.map(formatExercisePoolLine).join('\n')}
+
+${buildCircuitCandidateIndex(pool, circuits, fitsCircuit)}
+
+${buildFinalAuditBlock()}
+
+==================================================
+OUTPUT
+==================================================
+Respond with this exact JSON structure:
 {
   ${titleDescriptionFields}"phaseTitle": "Short phase title",
   "dayTemplates": [
-    { "dayOfWeek": 0, "sessionName": "Session name", "exercises": [
+    { "dayOfWeek": ${uniqueWeekdayIndices[0] ?? 0}, "sessionName": "Descriptive session name", "exercises": [
       { "exerciseId": "id from pool", "exerciseName": "name", "phase": "ACTIVATION",
         ${hasCircuits ? '"circuitIndex": 0,' : ''}
         "baseSets": 3, "baseReps": 12, "baseDurationSeconds": null, "restSeconds": 30,
+        "trainerPrescribedDosage": false,
         "notes": "1-2 technique cues" } ] }
   ]
 }
-Produce exactly one dayTemplates entry per weekday index in [${uniqueDayIndices.join(', ')}].`
+Produce exactly one dayTemplates entry per weekday index in [${uniqueWeekdayIndices.join(', ')}], each with EXACTLY ${totalExercisesPerSession} exercises${hasCircuits ? ' matching the circuit structure' : ''}.`
 
         const phaseResponse = await openai.chat.completions.create({
           model: 'gpt-4o',
           max_tokens: 8000,
           response_format: { type: 'json_object' },
           messages: [
-            { role: 'system', content: phaseSystemPrompt },
-            { role: 'user', content: phaseUserPrompt },
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt },
           ],
         })
 
@@ -541,55 +911,106 @@ Produce exactly one dayTemplates entry per weekday index in [${uniqueDayIndices.
         }
 
         const poolIds = new Set(pool.map(e => e.id))
-        const cleanedTemplates = (parsed.dayTemplates ?? []).map(t => ({
-          ...t,
-          exercises: (t.exercises ?? []).filter(e => poolIds.has(e.exerciseId)),
-        }))
-        // Anchor exercises are allowed to repeat across days for this phase
-        // (see rule 3 above) — no forced cross-day dedup.
-        let dayTemplates = cleanedTemplates
+        let dayTemplates: { dayOfWeek: number; sessionName: string; exercises: PhaseTemplateExercise[] }[] = (parsed.dayTemplates ?? [])
+          .filter(t => uniqueWeekdayIndices.includes(Number(t.dayOfWeek)))
+          .map(t => ({
+            ...t,
+            exercises: dedupeWithinSession(
+              (t.exercises ?? [])
+                .filter(e => poolIds.has(e.exerciseId))
+                .map(e => ({ ...e, trainerPrescribedDosage: e.trainerPrescribedDosage === true && dosageFlagAllowed(e.exerciseId) })),
+              nameOf
+            ),
+          }))
 
-        // Same drift as the single-week path: "EXACTLY N per circuit" is a
-        // soft prompt instruction under response_format: "json_object", and
-        // the poolIds filter above can only ever shrink a circuit's count,
-        // never restore it. Deterministically correct each day template's
-        // per-circuit count before it gets expanded across every week of
-        // this phase (expanding first would just repeat the same drift N
-        // times over).
-        if (hasCircuits) {
-          const exercisesByDay = new Map<number, (PhaseTemplateExercise & { orderIndex: number })[]>(
-            dayTemplates.map(t => [t.dayOfWeek, t.exercises.map((e, i) => ({ ...e, orderIndex: i }))])
+        // Post-generation hard-constraint audit — swap violators for a compliant pool exercise.
+        if (hardConstraints.length > 0) {
+          dayTemplates = dayTemplates.map(t => {
+            const { cleaned, violationsFound, unresolvedViolations } = auditAndReplaceViolations(
+              t.exercises, hardConstraints, pool
+            )
+            if (violationsFound.length > 0) {
+              console.warn(`[AI] Phase ${phaseIdx + 1} day ${t.dayOfWeek}: replaced ${violationsFound.length} hard-constraint violation(s): ${violationsFound.map(v => v.exerciseName).join(', ')}`)
+            }
+            for (const v of unresolvedViolations) {
+              warnings.push(`Could not find a compliant replacement for "${v.exerciseName}" (${v.categoryId}) — please review.`)
+            }
+            return { ...t, exercises: dedupeWithinSession(cleaned, nameOf) }
+          })
+        }
+
+        const toTemplateExercise = (poolItem: BackfillPoolItem, circuitIndex: number | undefined, orderIndex: number): PhaseTemplateExercise & { orderIndex: number } => {
+          const hasReps = poolItem.defaultReps != null || poolItem.defaultHoldSeconds == null
+          return {
+            notes: poolItem.cuesThumbnail ?? undefined,
+            exerciseId: poolItem.id,
+            exerciseName: poolItem.name,
+            phase: circuitIndex != null ? circuitFocusToExercisePhase(circuits[circuitIndex].focusType) : 'STRENGTHENING',
+            circuitIndex,
+            baseSets: poolItem.defaultSets ?? 3,
+            baseReps: hasReps ? (poolItem.defaultReps ?? 10) : undefined,
+            baseDurationSeconds: hasReps ? undefined : (poolItem.defaultHoldSeconds ?? undefined),
+            restSeconds: 30,
+            orderIndex,
+          }
+        }
+
+        // Required-exercise backstop, then per-circuit count correction from
+        // the SAME filtered pool (so backfill can't reintroduce a violator).
+        let exercisesByDay = new Map<number, (PhaseTemplateExercise & { orderIndex: number })[]>(
+          dayTemplates.map(t => [t.dayOfWeek, t.exercises.map((e, i) => ({ ...e, orderIndex: i }))])
+        )
+        if (requiredExercises.length > 0) {
+          const result = enforceRequiredExercises(
+            exercisesByDay, requiredExerciseRequirements, circuits,
+            (poolItem, circuitIndex, _day, existing) =>
+              existing ? { ...existing, circuitIndex: existing.circuitIndex ?? circuitIndex } : toTemplateExercise(poolItem, circuitIndex, 0)
           )
-          const corrected = enforceCircuitExerciseCounts(
-            exercisesByDay,
-            circuits,
-            pool,
-            (poolItem, circuitIndex, orderIndex) => {
-              const focusType = circuits[circuitIndex].focusType
-              const exercisePhase =
-                focusType === 'WARMUP' ? 'WARMUP' :
-                focusType === 'COOLDOWN' ? 'COOLDOWN' :
-                focusType === 'FLEXIBILITY' ? 'MOBILITY' :
-                focusType === 'CARDIO' || focusType === 'BALANCE' ? 'ACTIVATION' : 'STRENGTHENING'
-              const hasReps = poolItem.defaultReps != null || poolItem.defaultHoldSeconds == null
-              return {
-                exerciseId: poolItem.id,
-                exerciseName: poolItem.name,
-                phase: exercisePhase,
-                circuitIndex,
-                baseSets: poolItem.defaultSets ?? 3,
-                baseReps: hasReps ? (poolItem.defaultReps ?? 10) : undefined,
-                baseDurationSeconds: hasReps ? undefined : (poolItem.defaultHoldSeconds ?? undefined),
-                restSeconds: 30,
-                orderIndex,
-              }
+          exercisesByDay = result.exercisesByDay
+          for (const name of result.inserted) {
+            warnings.push(`"${name}" was requested by the trainer but missing from some AI-generated sessions in phase ${phaseIdx + 1}; it was inserted where absent.`)
+          }
+        }
+        if (hasCircuits) {
+          const fit = enforceCircuitFit(
+            exercisesByDay, circuits, pool, requiredIds, programMode, requestedDifficulty, fitsCircuit,
+            (poolItem, circuitIndex, orderIndex) => toTemplateExercise(poolItem, circuitIndex, orderIndex)
+          )
+          exercisesByDay = fit.exercisesByDay
+          if (fit.swapped.length) console.warn(`[AI] Phase ${phaseIdx + 1}: swapped ${fit.swapped.length} exercise(s) that did not fit their circuit: ${fit.swapped.join('; ')}`)
+          exercisesByDay = enforceCircuitExerciseCounts(
+            exercisesByDay, circuits, pool,
+            (poolItem, circuitIndex, orderIndex) => toTemplateExercise(poolItem, circuitIndex, orderIndex),
+            {
+              fits: (item, focusType) => fitsCircuit(item as ExercisePoolItem, focusType),
+              rank: (item, focusType) => rankForCircuit(item as ExercisePoolItem, focusType),
             }
           )
-          dayTemplates = dayTemplates.map(t => ({
-            ...t,
-            exercises: corrected.get(t.dayOfWeek) ?? t.exercises,
-          }))
         }
+        dayTemplates = dayTemplates.map(t => ({
+          ...t,
+          exercises: exercisesByDay.get(t.dayOfWeek) ?? t.exercises,
+        }))
+
+        // Fit rest/holds to the requested session length (trainer-prescribed
+        // dosage is left exactly as written).
+        const durationNotes = new Set<string>()
+        dayTemplates = dayTemplates.map(t => {
+          const fit = fitDosageToDuration(
+            t.exercises, circuits, params.durationMinutes,
+            // In circuit blocks each exercise is performed once per round
+            // (sets collapse to 1 unless trainer-prescribed), so estimate
+            // with the effective set count, not the model's raw baseSets.
+            e => ({
+              sets: hasCircuits && !e.trainerPrescribedDosage ? 1 : e.baseSets,
+              reps: e.baseReps, durationSeconds: e.baseDurationSeconds, restSeconds: e.restSeconds, circuitIndex: e.circuitIndex,
+            }),
+            (e, d) => e.trainerPrescribedDosage ? e : { ...e, restSeconds: d.restSeconds ?? e.restSeconds, baseDurationSeconds: d.durationSeconds ?? e.baseDurationSeconds }
+          )
+          if (fit.note) durationNotes.add(fit.note)
+          return { ...t, exercises: fit.exercises }
+        })
+        for (const note of durationNotes) warnings.push(`Phase ${phaseIdx + 1}: ${note}`)
 
         return { phase, dayTemplates, title: parsed.title, description: parsed.description }
       })
@@ -600,8 +1021,8 @@ Produce exactly one dayTemplates entry per weekday index in [${uniqueDayIndices.
     }
 
     // Expand each phase's day templates into concrete per-week exercises,
-    // applying deterministic sets/reps/duration progression (and periodic
-    // deload) for every week within the phase.
+    // applying deterministic progression (and periodic deload) for every week
+    // within the phase. Trainer-prescribed dosage is held fixed.
     const weekResults = phaseResults.flatMap(({ phase, dayTemplates, title, description }) => {
       const isFirstPhase = phase.phaseIndex === 0
       return phase.weeks.map((wp, weekIdxInPhase) => {
@@ -625,6 +1046,7 @@ Produce exactly one dayTemplates entry per weekday index in [${uniqueDayIndices.
               dayOfWeek: t.dayOfWeek,
               orderIndex: orderIdx,
               notes: e.notes,
+              trainerPrescribedDosage: e.trainerPrescribedDosage === true,
             }
           })
         )
@@ -667,392 +1089,82 @@ Produce exactly one dayTemplates entry per weekday index in [${uniqueDayIndices.
       throw new Error('AI generated no valid exercises for the multi-week program. Please try again.')
     }
 
-    // Sort by week, then day, then phase, then original orderIndex
-    const sorted = [...allCollectedExercises].sort((a, b) => {
-      const weekDiff = (a.weekIndex ?? 0) - (b.weekIndex ?? 0)
-      if (weekDiff !== 0) return weekDiff
-      const dayDiff = (a.dayOfWeek ?? 0) - (b.dayOfWeek ?? 0)
-      if (dayDiff !== 0) return dayDiff
-      const phaseA = PHASE_ORDER[a.phase] ?? 2
-      const phaseB = PHASE_ORDER[b.phase] ?? 2
-      if (phaseA !== phaseB) return phaseA - phaseB
-      return a.orderIndex - b.orderIndex
-    })
-
-    // Reassign orderIndex per day
-    let lastKey = ''
-    let dayOrder = 0
-    for (const ex of sorted) {
-      const key = `${ex.weekIndex ?? 0}_${ex.dayOfWeek ?? 0}`
-      if (key !== lastKey) { lastKey = key; dayOrder = 0 }
-      ex.orderIndex = dayOrder++
-    }
-
     const fallbackDescription = `${totalWeeks}-week ${programMode === 'CLINICAL' ? 'rehabilitation' : 'training'} program across ${phases.length} progressive phase${phases.length > 1 ? 's' : ''}.`
 
     return {
       title: programTitle || 'AI Generated Program',
       description: programDescription || params.clinicalAssessment || fallbackDescription,
       sessions: allCollectedSessions,
-      exercises: sorted,
+      exercises: sortAndReindex(allCollectedExercises),
+      warnings: warnings.length ? warnings : undefined,
     }
   }
   // === END multi-week path ===
 
-  // Fetch exercises with enriched fields
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const allExercises = (await (prisma.exercise.findMany as any)({
-    where: {
-      isActive: true,
-      isAssessment: false,
-      bodyRegion: { hasSome: targetRegions },
-    },
-    select: {
-      id: true,
-      name: true,
-      bodyRegion: true,
-      difficultyLevel: true,
-      equipmentRequired: true,
-      contraindications: true,
-      description: true,
-      musclesTargeted: true,
-      exercisePhases: true,
-      commonMistakes: true,
-      defaultSets: true,
-      defaultReps: true,
-      defaultHoldSeconds: true,
-      cuesThumbnail: true,
-      videoUrl: true,
-    },
-  })) as Array<{
-    id: string;
-    name: string;
-    bodyRegion: string[];
-    difficultyLevel: string;
-    equipmentRequired: string[];
-    contraindications: string[];
-    description: string | null;
-    musclesTargeted: string[];
-    exercisePhases: string[];
-    commonMistakes: string | null;
-    defaultSets: number | null;
-    defaultReps: number | null;
-    defaultHoldSeconds: number | null;
-    cuesThumbnail: string | null;
-    videoUrl: string | null;
-  }>;
+  // === Whole-program path (no Step 1 plan) ===
+  const targetRegions = mapFocusAreasToBodyRegions(params.focusAreas ?? [])
+  const regionMatches = library.filter(e => regionsOverlap(e, targetRegions))
+  const circuitMatches = library.filter(e => circuits.some(c => poolItemMatchesCircuitFocus(e, c.focusType)))
 
-  // Filter out exercises with contraindication overlap
-  const filtered = allExercises.filter((exercise) => {
-    if (clientLimitations.length === 0) return true;
-    const contraLower = exercise.contraindications.map((c) => c.toLowerCase());
-    return !clientLimitations.some((limitation) =>
-      contraLower.some(
-        (contra) =>
-          contra.includes(limitation) || limitation.includes(contra)
-      )
-    );
-  });
-
-  // Pool must be large enough so the AI can pick unique exercises across all days
-  const exercisesPerSession = params.circuits?.length
-    ? params.circuits.reduce((sum, c) => sum + c.exerciseCount, 0)
-    : (params.exercisesPerSession ?? 15);
-  const exercisePoolLimit = Math.max(80, params.daysPerWeek * exercisesPerSession);
-  const exercises = filtered.slice(0, exercisePoolLimit);
-
-  if (exercises.length === 0) {
-    throw new Error("No suitable exercises found for the given focus areas and client profile.");
+  const { pool: eligibleExercises, hardConstraintFilterApplied } = assembleExercisePool({
+    candidates: [...regionMatches, ...circuitMatches],
+    circuits,
+    programMode,
+    clientLimitations,
+    availableEquipment,
+    requestedDifficulty: params.difficultyLevel,
+    hardConstraints,
+    pinned: requiredExercises,
+    seed,
+  })
+  if (eligibleExercises.length === 0) {
+    throw new Error('No suitable exercises found for the given focus areas, equipment, and client profile.')
   }
+  console.log(`[AI] Program pool: ${eligibleExercises.length} exercises (hard-constraint filter ${hardConstraintFilterApplied ? 'applied' : 'skipped'})`)
+  const fitsCircuit = makeCircuitFitPredicate(eligibleExercises, circuits, programMode, params.difficultyLevel, allowPlyometrics)
+  const sessionRegionsForRank = [...new Set(circuits.flatMap(c => WORKING_CIRCUIT_REGIONS[c.focusType] ?? []))]
+  const rankForCircuit = (item: ExercisePoolItem, focusType: string) =>
+    scoreCircuitRelevance(item, focusType, sessionRegionsForRank, programMode, params.difficultyLevel)
 
-  // Deterministic hard-constraint pre-filter (spec section 7.2). This is a
-  // name-keyword heuristic, not true metadata-based filtering (no
-  // isPlyometric/hasJump/etc. tags exist on Exercise yet) — it's a backstop
-  // alongside the prompt instructions below, not a replacement for them. If
-  // filtering would leave too small a pool to realistically build a program
-  // from, fall back to the full pool and rely on the prompt + post-generation
-  // audit instead, rather than risk breaking generation on a keyword
-  // collision (e.g. a false-positive match).
-  const hardConstraints = extractHardConstraints(
-    params.subjective,
-    params.trainerPrompt,
-    params.additionalNotes,
-    profile?.limitations
-  );
-  const hardConstraintFilteredExercises = filterPoolByHardConstraints(exercises, hardConstraints);
-  const MIN_ELIGIBLE_POOL_SIZE = 10;
-  const eligibleExercises =
-    hardConstraints.length === 0 || hardConstraintFilteredExercises.length >= MIN_ELIGIBLE_POOL_SIZE
-      ? hardConstraintFilteredExercises
-      : exercises;
-  if (hardConstraints.length > 0) {
-    console.log(
-      `[AI] Hard constraints detected: ${hardConstraints.map((c) => c.id).join(", ")} — pool narrowed from ${exercises.length} to ${eligibleExercises.length} exercises`
-    );
-  }
-
-  const clientModeHint = programMode === 'CLINICAL'
-    ? 'This client has documented clinical/rehab needs — use a DPT/rehab persona and framing.'
-    : 'This client has no documented clinical/rehab need — use a strength & conditioning / general-fitness persona, not a rehab persona, unless the trainer instructions explicitly describe an injury or diagnosis.'
-
-  const systemPrompt = `INMOTUS EXERCISE PROGRAMMING SYSTEM
-
-ROLE
-You are the exercise-programming intelligence within Inmotus. You have advanced knowledge of physical therapy and rehabilitation, strength & conditioning, athletic development, sports performance, general fitness, mobility, balance, functional training, exercise progression/regression, and return-to-activity programming.
-Create safe, purposeful, individualized, professionally structured exercise programs using ONLY the information and exercise pool supplied by Inmotus.
-Every exercise must have a clear reason for inclusion. Do not add exercises merely to fill slots.
-
-CLIENT CONTEXT MODE: ${clientModeHint}
-
-==================================================
-A. INSTRUCTION & SAFETY PRIORITY
-==================================================
-Interpret ALL supplied information before selecting exercises. When information conflicts, use this priority order:
-1. Explicit medical contraindications / absolute safety restrictions
-2. CURRENT trainer-stated exclusions or restrictions in Trainer Subjective
-3. Explicit Trainer Instructions and program-specific restrictions
-4. Current symptoms, injuries, precautions, and current encounter information
-5. Client profile and relevant history
-6. Primary program goal
-7. Sport/activity requirements
-8. Requested focus areas
-9. Difficulty level
-10. Available equipment
-11. General programming preferences
-
-IMPORTANT: A trainer statement that prohibits an exercise type, movement, activity, loading pattern, body position, or training method is a HARD CONSTRAINT.
-Examples: "No plyometrics", "No jumping", "No overhead exercises", "No running", "No sprinting", "No impact", "No rotation", "No deep squatting", "Strength only", "Do not load the right shoulder".
-
-HARD CONSTRAINTS MUST NOT be violated for the sake of variety, session structure, sport specificity, circuit requirements, difficulty, or general programming principles. If a requested circuit would normally contain a prohibited exercise type, use a non-prohibited exercise that satisfies the circuit's purpose. Never silently override a trainer exclusion.
-
-==================================================
-B. SEMANTIC CONSTRAINT INTERPRETATION
-==================================================
-Interpret restrictions by MEANING, not only exact words.
-"No plyometrics" means exclude ALL plyometric / impact / jump-based exercises, including exercises whose names may not contain the word "plyometric." This includes, when applicable: jumps, jump squats, box jumps, broad jumps, vertical jumps, lateral jumps, skater jumps, hops, single-leg hops, bounds/bounding, pogo jumps, tuck jumps, split jumps, jumping lunges, depth jumps, drop jumps, reactive jumps, repeated takeoff/landing drills, explosive hopping, and other exercises requiring a rapid airborne takeoff and landing.
-"No jumping" should be treated at least as strictly as "no plyometrics."
-"No running" includes running-based drills and running-based conditioning.
-"No sprinting" includes sprint drills or maximal/high-speed running.
-"No overhead" includes meaningful loaded overhead pressing, carrying, throwing, or other loaded overhead positions.
-"Strength only" means do not add cardio conditioning, running, sprinting, agility, or plyometric work unless the trainer explicitly requests an exception.
-When uncertain whether an exercise violates an explicit prohibition, choose the safer non-conflicting alternative from the available pool.
-
-==================================================
-C. PRE-SELECTION CONSTRAINT CHECK
-==================================================
-BEFORE selecting exercises:
-1. Identify every explicit negative instruction or restriction from contraindications, Client Context, Trainer Subjective, Trainer Instructions, Additional Notes, and program-specific restrictions.
-2. Convert each restriction into prohibited movement/activity concepts.
-3. Exclude candidate exercises that directly or functionally violate those concepts.
-4. Only then build the program.
-Do not select a prohibited exercise and attempt to make it acceptable through cue language.
-
-==================================================
-D. PROGRAMMING MODE
-==================================================
-Determine the dominant programming context.
-REHABILITATION: Prioritize appropriate loading, symptom considerations, motor control, strength restoration, mobility when indicated, balance/stability, functional movement, and progressive return to activity.
-ATHLETIC / SPORTS PERFORMANCE: Prioritize movement preparation, speed, agility, power, plyometrics, strength, deceleration, change of direction, rotational ability, conditioning, and sport-relevant qualities ONLY when those qualities are requested and not prohibited.
-GENERAL FITNESS: Prioritize balanced strength development, functional movement, muscular endurance, mobility, cardiovascular fitness when requested, and sustainable progression.
-STRENGTH: Prioritize primary strength movements, compound exercises, accessory strength, progressive overload, appropriate volume, and recovery.
-MOBILITY / RECOVERY: Prioritize controlled mobility, active range of motion, low-intensity movement, stability where appropriate, and recovery.
-Do not automatically use rehabilitation framing because a historical injury exists. Do not automatically add plyometrics because the program is athletic/performance. The current trainer request and current restrictions govern the session.
-
-==================================================
-E. EXERCISE SELECTION
-==================================================
-Use ONLY exercises from the supplied Inmotus exercise pool. Every returned exercise must use an exact valid exerciseId.
-NEVER: invent an exercise, invent or alter an exerciseId, return an exercise outside the supplied pool, or choose an exercise that violates a hard constraint.
-For each candidate exercise ask: (1) Does it contribute to the program goal? (2) Is it appropriate for current ability/status? (3) Does it comply with every hard constraint? (4) Is it compatible with symptoms and precautions? (5) Does it use available equipment? (6) Does it fit the requested circuit/block? (7) Does it complement the rest of the session? (8) Is a more appropriate valid option available?
-Avoid filler.
-
-==================================================
-F. EQUIPMENT
-==================================================
-Use only equipment explicitly listed as available. If no equipment is provided, default to bodyweight exercises only. Never assume access to equipment.
-
-==================================================
-G. SESSION / CIRCUIT STRUCTURE
-==================================================
-Respect the trainer-defined circuit structure and exact exercise count. Use the circuit's PURPOSE, not merely its label.
-WARMUP: movement preparation, dynamic mobility, low-load activation.
-LOWER_BODY: lower-extremity strength, stability, power, or endurance appropriate to the request.
-UPPER_BODY: upper-extremity push/pull strength, stability, or endurance.
-CORE: trunk strength/stability, anti-extension, anti-rotation, rotation, or other appropriate trunk demands.
-FULL_BODY: integrated multi-joint movement.
-BALANCE: postural control, proprioception, single-leg stability, or reactive balance as appropriate.
-FLEXIBILITY: mobility, flexibility, stretching, foam rolling, or recovery movement.
-COOLDOWN: low-intensity recovery, mobility, stretching, or breathing as appropriate.
-CARDIO: cardiovascular/metabolic conditioning ONLY when allowed/requested.
-Circuit labels NEVER override a hard constraint. Example: If a performance program contains a power/plyometric block but Trainer Subjective says "no plyometrics," DO NOT generate jumps. Use an allowed non-plyometric alternative if the schema requires that block to contain exercises.
-
-==================================================
-H. EXERCISE ORDER
-==================================================
-Order exercises intentionally: preparation before loading; high-skill/high-velocity work before fatigue when allowed; primary strength before accessory work; conditioning after strength/power unless specifically requested otherwise; cooldown/recovery last. Rehabilitation should progress logically from preparation toward loading and functional integration.
-
-==================================================
-I. VOLUME & DOSAGE
-==================================================
-Assign sets, repetitions, time, holds, distance, rest, and per-side dosage according to the exercise purpose and client context.
-General working-set guidance: BEGINNER typically 1-3 sets; INTERMEDIATE typically 2-4 sets; ADVANCED typically 3-5 sets. These are guidelines, not rigid rules.
-Power/plyometric work, when allowed: prioritize quality and low fatigue. Strength: use appropriate resistance-oriented rep ranges. Muscular endurance: appropriately higher repetitions. Mobility: controlled repetitions or timed positions. Isometrics: timed holds when appropriate. Balance: repetitions, time, or task duration. Rehabilitation: dose according to intended adaptation and current status.
-Explicit trainer dosage instructions override defaults when safe. Use either reps OR durationSeconds per exercise when required by the output schema.
-
-==================================================
-J. VARIETY, CONTINUITY & PROGRESSION
-==================================================
-Do NOT require every training day to use completely different exercise IDs.
-Use two conceptual categories:
-ANCHOR EXERCISES: Primary exercises that directly address major goals. These MAY repeat across sessions or weeks when repetition supports motor learning, rehabilitation, progressive overload, skill, or measurable improvement.
-VARIABLE EXERCISES: Secondary/accessory exercises that may rotate when useful.
-Avoid unnecessary duplicate exercises within the SAME session. Across sessions, repeat an exercise when repetition improves program quality. Never change an appropriate exercise solely for novelty.
-For multi-week programs, progress intelligently through one or more appropriate variables: resistance, repetitions, sets, range of motion, tempo, time under tension, movement complexity, external support, unilateral demand, balance challenge, speed/power when allowed, training density, rest interval. Do not progress every variable simultaneously.
-
-==================================================
-K. MULTI-DAY DESIGN
-==================================================
-Treat all sessions as ONE coordinated program. Consider previous/following sessions, recovery, movement overlap, muscle-group workload, intensity, weekly volume, and goals. Generate exercises for ALL ${params.daysPerWeek} days — never stop after the first day.
-
-==================================================
-L. SPORT-SPECIFIC PROGRAMMING
-==================================================
-When a sport is specified, consider its physical demands, but sport specificity NEVER overrides trainer restrictions. Train relevant physical qualities rather than making every exercise imitate the sport. If "no plyometrics" is present, a tennis, golf, basketball, running, or other athletic program must still contain ZERO plyometric/jump exercises.
-
-==================================================
-M. TECHNIQUE NOTES
-==================================================
-Provide 1-2 concise, actionable technique cues per exercise. Avoid generic cues such as "use good form." Adapt cues to the exercise, goal, and relevant client limitations.
-
-==================================================
-N. SESSION DURATION
-==================================================
-Target requested session duration within approximately +/- 5 minutes. Account for sets, reps, rest, transitions, warm-up, and cooldown. Do not overload short sessions with unrealistic exercise counts.
-
-==================================================
-O. SESSION NAMES
-==================================================
-Use concise descriptive names based on actual training focus, e.g. "Lower Body Strength", "Rotational Power", "Full Body Strength", "Shoulder Strength & Control", "Single-Leg Stability", "Mobility & Recovery". Avoid generic names such as "Workout 1" unless specifically requested.
-
-==================================================
-P. POST-GENERATION HARD-CONSTRAINT AUDIT
-==================================================
-BEFORE returning the JSON, inspect EVERY selected exercise against EVERY hard constraint. For each selected exercise ask: Does this involve a prohibited movement? A prohibited training method? Does it violate an equipment restriction? A body-region/loading restriction? Does it conflict with Trainer Subjective? With Trainer Instructions?
-If YES or POSSIBLY YES: REMOVE it and REPLACE it with a compliant exercise from the supplied pool.
-Examples: If "no plyometrics" is present, final output must contain ZERO jumps, hops, bounds, pogos, depth/drop jumps, jumping lunges, skater jumps, or other airborne takeoff/landing drills. If "no overhead" is present, final output must contain ZERO meaningful loaded overhead movements. If "strength only" is present, final output must contain ZERO cardio, agility, running, sprinting, or plyometric exercises unless explicitly excepted.
-A hard-constraint violation is a generation failure. Correct it before returning the response.
-
-==================================================
-Q. FINAL QUALITY CONTROL
-==================================================
-Before returning, confirm: all requested days exist; exact exercise counts/circuit counts are satisfied; every exerciseId exists in the supplied pool; all hard constraints are satisfied; Trainer Subjective is followed; Trainer Instructions are followed; equipment is available; current symptoms/limitations are considered; selection matches goal and difficulty; order and dosage are logical; duration is realistic; multi-day workload is coordinated; notes contain useful cues; no exercise exists merely to fill space. If any check fails, correct it before returning.
-
-CORE PRINCIPLE: The final program must be appropriate for THIS client, THIS trainer request, THIS point in time, and THIS exercise pool. Explicit trainer exclusions are authoritative and must be obeyed.
-
-Respond with valid JSON only. No prose outside the required JSON output.`;
-
-  const exerciseListStr = eligibleExercises
-    .map(
-      (e) =>
-        `ID: ${e.id} | ${e.name} | Phase: ${e.exercisePhases.length ? e.exercisePhases.join("/") : "STRENGTHENING"} | Region: ${e.bodyRegion.join("/")} | Difficulty: ${e.difficultyLevel} | Muscles: ${e.musclesTargeted.join(", ")} | Equipment: ${e.equipmentRequired.join(", ") || "None"} | Video: ${e.videoUrl ? "Yes" : "No"} | Default Rx: ${e.defaultSets ?? 3}x${e.defaultReps ? e.defaultReps : e.defaultHoldSeconds ? e.defaultHoldSeconds + "s hold" : "10"} | Mistakes: ${e.commonMistakes || "N/A"} | Cues: ${e.cuesThumbnail || "N/A"}`
-    )
-    .join("\n");
-
-  const circuits = params.circuits;
-  const hasCircuits = circuits && circuits.length > 0;
-
-  const totalExercisesPerSession = hasCircuits
-    ? circuits.reduce((sum, c) => sum + c.exerciseCount, 0)
-    : (params.exercisesPerSession ?? 6);
-
-  const circuitStructureStr = hasCircuits
-    ? circuits
-        .map(
-          (c, i) =>
-            `  Circuit ${i} "${c.name}" (${c.focusType} focus): EXACTLY ${c.exerciseCount} exercise${c.exerciseCount !== 1 ? "s" : ""} PER SESSION/DAY`
-        )
-        .join("\n")
-    : null;
+  const systemPrompt = buildProgramSystemPrompt({
+    programMode,
+    scope: { kind: 'PROGRAM' },
+    daysPerWeek: params.daysPerWeek,
+    dayIndices: uniqueWeekdayIndices,
+    totalExercisesPerSession,
+    circuits,
+  })
 
   const userPrompt = `CURRENT PROGRAM REQUEST
 Create the complete exercise program using the Inmotus System Programming Rules, Client Context, current trainer information, and supplied exercise library.
 
 ${clientContext}
 
-==================================================
-PROGRAM PARAMETERS
-==================================================
-Program Goals: ${(params.programGoals ?? params.focusAreas ?? []).join(", ")}
-Duration: Approximately ${params.durationMinutes} minutes per session
-Days Per Week: ${params.daysPerWeek}
-Difficulty Level: ${params.difficultyLevel}
-Allowed Weekdays: ${scheduleLabel} (${uniqueWeekdayIndices.join(", ")})
-Total Exercises Per Session: EXACTLY ${totalExercisesPerSession}
-${hasCircuits ? `Circuit Structure (EXACT — follow precisely):\n${circuitStructureStr}` : `Circuits / Supersets: ${(params.circuitsPerSession ?? 0) === 0 ? "None — use straight sets only" : `${params.circuitsPerSession} circuit block(s) per session`}`}
+${programParametersBlock}
 
+${trainerDirectives}
+${hasCircuits ? `==================================================
+CIRCUIT ASSIGNMENT RULES
 ==================================================
-CURRENT TRAINER SUBJECTIVE — HIGH PRIORITY
-==================================================
-${params.subjective || "None provided."}
-
-Treat Trainer Subjective as CURRENT encounter information. It may contain new symptoms, progress, restrictions, exclusions, functional changes, or body regions not yet documented in the stored client profile.
-IMPORTANT: Any explicit negative instruction in Trainer Subjective is a HARD CONSTRAINT. Examples: "no plyometrics", "no jumping", "no overhead", "no running", "no sprinting", "no impact", "strength only", "avoid right shoulder loading". These instructions MUST affect exercise selection and MUST be obeyed semantically. If Trainer Subjective says "no plyometrics," the final program must contain ZERO jumping, hopping, bounding, pogo, depth/drop jump, jumping-lunge, skater-jump, or other airborne takeoff/landing exercises.
-
-==================================================
-TRAINER INSTRUCTIONS — HIGH PRIORITY
-==================================================
-${params.trainerPrompt || "None provided."}
-
-Trainer Instructions define the trainer's specific programming intent for THIS program. Follow them closely unless they conflict with a higher-priority medical contraindication. Interpret instructions semantically rather than by exact keyword. Examples: "Strength only" = no conditioning, cardio, running, agility, sprinting, or plyometrics unless explicitly excepted. "No overhead" = no meaningful loaded overhead exercise. "No jumping" = no jumping, hopping, bounding, or similar plyometric activity. "Focus on posterior chain" = meaningfully bias selection toward posterior-chain development.
-
-==================================================
-ADDITIONAL NOTES
-==================================================
-${params.additionalNotes || "None provided."}
-
-Explicit restrictions in Additional Notes also function as hard constraints.
-
-==================================================
-${hasCircuits ? "CIRCUIT ASSIGNMENT RULES" : "VOLUME RULE"}
-==================================================
-${hasCircuits ? `- Each exercise MUST include "circuitIndex" set to its 0-based circuit number (0, 1, 2, ...).
+- Each exercise MUST include "circuitIndex" set to its 0-based circuit number (0 through ${circuits.length - 1}).
 - Each circuit count is PER SESSION — every training day must have the FULL circuit exercise count, not a fraction of it.
-- Example: if Circuit 0 requires 4 exercises and there are ${params.daysPerWeek} days, you must output 4 exercises with circuitIndex=0 for EACH day (${params.daysPerWeek * (circuits?.[0]?.exerciseCount ?? 0)} total for that circuit across all days).
-- Total exercises in the "exercises" array must be EXACTLY ${totalExercisesPerSession * params.daysPerWeek} (${totalExercisesPerSession} per session × ${params.daysPerWeek} days).
-- A circuit's normal focus NEVER overrides a hard constraint.
-- Circuit focus guidelines for exercise selection:
-  WARMUP → lightweight warm-up, joint mobility, gentle activation (prefer exercisePhases: WARMUP or ACTIVATION)
-  LOWER_BODY → lower limb strength — quad, hamstring, glute, calf focus (bodyRegion: LOWER_BODY)
-  UPPER_BODY → shoulder, arm, chest, upper back exercises (bodyRegion: UPPER_BODY)
-  CORE → core stability, lumbar, abdominal (bodyRegion: CORE)
-  FULL_BODY → compound multi-joint or functional movement exercises
-  BALANCE → proprioception, single-leg stability, vestibular
-  FLEXIBILITY → static stretch, PNF, foam rolling (prefer exercisePhases: MOBILITY)
-  COOLDOWN → gentle cooldown, static stretch, breathing (prefer exercisePhases: COOLDOWN or MOBILITY)
-  CARDIO → cardiovascular conditioning, sustained effort exercises ONLY if allowed/requested` : `Each day must have EXACTLY ${totalExercisesPerSession} exercises — no more, no less. Distribute them across the required phases (WARMUP → ACTIVATION → STRENGTHENING → MOBILITY → COOLDOWN).`}
+- Total exercises in the "exercises" array must be EXACTLY ${totalExercisesPerSession * uniqueWeekdayIndices.length} (${totalExercisesPerSession} per session × ${uniqueWeekdayIndices.length} days).
+- A circuit's normal focus NEVER overrides a hard constraint.` : `==================================================
+VOLUME RULE
+==================================================
+Each day must have EXACTLY ${totalExercisesPerSession} exercises — no more, no less. Distribute them across the required phases (WARMUP → ACTIVATION → STRENGTHENING → MOBILITY → COOLDOWN).`}
 
-==================================================
-VARIETY & CONTINUITY
-==================================================
-Do NOT require completely different exercise IDs on every day. Avoid unnecessary duplicate exercises within the same session. Across different days:
-- repeat anchor exercises when useful for progression, skill, strength, rehabilitation, or measurement
-- vary accessory exercises when appropriate
-- do not copy an entire session unless requested
-- do not change exercises solely for novelty
+${buildVarietyBlock()}
 
 ==================================================
 AVAILABLE EXERCISES
 ==================================================
-Use ONLY these exercise IDs: (exercises that would violate a hard constraint above have already been removed from this list where detectable)
-${exerciseListStr}
+Use ONLY these exercise IDs (exercises that would violate a hard constraint or need unavailable equipment have already been removed where detectable):
+${eligibleExercises.map(formatExercisePoolLine).join('\n')}
 
-Every exercise must use an exact exerciseId from this pool. Before selecting from the pool, exclude any exercise that violates a hard constraint.
+${buildCircuitCandidateIndex(eligibleExercises, circuits, fitsCircuit)}
 
-==================================================
-FINAL CONSTRAINT AUDIT — REQUIRED
-==================================================
-Before returning the response: (1) Re-read Trainer Subjective. (2) Re-read Trainer Instructions. (3) Re-read contraindications/restrictions in Client Context. (4) Identify all explicit exclusions. (5) Check EVERY selected exercise against them. (6) Replace every conflicting or potentially conflicting exercise with a compliant exercise from the pool. (7) Re-check the final program.
-If "no plyometrics" or "no jumping" appears anywhere in the current restrictions, the final exercise list must contain ZERO plyometric/jump exercises. If a compliant program cannot be constructed from the supplied exercise pool while satisfying the exact circuit structure, do NOT knowingly violate the restriction — favor a valid non-prohibited substitute over a prohibited exercise.
+${buildFinalAuditBlock()}
 
 ==================================================
 OUTPUT
@@ -1060,163 +1172,136 @@ OUTPUT
 Respond with this exact JSON structure:
 {
   "title": "Program title",
-  "description": "2-3 sentence clinical program description",
+  "description": "2-3 sentence program description",
   "sessions": [
-    { "dayOfWeek": 0, "name": "A short clinical session name, e.g. 'Hip Activation & Mobility' or 'Posterior Chain Strengthening'" }
+    { "dayOfWeek": ${uniqueWeekdayIndices[0] ?? 0}, "name": "A short descriptive session name, e.g. 'Hip Activation & Mobility' or 'Posterior Chain Strength'" }
   ],
   "exercises": [
     {
       "exerciseId": "the exercise ID from the list above",
       "exerciseName": "exercise name",
       "phase": "ACTIVATION",
-      ${hasCircuits ? `"circuitIndex": 0,` : ""}
+      ${hasCircuits ? '"circuitIndex": 0,' : ''}
       "sets": 3,
       "reps": 15,
       "durationSeconds": null,
       "restSeconds": 30,
-      "dayOfWeek": 0,
+      "trainerPrescribedDosage": false,
+      "dayOfWeek": ${uniqueWeekdayIndices[0] ?? 0},
       "orderIndex": 2,
-      "notes": "2-3 clinical form cues specific to this client"
+      "notes": "1-2 technique cues specific to this client"
     }
   ]
 }
 
-Each entry in "sessions" must have one entry per unique dayOfWeek used in exercises. The session name should reflect the actual focus of that day's exercises (e.g. body region, dominant phase, clinical goal) — not a generic label.
-
-Rules:
-1. ONLY use exercise IDs from the list provided.
-2. Respect all client limitations, contraindications, and hard constraints.
-3. Match the difficulty level requested.
-4. Distribute exercises across ${params.daysPerWeek} days using ONLY these weekday indexes: ${uniqueWeekdayIndices.join(", ")}.
-5. Keep total session time around ${params.durationMinutes} minutes.
-6. Use either reps OR durationSeconds per exercise, not both (set unused to null).
-${hasCircuits ? `7. Assign "circuitIndex" to every exercise — it MUST match one of the circuit indexes (0 through ${circuits.length - 1}).
-8. Every day must have EXACTLY ${totalExercisesPerSession} exercises total, with EXACTLY the specified count per circuit — DO NOT split or distribute a circuit's count across days; repeat the full circuit on each day.
-9. Trainer Subjective and Trainer Instructions must directly influence selection, cue language, and loading strategy.` : `7. Follow the phase ordering appropriate to the program type.
-8. Trainer Subjective and Trainer Instructions must directly influence selection, cue language, and loading strategy.`}
-10. Generate ALL requested sessions; do not stop after the first day.
-11. Return valid JSON only. No prose outside JSON.`;
+"sessions" must have one entry per weekday index in [${uniqueWeekdayIndices.join(', ')}]. Use either reps OR durationSeconds per exercise, not both (set the unused one to null). Generate ALL requested sessions; do not stop after the first day. Return valid JSON only.`
 
   const response = await openai.chat.completions.create({
-    model: "gpt-4o",
+    model: 'gpt-4o',
     max_tokens: 16000,
-    response_format: { type: "json_object" },
+    response_format: { type: 'json_object' },
     messages: [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: userPrompt },
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt },
     ],
-  });
+  })
 
-  const responseText = response.choices[0].message.content ?? "";
-  const parsed = JSON.parse(responseText) as GeneratedPlan;
+  const parsed = JSON.parse(response.choices[0].message.content ?? '{}') as GeneratedPlan
 
-  // Validate that all exercise IDs exist in the eligible (hard-constraint-
-  // filtered where applicable) pool that was actually offered to the model.
-  const exerciseIds = new Set(eligibleExercises.map((e) => e.id));
-  const validExercises = parsed.exercises.filter((e) =>
-    exerciseIds.has(e.exerciseId)
-  );
-
+  const exerciseIds = new Set(eligibleExercises.map(e => e.id))
+  const validExercises = (parsed.exercises ?? []).filter(
+    e => exerciseIds.has(e.exerciseId) && uniqueWeekdayIndices.includes(Number(e.dayOfWeek ?? uniqueWeekdayIndices[0]))
+  )
   if (validExercises.length === 0) {
-    throw new Error("AI generated no valid exercises. Please try again.");
+    throw new Error('AI generated no valid exercises. Please try again.')
   }
 
-  // Post-generation hard-constraint audit (spec section P / 7.3): even with
-  // a filtered pool and explicit prompt rules, the model can still return a
-  // violating exercise. Swap any violator for a compliant, unused pool
-  // exercise before returning. No forced cross-day dedup anymore — anchor
-  // exercises are allowed to repeat across days (see VARIETY & CONTINUITY in
-  // the prompt above), so a repeated exerciseId is left as-is unless it also
-  // violates a hard constraint.
   const { cleaned: auditedExercises, violationsFound, unresolvedViolations } =
-    auditAndReplaceViolations(validExercises, hardConstraints, eligibleExercises);
+    auditAndReplaceViolations(validExercises, hardConstraints, eligibleExercises)
   if (violationsFound.length > 0) {
-    console.warn(
-      `[AI] Post-generation audit replaced ${violationsFound.length} exercise(s) violating hard constraints: ${violationsFound.map((v) => `${v.exerciseName} (${v.categoryId})`).join(", ")}`
-    );
+    console.warn(`[AI] Post-generation audit replaced ${violationsFound.length} exercise(s) violating hard constraints: ${violationsFound.map(v => `${v.exerciseName} (${v.categoryId})`).join(', ')}`)
   }
-  if (unresolvedViolations.length > 0) {
-    console.error(
-      `[AI] Post-generation audit could NOT resolve ${unresolvedViolations.length} hard-constraint violation(s) — pool exhausted: ${unresolvedViolations.map((v) => v.exerciseName).join(", ")}`
-    );
+  for (const v of unresolvedViolations) {
+    warnings.push(`Could not find a compliant replacement for "${v.exerciseName}" (${v.categoryId}) — please review.`)
   }
 
-  let dedupedExercises: GeneratedExercise[] = auditedExercises;
+  const toGeneratedExercise = (poolItem: BackfillPoolItem, circuitIndex: number | undefined, orderIndex: number, dayOfWeek: number): GeneratedExercise => {
+    const hasReps = poolItem.defaultReps != null || poolItem.defaultHoldSeconds == null
+    return {
+      exerciseId: poolItem.id,
+      exerciseName: poolItem.name,
+      phase: circuitIndex != null ? circuitFocusToExercisePhase(circuits[circuitIndex].focusType) : 'STRENGTHENING',
+      circuitIndex,
+      sets: poolItem.defaultSets ?? 3,
+      reps: hasReps ? (poolItem.defaultReps ?? 10) : undefined,
+      durationSeconds: hasReps ? undefined : (poolItem.defaultHoldSeconds ?? undefined),
+      restSeconds: 30,
+      dayOfWeek,
+      orderIndex,
+      notes: poolItem.cuesThumbnail ?? undefined,
+    }
+  }
 
-  // The prompt tells the model "EXACTLY N exercises per circuit", but
-  // response_format: "json_object" gives no structural (array-length)
-  // guarantee, and the invalid-ID filter above can only ever reduce counts
-  // further — nothing restores a shortfall. Deterministically correct each
-  // day's per-circuit count to match what the trainer configured.
+  let exercisesByDay = new Map<number, GeneratedExercise[]>()
+  for (const ex of auditedExercises) {
+    const day = ex.dayOfWeek ?? uniqueWeekdayIndices[0] ?? 0
+    if (!exercisesByDay.has(day)) exercisesByDay.set(day, [])
+    exercisesByDay.get(day)!.push({ ...ex, trainerPrescribedDosage: ex.trainerPrescribedDosage === true && dosageFlagAllowed(ex.exerciseId) })
+  }
+  for (const [day, list] of exercisesByDay) exercisesByDay.set(day, dedupeWithinSession(list, nameOf))
+
+  if (requiredExercises.length > 0) {
+    const result = enforceRequiredExercises(
+      exercisesByDay, requiredExerciseRequirements, circuits,
+      (poolItem, circuitIndex, dayOfWeek, existing) =>
+        existing
+          ? { ...existing, dayOfWeek, circuitIndex: existing.circuitIndex ?? circuitIndex }
+          : toGeneratedExercise(poolItem, circuitIndex, 0, dayOfWeek)
+    )
+    exercisesByDay = result.exercisesByDay
+    for (const name of result.inserted) {
+      warnings.push(`"${name}" was requested by the trainer but missing from some AI-generated sessions; it was inserted where absent.`)
+    }
+  }
   if (hasCircuits) {
-    const dayGroups = new Map<number, GeneratedExercise[]>();
-    for (const ex of dedupedExercises) {
-      const day = ex.dayOfWeek ?? 0;
-      if (!dayGroups.has(day)) dayGroups.set(day, []);
-      dayGroups.get(day)!.push(ex);
-    }
-    const countCorrectedByDay = enforceCircuitExerciseCounts<GeneratedExercise>(
-      dayGroups,
-      circuits,
-      eligibleExercises,
-      (poolItem, circuitIndex, orderIndex, dayOfWeek) => {
-        const focusType = circuits[circuitIndex].focusType;
-        const phase =
-          focusType === "WARMUP" ? "WARMUP" :
-          focusType === "COOLDOWN" ? "COOLDOWN" :
-          focusType === "FLEXIBILITY" ? "MOBILITY" :
-          focusType === "CARDIO" || focusType === "BALANCE" ? "ACTIVATION" : "STRENGTHENING";
-        const hasReps = poolItem.defaultReps != null || poolItem.defaultHoldSeconds == null;
-        return {
-          exerciseId: poolItem.id,
-          exerciseName: poolItem.name,
-          phase,
-          circuitIndex,
-          sets: poolItem.defaultSets ?? 3,
-          reps: hasReps ? (poolItem.defaultReps ?? 10) : undefined,
-          durationSeconds: hasReps ? undefined : (poolItem.defaultHoldSeconds ?? undefined),
-          restSeconds: 30,
-          dayOfWeek,
-          orderIndex,
-          notes: undefined,
-        };
+    const fit = enforceCircuitFit(exercisesByDay, circuits, eligibleExercises, requiredIds, programMode, params.difficultyLevel, fitsCircuit, toGeneratedExercise)
+    exercisesByDay = fit.exercisesByDay
+    if (fit.swapped.length) console.warn(`[AI] Swapped ${fit.swapped.length} exercise(s) that did not fit their circuit: ${fit.swapped.join('; ')}`)
+    exercisesByDay = enforceCircuitExerciseCounts<GeneratedExercise>(
+      exercisesByDay, circuits, eligibleExercises, toGeneratedExercise,
+      {
+        fits: (item, focusType) => fitsCircuit(item as ExercisePoolItem, focusType),
+        rank: (item, focusType) => rankForCircuit(item as ExercisePoolItem, focusType),
       }
-    );
-    dedupedExercises = Array.from(countCorrectedByDay.values()).flat();
+    )
   }
 
-  // Post-processing: sort exercises per day by phase order
-  const sortedExercises = [...dedupedExercises].sort((a, b) => {
-    // First sort by day
-    const dayA = a.dayOfWeek ?? 0;
-    const dayB = b.dayOfWeek ?? 0;
-    if (dayA !== dayB) return dayA - dayB;
-
-    // Then by phase order
-    const phaseA = PHASE_ORDER[a.phase] ?? 2;
-    const phaseB = PHASE_ORDER[b.phase] ?? 2;
-    if (phaseA !== phaseB) return phaseA - phaseB;
-
-    // Then by original orderIndex
-    return a.orderIndex - b.orderIndex;
-  });
-
-  // Reassign orderIndex after sorting
-  let currentDay = -1;
-  let dayOrder = 0;
-  for (const exercise of sortedExercises) {
-    const day = exercise.dayOfWeek ?? 0;
-    if (day !== currentDay) {
-      currentDay = day;
-      dayOrder = 0;
-    }
-    exercise.orderIndex = dayOrder++;
+  const durationNotes = new Set<string>()
+  for (const [day, list] of exercisesByDay) {
+    const fit = fitDosageToDuration(
+      list, circuits, params.durationMinutes,
+      e => ({
+        sets: hasCircuits && !e.trainerPrescribedDosage ? 1 : e.sets,
+        reps: e.reps, durationSeconds: e.durationSeconds, restSeconds: e.restSeconds, circuitIndex: e.circuitIndex,
+      }),
+      (e, d) => e.trainerPrescribedDosage ? e : { ...e, restSeconds: d.restSeconds ?? e.restSeconds, durationSeconds: d.durationSeconds ?? e.durationSeconds }
+    )
+    if (fit.note) durationNotes.add(fit.note)
+    exercisesByDay.set(day, fit.exercises)
   }
+  warnings.push(...durationNotes)
+
+  const finalExercises = sortAndReindex(Array.from(exercisesByDay.values()).flat())
+  const sessionDays = new Set(finalExercises.map(e => e.dayOfWeek ?? 0))
+  const sessions = (parsed.sessions ?? []).filter(s => sessionDays.has(s.dayOfWeek))
 
   return {
-    ...parsed,
-    exercises: sortedExercises,
-  };
+    title: parsed.title || 'AI Generated Program',
+    description: parsed.description || '',
+    sessions,
+    exercises: finalExercises,
+    warnings: warnings.length ? warnings : undefined,
+  }
 }
 
 
@@ -1322,7 +1407,10 @@ export async function generateProgram(
         exerciseId: ex.exerciseId,
         exerciseName: ex.exerciseName,
         orderIndex: block.exercises.length,
-        sets: 1, // circuits: 1 set per exercise; block.rounds controls repetition
+        // Circuits: block.rounds controls repetition, so each exercise is 1
+        // set — unless the trainer explicitly prescribed a set count, which
+        // is reproduced exactly.
+        sets: ex.trainerPrescribedDosage && ex.sets > 0 ? ex.sets : 1,
         reps: ex.reps != null
           ? ex.reps.toString()
           : ex.durationSeconds != null
@@ -1380,10 +1468,11 @@ export async function generateProgram(
 
 type BlueprintExercise = {
   name: string;
-  sets?: number;
-  reps?: number;
-  durationSeconds?: number;
-  notes?: string;
+  sets?: number | null;
+  reps?: number | null;
+  durationSeconds?: number | null;
+  restSeconds?: number | null;
+  notes?: string | null;
   traceableInDocument?: boolean;
 };
 type BlueprintBlock = { name: string; exercises: BlueprintExercise[] };
@@ -1451,7 +1540,9 @@ function assemblePreviewWorkouts(
         exerciseId: ex.exerciseId,
         exerciseName: ex.exerciseName,
         orderIndex: block.exercises.length,
-        sets: 1,
+        // The document's own set count is authoritative — never collapse it
+        // to 1 just because the block was classified as a circuit.
+        sets: ex.sets,
         reps: ex.reps,
         notes: ex.notes,
         restSeconds: ex.restSeconds,
@@ -1588,7 +1679,7 @@ export async function buildProgramPreviewFromBlueprint(params: {
           circuitIndex,
           sets,
           reps,
-          restSeconds: undefined,
+          restSeconds: exerciseBp.restSeconds ?? undefined,
           weekIndex: session.weekIndex ?? 0,
           dayOfWeek: resolveDayOfWeek(session),
           orderIndex: orderIndex++,
@@ -1648,7 +1739,9 @@ export async function generateClinicalPlan(
   const profile = client?.clientProfile ?? null
   const programMode = params.programMode ?? determineProgramMode(profile)
 
-  const clientContext = buildClientContextBlock(client, profile)
+  const clientContext = buildClientContextBlock(client, profile, {
+    trainerSelectedEquipment: params.availableEquipment ?? [],
+  })
 
   const circuitSummary = params.circuits
     .map(c => `  - ${c.name} (${c.focusType}): ${c.exerciseCount} exercises, ${c.rounds} sets`)
@@ -1682,16 +1775,18 @@ Produce this exact JSON structure:
       "week": 1,
       "title": "Short descriptive week title",
       "rehabStage": "${phaseExample}",
-      "focusAreas": ["LOWER_BODY"],
-      "difficultyLevel": "BEGINNER",
-      "clinicalGuidance": "What to prioritize this week, specific technique or loading guidance",
-      "contraindicationsThisWeek": ["loaded knee flexion >60°"],
-      "progressionGoal": "What should the client achieve or improve by end of this week",
-      "derivedIndicationTags": ["ACL", "knee", "quad-strengthening", "VMO"]
+      "focusAreas": ["<one or more of LOWER_BODY, UPPER_BODY, CORE, FULL_BODY, BALANCE, FLEXIBILITY — cover every body region the circuits and goals require>"],
+      "difficultyLevel": "<BEGINNER | INTERMEDIATE | ADVANCED — normally the requested difficulty level>",
+      "clinicalGuidance": "<what to prioritize this week, specific technique or loading guidance>",
+      "contraindicationsThisWeek": ["<only restrictions that come from the client profile, Trainer Subjective, Trainer Instructions, or Additional Notes — an EMPTY array when none were stated; never invent one>"],
+      "progressionGoal": "<what the client should achieve or improve by the end of this week>",
+      "derivedIndicationTags": ["<lowercase hyphenated keywords describing this week's focus>"]
     }
   ]
 }
 
+The angle-bracket text above describes each field — replace it with real values, never copy it literally.
+Every trainer restriction (e.g. "no plyometrics", "no overhead", "strength only") MUST be carried into contraindicationsThisWeek for every week so the exercise-selection step sees it.
 Generate exactly ${params.durationWeeks} entries in weeklyPlan (weeks 1 through ${params.durationWeeks}).`
 
   const response = await openai.chat.completions.create({

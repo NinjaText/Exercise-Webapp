@@ -64,6 +64,19 @@ function weeksSince(date: Date): number {
   return Math.round((Date.now() - date.getTime()) / (1000 * 60 * 60 * 24 * 7))
 }
 
+export interface ClientContextOptions {
+  /** Equipment the trainer selected for THIS program. When present it is
+   *  authoritative over whatever the stored client profile lists. */
+  trainerSelectedEquipment?: string[] | null
+}
+
+function describeTrainerEquipment(selected: string[]): string {
+  const real = selected.map(e => e.trim()).filter(e => e && e.toLowerCase() !== 'none')
+  return real.length > 0
+    ? `${real.join(', ')} (selected by the trainer for this program — authoritative)`
+    : 'Bodyweight only (selected by the trainer for this program — authoritative)'
+}
+
 /**
  * Single canonical client-profile-to-prompt-text builder, shared by both
  * generateClinicalPlan and generateWorkoutPlan so the two prompts can't drift.
@@ -78,11 +91,23 @@ function weeksSince(date: Date): number {
  */
 export function buildClientContextBlock(
   client: ClientContextClient | null | undefined,
-  profile: ClientContextProfile | null | undefined
+  profile: ClientContextProfile | null | undefined,
+  options: ClientContextOptions = {}
 ): string {
+  const trainerEquipment = options.trainerSelectedEquipment ?? []
   if (!client) {
-    return 'No specific client assigned. Create a general program suitable for the parameters below.'
+    const equipmentLine = trainerEquipment.length > 0
+      ? `
+Available Equipment: ${describeTrainerEquipment(trainerEquipment)}`
+      : ''
+    return `No specific client assigned. Create a general program suitable for the parameters below.${equipmentLine}`
   }
+
+  const equipmentDescription = trainerEquipment.length > 0
+    ? describeTrainerEquipment(trainerEquipment)
+    : hasItems(profile?.availableEquipment)
+      ? `${profile!.availableEquipment!.join(', ')} (from client profile)`
+      : 'Not specified — assume bodyweight only unless the program parameters list equipment'
 
   const injuryDate = profile?.injuryDate ? new Date(profile.injuryDate) : null
 
@@ -108,7 +133,7 @@ CONTRAINDICATIONS & PRECAUTIONS
 Exercise / Movement Restrictions: ${profile?.limitations ?? 'None documented'}
 
 AVAILABLE TRAINING RESOURCES
-Available Equipment: ${hasItems(profile?.availableEquipment) ? profile!.availableEquipment!.join(', ') : 'Bodyweight only'}
+Available Equipment: ${equipmentDescription}
 
 CONTEXT RULES:
 - Use only the populated information above.

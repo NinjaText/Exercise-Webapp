@@ -99,6 +99,41 @@ describeLive('LIVE acceptance tests — Inmotus hard-constraint prompts', () => 
   )
 
   it(
+    'Test 6: Generate-with-AI path (week plan present) obeys "No plyometrics. Strength only." and includes a trainer-named exercise in every session',
+    async () => {
+      const circuits = [
+        { name: 'Warm Up', focusType: 'WARMUP', exerciseCount: 3 },
+        { name: 'Lower Body', focusType: 'LOWER_BODY', exerciseCount: 4 },
+        { name: 'Cool Down', focusType: 'COOLDOWN', exerciseCount: 2 },
+      ]
+      const trainerPrompt = 'No plyometrics. Strength only. Include Goblet Squat in every lower body session at 4 sets of 6 reps.'
+      const weekPlan = [1, 2].map(week => ({
+        week, title: `Week ${week}`, rehabStage: 'BASE_BUILD' as const, programMode: 'PERFORMANCE' as const,
+        focusAreas: ['LOWER_BODY'], difficultyLevel: 'INTERMEDIATE' as const,
+        clinicalGuidance: 'Build lower-body strength with controlled tempo.', contraindicationsThisWeek: ['no plyometrics', 'strength only'],
+        progressionGoal: 'Add load while keeping form.', derivedIndicationTags: [],
+      }))
+      const result = await generateWorkoutPlan({
+        clientId: null, programGoals: ['Athletic Performance'], availableEquipment: ['Dumbbells'],
+        durationMinutes: 40, daysPerWeek: 2, durationWeeks: 2, circuits, preferredWeekdays: ['Monday', 'Thursday'],
+        difficultyLevel: 'INTERMEDIATE', weekPlan, trainerPrompt,
+      })
+      const categories = extractHardConstraints(trainerPrompt)
+      const violators = reportViolations('Test 6: multi-week path', result.exercises, categories)
+      expect(violators.length).toBe(0)
+      const sessions = new Set(result.exercises.map(e => `${e.weekIndex}_${e.dayOfWeek}`))
+      expect(sessions.size).toBe(4)
+      for (const key of sessions) {
+        const goblet = result.exercises.find(e => `${e.weekIndex}_${e.dayOfWeek}` === key && /goblet squat/i.test(e.exerciseName))
+        expect(goblet, `Goblet Squat missing in session ${key}`).toBeDefined()
+        expect(goblet!.sets).toBe(4)
+        expect(goblet!.reps).toBe(6)
+      }
+    },
+    180_000
+  )
+
+  it(
     'Test 5 (sanity): no constraints -> still generates a full, valid program',
     async () => {
       const result = await generateWorkoutPlan({ ...baseParams })

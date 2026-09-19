@@ -41,10 +41,11 @@ type CircuitConfig = {
 
 export type ExerciseBlueprint = {
   name: string;
-  sets?: number;
-  reps?: number;
-  durationSeconds?: number;
-  notes?: string;
+  sets?: number | null;
+  reps?: number | null;
+  durationSeconds?: number | null;
+  restSeconds?: number | null;
+  notes?: string | null;
   traceableInDocument?: boolean;
 };
 
@@ -272,23 +273,28 @@ export function mergeChunkSessions(
 }
 
 export function deriveCircuitsFromSessions(sessions: SessionBlueprint[]): CircuitConfig[] {
-  const byName = new Map<string, { focusType: string; exerciseCount: number }>();
+  const byName = new Map<string, { focusType: string; exerciseCount: number; hasExplicitSets: boolean }>();
   for (const session of sessions) {
     for (const block of session.blocks) {
       const existing = byName.get(block.name);
       const count = block.exercises.length;
+      const hasExplicitSets = block.exercises.some((e) => e.sets != null);
       if (!existing) {
-        byName.set(block.name, { focusType: block.focusType, exerciseCount: count });
-      } else if (count > existing.exerciseCount) {
-        existing.exerciseCount = count;
+        byName.set(block.name, { focusType: block.focusType, exerciseCount: count, hasExplicitSets });
+      } else {
+        if (count > existing.exerciseCount) existing.exerciseCount = count;
+        if (hasExplicitSets) existing.hasExplicitSets = true;
       }
     }
   }
-  return Array.from(byName.entries()).map(([name, { focusType, exerciseCount }]) => ({
+  // When the document states sets per exercise, those sets are the volume —
+  // inventing 3 rounds on top would triple it. Rounds only stand in for
+  // volume when the document gave none.
+  return Array.from(byName.entries()).map(([name, { focusType, exerciseCount, hasExplicitSets }]) => ({
     name,
     focusType,
     exerciseCount,
-    rounds: focusType === 'WARMUP' || focusType === 'COOLDOWN' ? 1 : 3,
+    rounds: hasExplicitSets || focusType === 'WARMUP' || focusType === 'COOLDOWN' ? 1 : 3,
   }));
 }
 
@@ -495,9 +501,10 @@ const CHUNK_EXTRACTION_SCHEMA = {
                         sets: { type: ['number', 'null'] },
                         reps: { type: ['number', 'null'] },
                         durationSeconds: { type: ['number', 'null'] },
+                        restSeconds: { type: ['number', 'null'] },
                         notes: { type: ['string', 'null'] },
                       },
-                      required: ['name', 'sets', 'reps', 'durationSeconds', 'notes'],
+                      required: ['name', 'sets', 'reps', 'durationSeconds', 'restSeconds', 'notes'],
                     },
                   },
                 },
@@ -530,8 +537,8 @@ Rules:
 - For each session capture: weekLabel (verbatim label like "Week 1" or "Deload Week" if the excerpt states one for this session, else null), dayLabel (verbatim label like "Day 1" or "Monday" if stated, else null), title (the session's descriptive name), and blocks.
 - Each block is a named section of the session (e.g. "Warm Up", "Strength Block A", "Accessory") containing an ordered list of exercises. Use the document's own section names — do not rename them.
 - Classify each block's focusType as the closest match among: ${ALLOWED_CIRCUIT_FOCUS.join(', ')}.
-- For each exercise capture: name (exact name from the document, no bullet markers), sets, reps, durationSeconds (for holds/timed work, instead of reps), and notes. Use null for anything not explicitly stated — never invent numbers.
-- Do not include rest-period lines (e.g. "Rest: 45 sec") as exercises.
+- For each exercise capture: name (exact name from the document, no bullet markers), sets, reps, durationSeconds (for holds/timed work, instead of reps), restSeconds (a rest period the document states for that exercise, converted to seconds), and notes (per-side instructions, tempo, load, anything else the document says about it). Use null for anything not explicitly stated — never invent numbers.
+- Do not include rest-period lines (e.g. "Rest: 45 sec") as exercises — attach them to the preceding exercise's restSeconds instead.
 - A day described only by distance/pace/duration (e.g. "5 miles easy", "3 mi easy + 4 x 15-sec strides", "20-min shakeout jog") IS a valid, extractable session even though it names no traditional resistance exercise — it always has real, specific content of its own (a distance, a pace, a duration), never a cross-reference to another day. Treat the activity description itself as a single exercise entry (name = the description as written, e.g. "5 miles easy"; put any distance/duration in notes or durationSeconds if a clear number is given, reps/sets null). Extract it as its own session — do not omit it just because it isn't a named strength exercise.
 - A session that only refers back to another day/week without restating any exercise names (e.g. "same exercises as Week 1, 2 sets") has no session of its own to extract here — omit it and add a warning naming the day/week and what it referenced, instead of silently dropping it. Do not let one unresolvable session cause you to skip other sessions in this excerpt that ARE fully named, including the distance/pace/duration sessions above.
 - Add an entry to "warnings" for anything else ambiguous you had to guess at.
