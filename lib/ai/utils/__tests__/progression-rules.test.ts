@@ -87,3 +87,16 @@ describe('computeProgressedRx', () => {
     expect(rx.sets).toBeGreaterThanOrEqual(1)
   })
 })
+
+describe('computeProgressedRx — trainer-prescribed dosage', () => {
+  it('holds sets/reps fixed across weeks and deloads when the trainer prescribed them', () => {
+    const prescribed = { exerciseId: 'g', phase: 'STRENGTHENING', baseSets: 4, baseReps: 6, trainerPrescribedDosage: true }
+    expect(computeProgressedRx(prescribed, 0, false, 'INTERMEDIATE')).toEqual({ sets: 4, reps: 6, durationSeconds: undefined })
+    expect(computeProgressedRx(prescribed, 3, false, 'INTERMEDIATE')).toEqual({ sets: 4, reps: 6, durationSeconds: undefined })
+    expect(computeProgressedRx(prescribed, 3, true, 'ADVANCED')).toEqual({ sets: 4, reps: 6, durationSeconds: undefined })
+  })
+  it('still progresses exercises the trainer did not prescribe', () => {
+    const free = { exerciseId: 'x', phase: 'STRENGTHENING', baseSets: 3, baseReps: 10 }
+    expect(computeProgressedRx(free, 1, false, 'INTERMEDIATE').reps).toBe(12)
+  })
+})

@@ -8,6 +8,10 @@ export interface PhaseTemplateExercise {
   baseDurationSeconds?: number | null
   restSeconds?: number
   notes?: string
+  /** True when the trainer's instructions explicitly stated this exercise's
+   *  sets/reps/hold — the baseline is then held fixed across weeks instead of
+   *  being progressed. */
+  trainerPrescribedDosage?: boolean
 }
 
 export interface ProgressedRx {
@@ -59,6 +63,14 @@ export function computeProgressedRx(
   deload: boolean,
   difficultyLevel: string
 ): ProgressedRx {
+  if (templateEx.trainerPrescribedDosage) {
+    return {
+      sets: templateEx.baseSets,
+      reps: templateEx.baseReps ?? undefined,
+      durationSeconds: templateEx.baseReps == null ? (templateEx.baseDurationSeconds ?? undefined) : undefined,
+    }
+  }
+
   const repStep = REP_STEP_BY_DIFFICULTY[difficultyLevel] ?? DEFAULT_REP_STEP
 
   let sets = Math.min(
