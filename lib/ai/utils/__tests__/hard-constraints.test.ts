@@ -132,3 +132,34 @@ describe('auditAndReplaceViolations', () => {
     expect(result.violationsFound).toHaveLength(0)
   })
 })
+
+describe('skipping drills and single-leg balance', () => {
+  it('treats skipping drills as plyometric / non-strength work', () => {
+    const cats = extractHardConstraints('Strength only. No plyometrics.')
+    expect(exerciseViolatesHardConstraints('B Skip', cats)).toBe(true)
+    expect(exerciseViolatesHardConstraints('Skips for Distance', cats)).toBe(true)
+    expect(exerciseViolatesHardConstraints('Goblet Squat', cats)).toBe(false)
+  })
+
+  it('detects a single-leg balance exclusion and matches balance drills by name', () => {
+    const cats = extractHardConstraints('Do not use any single-leg balance exercises.')
+    expect(cats.map(c => c.id)).toContain('NO_SINGLE_LEG_BALANCE')
+    expect(exerciseViolatesHardConstraints('Single Leg Stand (Eyes Closed)', cats)).toBe(true)
+    expect(exerciseViolatesHardConstraints('Single-Leg Balance on Foam Pad', cats)).toBe(true)
+    expect(exerciseViolatesHardConstraints('Single Leg Romanian Deadlift', cats)).toBe(false)
+  })
+})
+
+describe('spinal flexion exclusion', () => {
+  it('triggers on flexion / sit-up wording and matches crunch-style exercises', () => {
+    const cats = extractHardConstraints('Avoid loaded spinal flexion and any sit-up style movement.')
+    expect(cats.map(c => c.id)).toContain('NO_SPINAL_FLEXION')
+    expect(exerciseViolatesHardConstraints('Bicycle Crunches', cats)).toBe(true)
+    expect(exerciseViolatesHardConstraints('Curl-Ups (McGill)', cats)).toBe(true)
+    expect(exerciseViolatesHardConstraints('Bird Dog', cats)).toBe(false)
+    expect(exerciseViolatesHardConstraints('Dead Bug', cats)).toBe(false)
+  })
+  it('does not trigger on unrelated text', () => {
+    expect(extractHardConstraints('Build core strength with planks.').map(c => c.id)).not.toContain('NO_SPINAL_FLEXION')
+  })
+})

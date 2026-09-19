@@ -34,7 +34,7 @@ const FOCUS_TYPE_MATCHERS: Record<string, (item: CircuitCountPoolItem) => boolea
   COOLDOWN: (i) => i.exercisePhases.includes("COOLDOWN") || i.exercisePhases.includes("MOBILITY"),
 };
 
-function matchesFocusType(item: CircuitCountPoolItem, focusType: string): boolean {
+export function matchesFocusType(item: CircuitCountPoolItem, focusType: string): boolean {
   const matcher = FOCUS_TYPE_MATCHERS[focusType];
   return matcher ? matcher(item) : true; // FULL_BODY, BALANCE, CARDIO: any exercise is a reasonable fit
 }
@@ -51,12 +51,21 @@ function matchesFocusType(item: CircuitCountPoolItem, focusType: string): boolea
  * exercises matching the circuit's focusType and not already used elsewhere
  * in the plan (preserving the "no repeat exerciseId across days" rule).
  */
+export interface CircuitCountOptions {
+  /** Replaces the built-in loose focus matcher for backfill candidates. */
+  fits?: (item: CircuitCountPoolItem, focusType: string) => boolean
+  /** Higher ranks first among fitting, available candidates. */
+  rank?: (item: CircuitCountPoolItem, focusType: string) => number
+}
+
 export function enforceCircuitExerciseCounts<T extends CircuitCountableExercise>(
   exercisesByDay: Map<number, T[]>,
   circuits: CircuitCountConfig[],
   pool: CircuitCountPoolItem[],
-  createExercise: (poolItem: CircuitCountPoolItem, circuitIndex: number, orderIndex: number, dayOfWeek: number) => T
+  createExercise: (poolItem: CircuitCountPoolItem, circuitIndex: number, orderIndex: number, dayOfWeek: number) => T,
+  options: CircuitCountOptions = {}
 ): Map<number, T[]> {
+  const fits = options.fits ?? matchesFocusType
   const usedIds = new Set<string>();
   for (const dayExercises of exercisesByDay.values()) {
     for (const ex of dayExercises) usedIds.add(ex.exerciseId);
@@ -87,8 +96,10 @@ export function enforceCircuitExerciseCounts<T extends CircuitCountableExercise>
         const dayUsedIds = new Set(current.map((e) => e.exerciseId));
         const needed = circuit.exerciseCount - current.length;
         const isAvailable = (p: CircuitCountPoolItem) => !usedIds.has(p.id) && !dayUsedIds.has(p.id);
-        const focusMatches = pool.filter((p) => isAvailable(p) && matchesFocusType(p, circuit.focusType));
-        const anyMatches = pool.filter(isAvailable);
+        const byRank = (a: CircuitCountPoolItem, b: CircuitCountPoolItem) =>
+          options.rank ? options.rank(b, circuit.focusType) - options.rank(a, circuit.focusType) : 0;
+        const focusMatches = pool.filter((p) => isAvailable(p) && fits(p, circuit.focusType)).sort(byRank);
+        const anyMatches = pool.filter(isAvailable).sort(byRank);
 
         const picks: CircuitCountPoolItem[] = [];
         for (const source of [focusMatches, anyMatches]) {

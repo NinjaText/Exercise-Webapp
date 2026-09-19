@@ -56,11 +56,22 @@ describe('resolveExerciseMatch', () => {
     expect(result).toEqual({ exerciseId: 'ex1', matchType: 'exact', candidates: [] })
   })
 
-  it('auto-accepts a substring match (score 0.9) as exact', () => {
+  it('routes a substring match to needs_review with the candidate pre-selected (a modifier like "Wall" or "Barbell" changes the exercise)', () => {
     const squat = exercise({ id: 'ex9', name: 'Barbell Back Squat' })
     const result = resolveExerciseMatch('Back Squat', [squat])
-    expect(result.matchType).toBe('exact')
+    expect(result.matchType).toBe('needs_review')
     expect(result.exerciseId).toBe('ex9')
+    expect(result.candidates[0]).toMatchObject({ exerciseId: 'ex9', exerciseName: 'Barbell Back Squat' })
+  })
+
+  it('treats a singular/plural difference as an exact match', () => {
+    const result = resolveExerciseMatch('Band Pull-Aparts', [exercise({ id: 'p1', name: 'Band Pull-Apart' })])
+    expect(result).toEqual({ exerciseId: 'p1', matchType: 'exact', candidates: [] })
+  })
+
+  it('does not silently swap "Push-Up" for "Wall Push-Up"', () => {
+    const result = resolveExerciseMatch('Push-Up', [exercise({ id: 'w1', name: 'Wall Push-Up' })])
+    expect(result.matchType).toBe('needs_review')
   })
 
   it('flags a partial token-overlap match as needs_review with candidates', () => {

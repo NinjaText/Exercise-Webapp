@@ -148,3 +148,25 @@ describe('enforceCircuitExerciseCounts', () => {
     expect(ids).toContain('e')
   })
 })
+
+describe('enforceCircuitExerciseCounts — pluggable fit and rank', () => {
+  it('backfills using the supplied predicate and prefers higher-ranked candidates', () => {
+    const pool = [
+      { id: 'stretch', name: 'Stretch', bodyRegion: ['CORE'], exercisePhases: ['COOLDOWN'], defaultSets: 1, defaultReps: null, defaultHoldSeconds: 30 },
+      { id: 'plank', name: 'Plank', bodyRegion: ['CORE'], exercisePhases: ['STRENGTHENING'], defaultSets: 3, defaultReps: null, defaultHoldSeconds: 30 },
+      { id: 'deadbug', name: 'Dead Bug', bodyRegion: ['CORE'], exercisePhases: ['STRENGTHENING'], defaultSets: 3, defaultReps: 10, defaultHoldSeconds: null },
+    ]
+    const byDay = new Map([[0, [] as { exerciseId: string; circuitIndex?: number; orderIndex: number }[]]])
+    const result = enforceCircuitExerciseCounts(
+      byDay,
+      [{ focusType: 'CORE', exerciseCount: 2 }],
+      pool,
+      (item, circuitIndex, orderIndex) => ({ exerciseId: item.id, circuitIndex, orderIndex }),
+      {
+        fits: (item) => item.exercisePhases.includes('STRENGTHENING'),
+        rank: (item) => (item.id === 'deadbug' ? 5 : 0),
+      }
+    )
+    expect(result.get(0)!.map(e => e.exerciseId)).toEqual(['deadbug', 'plank'])
+  })
+})
