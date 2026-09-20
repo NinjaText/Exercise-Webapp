@@ -562,3 +562,31 @@
 .rbc-addons-dnd .rbc-addons-dnd-over {
   background: oklch(0.47 0.19 264 / 0.06) !important;
 }
+
+/* ── Mobile shell (spec §5) ──────────────────────────────────────────────
+   Safe-area insets are 0 on desktop and mobile web; they only take effect
+   inside the native shell where the status bar overlays the web view. */
+:root {
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --tab-bar-height: 3.5rem;
+}
+
+/* Set by NativeProvider when running inside the Capacitor shell. */
+html[data-native] {
+  -webkit-touch-callout: none;
+}
+html[data-native] body {
+  overscroll-behavior: none;
+}
+/* iOS zooms into inputs smaller than 16px on focus. */
+html[data-native] input,
+html[data-native] select,
+html[data-native] textarea {
+  font-size: max(1rem, 1em);
+}
+html[data-native] header,
+html[data-native] [data-slot="mobile-tab-bar"] {
+  -webkit-user-select: none;
+  user-select: none;
+}
