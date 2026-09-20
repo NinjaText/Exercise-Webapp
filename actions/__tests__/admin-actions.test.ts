@@ -20,17 +20,23 @@ vi.mock('@/lib/services/audit-log.service', () => ({
     USER_DELETED: 'USER_DELETED',
   },
 }))
+vi.mock('@/lib/services/user-deletion.service', () => ({
+  findDeletionBlockers: vi.fn(),
+  deleteUserData: vi.fn(),
+}))
 
 import { requireSuperAdmin } from '@/lib/current-user'
 import { prisma } from '@/lib/prisma'
 import { logAudit } from '@/lib/services/audit-log.service'
+import { findDeletionBlockers, deleteUserData } from '@/lib/services/user-deletion.service'
 import { archiveUserAction, restoreUserAction, deleteUserAction } from '../admin-actions'
 
 const mockRequireSuperAdmin = vi.mocked(requireSuperAdmin)
 const mockUserUpdate = vi.mocked(prisma.user.update)
-const mockUserDelete = vi.mocked(prisma.user.delete)
 const mockUserFindUnique = vi.mocked(prisma.user.findUnique)
 const mockLogAudit = vi.mocked(logAudit)
+const mockFindBlockers = vi.mocked(findDeletionBlockers)
+const mockDeleteUserData = vi.mocked(deleteUserData)
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -39,6 +45,8 @@ beforeEach(() => {
     id: 'user_1', firstName: 'Sam', lastName: 'Client', email: 'sam@example.com',
     role: 'CLIENT', clerkOrgId: 'org_9',
   } as any)
+  mockFindBlockers.mockResolvedValue([])
+  mockDeleteUserData.mockResolvedValue(undefined)
 })
 
 describe('archiveUserAction', () => {
@@ -97,9 +105,8 @@ describe('restoreUserAction', () => {
 
 describe('deleteUserAction', () => {
   it('hard deletes the user and returns success', async () => {
-    mockUserDelete.mockResolvedValue({} as any)
     const result = await deleteUserAction('user_1')
-    expect(mockUserDelete).toHaveBeenCalledWith({ where: { id: 'user_1' } })
+    expect(mockDeleteUserData).toHaveBeenCalledWith('user_1')
     expect(result.success).toBe(true)
     expect(mockLogAudit).toHaveBeenCalledWith(expect.objectContaining({
       action: 'USER_DELETED',
@@ -110,26 +117,38 @@ describe('deleteUserAction', () => {
   })
 
   it('logs USER_DELETED with the pre-fetched target, after the delete succeeds', async () => {
-    mockUserDelete.mockResolvedValue({} as any)
     const result = await deleteUserAction('user_1')
 
     expect(result.success).toBe(true)
     // The delete must actually succeed before the audit row is written, so a
     // failed delete never produces a false "deleted" audit entry.
-    expect(mockUserDelete.mock.invocationCallOrder[0]).toBeLessThan(
+    expect(mockDeleteUserData.mock.invocationCallOrder[0]).toBeLessThan(
       mockLogAudit.mock.invocationCallOrder[0]
     )
   })
 
+  it('refuses when the user owns rows other users depend on', async () => {
+    mockFindBlockers.mockResolvedValue([
+      { code: 'PACKAGES', count: 1, message: 'this trainer has 1 coaching package(s) for sale. Remove them first.' },
+    ])
+    const result = await deleteUserAction('user_1')
+    expect(result).toEqual({
+      success: false,
+      error: 'Cannot delete: this trainer has 1 coaching package(s) for sale. Remove them first.',
+    })
+    expect(mockDeleteUserData).not.toHaveBeenCalled()
+    expect(mockLogAudit).not.toHaveBeenCalled()
+  })
+
   it('does not log USER_DELETED when the delete itself fails with a relation error, and preserves the existing error message', async () => {
     const relationError = Object.assign(new Error('Foreign key constraint failed'), { code: 'P2003' })
-    mockUserDelete.mockRejectedValue(relationError)
+    mockDeleteUserData.mockRejectedValue(relationError)
 
     const result = await deleteUserAction('user_1')
 
     expect(result).toEqual({
       success: false,
-      error: 'Cannot delete: this user has existing data. Archive them instead.',
+      error: "Cannot delete: this user has existing data that couldn't be fully cleared. Archive them instead.",
     })
     expect(mockLogAudit).not.toHaveBeenCalled()
   })
