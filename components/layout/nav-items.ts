@@ -99,6 +99,18 @@ export function getTabLayout(role: Role): TabLayout {
 }
 
 /**
+ * The single source for the phone "More" sheet's contents: primary-nav
+ * overflow, then account nav, then Super Admin when applicable. Exported so
+ * this composition can be unit-tested directly — a closed base-ui `Sheet`
+ * renders an empty string under `renderToStaticMarkup`, so the tab bar's own
+ * tests cannot see inside it.
+ */
+export function getMoreItems(role: Role, isAdmin: boolean): NavItem[] {
+  const { more } = getTabLayout(role);
+  return [...more, ...getAccountNav(role), ...(isAdmin ? [ADMIN_NAV] : [])];
+}
+
+/**
  * The active link is whichever registered href is the longest prefix of the
  * current pathname — "most specific wins" prevents /settings lighting up on
  * /settings/billing. Prefix matches must end at a path boundary.

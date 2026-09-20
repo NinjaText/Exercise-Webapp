@@ -8,9 +8,8 @@ import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import {
-  ADMIN_NAV,
   findActiveHref,
-  getAccountNav,
+  getMoreItems,
   getTabLayout,
   type NavItem,
   type Role,
@@ -36,7 +35,7 @@ export function MobileTabBar({ role, unreadMessageCount, isAdmin = false }: Mobi
   const [moreOpen, setMoreOpen] = useState(false);
 
   const { tabs, more } = getTabLayout(role);
-  const moreItems: NavItem[] = [...more, ...getAccountNav(role), ...(isAdmin ? [ADMIN_NAV] : [])];
+  const moreItems: NavItem[] = getMoreItems(role, isAdmin);
   const hasMore = more.length > 0;
 
   const active = findActiveHref(pathname, [...tabs, ...moreItems].map((i) => i.href));
