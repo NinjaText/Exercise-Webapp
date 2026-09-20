@@ -54,7 +54,7 @@ export async function findDeletionBlockers(
         where: { clerkOrgId: user.clerkOrgId, role: "CLIENT", isActive: true },
       });
       if (activeClients > 0) {
-        blockers.push({ code: "ACTIVE_CLIENTS", count: activeClients, message: `you still have ${activeClients} active client(s). Deactivate or reassign them before deleting your account.` });
+        blockers.push({ code: "ACTIVE_CLIENTS", count: activeClients, message: `your organization still has ${activeClients} active client(s). Deactivate or reassign them before deleting your account.` });
       }
     }
   }
@@ -65,9 +65,18 @@ export async function findDeletionBlockers(
 /**
  * Hard-deletes a user and their personal data, leaf-first.
  *
- * Every relation back to User is required (non-nullable) and has no
- * `onDelete: Cascade` in the schema, so a bare `prisma.user.delete()` throws
- * a relation-violation the moment any one of them has a row.
+ * Most relations back to User are required with no referential action
+ * declared, which defaults to a restrict — a bare `prisma.user.delete()`
+ * throws a relation-violation the moment any one of them has a row. That's
+ * why this function deletes everything explicitly before touching the user
+ * row. Five relations DO declare `onDelete: Cascade` and so are removed
+ * automatically by Prisma when the user is deleted: `ClientProfile.user`,
+ * `Assessment.client`, `ExerciseUsage.trainer`, `ExerciseFavorite.user`, and
+ * `Collection.trainer`. Of those, `ClientProfile` and `Assessment` hold
+ * clinical data (diagnoses, comorbidities, pain scores, surgery/injury
+ * history), so they are also deleted explicitly below rather than relying
+ * solely on the emulated cascade — `deleteMany` on an already-empty set is a
+ * no-op, so this is safe even where the cascade also fires.
  *
  * Sequential, not $transaction — this codebase has no prior use of
  * multi-document transactions, and MongoDB only supports them on a
@@ -102,6 +111,10 @@ export async function deleteUserData(userId: string): Promise<void> {
   await prisma.exerciseFeedback.deleteMany({ where: { clientId: userId } });
   await prisma.message.deleteMany({ where: { OR: [{ senderId: userId }, { recipientId: userId }] } });
   await prisma.notification.deleteMany({ where: { userId } });
+  // Created lazily the first time the user is emailed (for the unsubscribe
+  // token), so virtually every active user has one. Required relation, no
+  // cascade: leaving it would make `prisma.user.delete` throw.
+  await prisma.notificationPreference.deleteMany({ where: { userId } });
   await prisma.nutritionTarget.deleteMany({ where: { clientId: userId } });
   await prisma.nutritionLog.deleteMany({ where: { clientId: userId } });
   await prisma.nutritionWaterLog.deleteMany({ where: { clientId: userId } });
@@ -116,5 +129,9 @@ export async function deleteUserData(userId: string): Promise<void> {
   await prisma.clinicalNote.deleteMany({ where: { OR: [{ clientId: userId }, { trainerId: userId }] } });
   await prisma.coachBranding.deleteMany({ where: { trainerId: userId } });
   await prisma.trainerSubscription.deleteMany({ where: { trainerId: userId } });
+  await prisma.pendingProgramAssignment.deleteMany({ where: { trainerId: userId } });
+  await prisma.dismissedInsight.deleteMany({ where: { trainerId: userId } });
+  await prisma.assessment.deleteMany({ where: { clientId: userId } });
+  await prisma.clientProfile.deleteMany({ where: { userId } });
   await prisma.user.delete({ where: { id: userId } });
 }

@@ -17,6 +17,7 @@ vi.mock("@/lib/prisma", () => ({
     exerciseFeedback: { deleteMany: vi.fn() },
     message: { deleteMany: vi.fn() },
     notification: { deleteMany: vi.fn() },
+    notificationPreference: { deleteMany: vi.fn() },
     nutritionTarget: { deleteMany: vi.fn() },
     nutritionLog: { deleteMany: vi.fn() },
     nutritionWaterLog: { deleteMany: vi.fn() },
@@ -30,6 +31,10 @@ vi.mock("@/lib/prisma", () => ({
     clinicalNote: { deleteMany: vi.fn() },
     coachBranding: { deleteMany: vi.fn() },
     trainerSubscription: { deleteMany: vi.fn() },
+    pendingProgramAssignment: { deleteMany: vi.fn() },
+    dismissedInsight: { deleteMany: vi.fn() },
+    assessment: { deleteMany: vi.fn() },
+    clientProfile: { deleteMany: vi.fn() },
   },
 }));
 
@@ -69,6 +74,11 @@ describe("findDeletionBlockers", () => {
     p.user.count.mockResolvedValue(3);
     const blockers = await findDeletionBlockers("u1", { includeActiveClients: true });
     expect(blockers).toEqual([expect.objectContaining({ code: "ACTIVE_CLIENTS", count: 3 })]);
+    // The count is organization-wide (this schema has no per-trainer client
+    // assignment), so the message must attribute the clients to the
+    // organization rather than to the person being deleted.
+    expect(blockers[0].message).toMatch(/organization/);
+    expect(blockers[0].message).not.toMatch(/^you still have/);
     expect(p.user.count).toHaveBeenCalledWith({
       where: { clerkOrgId: "org_1", role: "CLIENT", isActive: true },
     });
@@ -90,5 +100,26 @@ describe("deleteUserData", () => {
     expect(p.message.deleteMany).toHaveBeenCalledWith({ where: { OR: [{ senderId: "u1" }, { recipientId: "u1" }] } });
     expect(p.user.delete).toHaveBeenCalledWith({ where: { id: "u1" } });
     expect(p.setLog.deleteMany.mock.invocationCallOrder[0]).toBeLessThan(p.user.delete.mock.invocationCallOrder[0]);
+  });
+
+  it("deletes the notification preference row before the user, since the email system creates one for nearly every user", async () => {
+    await deleteUserData("u1");
+
+    expect(p.notificationPreference.deleteMany).toHaveBeenCalledWith({ where: { userId: "u1" } });
+    expect(p.notificationPreference.deleteMany.mock.invocationCallOrder[0]).toBeLessThan(p.user.delete.mock.invocationCallOrder[0]);
+  });
+
+  it("deletes required-relation rows that were previously neither deleted nor blocked (pending assignments, dismissed insights), and clinical data explicitly rather than relying on emulated cascade (assessments, client profile)", async () => {
+    await deleteUserData("u1");
+
+    expect(p.pendingProgramAssignment.deleteMany).toHaveBeenCalledWith({ where: { trainerId: "u1" } });
+    expect(p.dismissedInsight.deleteMany).toHaveBeenCalledWith({ where: { trainerId: "u1" } });
+    expect(p.assessment.deleteMany).toHaveBeenCalledWith({ where: { clientId: "u1" } });
+    expect(p.clientProfile.deleteMany).toHaveBeenCalledWith({ where: { userId: "u1" } });
+
+    expect(p.pendingProgramAssignment.deleteMany.mock.invocationCallOrder[0]).toBeLessThan(p.user.delete.mock.invocationCallOrder[0]);
+    expect(p.dismissedInsight.deleteMany.mock.invocationCallOrder[0]).toBeLessThan(p.user.delete.mock.invocationCallOrder[0]);
+    expect(p.assessment.deleteMany.mock.invocationCallOrder[0]).toBeLessThan(p.user.delete.mock.invocationCallOrder[0]);
+    expect(p.clientProfile.deleteMany.mock.invocationCallOrder[0]).toBeLessThan(p.user.delete.mock.invocationCallOrder[0]);
   });
 });
