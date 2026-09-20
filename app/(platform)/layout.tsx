@@ -8,6 +8,7 @@ import { getUnreadVoiceNoteCount } from "@/lib/services/inbox.service";
 import { SearchProvider } from "@/components/search/search-provider";
 import { CommandPalette } from "@/components/search/command-palette";
 import { BreadcrumbProvider } from "@/components/layout/breadcrumb-context";
+import { MobileTabBar } from "@/components/layout/mobile-tab-bar";
 
 export default async function PlatformLayout({ children }: { children: React.ReactNode }) {
   const { userId, orgId } = await auth();
@@ -87,9 +88,14 @@ export default async function PlatformLayout({ children }: { children: React.Rea
               unreadNotificationCount={unreadNotificationCount}
               initialNotifications={initialNotifications}
             />
-            <main className="flex-1 overflow-y-auto p-4 sm:p-6">
+            <main className="flex-1 overflow-y-auto p-4 pb-[calc(1rem_+_var(--tab-bar-height)_+_var(--safe-bottom))] sm:p-6 sm:pb-[calc(1.5rem_+_var(--tab-bar-height)_+_var(--safe-bottom))] lg:pb-6">
               <div className="page-enter">{children}</div>
             </main>
+            <MobileTabBar
+              role={user.role}
+              unreadMessageCount={unreadMessageCount}
+              isAdmin={adminAccess}
+            />
           </div>
           <CommandPalette role={user.role} />
         </div>

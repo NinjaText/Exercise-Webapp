@@ -30,7 +30,10 @@ export function Header({
   const { setOpen: openSearch } = useSearch();
 
   return (
-    <header className="flex h-16 items-center gap-4 border-b border-border bg-card px-4 sm:px-6">
+    <header
+      className="flex min-h-16 items-center gap-4 border-b border-border bg-card px-4 sm:px-6"
+      style={{ paddingTop: "var(--safe-top)" }}
+    >
       {/* Mobile menu */}
       <Sheet>
         <SheetTrigger
