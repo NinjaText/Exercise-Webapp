@@ -24,6 +24,45 @@ interface DeleteAccountSectionProps {
   role: "TRAINER" | "CLIENT";
 }
 
+/** Where the user lands once their account is gone. */
+const ACCOUNT_DELETED_URL = "/account-deleted";
+/**
+ * Cap on how long we wait for Clerk's sign-out before navigating anyway. By
+ * the time this runs, `deleteOwnAccountAction` has already succeeded — the
+ * account and its data are gone server-side — so a stalled network call to
+ * Clerk (a phone on bad signal is exactly this case) must never leave the
+ * user stuck looking at a "Deleting…" dialog they cannot even cancel.
+ */
+const SIGN_OUT_TIMEOUT_MS = 4000;
+
+/**
+ * Runs after account deletion has already succeeded, so there is nothing
+ * left to wait for. Always calls `navigate`, whatever `signOut` does:
+ * resolves, rejects, or hangs past `timeoutMs`. Exported for direct unit
+ * testing since this repo has no jsdom/testing-library to drive the dialog's
+ * click handlers.
+ */
+export async function finishAccountDeletion({
+  signOut,
+  navigate,
+  timeoutMs = SIGN_OUT_TIMEOUT_MS,
+}: {
+  signOut: () => Promise<unknown>;
+  navigate: () => void;
+  timeoutMs?: number;
+}): Promise<void> {
+  try {
+    await Promise.race([
+      signOut(),
+      new Promise((resolve) => setTimeout(resolve, timeoutMs)),
+    ]);
+  } catch {
+    // The Clerk user may already be gone; the session is invalid either way.
+  }
+  // The account is deleted regardless of how sign-out went, so always leave.
+  navigate();
+}
+
 /** Settings danger zone (mobile spec §6). Works on web and inside the native shell. */
 export function DeleteAccountSection({ role }: DeleteAccountSectionProps) {
   const { signOut } = useClerk();
@@ -42,12 +81,10 @@ export function DeleteAccountSection({ role }: DeleteAccountSectionProps) {
         toast.error(result.error);
         return;
       }
-      try {
-        await signOut({ redirectUrl: "/account-deleted" });
-      } catch {
-        // The Clerk user may already be gone; the session is invalid either way.
-        window.location.assign("/account-deleted");
-      }
+      await finishAccountDeletion({
+        signOut: () => signOut({ redirectUrl: ACCOUNT_DELETED_URL }),
+        navigate: () => window.location.assign(ACCOUNT_DELETED_URL),
+      });
     });
   };
 
