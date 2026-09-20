@@ -9,6 +9,9 @@ const isPublicRoute = createRouteMatcher([
   "/api/stripe/webhook",
   "/p/(.*)",
   "/api/checkout/program",
+  "/privacy",
+  "/terms",
+  "/account-deleted",
   // Cron endpoints are called by Vercel Cron (no Clerk session) and secure
   // themselves independently via a CRON_SECRET bearer check.
   "/api/cron(.*)",
