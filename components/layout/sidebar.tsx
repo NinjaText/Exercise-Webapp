@@ -4,26 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { UserButton } from "@clerk/nextjs";
 import { clerkAppearance } from "@/lib/ui/clerk-appearance";
-import {
-  LayoutDashboard,
-  Dumbbell,
-  ClipboardList,
-  Users,
-  Inbox as InboxIcon,
-  Settings,
-  Activity,
-  Library,
-  ClipboardCheck,
-  Flame,
-  TrendingUp,
-  Shield,
-  CreditCard,
-  History,
-  Apple,
-  Building2,
-  CalendarDays,
-  Bell,
-} from "lucide-react";
+import { Settings, Activity, Shield, CreditCard, History, Building2, Bell } from "lucide-react";
+import { findActiveHref, getAccountNav, getPrimaryNav } from "./nav-items";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -40,38 +22,6 @@ interface SidebarProps {
   isAdmin?: boolean;
 }
 
-interface NavLink {
-  href: string;
-  label: string;
-  icon: React.ElementType;
-}
-
-const trainerLinks: NavLink[] = [
-  { href: "/dashboard",   label: "Dashboard",   icon: LayoutDashboard },
-  { href: "/clients",    label: "Clients",      icon: Users },
-  { href: "/programs",    label: "Programs",     icon: Library },
-  { href: "/exercises",   label: "Exercises",    icon: Dumbbell },
-  { href: "/nutrition",   label: "Nutrition",    icon: Apple },
-  // { href: "/check-ins",   label: "Check-ins",    icon: ClipboardCheck },
-  // { href: "/habits",      label: "Habits",       icon: Flame },
-  { href: "/messages",    label: "Inbox",        icon: InboxIcon },
-  // { href: "/assessments", label: "Assessments",  icon: BarChart3 },
-  { href: "/analytics",   label: "Analytics",    icon: TrendingUp },
-];
-
-const clientLinks: NavLink[] = [
-  { href: "/dashboard",   label: "Dashboard",    icon: LayoutDashboard },
-  { href: "/programs",    label: "My Programs",  icon: ClipboardList },
-  // The month calendar moved off the dashboard onto its own page, so it needs
-  // a nav entry of its own to stay discoverable.
-  { href: "/calendar",    label: "Calendar",     icon: CalendarDays },
-  { href: "/nutrition",   label: "Nutrition",    icon: Apple },
-  // { href: "/habits",      label: "Habits",       icon: Flame },
-  // { href: "/check-ins",   label: "Check-ins",    icon: ClipboardCheck },
-  // { href: "/assessments", label: "Assessments",  icon: TrendingUp },
-  { href: "/messages",    label: "Inbox",        icon: InboxIcon },
-];
-
 export function Sidebar({
   role,
   unreadMessageCount,
@@ -81,22 +31,11 @@ export function Sidebar({
   isAdmin = false,
 }: SidebarProps) {
   const pathname = usePathname();
-  const links = role === "TRAINER" ? trainerLinks : clientLinks;
+  const links = getPrimaryNav(role);
 
   // Collect every href rendered in this sidebar so we can find the best match.
-  const accountHrefs = [
-    "/settings",
-    "/settings/notifications",
-    ...(role === "TRAINER" ? ["/settings/clinic", "/settings/billing", "/settings/audit-log"] : []),
-  ];
-  const allHrefs = [...links.map((l) => l.href), ...accountHrefs];
-
-  // The active link is whichever registered href is the longest prefix of the
-  // current pathname — "most specific wins" prevents /settings lighting up on
-  // /settings/billing.
-  const bestMatch = allHrefs
-    .filter((h) => pathname === h || pathname.startsWith(h + "/"))
-    .sort((a, b) => b.length - a.length)[0];
+  const allHrefs = [...links.map((l) => l.href), ...getAccountNav(role).map((l) => l.href)];
+  const bestMatch = findActiveHref(pathname, allHrefs);
 
   const navItem = (href: string, label: string, Icon: React.ElementType, badge?: React.ReactNode) => {
     const isActive = href === bestMatch;
