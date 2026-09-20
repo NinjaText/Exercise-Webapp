@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { logAudit, deriveActorType, AUDIT_ACTIONS } from "@/lib/services/audit-log.service";
 import { applyPendingAssignmentsForNewClient } from "@/lib/services/pending-program-assignment.service";
+import { deleteUserData } from "@/lib/services/user-deletion.service";
 import type { InviteClientMetadata } from "@/actions/invite-client-action";
 
 /**
@@ -79,7 +80,17 @@ export async function POST(req: Request) {
   if (evt.type === "user.deleted") {
     const { id } = evt.data;
     if (id) {
-      await prisma.user.deleteMany({ where: { clerkId: id } });
+      const user = await prisma.user.findUnique({ where: { clerkId: id }, select: { id: true } });
+      if (user) {
+        try {
+          await deleteUserData(user.id);
+        } catch (error) {
+          // Leave the row in place for a retry rather than half-deleting it;
+          // Svix redelivers on a non-2xx response.
+          console.error("[clerk-webhook] user.deleted cleanup failed for", id, error);
+          return new NextResponse("Cleanup failed", { status: 500 });
+        }
+      }
     }
   }
 

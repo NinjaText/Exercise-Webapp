@@ -23,14 +23,19 @@ vi.mock('@/lib/prisma', () => ({
     auditLog: { create: vi.fn() },
   },
 }))
+vi.mock('@/lib/services/user-deletion.service', () => ({
+  deleteUserData: vi.fn(),
+}))
 
 process.env.CLERK_WEBHOOK_SECRET = 'test_secret'
 
 import { prisma } from '@/lib/prisma'
+import { deleteUserData } from '@/lib/services/user-deletion.service'
 import { POST } from '../route'
 
 const mockFindUnique = vi.mocked(prisma.user.findUnique)
 const mockAuditCreate = vi.mocked(prisma.auditLog.create)
+const mockDeleteUserData = vi.mocked(deleteUserData)
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -87,5 +92,36 @@ describe('session webhook events', () => {
     mockFindUnique.mockResolvedValue(null)
     await POST(makeRequest({ type: 'session.created', data: { user_id: 'unknown' } }))
     expect(mockAuditCreate).not.toHaveBeenCalled()
+  })
+})
+
+describe('user.deleted webhook event', () => {
+  it('routes a user.deleted event through deleteUserData', async () => {
+    mockFindUnique.mockResolvedValue({ id: 'user_1' } as never)
+    mockDeleteUserData.mockResolvedValue(undefined)
+
+    const res = await POST(makeRequest({ type: 'user.deleted', data: { id: 'clerk_1' } }))
+
+    expect(mockFindUnique).toHaveBeenCalledWith({ where: { clerkId: 'clerk_1' }, select: { id: true } })
+    expect(mockDeleteUserData).toHaveBeenCalledWith('user_1')
+    expect(res.status).toBe(200)
+  })
+
+  it('is a no-op when no local user matches the Clerk id', async () => {
+    mockFindUnique.mockResolvedValue(null)
+
+    const res = await POST(makeRequest({ type: 'user.deleted', data: { id: 'clerk_unknown' } }))
+
+    expect(mockDeleteUserData).not.toHaveBeenCalled()
+    expect(res.status).toBe(200)
+  })
+
+  it('returns 500 without deleting the row when cleanup fails', async () => {
+    mockFindUnique.mockResolvedValue({ id: 'user_1' } as never)
+    mockDeleteUserData.mockRejectedValue(new Error('db down'))
+
+    const res = await POST(makeRequest({ type: 'user.deleted', data: { id: 'clerk_1' } }))
+
+    expect(res.status).toBe(500)
   })
 })
