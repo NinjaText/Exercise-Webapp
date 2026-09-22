@@ -136,28 +136,29 @@ model User {
   assessedBy       Assessment[]       @relation("AssessedBy")
   exercisesCreated Exercise[]
 
-  programsCreated           Program[]            @relation("ProgramsCreated")
-  programsAssigned          Program[]            @relation("ProgramsAssigned")
-  sessionsV2                WorkoutSessionV2[]   @relation("SessionsV2")
-  checkInTemplates          CheckInTemplate[]    @relation("CheckInTemplatesCreated")
-  checkInAssignments        CheckInAssignment[]  @relation("CheckInAssignments")
-  checkInResponses          CheckInResponse[]    @relation("CheckInResponses")
-  bodyMetrics               BodyMetric[]         @relation("BodyMetrics")
-  progressPhotos            ProgressPhoto[]      @relation("ProgressPhotos")
-  habits                    HabitDefinition[]    @relation("Habits")
-  nutritionTarget           NutritionTarget?     @relation("NutritionTarget")
-  nutritionLogs             NutritionLog[]       @relation("NutritionLogs")
-  nutritionWaterLogs        NutritionWaterLog[]  @relation("NutritionWaterLogs")
-  nutritionCommentsForMe    NutritionComment[]   @relation("NutritionCommentsForClient")
-  nutritionCommentsAuthored NutritionComment[]   @relation("NutritionCommentsAuthored")
-  nutritionAiSummaries      NutritionAiSummary[] @relation("NutritionAiSummaries")
-  notifications             Notification[]       @relation("Notifications")
-  packages                  CoachPackage[]       @relation("Packages")
-  subscriptions             ClientSubscription[] @relation("Subscriptions")
-  branding                  CoachBranding?       @relation("Branding")
-  clinicalNotesAsClient     ClinicalNote[]       @relation("ClinicalNotesClient")
-  clinicalNotesAsTrainer    ClinicalNote[]       @relation("ClinicalNotesTrainer")
-  trainerSubscription       TrainerSubscription? @relation("TrainerSubscription")
+  programsCreated           Program[]               @relation("ProgramsCreated")
+  programsAssigned          Program[]               @relation("ProgramsAssigned")
+  sessionsV2                WorkoutSessionV2[]      @relation("SessionsV2")
+  checkInTemplates          CheckInTemplate[]       @relation("CheckInTemplatesCreated")
+  checkInAssignments        CheckInAssignment[]     @relation("CheckInAssignments")
+  checkInResponses          CheckInResponse[]       @relation("CheckInResponses")
+  bodyMetrics               BodyMetric[]            @relation("BodyMetrics")
+  progressPhotos            ProgressPhoto[]         @relation("ProgressPhotos")
+  habits                    HabitDefinition[]       @relation("Habits")
+  nutritionTarget           NutritionTarget?        @relation("NutritionTarget")
+  nutritionLogs             NutritionLog[]          @relation("NutritionLogs")
+  nutritionWaterLogs        NutritionWaterLog[]     @relation("NutritionWaterLogs")
+  nutritionCommentsForMe    NutritionComment[]      @relation("NutritionCommentsForClient")
+  nutritionCommentsAuthored NutritionComment[]      @relation("NutritionCommentsAuthored")
+  nutritionAiSummaries      NutritionAiSummary[]    @relation("NutritionAiSummaries")
+  notificationPreference    NotificationPreference? @relation("NotificationPreference")
+  notifications             Notification[]          @relation("Notifications")
+  packages                  CoachPackage[]          @relation("Packages")
+  subscriptions             ClientSubscription[]    @relation("Subscriptions")
+  branding                  CoachBranding?          @relation("Branding")
+  clinicalNotesAsClient     ClinicalNote[]          @relation("ClinicalNotesClient")
+  clinicalNotesAsTrainer    ClinicalNote[]          @relation("ClinicalNotesTrainer")
+  trainerSubscription       TrainerSubscription?    @relation("TrainerSubscription")
   exerciseUsages            ExerciseUsage[]
   exerciseFavorites         ExerciseFavorite[]
   collections               Collection[]
@@ -212,7 +213,7 @@ model ClientProfile {
 }
 
 model Exercise {
-  id                 String          @id @default(auto()) @map("_id") @db.ObjectId
+  id                 String           @id @default(auto()) @map("_id") @db.ObjectId
   name               String
   description        String?
   bodyRegion         BodyRegion[]
@@ -232,14 +233,14 @@ model Exercise {
   cuesThumbnail      String?
   indicationTags     String[]
   rehabStage         String?
-  isAssessment       Boolean         @default(false)
-  isActive           Boolean         @default(true)
-  source             ExerciseSource  @default(UNIVERSAL)
+  isAssessment       Boolean          @default(false)
+  isActive           Boolean          @default(true)
+  source             ExerciseSource   @default(UNIVERSAL)
   organizationId     String?
-  createdById        String?         @db.ObjectId
-  createdBy          User?           @relation(fields: [createdById], references: [id])
-  createdAt          DateTime        @default(now())
-  updatedAt          DateTime        @updatedAt
+  createdById        String?          @db.ObjectId
+  createdBy          User?            @relation(fields: [createdById], references: [id])
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
 
   planExercises    PlanExercise[]
   blockExercises   BlockExercise[]
@@ -472,19 +473,19 @@ model Message {
 // --- Phase 1 Models ---
 
 model Program {
-  id                 String     @id @default(auto()) @map("_id") @db.ObjectId
+  id                 String                 @id @default(auto()) @map("_id") @db.ObjectId
   name               String
   description        String?
-  isTemplate         Boolean    @default(false)
-  isGlobal           Boolean    @default(false)
-  isPublic           Boolean    @default(false)
+  isTemplate         Boolean                @default(false)
+  isGlobal           Boolean                @default(false)
+  isPublic           Boolean                @default(false)
   globalUpdatedAt    DateTime?
-  sourceTemplateId   String?    @db.ObjectId
-  trainerId          String?    @map("clinicianId") @db.ObjectId
-  trainer            User?      @relation("ProgramsCreated", fields: [trainerId], references: [id])
-  clientId           String?    @map("patientId") @db.ObjectId
-  client             User?      @relation("ProgramsAssigned", fields: [clientId], references: [id])
-  status             PlanStatus @default(DRAFT)
+  sourceTemplateId   String?                @db.ObjectId
+  trainerId          String?                @map("clinicianId") @db.ObjectId
+  trainer            User?                  @relation("ProgramsCreated", fields: [trainerId], references: [id])
+  clientId           String?                @map("patientId") @db.ObjectId
+  client             User?                  @relation("ProgramsAssigned", fields: [clientId], references: [id])
+  status             PlanStatus             @default(DRAFT)
   programType        String?
   // Scheduled = a normal dated program with pre-generated sessions.
   // ON_DEMAND = an anytime "Resource" (warm-up, mobility, recovery) with no
@@ -496,12 +497,12 @@ model Program {
   durationWeeks      Int?
   daysPerWeek        Int?
   tags               String[]
-  equipmentRequired  String[]   @default([])
-  organizationIds    String[]   @default([])
+  equipmentRequired  String[]               @default([])
+  organizationIds    String[]               @default([])
   aiGenerationParams Json?
   startDate          DateTime?
-  createdAt          DateTime   @default(now())
-  updatedAt          DateTime   @updatedAt
+  createdAt          DateTime               @default(now())
+  updatedAt          DateTime               @updatedAt
   workouts           Workout[]
 
   // Structured categorization (Programs page redesign) — distinct from the
@@ -531,12 +532,12 @@ enum ProgramSchedulingType {
 // can belong to several collections at once via Program.collectionIds; the
 // collection itself holds no program list, just identity + metadata).
 model Collection {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  trainerId String   @db.ObjectId
-  trainer   User     @relation(fields: [trainerId], references: [id], onDelete: Cascade)
-  name      String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           String    @id @default(auto()) @map("_id") @db.ObjectId
+  trainerId    String    @db.ObjectId
+  trainer      User      @relation(fields: [trainerId], references: [id], onDelete: Cascade)
+  name         String
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
   // Touched whenever a trainer opens this collection (and on creation), so
   // the Library grid can surface the 4 most-recently-opened collections
   // first instead of just the busiest ones.
@@ -896,6 +897,20 @@ model Notification {
   createdAt DateTime @default(now())
 
   @@index([userId, isRead, createdAt])
+}
+
+model NotificationPreference {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId       String   @unique @db.ObjectId
+  user         User     @relation("NotificationPreference", fields: [userId], references: [id])
+  emailEnabled Boolean  @default(true)
+  sessions     Boolean  @default(true)
+  messages     Boolean  @default(true)
+  nutrition    Boolean  @default(true)
+  billing      Boolean  @default(true)
+  unsubToken   String   @unique
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 }
 
 model CoachPackage {

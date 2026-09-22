@@ -11,11 +11,16 @@ vi.mock('@/lib/prisma', () => ({
 vi.mock('@/lib/services/client.service', () => ({ getClientIdsForTrainer: vi.fn() }))
 vi.mock('@/lib/services/feedback.service', () => ({ respondToFeedback: vi.fn(), submitFeedback: vi.fn() }))
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
+vi.mock('@/lib/services/notification.service', () => ({
+  notifyUser: vi.fn().mockResolvedValue(undefined),
+  NOTIFICATION_TYPES: { FEEDBACK_RESPONSE: 'FEEDBACK_RESPONSE' },
+}))
 
 import { auth } from '@clerk/nextjs/server'
 import { prisma } from '@/lib/prisma'
 import { getClientIdsForTrainer } from '@/lib/services/client.service'
 import * as feedbackService from '@/lib/services/feedback.service'
+import { notifyUser } from '@/lib/services/notification.service'
 import { respondToFeedbackAction, submitFeedbackAction } from '../feedback-actions'
 
 const mockAuth = vi.mocked(auth)
@@ -26,8 +31,8 @@ const mockGetClientIds = vi.mocked(getClientIdsForTrainer)
 const mockRespondToFeedback = vi.mocked(feedbackService.respondToFeedback)
 const mockSubmitFeedback = vi.mocked(feedbackService.submitFeedback)
 
-const dbTrainer = { id: 'trainer_1', role: 'TRAINER' }
-const dbClient = { id: 'client_1', role: 'CLIENT' }
+const dbTrainer = { id: 'trainer_1', role: 'TRAINER', firstName: 'John', lastName: 'Doe' }
+const dbClient = { id: 'client_1', role: 'CLIENT', firstName: 'Jane', lastName: 'Roe' }
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -47,6 +52,16 @@ describe('respondToFeedbackAction', () => {
     })
 
     expect(result.success).toBe(true)
+    expect(notifyUser).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'client_1',
+        type: 'FEEDBACK_RESPONSE',
+        email: expect.objectContaining({
+          trainerName: 'John Doe',
+          responsePreview: 'Great work!',
+        }),
+      })
+    )
   })
 
   it('rejects a trainer responding to a non-roster client\'s feedback', async () => {

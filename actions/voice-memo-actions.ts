@@ -13,6 +13,8 @@ import { prisma } from "@/lib/prisma"
 import { getR2Client, R2_BUCKET_NAME, R2_PUBLIC_URL } from "@/lib/r2"
 import { pusherServer } from "@/lib/pusher"
 import { presignSchema, confirmSchema } from "@/lib/validators/voice-memo"
+import { notifyUser, NOTIFICATION_TYPES } from "@/lib/services/notification.service"
+import { appBaseUrl } from "@/lib/utils/app-url"
 
 export type VoiceMemoData = {
   id: string
@@ -177,6 +179,30 @@ export async function confirmVoiceMemoUpload(
           workoutName,
         })
         .catch((e) => console.error("[pusher] client-voice-memo-added:", e))
+    }
+
+    const author = authorRole === "TRAINER" ? workout.program.trainer : workout.program.client;
+    const recipient = authorRole === "TRAINER" ? workout.program.client : workout.program.trainer;
+
+    if (recipient && author) {
+      const sessionLink = `${appBaseUrl()}/messages`;
+      await notifyUser({
+        userId: recipient.id,
+        type: NOTIFICATION_TYPES.VOICE_MEMO,
+        title: "New voice note",
+        body: `${author.firstName} ${author.lastName} left a voice note on "${workout.name}".`,
+        link: "/messages",
+        metadata: { workoutId, authorRole },
+        recipientEmail: recipient.email,
+        recipientName: `${recipient.firstName} ${recipient.lastName}`,
+        email: {
+          senderName: `${author.firstName} ${author.lastName}`,
+          workoutName: workout.name,
+          sessionLink,
+          // The template's `role` is the RECIPIENT's role, not the author's.
+          role: authorRole === "TRAINER" ? "client" : "trainer",
+        },
+      });
     }
 
     revalidatePath("/programs")

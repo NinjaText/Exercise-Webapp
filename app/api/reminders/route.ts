@@ -1,10 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getResend } from "@/lib/email/resend";
-import { SessionReminderEmail } from "@/lib/email/templates/session-reminder";
-import { createNotification, NOTIFICATION_TYPES } from "@/lib/services/notification.service";
+import { notifyUser, NOTIFICATION_TYPES } from "@/lib/services/notification.service";
+import { appBaseUrl } from "@/lib/utils/app-url";
 import { format } from "date-fns";
-import React from "react";
 
 /**
  * GET /api/reminders
@@ -60,8 +58,6 @@ export async function GET(request: Request) {
 
     // Build a set of sessionIds that already have a SESSION_REMINDER notification.
     // We store the sessionId in the notification metadata to enable this check.
-    const sessionIds = upcomingSessions.map((s) => s.id);
-
     const existingReminders = await prisma.notification.findMany({
       where: {
         type: NOTIFICATION_TYPES.SESSION_REMINDER,
@@ -80,8 +76,6 @@ export async function GET(request: Request) {
     );
 
     let sent = 0;
-    const appBaseUrl =
-      process.env.NEXT_PUBLIC_APP_URL ?? "https://inmotusrx.vercel.app";
 
     for (const session of upcomingSessions) {
       // Skip if reminder already sent for this session
@@ -91,46 +85,27 @@ export async function GET(request: Request) {
       const clientName = `${client.firstName} ${client.lastName}`;
       const sessionDate = format(new Date(session.scheduledDate), "EEEE, MMMM d, yyyy");
       const sessionTime = format(new Date(session.scheduledDate), "h:mm a");
-      const sessionLink = `${appBaseUrl}/sessions`;
+      const sessionLink = `${appBaseUrl()}/sessions`;
 
-      // Send email via Resend
-      try {
-        await getResend().emails.send({
-          from: process.env.RESEND_FROM_EMAIL ?? "noreply@inmotusrx.com",
-          to: client.email,
-          subject: `Reminder: Your session "${workout.name}" is tomorrow`,
-          react: React.createElement(SessionReminderEmail, {
-            clientName,
-            sessionDate,
-            sessionTime,
-            workoutName: workout.name,
-            sessionLink,
-          }),
-        });
-      } catch (emailError) {
-        // Log but don't fail the whole batch for one email error
-        console.error(
-          `Failed to send reminder email to ${client.email}:`,
-          emailError
-        );
-        continue;
-      }
-
-      // Create in-app notification with sessionId in metadata for deduplication
-      await createNotification({
+      // Creates the in-app notification (sessionId in metadata drives the
+      // dedup above) and, if allowed, sends the reminder email.
+      await notifyUser({
         userId: client.id,
         type: NOTIFICATION_TYPES.SESSION_REMINDER,
         title: "Session Reminder",
         body: `Your workout "${workout.name}" is scheduled for ${sessionDate} at ${sessionTime}.`,
-        link: sessionLink,
-        metadata: {
-          sessionId: session.id,
+        link: "/sessions",
+        metadata: { sessionId: session.id, sessionDate, sessionTime, workoutName: workout.name },
+        recipientEmail: client.email,
+        recipientName: clientName,
+        email: {
+          clientName,
           sessionDate,
           sessionTime,
           workoutName: workout.name,
+          sessionLink,
         },
       });
-
       sent++;
     }
 

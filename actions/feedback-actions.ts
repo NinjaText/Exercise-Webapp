@@ -7,6 +7,8 @@ import { submitFeedbackSchema, respondToFeedbackSchema } from "@/lib/validators/
 import * as feedbackService from "@/lib/services/feedback.service";
 import { getClientIdsForTrainer } from "@/lib/services/client.service";
 import type { FeedbackRating } from "@prisma/client";
+import { notifyUser, NOTIFICATION_TYPES } from "@/lib/services/notification.service";
+import { appBaseUrl } from "@/lib/utils/app-url";
 
 export async function submitFeedbackAction(input: {
   planExerciseId: string;
@@ -120,6 +122,22 @@ export async function respondToFeedbackAction(input: {
 
   try {
     await feedbackService.respondToFeedback(parsed.data.feedbackId, parsed.data.trainerResponse);
+
+    const dashboardLink = `${appBaseUrl()}/dashboard`;
+    await notifyUser({
+      userId: feedback.clientId,
+      type: NOTIFICATION_TYPES.FEEDBACK_RESPONSE,
+      title: "Your trainer replied",
+      body: `${dbUser.firstName} ${dbUser.lastName} replied to your exercise feedback.`,
+      link: "/dashboard",
+      metadata: { feedbackId: parsed.data.feedbackId },
+      email: {
+        trainerName: `${dbUser.firstName} ${dbUser.lastName}`,
+        responsePreview: parsed.data.trainerResponse.slice(0, 200),
+        dashboardLink,
+      },
+    });
+
     revalidatePath("/dashboard");
     return { success: true as const };
   } catch (error) {
