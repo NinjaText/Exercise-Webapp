@@ -5,6 +5,10 @@ import { revalidatePath } from "next/cache";
 import * as checkinService from "@/lib/services/checkin.service";
 import type { CreateTemplateInput } from "@/lib/services/checkin.service";
 import { getClientIdsForTrainer } from "@/lib/services/client.service";
+import { prisma } from "@/lib/prisma";
+import { notifyUser, NOTIFICATION_TYPES } from "@/lib/services/notification.service";
+import { appBaseUrl } from "@/lib/utils/app-url";
+import { format } from "date-fns";
 
 // ─── Trainer actions ────────────────────────────────────────────────────────
 
@@ -50,6 +54,16 @@ export async function assignCheckInAction(
   }
 
   try {
+    // Fetched before the write: a lookup failure here means nothing has
+    // happened yet, so it's safe to return an honest error. Fetching this
+    // after assignTemplateToClient() would mean a DB blip here reports
+    // failure for an assignment that actually succeeded, inviting a retry
+    // that creates a duplicate.
+    const template = await prisma.checkInTemplate.findUnique({
+      where: { id: templateId },
+      select: { name: true },
+    });
+
     const assignment = await checkinService.assignTemplateToClient(
       templateId,
       clientId,
@@ -57,6 +71,23 @@ export async function assignCheckInAction(
     );
     revalidatePath("/check-ins");
     revalidatePath(`/clients/${clientId}`);
+
+    const checkInLink = `${appBaseUrl()}/check-ins`;
+
+    await notifyUser({
+      userId: clientId,
+      type: NOTIFICATION_TYPES.CHECK_IN_DUE,
+      title: "New check-in assigned",
+      body: `Your trainer assigned you "${template?.name ?? "a check-in"}".`,
+      link: "/check-ins",
+      metadata: { assignmentId: assignment.id, templateId },
+      email: {
+        templateName: template?.name ?? "Check-in",
+        dueDate: format(new Date(assignment.nextDueDate), "EEEE, MMMM d, yyyy"),
+        checkInLink,
+      },
+    });
+
     return { success: true as const, data: assignment };
   } catch (error) {
     console.error("Failed to assign check-in:", error);
@@ -124,12 +155,40 @@ export async function submitCheckInResponseAction(
   }
 
   try {
+    // Fetched before the write, same reasoning as assignCheckInAction above:
+    // a lookup failure here means the response was never submitted, so it's
+    // safe to return an honest error rather than reporting failure for a
+    // submission that actually went through.
+    const assignment = await prisma.checkInAssignment.findUnique({
+      where: { id: assignmentId },
+      select: { trainerId: true, template: { select: { name: true } } },
+    });
+
     const response = await checkinService.submitCheckInResponse(
       assignmentId,
       user.id,
       answers
     );
     revalidatePath("/check-ins");
+
+    if (assignment) {
+      const responseLink = `${appBaseUrl()}/check-ins/${response.id}`;
+      await notifyUser({
+        userId: assignment.trainerId,
+        type: NOTIFICATION_TYPES.NEW_RESPONSE,
+        title: "Check-in submitted",
+        body: `${user.firstName} ${user.lastName} submitted "${assignment.template.name}".`,
+        link: `/check-ins/${response.id}`,
+        metadata: { responseId: response.id, assignmentId, clientId: user.id },
+        email: {
+          clientName: `${user.firstName} ${user.lastName}`,
+          templateName: assignment.template.name,
+          submittedAt: format(new Date(response.submittedAt), "MMMM d 'at' h:mm a"),
+          responseLink,
+        },
+      });
+    }
+
     return { success: true as const, data: response };
   } catch (error) {
     console.error("Failed to submit check-in response:", error);

@@ -14,6 +14,17 @@ import * as messageService from "@/lib/services/message.service";
 import { getClientIdsForTrainer } from "@/lib/services/client.service";
 import { pusherServer } from "@/lib/pusher";
 import { threadChannel, inboxChannel } from "@/lib/pusher-channels";
+import { notifyUser, NOTIFICATION_TYPES } from "@/lib/services/notification.service";
+import { appBaseUrl } from "@/lib/utils/app-url";
+import { format } from "date-fns";
+
+const MESSAGE_PREVIEW_MAX_LENGTH = 200;
+
+function messagePreview(content: string): string {
+  return content.length > MESSAGE_PREVIEW_MAX_LENGTH
+    ? `${content.slice(0, MESSAGE_PREVIEW_MAX_LENGTH)}…`
+    : content;
+}
 
 type DeliveredMessage = Awaited<ReturnType<typeof messageService.sendMessage>>;
 
@@ -120,6 +131,24 @@ export async function sendMessageAction(input: {
     });
 
     broadcastNewMessage(message);
+
+    // Internal notes are trainer-only scratch — never email the client about one.
+    if (!parsed.data.isInternal) {
+      await notifyUser({
+        userId: parsed.data.recipientId,
+        type: NOTIFICATION_TYPES.NEW_MESSAGE,
+        title: "New message",
+        body: `${dbUser.firstName} ${dbUser.lastName} sent you a message.`,
+        link: "/messages",
+        metadata: { messageId: message.id, senderId: dbUser.id },
+        email: {
+          senderName: `${dbUser.firstName} ${dbUser.lastName}`,
+          sentAt: format(new Date(), "MMMM d 'at' h:mm a"),
+          preview: messagePreview(parsed.data.content),
+          messagesLink: `${appBaseUrl()}/messages`,
+        },
+      });
+    }
 
     revalidatePath("/messages");
     return { success: true as const, data: message };
@@ -251,6 +280,21 @@ export async function replyToClientNoteAction(
 
     broadcastNewMessage(message);
 
+    await notifyUser({
+      userId: log.session.clientId,
+      type: NOTIFICATION_TYPES.NEW_MESSAGE,
+      title: "New message",
+      body: `${dbUser.firstName} ${dbUser.lastName} replied to your exercise note.`,
+      link: "/messages",
+      metadata: { messageId: message.id, sessionId: parsed.data.sessionId },
+      email: {
+        senderName: `${dbUser.firstName} ${dbUser.lastName}`,
+        sentAt: format(new Date(), "MMMM d 'at' h:mm a"),
+        preview: messagePreview(parsed.data.content),
+        messagesLink: `${appBaseUrl()}/messages`,
+      },
+    });
+
     revalidatePath("/messages");
     revalidatePath(`/messages/${log.session.clientId}`);
     return { success: true as const, data: message };
@@ -323,6 +367,21 @@ export async function sendBroadcastMessageAction(input: {
         });
         broadcastNewMessage(message);
         sentCount += 1;
+
+        await notifyUser({
+          userId: recipientId,
+          type: NOTIFICATION_TYPES.NEW_MESSAGE,
+          title: "New message",
+          body: `${dbUser.firstName} ${dbUser.lastName} sent you a message.`,
+          link: "/messages",
+          metadata: { messageId: message.id, senderId: dbUser.id, broadcast: true },
+          email: {
+            senderName: `${dbUser.firstName} ${dbUser.lastName}`,
+            sentAt: format(new Date(), "MMMM d 'at' h:mm a"),
+            preview: messagePreview(parsed.data.content),
+            messagesLink: `${appBaseUrl()}/messages`,
+          },
+        });
       } catch (error) {
         console.error(`Failed to send broadcast to ${recipientId}:`, error);
       }

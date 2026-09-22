@@ -1,13 +1,26 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import * as nutritionService from "@/lib/services/nutrition.service";
-import { createNotification, NOTIFICATION_TYPES } from "@/lib/services/notification.service";
+import { notifyUser, NOTIFICATION_TYPES } from "@/lib/services/notification.service";
+import { appBaseUrl } from "@/lib/utils/app-url";
 import { ML_PER_OZ } from "@/lib/constants/nutrition";
 
 const PROTEIN_SHORTFALL_THRESHOLD_G = 15;
 
 const WATER_SHORTFALL_THRESHOLD_ML = 8 * ML_PER_OZ;
 const MIN_EXPECTED_MEALS = 2;
+
+/**
+ * How many clients are processed at once.
+ *
+ * Each client costs a nutrition summary read plus up to three `notifyUser`
+ * calls, and each of those is several DB round-trips and one Resend request.
+ * Resend rate-limits per account and reports a 429 in the response body, which
+ * `sendEmail` turns into `false` with no retry — an unbounded fan-out over the
+ * whole active client list would silently drop mail. 10 keeps the run parallel
+ * without putting the whole roster in flight at once.
+ */
+const CLIENT_BATCH_SIZE = 10;
 
 /**
  * GET /api/cron/nutrition-nudges
@@ -59,66 +72,78 @@ export async function GET(request: Request) {
     });
     const alreadyNudged = new Set(outstandingNudges.map((n) => `${n.userId}:${n.type}`));
 
-    const results = await Promise.all(
-      clients.map(async (client) => {
-        const summary = await nutritionService.getDailySummary(client.id, now);
-        const notifications: Parameters<typeof createNotification>[0][] = [];
+    const processClient = async (client: { id: string }) => {
+      const summary = await nutritionService.getDailySummary(client.id, now);
+      const notifications: Parameters<typeof notifyUser>[0][] = [];
 
-        if (
-          summary.mealsLogged < MIN_EXPECTED_MEALS &&
-          !alreadyNudged.has(`${client.id}:${NOTIFICATION_TYPES.NUTRITION_NUDGE_MEALS}`)
-        ) {
-          notifications.push({
-            userId: client.id,
-            type: NOTIFICATION_TYPES.NUTRITION_NUDGE_MEALS,
-            title: "Log your meals",
-            body:
-              summary.mealsLogged === 0
-                ? "You haven't logged any meals today."
-                : "You've only logged one meal today.",
-            link: "/nutrition",
-            metadata: { date: todayKey },
-          });
-        }
+      if (
+        summary.mealsLogged < MIN_EXPECTED_MEALS &&
+        !alreadyNudged.has(`${client.id}:${NOTIFICATION_TYPES.NUTRITION_NUDGE_MEALS}`)
+      ) {
+        notifications.push({
+          userId: client.id,
+          type: NOTIFICATION_TYPES.NUTRITION_NUDGE_MEALS,
+          title: "Log your meals",
+          body:
+            summary.mealsLogged === 0
+              ? "You haven't logged any meals today."
+              : "You've only logged one meal today.",
+          link: "/nutrition",
+          metadata: { date: todayKey },
+        });
+      }
 
-        if (
-          summary.target.proteinG &&
-          summary.remaining.proteinG !== null &&
-          summary.remaining.proteinG > PROTEIN_SHORTFALL_THRESHOLD_G &&
-          !alreadyNudged.has(`${client.id}:${NOTIFICATION_TYPES.NUTRITION_NUDGE_PROTEIN}`)
-        ) {
-          notifications.push({
-            userId: client.id,
-            type: NOTIFICATION_TYPES.NUTRITION_NUDGE_PROTEIN,
-            title: "Protein goal reminder",
-            body: `You're ${Math.round(summary.remaining.proteinG)}g short of your protein goal today.`,
-            link: "/nutrition",
-            metadata: { date: todayKey },
-          });
-        }
+      if (
+        summary.target.proteinG &&
+        summary.remaining.proteinG !== null &&
+        summary.remaining.proteinG > PROTEIN_SHORTFALL_THRESHOLD_G &&
+        !alreadyNudged.has(`${client.id}:${NOTIFICATION_TYPES.NUTRITION_NUDGE_PROTEIN}`)
+      ) {
+        notifications.push({
+          userId: client.id,
+          type: NOTIFICATION_TYPES.NUTRITION_NUDGE_PROTEIN,
+          title: "Protein goal reminder",
+          body: `You're ${Math.round(summary.remaining.proteinG)}g short of your protein goal today.`,
+          link: "/nutrition",
+          metadata: { date: todayKey },
+        });
+      }
 
-        if (
-          summary.target.waterMl &&
-          summary.remaining.waterMl !== null &&
-          summary.remaining.waterMl > WATER_SHORTFALL_THRESHOLD_ML &&
-          !alreadyNudged.has(`${client.id}:${NOTIFICATION_TYPES.NUTRITION_NUDGE_WATER}`)
-        ) {
-          notifications.push({
-            userId: client.id,
-            type: NOTIFICATION_TYPES.NUTRITION_NUDGE_WATER,
-            title: "Water goal reminder",
-            body: `Only ${Math.round(summary.remaining.waterMl / ML_PER_OZ)} oz left to hit your water goal today.`,
-            link: "/nutrition",
-            metadata: { date: todayKey },
-          });
-        }
+      if (
+        summary.target.waterMl &&
+        summary.remaining.waterMl !== null &&
+        summary.remaining.waterMl > WATER_SHORTFALL_THRESHOLD_ML &&
+        !alreadyNudged.has(`${client.id}:${NOTIFICATION_TYPES.NUTRITION_NUDGE_WATER}`)
+      ) {
+        notifications.push({
+          userId: client.id,
+          type: NOTIFICATION_TYPES.NUTRITION_NUDGE_WATER,
+          title: "Water goal reminder",
+          body: `Only ${Math.round(summary.remaining.waterMl / ML_PER_OZ)} oz left to hit your water goal today.`,
+          link: "/nutrition",
+          metadata: { date: todayKey },
+        });
+      }
 
-        await Promise.all(notifications.map((n) => createNotification(n)));
-        return notifications.length;
-      })
-    );
+      const nutritionLink = `${appBaseUrl()}/nutrition`;
+      await Promise.all(
+        notifications.map((n) =>
+          notifyUser({
+            ...n,
+            email: { headline: n.title, detail: n.body ?? "", nutritionLink },
+          })
+        )
+      );
+      return notifications.length;
+    };
 
-    const sent = results.reduce((sum, n) => sum + n, 0);
+    // Bounded fan-out: one batch of clients in flight at a time.
+    let sent = 0;
+    for (let i = 0; i < clients.length; i += CLIENT_BATCH_SIZE) {
+      const batch = clients.slice(i, i + CLIENT_BATCH_SIZE);
+      const counts = await Promise.all(batch.map(processClient));
+      sent += counts.reduce((sum, n) => sum + n, 0);
+    }
 
     return NextResponse.json({ sent });
   } catch (error) {

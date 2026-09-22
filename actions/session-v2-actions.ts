@@ -1,12 +1,10 @@
 ﻿"use server";
 
-import React from "react";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
-import { createNotification, NOTIFICATION_TYPES } from "@/lib/services/notification.service";
-import { getResend } from "@/lib/email/resend";
-import { SessionCompletedEmail } from "@/lib/email/templates/session-completed";
+import { notifyUser, NOTIFICATION_TYPES } from "@/lib/services/notification.service";
+import { appBaseUrl } from "@/lib/utils/app-url";
 import { computeScheduleVariance } from "@/lib/services/session.service";
 import { getProgramSchedulingType } from "@/lib/services/program.service";
 
@@ -38,29 +36,26 @@ async function notifyTrainerOnCompletion(
   const workoutName = session.workout.name;
   const programName = session.workout.program.name;
   const programId = session.workout.program.id;
-  const appBaseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://inmotusrx.vercel.app";
-  const clientLink = `${appBaseUrl}/clients/${client.id}`;
+  const clientLink = `${appBaseUrl()}/clients/${client.id}`;
 
-  await createNotification({
+  await notifyUser({
     userId: trainer.id,
     type: NOTIFICATION_TYPES.SESSION_COMPLETED,
     title: "Session Completed",
     body: `${clientName} completed "${workoutName}".`,
     link: clientLink,
     metadata: { clientId: client.id, clientName, workoutName, programId },
-  });
-
-  await getResend().emails.send({
-    from: process.env.RESEND_FROM_EMAIL ?? "noreply@inmotusrx.com",
-    to: trainer.email,
-    subject: `${clientName} completed a session`,
-    react: React.createElement(SessionCompletedEmail, {
+    recipientEmail: trainer.email,
+    recipientName: `${trainer.firstName} ${trainer.lastName}`,
+    // SessionCompletedEmail's own prop is `trainerName`, not `recipientName`,
+    // and Task 2 preserved existing prop names — so pass it explicitly.
+    email: {
       trainerName: `${trainer.firstName} ${trainer.lastName}`,
       clientName,
       workoutName,
       programName,
       clientLink,
-    }),
+    },
   });
 }
 
@@ -77,7 +72,7 @@ async function notifyTrainerOfClientNotes(
         include: {
           program: {
             include: {
-              trainer: { select: { id: true } },
+              trainer: { select: { id: true, email: true, firstName: true, lastName: true } },
             },
           },
         },
@@ -103,16 +98,18 @@ async function notifyTrainerOfClientNotes(
   const exerciseNames = notedLogs.map((l) => exerciseNameById.get(l.blockExerciseId) ?? "an exercise");
   const summary = exerciseNames.length === 1 ? exerciseNames[0] : `${exerciseNames.length} exercises`;
 
-  const appBaseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://inmotusrx.vercel.app";
-  const link = `${appBaseUrl}/clients/${client.id}/sessions/${sessionId}`;
+  const link = `${appBaseUrl()}/clients/${client.id}/sessions/${sessionId}`;
 
-  await createNotification({
+  await notifyUser({
     userId: trainer.id,
     type: NOTIFICATION_TYPES.EXERCISE_NOTE,
     title: "New exercise note",
     body: `${clientName} left a note on ${summary} in "${workoutName}".`,
     link,
     metadata: { clientId: client.id, clientName, workoutName, sessionId, exerciseCount: exerciseNames.length },
+    recipientEmail: trainer.email,
+    recipientName: `${trainer.firstName} ${trainer.lastName}`,
+    email: { clientName, workoutName, summary, sessionLink: link },
   });
 }
 

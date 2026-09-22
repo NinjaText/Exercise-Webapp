@@ -1,4 +1,5 @@
 import * as React from 'react'
+import { EmailLayout } from './layout'
 
 interface SessionCompletedEmailProps {
   trainerName: string
@@ -7,6 +8,7 @@ interface SessionCompletedEmailProps {
   programName: string
   clientLink: string
   organizationName?: string
+  unsubscribeUrl?: string
 }
 
 export function SessionCompletedEmail({
@@ -15,104 +17,28 @@ export function SessionCompletedEmail({
   workoutName,
   programName,
   clientLink,
-  organizationName = 'INMOTUS RX',
+  organizationName,
+  unsubscribeUrl,
 }: SessionCompletedEmailProps) {
   return (
-    <html lang="en">
-      <head>
-        <meta charSet="utf-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>Session Completed</title>
-      </head>
-      <body style={styles.body}>
-        <table width="100%" cellPadding={0} cellSpacing={0} style={styles.outerTable}>
-          <tbody>
-            <tr>
-              <td align="center" style={{ padding: '40px 16px' }}>
-                <table width="100%" cellPadding={0} cellSpacing={0} style={styles.card}>
-                  <tbody>
-                    <tr>
-                      <td style={styles.headerBar}>
-                        <p style={styles.brandName}>{organizationName}</p>
-                      </td>
-                    </tr>
-                    <tr>
-                      <td style={styles.bodyPad}>
-                        <p style={styles.greeting}>Hi {trainerName},</p>
-                        <p style={styles.intro}>
-                          Your client <strong>{clientName}</strong> just completed a workout session.
-                        </p>
-                        <table width="100%" cellPadding={0} cellSpacing={0} style={styles.detailsCard}>
-                          <tbody>
-                            <tr>
-                              <td style={styles.detailsPad}>
-                                <DetailRow label="Client" value={clientName} />
-                                <DetailRow label="Workout" value={workoutName} />
-                                <DetailRow label="Program" value={programName} />
-                              </td>
-                            </tr>
-                          </tbody>
-                        </table>
-                        <table width="100%" cellPadding={0} cellSpacing={0} style={{ marginTop: 28, textAlign: 'center' }}>
-                          <tbody>
-                            <tr>
-                              <td align="center">
-                                <a href={clientLink} style={styles.ctaButton}>View Client Progress</a>
-                              </td>
-                            </tr>
-                          </tbody>
-                        </table>
-                        <p style={styles.footnote}>
-                          You received this alert because you are the assigned trainer for this client.
-                        </p>
-                      </td>
-                    </tr>
-                    <tr>
-                      <td style={styles.footer}>
-                        <p style={styles.footerText}>
-                          &copy; {new Date().getFullYear()} {organizationName}. All rights reserved.
-                        </p>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </body>
-    </html>
+    <EmailLayout
+      title="Session Completed"
+      organizationName={organizationName}
+      accent="#16a34a"
+      greeting={`Hi ${trainerName},`}
+      intro={
+        <>
+          Your client <strong>{clientName}</strong> just completed a workout session.
+        </>
+      }
+      details={[
+        { label: 'Client', value: clientName },
+        { label: 'Workout', value: workoutName },
+        { label: 'Program', value: programName },
+      ]}
+      cta={{ label: 'View Client Progress', href: clientLink }}
+      reason="You received this email because your Sessions notifications are on."
+      unsubscribe={unsubscribeUrl ? { url: unsubscribeUrl, categoryLabel: 'session' } : undefined}
+    />
   )
-}
-
-function DetailRow({ label, value }: { label: string; value: string }) {
-  return (
-    <table width="100%" cellPadding={0} cellSpacing={0} style={{ marginBottom: '12px' }}>
-      <tbody>
-        <tr>
-          <td style={styles.detailLabel}>{label}</td>
-          <td style={styles.detailValue}>{value}</td>
-        </tr>
-      </tbody>
-    </table>
-  )
-}
-
-const styles: Record<string, React.CSSProperties> = {
-  body: { backgroundColor: '#f4f6f9', fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif", margin: 0, padding: 0 },
-  outerTable: { backgroundColor: '#f4f6f9', maxWidth: '600px', margin: '0 auto' },
-  card: { backgroundColor: '#ffffff', borderRadius: '12px', maxWidth: '560px', width: '100%', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.08)' },
-  headerBar: { backgroundColor: '#16a34a', padding: '24px 32px' },
-  brandName: { color: '#ffffff', fontSize: '18px', fontWeight: 700, margin: 0, letterSpacing: '0.5px' },
-  bodyPad: { padding: '32px' },
-  greeting: { color: '#111827', fontSize: '20px', fontWeight: 600, margin: '0 0 12px 0' },
-  intro: { color: '#4b5563', fontSize: '15px', lineHeight: '1.6', margin: '0 0 24px 0' },
-  detailsCard: { backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #e5e7eb' },
-  detailsPad: { padding: '20px 24px' },
-  detailLabel: { color: '#6b7280', fontSize: '13px', fontWeight: 500, width: '80px', paddingBottom: '4px', verticalAlign: 'top' },
-  detailValue: { color: '#111827', fontSize: '14px', fontWeight: 600, paddingBottom: '4px', verticalAlign: 'top' },
-  ctaButton: { backgroundColor: '#16a34a', borderRadius: '8px', color: '#ffffff', display: 'inline-block', fontSize: '15px', fontWeight: 600, padding: '12px 28px', textDecoration: 'none' },
-  footnote: { color: '#9ca3af', fontSize: '13px', lineHeight: '1.5', marginTop: '28px', marginBottom: 0 },
-  footer: { backgroundColor: '#f9fafb', borderTop: '1px solid #e5e7eb', padding: '20px 32px' },
-  footerText: { color: '#9ca3af', fontSize: '12px', lineHeight: '1.5', margin: '0 0 4px 0' },
 }

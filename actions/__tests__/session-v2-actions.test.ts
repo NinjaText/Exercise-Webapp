@@ -12,13 +12,14 @@ vi.mock('@/lib/prisma', () => ({
 }))
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 vi.mock('@/lib/services/notification.service', () => ({
+  notifyUser: vi.fn().mockResolvedValue(undefined),
   createNotification: vi.fn().mockResolvedValue(undefined),
-  NOTIFICATION_TYPES: { SESSION_COMPLETED: 'SESSION_COMPLETED', EXERCISE_NOTE: 'EXERCISE_NOTE' },
+  NOTIFICATION_TYPES: {
+    SESSION_COMPLETED: 'SESSION_COMPLETED',
+    EXERCISE_NOTE: 'EXERCISE_NOTE',
+  },
 }))
-vi.mock('@/lib/email/resend', () => ({
-  getResend: vi.fn(() => ({ emails: { send: vi.fn().mockResolvedValue({}) } })),
-}))
-vi.mock('@/lib/email/templates/session-completed', () => ({ SessionCompletedEmail: vi.fn() }))
+vi.mock('@/lib/email/send', () => ({ sendEmail: vi.fn().mockResolvedValue(true) }))
 
 import { auth } from '@clerk/nextjs/server'
 import { prisma } from '@/lib/prisma'

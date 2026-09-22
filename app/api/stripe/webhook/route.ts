@@ -1,4 +1,5 @@
 import { NextResponse, after } from "next/server";
+import * as React from "react";
 import { stripe } from "@/lib/stripe";
 import { prisma } from "@/lib/prisma";
 import {
@@ -6,6 +7,11 @@ import {
   activateSubscriptionFromCheckout,
 } from "@/lib/services/stripe-billing.service";
 import { fulfillProgramPurchase } from "@/lib/services/program-purchase.service";
+import { notifyUser, NOTIFICATION_TYPES } from "@/lib/services/notification.service";
+import { sendEmail } from "@/lib/email/send";
+import { RefundProcessedEmail } from "@/lib/email/templates/refund-processed";
+import { appBaseUrl } from "@/lib/utils/app-url";
+import { formatStripeAmount } from "@/lib/utils/money";
 import type Stripe from "stripe";
 
 export async function POST(req: Request) {
@@ -73,17 +79,60 @@ export async function POST(req: Request) {
       }
       case "customer.subscription.deleted": {
         const sub = event.data.object as Stripe.Subscription;
-        await prisma.trainerSubscription.update({
+        const updated = await prisma.trainerSubscription.update({
           where: { stripeCustomerId: sub.customer as string },
           data: { status: "CANCELED" },
+          select: {
+            trainerId: true,
+            trainer: { select: { email: true, firstName: true, lastName: true } },
+          },
+        });
+        after(async () => {
+          try {
+            await notifyUser({
+              userId: updated.trainerId,
+              type: NOTIFICATION_TYPES.SUBSCRIPTION_CANCELED,
+              title: "Subscription canceled",
+              body: "Your subscription has been canceled.",
+              link: "/settings/billing",
+              recipientEmail: updated.trainer.email,
+              recipientName: `${updated.trainer.firstName} ${updated.trainer.lastName}`,
+              email: { billingLink: `${appBaseUrl()}/settings/billing` },
+            });
+          } catch (err) {
+            console.error("subscription-canceled notify failed:", err);
+          }
         });
         break;
       }
       case "invoice.payment_failed": {
         const invoice = event.data.object as Stripe.Invoice;
-        await prisma.trainerSubscription.update({
+        const updated = await prisma.trainerSubscription.update({
           where: { stripeCustomerId: invoice.customer as string },
           data: { status: "PAST_DUE" },
+          select: {
+            trainerId: true,
+            trainer: { select: { email: true, firstName: true, lastName: true } },
+          },
+        });
+        const rawAmountDue = invoice.amount_due ?? 0;
+        const invoiceCurrency = invoice.currency ?? "usd";
+        after(async () => {
+          try {
+            const amountDue = formatStripeAmount(rawAmountDue, invoiceCurrency);
+            await notifyUser({
+              userId: updated.trainerId,
+              type: NOTIFICATION_TYPES.PAYMENT_FAILED,
+              title: "Payment failed",
+              body: `We could not process your payment of ${amountDue}. Your subscription is past due.`,
+              link: "/settings/billing",
+              recipientEmail: updated.trainer.email,
+              recipientName: `${updated.trainer.firstName} ${updated.trainer.lastName}`,
+              email: { amountDue, billingLink: `${appBaseUrl()}/settings/billing` },
+            });
+          } catch (err) {
+            console.error("payment-failed notify failed:", err);
+          }
         });
         break;
       }
@@ -106,6 +155,42 @@ export async function POST(req: Request) {
               await prisma.programPurchase.update({
                 where: { id: purchase.id },
                 data: { status: "REFUNDED" },
+              });
+
+              const rawAmountRefunded = charge.amount_refunded ?? 0;
+              const chargeCurrency = charge.currency ?? "usd";
+              const programCount = purchase.assignedProgramIds.length;
+              const buyerUserId = purchase.buyerUserId;
+              const buyerEmail = purchase.buyerEmail;
+
+              after(async () => {
+                try {
+                  const amount = formatStripeAmount(rawAmountRefunded, chargeCurrency);
+                  if (buyerUserId) {
+                    await notifyUser({
+                      userId: buyerUserId,
+                      type: NOTIFICATION_TYPES.REFUND_PROCESSED,
+                      title: "Refund processed",
+                      body: `Your refund of ${amount} has been processed.`,
+                      link: "/programs",
+                      email: { amount, programCount },
+                    });
+                  } else {
+                    // The buyer never claimed their account, so there is no
+                    // in-app recipient — email the purchase address directly.
+                    await sendEmail({
+                      to: buyerEmail,
+                      subject: "Your refund has been processed",
+                      react: React.createElement(RefundProcessedEmail, {
+                        recipientName: "there",
+                        amount,
+                        programCount,
+                      }),
+                    });
+                  }
+                } catch (err) {
+                  console.error("refund notify failed:", err);
+                }
               });
             }
           }
