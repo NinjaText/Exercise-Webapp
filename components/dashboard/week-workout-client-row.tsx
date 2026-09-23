@@ -56,59 +56,64 @@ export function WeekWorkoutClientRow({ row }: { row: WeekWorkoutClientRowData })
   const displayName = getDisplayName(client);
 
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-border/60 bg-muted/20 p-2.5 transition-colors hover:bg-muted/40">
-      <Link
-        href={`/clients/${client.id}`}
-        className="flex min-w-0 flex-1 items-center gap-3 rounded-lg outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
-      >
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium text-muted-foreground">
-          {initials}
-        </span>
-        <span className="min-w-0 flex-1">
-          <span className="block truncate text-sm font-semibold hover:underline">
-            {displayName}
+    // A container, not a viewport, query: this row sits in a half-width card
+    // on laptops and a full-width one on phones, so its own width decides
+    // whether the week strip and next-session date still fit.
+    <div className="@container rounded-xl border border-border/60 bg-muted/20 p-2.5 transition-colors hover:bg-muted/40">
+      <div className="flex items-center gap-3">
+        <Link
+          href={`/clients/${client.id}`}
+          className="flex min-w-0 flex-1 items-center gap-3 rounded-lg outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+        >
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium text-muted-foreground">
+            {initials}
           </span>
-          <span className="block truncate text-xs text-muted-foreground">{programName}</span>
-          <span className="block truncate text-[11px] text-muted-foreground/70">
-            {metrics?.lastCompletedAt
-              ? `Active ${formatDaysAgoLong(metrics.lastCompletedAt)}`
-              : "No completed workouts yet"}
-          </span>
-        </span>
-      </Link>
-
-      <div className="hidden shrink-0 items-center gap-1.5 sm:flex" aria-label="This week's workouts">
-        {days.map((day, i) => (
-          <span
-            key={day.date.toISOString()}
-            title={`${format(day.date, "EEE d MMM")} — ${dayDotLabels[day.status]}`}
-            className="flex w-4 flex-col items-center gap-1"
-          >
-            <span className="text-[9px] font-medium leading-none text-muted-foreground/70">
-              {DAY_INITIALS[i]}
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-sm font-semibold hover:underline">
+              {displayName}
             </span>
-            <span className={`h-2.5 w-2.5 rounded-full border ${dayDotStyles[day.status]}`} />
-          </span>
-        ))}
-      </div>
-
-      <div className="flex shrink-0 flex-col items-end gap-1">
-        <div className="flex items-center gap-2">
-          {nextSessionDate && (
-            <span className="text-xs text-muted-foreground">
-              Next: {format(nextSessionDate, "EEE, MMM d")}
+            <span className="block truncate text-xs text-muted-foreground">{programName}</span>
+            <span className="block truncate text-[11px] text-muted-foreground/70">
+              {metrics?.lastCompletedAt
+                ? `Active ${formatDaysAgoLong(metrics.lastCompletedAt)}`
+                : "No completed workouts yet"}
             </span>
-          )}
-          {displayStatus && (
-            <StatusBadge status={displayStatus} size="sm" />
+          </span>
+        </Link>
+
+        <div className="hidden shrink-0 items-center gap-1.5 @md:flex" aria-label="This week's workouts">
+          {days.map((day, i) => (
+            <span
+              key={day.date.toISOString()}
+              title={`${format(day.date, "EEE d MMM")} — ${dayDotLabels[day.status]}`}
+              className="flex w-4 flex-col items-center gap-1"
+            >
+              <span className="text-[9px] font-medium leading-none text-muted-foreground/70">
+                {DAY_INITIALS[i]}
+              </span>
+              <span className={`h-2.5 w-2.5 rounded-full border ${dayDotStyles[day.status]}`} />
+            </span>
+          ))}
+        </div>
+
+        <div className="flex shrink-0 flex-col items-end gap-1">
+          <div className="flex items-center gap-2">
+            {nextSessionDate && (
+              <span className="hidden text-xs text-muted-foreground @xl:inline">
+                Next: {format(nextSessionDate, "EEE, MMM d")}
+              </span>
+            )}
+            {displayStatus && (
+              <StatusBadge status={displayStatus} size="sm" />
+            )}
+          </div>
+          {metrics && metrics.streak > 1 && (
+            <span className="flex items-center gap-0.5 text-[11px] font-medium text-warning-foreground">
+              <Flame className="h-3 w-3" />
+              {metrics.streak} streak
+            </span>
           )}
         </div>
-        {metrics && metrics.streak > 1 && (
-          <span className="flex items-center gap-0.5 text-[11px] font-medium text-warning-foreground">
-            <Flame className="h-3 w-3" />
-            {metrics.streak} streak
-          </span>
-        )}
       </div>
     </div>
   );

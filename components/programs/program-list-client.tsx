@@ -1805,7 +1805,7 @@ export function ProgramListClient({
       {/* ================= ASSIGNED TAB ================= */}
       {activeTab === "programs" && (
         <div className="space-y-5">
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
             <StatCard size="compact" label="Active" value={assignedStatCounts.ACTIVE} icon={CheckCircle2} href={hrefWithParams({ status: "ACTIVE" })} role="success" />
             <StatCard size="compact" label="Starting Soon" value={assignedStatCounts.STARTING_SOON} icon={CalendarClock} href={hrefWithParams({ status: "STARTING_SOON" })} role="info" />
             <StatCard size="compact" label="Total Assigned" value={assignedPrograms.length} icon={ClipboardList} href={hrefWithParams({ status: null })} role="brand" />

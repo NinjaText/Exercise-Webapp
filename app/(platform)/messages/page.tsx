@@ -183,7 +183,7 @@ async function TrainerInbox({
           />
         </div>
       ) : (
-        <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden rounded-xl bg-card ring-1 ring-border shadow-none md:grid-cols-[320px_1fr] xl:grid-cols-[320px_1fr_280px]">
+        <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden rounded-xl bg-card ring-1 ring-border shadow-none md:grid-cols-[20rem_1fr] xl:grid-cols-[20rem_1fr_17.5rem]">
           <div className={cn("min-h-0 border-r border-border", isExplicitSelection ? "hidden md:block" : "block")}>
             <InboxList threads={threads} currentUserId={trainerId} selectedId={selectedId} />
           </div>

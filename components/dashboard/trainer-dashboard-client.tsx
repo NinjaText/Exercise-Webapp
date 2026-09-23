@@ -175,7 +175,7 @@ export function TrainerDashboardClient({
       {/* Today's Priorities + This Week's Workouts – side by side, and always
           the same height as each other regardless of how much either has to
           show, so the row doesn't end with one card taller than the other. */}
-      <div className="grid items-stretch gap-4 lg:grid-cols-2">
+      <div className="grid items-stretch gap-4 xl:grid-cols-2">
         <div ref={prioritiesRef} className="h-full scroll-mt-20">
           <TodaysPrioritiesCard priorities={priorities} expandSignal={prioritiesExpandSignal} />
         </div>
@@ -191,7 +191,7 @@ export function TrainerDashboardClient({
       </div>
 
       {/* Inbox / AI Insights / Client Progress – one glance at everything else */}
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 md:[&>:last-child]:col-span-2 xl:[&>:last-child]:col-span-1">
         <DashboardInboxCard threads={recentMessages} />
         <AiInsightsCard />
         <ClientProgressOverviewCard breakdown={clientProgress} />

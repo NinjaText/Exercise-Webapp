@@ -46,7 +46,7 @@ export function AdherenceStats({ stats }: AdherenceStatsProps) {
   ];
 
   return (
-    <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
+    <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 xl:grid-cols-5">
       {statCards.map((stat) => (
         <Card key={stat.title}>
           <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">

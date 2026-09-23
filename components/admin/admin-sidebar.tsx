@@ -77,7 +77,7 @@ export function AdminSidebar({ userName, userEmail, mobileMode = false }: AdminS
       </div>
 
       {/* Navigation */}
-      <ScrollArea className="flex-1 px-3 py-5">
+      <ScrollArea className="min-h-0 flex-1 px-3 py-5">
         <div className="mb-1 px-3 pb-2">
           <p className="text-[11px] font-semibold uppercase tracking-wide text-sidebar-foreground/30">
             Administration
