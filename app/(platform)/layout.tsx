@@ -70,7 +70,7 @@ export default async function PlatformLayout({ children }: { children: React.Rea
   return (
     <SearchProvider>
       <BreadcrumbProvider>
-        <div className="flex h-dvh overflow-hidden bg-[oklch(0.97_0.005_247)]">
+        <div data-app-shell className="flex h-dvh overflow-hidden bg-[oklch(0.97_0.005_247)]">
           <Sidebar
             role={user.role}
             currentPath=""

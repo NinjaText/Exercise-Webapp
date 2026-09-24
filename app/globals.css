@@ -204,6 +204,23 @@
     @apply font-sans;
     scroll-behavior: smooth;
   }
+  /* App-shell density scale. Every size in the app is rem-based, so dropping
+     the root size on laptop-width screens shrinks text, spacing, and component
+     widths together, like zooming out. Once the 256px sidebar is showing
+     (lg+), a 13"/14" laptop has too little room left over for full-size UI.
+     Breakpoints are unaffected: media-query rems always use the browser
+     default (16px), not this value. Scoped to the app shells so the marketing
+     pages keep their own sizing (see data-app-shell in the two layouts). */
+  @media (min-width: 1024px) and (max-width: 1535.98px) {
+    html:has([data-app-shell]) {
+      font-size: 14px;
+    }
+  }
+  @media (min-width: 1536px) and (max-width: 1727.98px) {
+    html:has([data-app-shell]) {
+      font-size: 15px;
+    }
+  }
   /* Lexend is reserved for page and section titles; everything else is Inter. */
   h1, h2 {
     font-family: var(--font-lexend), var(--font-inter), sans-serif;

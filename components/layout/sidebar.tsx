@@ -147,7 +147,7 @@ export function Sidebar({
       </div>
 
       {/* Navigation */}
-      <ScrollArea className="flex-1 px-3 py-5">
+      <ScrollArea className="min-h-0 flex-1 px-3 py-5">
         <div className="mb-1 px-3 pb-2">
           <p className="text-[10px] font-semibold uppercase tracking-widest text-sidebar-foreground/30">
             Navigation

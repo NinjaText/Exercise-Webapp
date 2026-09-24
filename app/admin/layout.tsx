@@ -12,7 +12,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   return (
     <BreadcrumbProvider>
-      <div className="flex h-dvh overflow-hidden bg-[oklch(0.97_0.005_247)]">
+      <div data-app-shell className="flex h-dvh overflow-hidden bg-[oklch(0.97_0.005_247)]">
         <AdminSidebar
           userName={`${user.firstName} ${user.lastName}`}
           userEmail={user.email}

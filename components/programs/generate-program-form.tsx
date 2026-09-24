@@ -373,7 +373,7 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
     <div
       className={
         showClientDetails
-          ? "mx-auto grid w-full max-w-5xl grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_320px]"
+          ? "mx-auto grid w-full max-w-5xl grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]"
           : "mx-auto w-full max-w-2xl"
       }
     >
