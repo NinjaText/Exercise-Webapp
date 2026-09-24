@@ -1,7 +1,7 @@
 import type * as React from "react";
 import { getResend } from "@/lib/email/resend";
 
-const DEFAULT_FROM = "noreply@inmotusrx.com";
+const DEFAULT_FROM = "noreply@send.goinmotus.com";
 
 /** The verified sending address. Resolved here so the fallback lives in one place. */
 export function emailFrom(): string {
@@ -42,6 +42,14 @@ export async function sendEmail(args: {
   to: string | string[];
   subject: string;
   react: React.ReactElement;
+  /**
+   * When given, the message carries RFC 8058 one-click unsubscribe headers.
+   * Gmail and Yahoo have required these of bulk senders since 2024, and their
+   * absence costs inbox placement even from a fully authenticated domain.
+   *
+   * Omit for transactional mail (billing), which has no unsubscribe link.
+   */
+  unsubscribeUrl?: string;
 }): Promise<boolean> {
   const { to, redirectedFrom } = resolveRecipient(args.to);
   if (redirectedFrom) {
@@ -50,12 +58,23 @@ export async function sendEmail(args: {
     );
   }
 
+  // `List-Unsubscribe-Post` tells the mail client the URL honours a bare POST,
+  // which is exactly what the unsubscribe route's POST handler does. Sending
+  // the Post header without a URL would be meaningless, so they travel together.
+  const headers = args.unsubscribeUrl
+    ? {
+        "List-Unsubscribe": `<${args.unsubscribeUrl}>`,
+        "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+      }
+    : undefined;
+
   try {
     const result = await getResend().emails.send({
       from: emailFrom(),
       to,
       subject: args.subject,
       react: args.react,
+      ...(headers ? { headers } : {}),
     });
 
     // Resend reports some failures in the response body rather than throwing:

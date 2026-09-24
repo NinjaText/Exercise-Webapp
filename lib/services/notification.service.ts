@@ -174,6 +174,9 @@ export async function notifyUser(input: NotifyUserInput): Promise<void> {
       to,
       subject: entry.subject(data),
       react: React.createElement(entry.template, data),
+      // Undefined for transactional types, which carry no unsubscribe link —
+      // so billing mail correctly ships without the one-click headers.
+      unsubscribeUrl,
     });
   } catch (err) {
     console.error(`[notify] ${step} failed for ${input.type} / user ${input.userId}:`, err);

@@ -18,7 +18,7 @@ beforeEach(() => {
 
 describe('emailFrom', () => {
   it('falls back to the default sender', () => {
-    expect(emailFrom()).toBe('noreply@inmotusrx.com')
+    expect(emailFrom()).toBe('noreply@send.goinmotus.com')
   })
 
   it('prefers RESEND_FROM_EMAIL', () => {
@@ -35,7 +35,7 @@ describe('sendEmail', () => {
 
     expect(ok).toBe(true)
     expect(sendMock).toHaveBeenCalledWith({
-      from: 'noreply@inmotusrx.com',
+      from: 'noreply@send.goinmotus.com',
       to: 'a@example.com',
       subject: 'Subj',
       react: el,
@@ -118,5 +118,36 @@ describe('EMAIL_REDIRECT_TO (development safety valve)', () => {
     await sendEmail({ to: 'client@example.com', subject: 'S', react: el })
 
     expect(sendMock.mock.calls[0][0].to).toBe('client@example.com')
+  })
+})
+
+describe('List-Unsubscribe headers (RFC 8058 one-click)', () => {
+  beforeEach(() => {
+    sendMock.mockResolvedValue({ data: { id: 'msg_u' }, error: null })
+    vi.unstubAllEnvs()
+    vi.stubEnv('EMAIL_REDIRECT_TO', undefined)
+  })
+
+  it('emits both headers when an unsubscribe URL is given', async () => {
+    const url = 'https://app.goinmotus.com/api/notifications/unsubscribe?token=abc&category=messages'
+
+    await sendEmail({ to: 'a@example.com', subject: 'S', react: el, unsubscribeUrl: url })
+
+    expect(sendMock.mock.calls[0][0].headers).toEqual({
+      'List-Unsubscribe': `<${url}>`,
+      'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+    })
+  })
+
+  it('wraps the URL in angle brackets, as the RFC requires', async () => {
+    await sendEmail({ to: 'a@example.com', subject: 'S', react: el, unsubscribeUrl: 'https://x.test/u' })
+
+    expect(sendMock.mock.calls[0][0].headers['List-Unsubscribe']).toBe('<https://x.test/u>')
+  })
+
+  it('sends no headers at all for transactional mail (no URL)', async () => {
+    await sendEmail({ to: 'a@example.com', subject: 'S', react: el })
+
+    expect(sendMock.mock.calls[0][0].headers).toBeUndefined()
   })
 })

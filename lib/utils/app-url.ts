@@ -1,4 +1,4 @@
-const DEFAULT_APP_URL = "https://inmotusrx.vercel.app";
+const DEFAULT_APP_URL = "https://app.goinmotus.com";
 
 /**
  * The public base URL for links in emails and notifications.
