@@ -13,6 +13,10 @@ vi.mock('@/lib/prisma', () => ({
 }))
 vi.mock('@/lib/pusher', () => ({ pusherServer: { trigger: vi.fn() } }))
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
+vi.mock('@/lib/services/notification.service', () => ({
+  notifyUser: vi.fn().mockResolvedValue(undefined),
+  NOTIFICATION_TYPES: { NEW_MESSAGE: 'NEW_MESSAGE' },
+}))
 
 import { auth } from '@clerk/nextjs/server'
 import { prisma } from '@/lib/prisma'

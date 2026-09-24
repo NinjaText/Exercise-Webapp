@@ -24,7 +24,8 @@ import {
 
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
-import { getResend } from "@/lib/email/resend";
+import { sendEmail } from "@/lib/email/send";
+import { appBaseUrl } from "@/lib/utils/app-url";
 import { ShareProgramEmail } from "@/lib/email/templates/share-program";
 import { parseShareRecipients } from "./program-share-helpers";
 import { revalidatePath } from "next/cache";
@@ -978,8 +979,7 @@ export async function shareProgramViaEmailAction(
   });
   if (!program) return { success: false, error: "Program not found" };
 
-  const appBaseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://inmotusrx.vercel.app";
-  const pdfLink = `${appBaseUrl}/api/programs/${programId}/pdf`;
+  const pdfLink = `${appBaseUrl()}/api/programs/${programId}/pdf`;
   const senderName = `${dbUser.firstName} ${dbUser.lastName}`;
   const clientName = program.client
     ? `${program.client.firstName} ${program.client.lastName}`
@@ -987,23 +987,19 @@ export async function shareProgramViaEmailAction(
 
   const recipients = parseShareRecipients(toEmail, ccRaw);
 
-  try {
-    await getResend().emails.send({
-      from: process.env.RESEND_FROM_EMAIL ?? "noreply@inmotusrx.com",
-      to: recipients,
-      subject: `Your exercise plan: ${program.name}`,
-      react: React.createElement(ShareProgramEmail, {
-        programName: program.name,
-        clientName,
-        senderName,
-        pdfLink,
-      }),
-    });
-    return { success: true };
-  } catch (err) {
-    console.error("Failed to send share email:", err);
-    return { success: false, error: "Failed to send email" };
-  }
+  const ok = await sendEmail({
+    to: recipients,
+    subject: `Your exercise plan: ${program.name}`,
+    react: React.createElement(ShareProgramEmail, {
+      programName: program.name,
+      clientName,
+      senderName,
+      pdfLink,
+    }),
+  });
+
+  if (!ok) return { success: false, error: "Failed to send email" };
+  return { success: true };
 }
 
 export async function copyGlobalProgramAction(globalProgramId: string) {

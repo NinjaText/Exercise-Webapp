@@ -13,7 +13,8 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getR2Client, R2_BUCKET_NAME, R2_PUBLIC_URL } from "@/lib/r2";
 import { pusherServer } from "@/lib/pusher";
-import { createNotification, NOTIFICATION_TYPES } from "@/lib/services/notification.service";
+import { notifyUser, NOTIFICATION_TYPES } from "@/lib/services/notification.service";
+import { appBaseUrl } from "@/lib/utils/app-url";
 import { getClientIdsForTrainer, getTrainerForClient } from "@/lib/services/client.service";
 import * as nutritionService from "@/lib/services/nutrition.service";
 import * as nutritionAiService from "@/lib/services/nutrition-ai.service";
@@ -265,13 +266,19 @@ export async function createNutritionCommentAction(
     });
 
     if (user.role === "TRAINER") {
-      await createNotification({
+      await notifyUser({
         userId: clientId,
         type: NOTIFICATION_TYPES.NUTRITION_COMMENT,
         title: "New nutrition feedback",
         body: `${user.firstName} left a comment on your nutrition log.`,
         link: "/nutrition",
         metadata: { commentId: comment.id, logId: logId ?? null },
+        email: {
+          authorName: `${user.firstName} ${user.lastName}`,
+          commentPreview: body.slice(0, 200),
+          nutritionLink: `${appBaseUrl()}/nutrition`,
+          isReply: false,
+        },
       });
 
       const client = await prisma.user.findUnique({ where: { id: clientId }, select: { clerkId: true } });
@@ -283,13 +290,19 @@ export async function createNutritionCommentAction(
     } else {
       const trainer = await getTrainerForClient(clientId);
       if (trainer) {
-        await createNotification({
+        await notifyUser({
           userId: trainer.id,
           type: NOTIFICATION_TYPES.NUTRITION_REPLY,
           title: "Client replied on nutrition",
           body: `${user.firstName} ${user.lastName} replied on their nutrition log.`,
           link: `/nutrition/${clientId}`,
           metadata: { commentId: comment.id, clientId, logId: logId ?? null },
+          email: {
+            authorName: `${user.firstName} ${user.lastName}`,
+            commentPreview: body.slice(0, 200),
+            nutritionLink: `${appBaseUrl()}/nutrition/${clientId}`,
+            isReply: true,
+          },
         });
 
         pusherServer

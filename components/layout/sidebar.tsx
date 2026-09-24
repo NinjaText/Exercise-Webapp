@@ -22,6 +22,7 @@ import {
   Apple,
   Building2,
   CalendarDays,
+  Bell,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -85,6 +86,7 @@ export function Sidebar({
   // Collect every href rendered in this sidebar so we can find the best match.
   const accountHrefs = [
     "/settings",
+    "/settings/notifications",
     ...(role === "TRAINER" ? ["/settings/clinic", "/settings/billing", "/settings/audit-log"] : []),
   ];
   const allHrefs = [...links.map((l) => l.href), ...accountHrefs];
@@ -176,10 +178,11 @@ export function Sidebar({
         </div>
         {role === "TRAINER" && navItem("/settings/billing", "Billing", CreditCard)}
         {navItem("/settings", "Settings", Settings)}
-        {role === "TRAINER" && pathname.startsWith("/settings") && !pathname.startsWith("/settings/billing") && (
+        {pathname.startsWith("/settings") && !pathname.startsWith("/settings/billing") && (
           <div className="ml-4 mt-0.5 space-y-0.5 border-l border-sidebar-border/50 pl-2">
-            {navItem("/settings/clinic", "Organization", Building2)}
-            {navItem("/settings/audit-log", "Audit Log", History)}
+            {navItem("/settings/notifications", "Notifications", Bell)}
+            {role === "TRAINER" && navItem("/settings/clinic", "Organization", Building2)}
+            {role === "TRAINER" && navItem("/settings/audit-log", "Audit Log", History)}
           </div>
         )}
 

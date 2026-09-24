@@ -1,11 +1,9 @@
 "use server";
 
-import React from "react";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
-import { NOTIFICATION_TYPES } from "@/lib/services/notification.service";
-import { getResend } from "@/lib/email/resend";
-import { MissedSessionEmail } from "@/lib/email/templates/missed-session";
+import { notifyUser, NOTIFICATION_TYPES } from "@/lib/services/notification.service";
+import { appBaseUrl } from "@/lib/utils/app-url";
 import type { Prisma } from "@prisma/client";
 
 const MISSED_SESSION_THRESHOLD = 2;
@@ -80,40 +78,24 @@ export async function checkComplianceAndNotify(): Promise<{ alerted: number }> {
 
       if (alreadyAlerted) continue;
 
-      // Create the in-app alert — metadata includes clientId for future deduplication
-      await prisma.notification.create({
-        data: {
-          userId: trainer.id,
-          type: NOTIFICATION_TYPES.MISSED_SESSION,
-          title: "Missed Sessions Alert",
-          body: `${clientName} has missed ${missedCount} session${missedCount !== 1 ? "s" : ""} in the last 14 days.`,
-          link: "/clients",
-          metadata: {
-            clientId: client.id,
-            clientName,
-            missedCount,
-          } satisfies Prisma.InputJsonObject,
+      await notifyUser({
+        userId: trainer.id,
+        type: NOTIFICATION_TYPES.MISSED_SESSION,
+        title: "Missed Sessions Alert",
+        body: `${clientName} has missed ${missedCount} session${missedCount !== 1 ? "s" : ""} in the last 14 days.`,
+        link: "/clients",
+        metadata: { clientId: client.id, clientName, missedCount },
+        recipientEmail: trainer.email,
+        recipientName: `${trainer.firstName} ${trainer.lastName}`,
+        email: {
+          // MissedSessionEmail declares `trainerName`, not `recipientName`.
+          trainerName: `${trainer.firstName} ${trainer.lastName}`,
+          clientName,
+          missedCount,
+          lookbackDays: LOOKBACK_DAYS,
+          clientLink: `${appBaseUrl()}/clients`,
         },
       });
-
-      // Send email to trainer — non-blocking
-      try {
-        const appBaseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://inmotusrx.vercel.app";
-        await getResend().emails.send({
-          from: process.env.RESEND_FROM_EMAIL ?? "noreply@inmotusrx.com",
-          to: trainer.email,
-          subject: `Missed sessions: ${clientName}`,
-          react: React.createElement(MissedSessionEmail, {
-            trainerName: `${trainer.firstName} ${trainer.lastName}`,
-            clientName,
-            missedCount,
-            lookbackDays: LOOKBACK_DAYS,
-            clientLink: `${appBaseUrl}/clients`,
-          }),
-        });
-      } catch (emailErr) {
-        console.error("Failed to send missed-session email (non-fatal):", emailErr);
-      }
 
       alerted++;
     }

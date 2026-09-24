@@ -26,6 +26,7 @@ vi.mock('@/lib/r2', () => ({
 vi.mock('@/lib/pusher', () => ({ pusherServer: { trigger: vi.fn().mockResolvedValue(undefined) } }))
 vi.mock('@/lib/services/notification.service', () => ({
   createNotification: vi.fn(),
+  notifyUser: vi.fn(),
   NOTIFICATION_TYPES: { NUTRITION_COMMENT: 'NUTRITION_COMMENT', NUTRITION_REPLY: 'NUTRITION_REPLY' },
 }))
 vi.mock('@/lib/services/client.service', () => ({
@@ -50,16 +51,23 @@ vi.mock('@/lib/services/nutrition-ai.service', () => ({
 
 import { auth } from '@clerk/nextjs/server'
 import { prisma } from '@/lib/prisma'
-import { getClientIdsForTrainer } from '@/lib/services/client.service'
+import { notifyUser } from '@/lib/services/notification.service'
+import { getClientIdsForTrainer, getTrainerForClient } from '@/lib/services/client.service'
 import * as nutritionAiService from '@/lib/services/nutrition-ai.service'
 import * as nutritionService from '@/lib/services/nutrition.service'
-import { estimateMealMacrosBatchAction, updateMealGroupAction } from '../nutrition-actions'
+import {
+  estimateMealMacrosBatchAction,
+  updateMealGroupAction,
+  createNutritionCommentAction,
+} from '../nutrition-actions'
 
 const mockAuth = vi.mocked(auth)
 const mockUserFindUnique = vi.mocked(prisma.user.findUnique)
 const mockEstimateBatch = vi.mocked(nutritionAiService.estimateMealMacrosBatch)
 const mockGetClientIdsForTrainer = vi.mocked(getClientIdsForTrainer)
+const mockGetTrainerForClient = vi.mocked(getTrainerForClient)
 const mockUpdateMealGroup = vi.mocked(nutritionService.updateMealGroup)
+const mockCreateNutritionComment = vi.mocked(nutritionService.createNutritionComment)
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -187,5 +195,62 @@ describe('updateMealGroupAction', () => {
 
     expect(result.success).toBe(false)
     expect(mockUpdateMealGroup).not.toHaveBeenCalled()
+  })
+})
+
+describe('nutrition comments — email payload', () => {
+  it('notifies the client when a trainer comments', async () => {
+    // acting user is a TRAINER with access to client 'c1'; the trainer's own
+    // auth lookup is by clerkId (1st call), and the post-comment Pusher
+    // branch does a second findUnique by clientId to fetch the client's
+    // clerkId (2nd call).
+    mockUserFindUnique
+      .mockResolvedValueOnce(trainer as never)
+      .mockResolvedValueOnce({ clerkId: 'client_clerk_1' } as never)
+    mockGetClientIdsForTrainer.mockResolvedValue(['c1'])
+    mockCreateNutritionComment.mockResolvedValue({ id: 'comment_1' } as never)
+
+    const result = await createNutritionCommentAction({
+      clientId: 'c1',
+      date: '2026-09-22',
+      body: 'Great protein today',
+    })
+
+    expect(result.success).toBe(true)
+    const arg = vi.mocked(notifyUser).mock.calls[0][0]
+    expect(arg.type).toBe('NUTRITION_COMMENT')
+    expect(arg.userId).toBe('c1')
+    expect(arg.email).toMatchObject({ isReply: false })
+    expect(arg.email!.commentPreview).toContain('Great protein')
+  })
+
+  it('notifies the trainer when a client replies, flagged as a reply', async () => {
+    // acting user is the CLIENT 'c1'
+    mockUserFindUnique.mockResolvedValueOnce({ ...client, id: 'c1' } as never)
+    mockGetTrainerForClient.mockResolvedValue({ id: 'trainer1', clerkId: 'trainer_clerk_1' } as never)
+    mockCreateNutritionComment.mockResolvedValue({ id: 'comment_2' } as never)
+
+    const result = await createNutritionCommentAction({
+      clientId: 'c1',
+      date: '2026-09-22',
+      body: 'Thanks!',
+    })
+
+    expect(result.success).toBe(true)
+    const arg = vi.mocked(notifyUser).mock.calls[0][0]
+    expect(arg.type).toBe('NUTRITION_REPLY')
+    expect(arg.userId).toBe('trainer1')
+    expect(arg.email).toMatchObject({ isReply: true })
+  })
+
+  it('sends nothing when the client has no trainer', async () => {
+    // arrange getTrainerForClient to resolve null
+    mockUserFindUnique.mockResolvedValueOnce({ ...client, id: 'c1' } as never)
+    mockGetTrainerForClient.mockResolvedValue(null)
+    mockCreateNutritionComment.mockResolvedValue({ id: 'comment_3' } as never)
+
+    await createNutritionCommentAction({ clientId: 'c1', date: '2026-09-22', body: 'Hi' })
+
+    expect(notifyUser).not.toHaveBeenCalled()
   })
 })

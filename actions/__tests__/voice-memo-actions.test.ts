@@ -29,10 +29,10 @@ vi.mock('@/lib/r2', () => ({
   R2_PUBLIC_URL: 'https://pub.r2.dev',
 }))
 vi.mock('@/lib/pusher', () => ({ pusherServer: { trigger: vi.fn().mockResolvedValue(undefined) } }))
-vi.mock('@/lib/email/resend', () => ({
-  getResend: vi.fn(() => ({ emails: { send: vi.fn().mockResolvedValue({}) } })),
+vi.mock('@/lib/services/notification.service', () => ({
+  notifyUser: vi.fn().mockResolvedValue(undefined),
+  NOTIFICATION_TYPES: { VOICE_MEMO: 'VOICE_MEMO' },
 }))
-vi.mock('@/lib/email/templates/voice-memo-added', () => ({ VoiceMemoAddedEmail: vi.fn() }))
 
 import { auth } from '@clerk/nextjs/server'
 import { prisma } from '@/lib/prisma'

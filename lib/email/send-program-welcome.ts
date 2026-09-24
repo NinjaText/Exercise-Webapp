@@ -1,5 +1,5 @@
 import * as React from "react";
-import { getResend } from "@/lib/email/resend";
+import { sendEmail } from "@/lib/email/send";
 import { ProgramWelcomeEmail } from "@/lib/email/templates/program-welcome";
 
 export async function sendProgramWelcomeEmail(args: {
@@ -9,8 +9,7 @@ export async function sendProgramWelcomeEmail(args: {
   loginUrl: string;
   isNewAccount: boolean;
 }): Promise<void> {
-  await getResend().emails.send({
-    from: process.env.RESEND_FROM_EMAIL ?? "noreply@inmotusrx.com",
+  await sendEmail({
     to: args.to,
     subject: args.isNewAccount
       ? `Welcome — set up your ${args.programName} account`
