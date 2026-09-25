@@ -20,7 +20,13 @@ const TABS: { key: "all" | MessageCategory; label: string }[] = [
   { key: "exercise", label: "Exercise" },
 ];
 
-export function DashboardInboxCard({ threads }: { threads: InboxThread[] }) {
+export function DashboardInboxCard({
+  threads,
+  className,
+}: {
+  threads: InboxThread[];
+  className?: string;
+}) {
   const [tab, setTab] = useState<"all" | MessageCategory>("all");
   const unreadCount = threads.reduce((sum, t) => sum + t.unreadCount, 0);
 
@@ -35,6 +41,7 @@ export function DashboardInboxCard({ threads }: { threads: InboxThread[] }) {
       icon={InboxIcon}
       count={unreadCount > 0 ? unreadCount : undefined}
       action={{ label: "View all", href: "/messages" }}
+      className={className}
     >
       <div className="mb-3 flex flex-wrap gap-1">
         {TABS.map((t) => (

@@ -16,9 +16,10 @@ export interface ProgramProgressSummary {
 /**
  * Whole-program arc: "Week 3 of 8 — 41% complete".
  *
- * Deliberately distinct from the dashboard's "This Week" card, which measures
- * only the current week's sessions. Both are shown because clients ask two
- * different questions: "am I on track today?" and "how far through am I?".
+ * Currently unrendered — parked after the client dashboard was cut back to
+ * stats / Up next / Resources + Inbox. Kept intact so it can go back on the
+ * dashboard (or onto a program page) without being rebuilt; its data comes
+ * from `computeProgramWeek` + `programService.getProgramProgressMap`.
  */
 export function ProgramProgressBar({ summary }: { summary: ProgramProgressSummary | null }) {
   if (!summary) return null;

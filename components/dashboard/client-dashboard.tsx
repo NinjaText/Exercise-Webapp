@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
 import { PageHeader } from "@/components/shared/page-header";
 import { SectionCard } from "@/components/shared/section-card";
 import { StatCard } from "@/components/shared/stat-card";
@@ -10,7 +9,6 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import { EmptyState } from "@/components/shared/empty-state";
 import {
   CalendarDays,
-  CalendarCheck,
   CalendarX,
   Play,
   ChevronRight,
@@ -18,10 +16,9 @@ import {
   CheckCircle2,
   Dumbbell,
   Timer,
-  ClipboardCheck,
 } from "lucide-react";
 import { format } from "date-fns";
-import { formatDate } from "@/lib/utils/formatting";
+import { cn } from "@/lib/utils";
 import { toLocalCalendarDate } from "@/lib/utils/calendar-date";
 import { getDailyQuote } from "@/lib/constants/motivation";
 import {
@@ -30,9 +27,8 @@ import {
   formatWorkoutMetaLine,
 } from "@/lib/utils/workout-format";
 import { TrainerMessageBanner, type TrainerMessagePreview } from "./trainer-message-banner";
-import { ProgramProgressBar, type ProgramProgressSummary } from "./program-progress-bar";
 import { WeekStrip } from "./week-strip";
-import { QuickResourcesRow, type QuickResourceItem } from "./quick-resources-row";
+import { QuickResourcesList, type QuickResourceItem } from "./quick-resources-list";
 import { DashboardInboxCard } from "@/components/dashboard/dashboard-inbox-card";
 import type { getInboxThreads } from "@/lib/services/message.service";
 
@@ -67,39 +63,32 @@ interface ClientDashboardProps {
   upcomingSessions: DashboardSession[];
   /** Every session in the calendar window — the week strip slices "this week" out of it. */
   calendarSessions: DashboardSession[];
-  weeklyCompliance: number;
-  recentAssessments: { id: string; assessmentType: string; value: number; unit: string; createdAt: Date }[];
   currentStreak: number;
   workoutsCompleted: number;
   exercisesCompleted: number;
   minutesExercised: number;
   unreadTrainerMessage: TrainerMessagePreview | null;
-  programProgress: ProgramProgressSummary | null;
   resources: QuickResourceItem[];
   inboxThreads: Awaited<ReturnType<typeof getInboxThreads>>;
 }
 
+/**
+ * One screen, top to bottom: the stats that answer "how am I doing", the single
+ * action that matters today, then Resources and Inbox side by side, with this
+ * week's schedule closing the page.
+ */
 export function ClientDashboard({
   firstName,
   upcomingSessions,
   calendarSessions,
-  weeklyCompliance,
-  recentAssessments,
   currentStreak,
   workoutsCompleted,
   exercisesCompleted,
   minutesExercised,
   unreadTrainerMessage,
-  programProgress,
   resources,
   inboxThreads,
 }: ClientDashboardProps) {
-  const totalWeekSessions = weeklyCompliance + upcomingSessions.length;
-  const compliancePercent =
-    totalWeekSessions > 0
-      ? Math.min(Math.round((weeklyCompliance / totalWeekSessions) * 100), 100)
-      : 0;
-
   const today = new Date();
   const todayWorkout =
     upcomingSessions.find((s) => isSameLocalDay(new Date(s.scheduledDate), today)) ?? null;
@@ -113,6 +102,10 @@ export function ClientDashboard({
     workout: s.workout ? { name: s.workout.name ?? null } : null,
   }));
 
+  // With no Resources the card renders nothing, so the two-column split would
+  // strand the Inbox at half width — drop to a single column instead.
+  const hasResources = resources.length > 0;
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -122,6 +115,38 @@ export function ClientDashboard({
       />
 
       <TrainerMessageBanner message={unreadTrainerMessage} />
+
+      {/* Lifetime totals — paired on phones, one row from tablet up */}
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+        <StatCard
+          size="compact"
+          label="Current streak"
+          value={`${currentStreak} ${currentStreak === 1 ? "day" : "days"}`}
+          icon={Flame}
+          role="warning"
+        />
+        <StatCard
+          size="compact"
+          label="Workouts completed"
+          value={workoutsCompleted}
+          icon={CheckCircle2}
+          role="success"
+        />
+        <StatCard
+          size="compact"
+          label="Exercises completed"
+          value={exercisesCompleted}
+          icon={Dumbbell}
+          role="info"
+        />
+        <StatCard
+          size="compact"
+          label="Minutes exercised"
+          value={minutesExercised}
+          icon={Timer}
+          role="neutral"
+        />
+      </div>
 
       {/* Up next — always reflects today (or the next upcoming session) */}
       <SectionCard title="Up next" icon={CalendarDays}>
@@ -180,92 +205,16 @@ export function ClientDashboard({
         )}
       </SectionCard>
 
-      {/* Two progress readings side by side: the whole-program arc, and this
-          week's completion. They answer different questions, so both stay. */}
-      <div className="grid gap-4 lg:grid-cols-2">
-        <ProgramProgressBar summary={programProgress} />
-
-        <SectionCard title="This week" icon={CalendarCheck}>
-          <div className="mb-4 flex items-center justify-between">
-            <p className="text-xs text-muted-foreground">
-              {weeklyCompliance} of {totalWeekSessions} sessions completed
-            </p>
-            <span className="text-2xl font-bold text-primary">{compliancePercent}%</span>
-          </div>
-          <Progress value={compliancePercent} className="h-2.5" />
-          <div className="mt-3 flex justify-between text-xs text-muted-foreground/60">
-            <span>Keep it up!</span>
-            <span>{totalWeekSessions - weeklyCompliance} remaining</span>
-          </div>
-        </SectionCard>
+      {/* What the client can pull on their own, next to what's waiting for them.
+          Both cards take `h-full` so the column stretch gives them a matching
+          height whichever one has more rows. */}
+      <div className={cn("grid gap-4", hasResources && "lg:grid-cols-2")}>
+        <QuickResourcesList resources={resources} className="h-full" />
+        <DashboardInboxCard threads={inboxThreads} className="h-full" />
       </div>
 
-      {/* Primary at-a-glance schedule — the month view now lives at /calendar */}
+      {/* Primary at-a-glance schedule — the month view lives at /calendar */}
       <WeekStrip sessions={weekStripSessions} today={today} />
-
-      <QuickResourcesRow resources={resources} />
-
-      <DashboardInboxCard threads={inboxThreads} />
-
-      {/* Secondary stats row */}
-      <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
-        <StatCard
-          size="compact"
-          label="Current streak"
-          value={`${currentStreak} ${currentStreak === 1 ? "day" : "days"}`}
-          icon={Flame}
-          role="warning"
-        />
-        <StatCard
-          size="compact"
-          label="Workouts completed"
-          value={workoutsCompleted}
-          icon={CheckCircle2}
-          role="success"
-        />
-        <StatCard
-          size="compact"
-          label="Exercises completed"
-          value={exercisesCompleted}
-          icon={Dumbbell}
-          role="info"
-        />
-        <StatCard
-          size="compact"
-          label="Minutes exercised"
-          value={minutesExercised}
-          icon={Timer}
-          role="neutral"
-        />
-      </div>
-
-      {/* Recent Assessments */}
-      {recentAssessments.length > 0 && (
-        <SectionCard
-          title="Assessments"
-          icon={ClipboardCheck}
-          action={{ label: "View all", href: "/assessments" }}
-        >
-          <div className="space-y-2">
-            {recentAssessments.slice(0, 4).map((a) => (
-              <div
-                key={a.id}
-                className="flex items-center justify-between rounded-xl border border-border/60 p-3"
-              >
-                <p className="text-sm font-medium capitalize">
-                  {a.assessmentType.replace(/_/g, " ")}
-                </p>
-                <div className="flex items-center gap-3">
-                  <p className="text-sm font-bold text-primary">
-                    {a.value} <span className="font-normal text-muted-foreground">{a.unit}</span>
-                  </p>
-                  <p className="text-xs text-muted-foreground">{formatDate(a.createdAt)}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </SectionCard>
-      )}
     </div>
   );
 }
