@@ -16,6 +16,10 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, '.'),
+      // Tests run outside the react-server condition, where `server-only`
+      // throws on import. Resolve it to the package's own no-op entry so any
+      // test that reaches a server-only module (e.g. via notifyUser) loads.
+      'server-only': path.resolve(__dirname, 'node_modules/server-only/empty.js'),
     },
   },
 })
