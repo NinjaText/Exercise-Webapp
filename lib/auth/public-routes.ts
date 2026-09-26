@@ -31,4 +31,7 @@ export const PUBLIC_ROUTES = [
   // no Clerk session by definition. The opaque token in the URL is the
   // credential, and the route resolves it itself.
   "/api/notifications/unsubscribe",
+  // Universal-link / app-link association files: fetched by Apple and Google
+  // with no session, and must return JSON rather than a sign-in redirect.
+  "/.well-known/(.*)",
 ] as const;

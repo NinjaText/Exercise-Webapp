@@ -136,6 +136,32 @@ function checkAndroidManifest(text) {
     .map((p) => `AndroidManifest: permission ${p} missing`);
 }
 
+// Universal links / app links / the inmotus:// scheme. `paths` comes from
+// lib/native/deep-link-paths.json in the web app, the same list the AASA route
+// serves, so the Android filter can't silently drift from it.
+function checkDeepLinks({ entitlements, pbxproj, infoPlist, manifest, paths }) {
+  const problems = [];
+  if (!entitlements.includes("<string>applinks:app.goinmotus.com</string>")) {
+    problems.push("ios: App.entitlements missing applinks:app.goinmotus.com");
+  }
+  const entitlementRefs = pbxproj.split("CODE_SIGN_ENTITLEMENTS = App/App.entitlements;").length - 1;
+  if (entitlementRefs !== 1) {
+    problems.push(
+      `ios: CODE_SIGN_ENTITLEMENTS = App/App.entitlements; appears ${entitlementRefs} times in project.pbxproj, must be exactly once (App target Release only)`
+    );
+  }
+  if (!/<key>CFBundleURLSchemes<\/key>\s*<array>[\s\S]*?<string>inmotus<\/string>[\s\S]*?<\/array>/.test(infoPlist)) {
+    problems.push("Info.plist: CFBundleURLSchemes does not register inmotus");
+  }
+  if (!manifest.includes('android:autoVerify="true"')) problems.push('AndroidManifest: no android:autoVerify="true" intent filter');
+  if (!manifest.includes('android:host="app.goinmotus.com"')) problems.push('AndroidManifest: android:host="app.goinmotus.com" missing');
+  if (!manifest.includes('android:scheme="inmotus"')) problems.push('AndroidManifest: android:scheme="inmotus" missing');
+  for (const p of paths) {
+    if (!manifest.includes(`android:pathPrefix="${p}"`)) problems.push(`AndroidManifest: pathPrefix ${p} missing`);
+  }
+  return problems;
+}
+
 function readIfExists(p) {
   return fs.existsSync(p) ? fs.readFileSync(p, "utf8") : null;
 }
@@ -172,6 +198,18 @@ function main() {
   problems.push(...checkInfoPlist(readIfExists(path.join(root, "ios/App/App/Info.plist")) || ""));
   problems.push(...checkAndroidManifest(readIfExists(path.join(root, "android/app/src/main/AndroidManifest.xml")) || ""));
 
+  const pathsRaw = readIfExists(path.join(__dirname, "../../lib/native/deep-link-paths.json"));
+  if (!pathsRaw) problems.push("lib/native/deep-link-paths.json not found");
+  problems.push(
+    ...checkDeepLinks({
+      entitlements: readIfExists(path.join(root, "ios/App/App/App.entitlements")) || "",
+      pbxproj: readIfExists(path.join(root, "ios/App/App.xcodeproj/project.pbxproj")) || "",
+      infoPlist: readIfExists(path.join(root, "ios/App/App/Info.plist")) || "",
+      manifest: readIfExists(path.join(root, "android/app/src/main/AndroidManifest.xml")) || "",
+      paths: pathsRaw ? JSON.parse(pathsRaw) : [],
+    })
+  );
+
   if (release) {
     const pkgRaw = readIfExists(path.join(root, "package.json"));
     const pbxprojRaw = readIfExists(path.join(root, "ios/App/App.xcodeproj/project.pbxproj"));
@@ -202,4 +240,5 @@ module.exports = {
   checkInfoPlist,
   checkAndroidManifest,
   checkStampedVersions,
+  checkDeepLinks,
 };

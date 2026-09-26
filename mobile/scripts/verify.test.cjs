@@ -8,6 +8,7 @@ const {
   checkInfoPlist,
   checkAndroidManifest,
   checkStampedVersions,
+  checkDeepLinks,
 } = require("./verify.cjs");
 
 test("resolveServerUrl defaults to production and trims trailing slashes", () => {
@@ -186,4 +187,55 @@ test("checkStampedVersions flags a stale occurrence when only one of two pbxproj
   assert.ok(problems.some((p) => p.includes("MARKETING_VERSION is 1.1.2")));
   assert.ok(problems.some((p) => p.includes("CURRENT_PROJECT_VERSION is 10102")));
   assert.equal(problems.filter((p) => p.includes("ios")).length, 2);
+});
+
+const deepLinkPaths = ["/dashboard", "/clients"];
+const wiredDeepLinks = () => ({
+  entitlements:
+    "<dict><key>com.apple.developer.associated-domains</key><array><string>applinks:app.goinmotus.com</string></array></dict>",
+  pbxproj: "Release = { buildSettings = { CODE_SIGN_ENTITLEMENTS = App/App.entitlements; PRODUCT_BUNDLE_IDENTIFIER = com.goinmotus.app; }; };",
+  infoPlist:
+    "<key>CFBundleURLTypes</key><array><dict><key>CFBundleURLName</key><string>com.goinmotus.app</string><key>CFBundleURLSchemes</key><array><string>inmotus</string></array></dict></array>",
+  manifest: [
+    '<intent-filter android:autoVerify="true">',
+    '<data android:scheme="https" android:host="app.goinmotus.com" />',
+    '<data android:pathPrefix="/dashboard" />',
+    '<data android:pathPrefix="/clients" />',
+    "</intent-filter>",
+    '<intent-filter><data android:scheme="inmotus" /></intent-filter>',
+  ].join("\n"),
+  paths: deepLinkPaths,
+});
+
+test("checkDeepLinks passes a fully wired project", () => {
+  assert.deepEqual(checkDeepLinks(wiredDeepLinks()), []);
+});
+
+test("checkDeepLinks flags a missing associated-domains entitlement", () => {
+  const w = wiredDeepLinks();
+  w.entitlements = "<dict></dict>";
+  assert.ok(checkDeepLinks(w).some((p) => p.includes("applinks:app.goinmotus.com")));
+});
+
+test("checkDeepLinks flags a path prefix missing from the Android manifest", () => {
+  const w = wiredDeepLinks();
+  w.paths = [...deepLinkPaths, "/messages"];
+  assert.deepEqual(checkDeepLinks(w), ["AndroidManifest: pathPrefix /messages missing"]);
+});
+
+test("checkDeepLinks flags entitlements referenced by more than one build configuration", () => {
+  const w = wiredDeepLinks();
+  w.pbxproj += " Debug = { buildSettings = { CODE_SIGN_ENTITLEMENTS = App/App.entitlements; }; };";
+  assert.ok(checkDeepLinks(w).some((p) => p.includes("appears 2 times")));
+});
+
+test("checkDeepLinks flags entitlements not referenced at all, and a missing scheme", () => {
+  const w = wiredDeepLinks();
+  w.pbxproj = "";
+  w.infoPlist = "";
+  w.manifest = w.manifest.replace('android:scheme="inmotus"', "");
+  const problems = checkDeepLinks(w);
+  assert.ok(problems.some((p) => p.includes("appears 0 times")));
+  assert.ok(problems.some((p) => p.includes("does not register inmotus")));
+  assert.ok(problems.some((p) => p.includes('android:scheme="inmotus"')));
 });

@@ -4,6 +4,8 @@
  * device. NativeProvider passes the real plugins; tests pass fakes.
  */
 
+import { pathFromAppUrl } from "./deep-links";
+
 export const RESUME_REFRESH_AFTER_MS = 5 * 60 * 1000;
 
 export function shouldRefreshOnResume(
@@ -40,8 +42,10 @@ export interface LifecycleDeps {
   app: {
     addListener(event: "backButton", fn: (e: { canGoBack: boolean }) => void): Promise<ListenerHandle>;
     addListener(event: "appStateChange", fn: (e: { isActive: boolean }) => void): Promise<ListenerHandle>;
+    addListener(event: "appUrlOpen", fn: (e: { url: string }) => void): Promise<ListenerHandle>;
     minimizeApp(): Promise<void>;
     getInfo(): Promise<{ version: string }>;
+    getLaunchUrl(): Promise<{ url: string } | undefined>;
   };
   network: {
     addListener(event: "networkStatusChange", fn: (e: { connected: boolean }) => void): Promise<ListenerHandle>;
@@ -57,6 +61,8 @@ export interface LifecycleDeps {
   origin: string;
   now(): number;
   historyBack(): void;
+  /** Client-side navigation to an in-app path (a universal/app/scheme link). */
+  navigate(path: string): void;
   onOnlineChange(online: boolean): void;
   onAppVersion(version: string): void;
   onResumeAfterLongPause(): void;
@@ -100,8 +106,15 @@ export async function registerNativeLifecycle(deps: LifecycleDeps): Promise<() =
       deps.network
         .getStatus()
         .then((status) => {
-          if (status.connected) deps.onResumeAfterLongPause();
-          else refreshOwed = true;
+          if (status.connected) {
+            // This refresh also services any debt left by an earlier offline
+            // resume; clear it so the next connectivity event doesn't refresh
+            // a second time.
+            refreshOwed = false;
+            deps.onResumeAfterLongPause();
+          } else {
+            refreshOwed = true;
+          }
         })
         .catch(() => {
           // Can't tell — treat as offline rather than risk a destructive
@@ -116,7 +129,24 @@ export async function registerNativeLifecycle(deps: LifecycleDeps): Promise<() =
         deps.onResumeAfterLongPause();
       }
     }),
+    // A universal link, app link or inmotus:// link opened while the app is
+    // running. Only same-app paths are followed (pathFromAppUrl rejects other
+    // hosts and protocol-relative paths).
+    deps.app.addListener("appUrlOpen", ({ url }) => {
+      const path = pathFromAppUrl(url);
+      if (path) deps.navigate(path);
+    }),
   ]);
+
+  // Cold start from a link: the web view loaded the server root, so route to
+  // the link's path once. "/" is where we already are.
+  deps.app
+    .getLaunchUrl()
+    .then((launch) => {
+      const path = launch && pathFromAppUrl(launch.url);
+      if (path && path !== "/") deps.navigate(path);
+    })
+    .catch(ignore);
 
   const onClick = (e: ClickLike) => {
     if (e.defaultPrevented) return;

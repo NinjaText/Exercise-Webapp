@@ -63,6 +63,7 @@ function makeDeps() {
       addListener: listen("app") as unknown as LifecycleDeps["app"]["addListener"],
       minimizeApp: vi.fn(() => Promise.resolve()),
       getInfo: vi.fn(() => Promise.resolve({ version: "1.2.3" })),
+      getLaunchUrl: vi.fn(() => Promise.resolve(undefined as { url: string } | undefined)),
     },
     network: {
       addListener: listen("network") as unknown as LifecycleDeps["network"]["addListener"],
@@ -80,6 +81,7 @@ function makeDeps() {
     origin: "https://app.goinmotus.com",
     now: vi.fn(() => 0),
     historyBack: vi.fn(),
+    navigate: vi.fn(),
     onOnlineChange: vi.fn(),
     onAppVersion: vi.fn(),
     onResumeAfterLongPause: vi.fn(),
@@ -156,6 +158,73 @@ describe("registerNativeLifecycle", () => {
     expect(deps.onResumeAfterLongPause).toHaveBeenCalledTimes(1);
   });
 
+  it("does not refresh twice when an online resume already serviced an offline debt", async () => {
+    const { deps, handlers } = makeDeps();
+    vi.mocked(deps.network.getStatus).mockResolvedValue({ connected: false });
+    await registerNativeLifecycle(deps);
+    // Cycle 1: long pause, resume offline -> refresh owed.
+    vi.mocked(deps.now).mockReturnValue(0);
+    handlers["app:appStateChange"]({ isActive: false } as never);
+    vi.mocked(deps.now).mockReturnValue(RESUME_REFRESH_AFTER_MS);
+    handlers["app:appStateChange"]({ isActive: true } as never);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(deps.onResumeAfterLongPause).not.toHaveBeenCalled();
+    // Cycle 2: long pause, resume online -> refresh #1 services the debt.
+    vi.mocked(deps.network.getStatus).mockResolvedValue({ connected: true });
+    handlers["app:appStateChange"]({ isActive: false } as never);
+    vi.mocked(deps.now).mockReturnValue(3 * RESUME_REFRESH_AFTER_MS);
+    handlers["app:appStateChange"]({ isActive: true } as never);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(deps.onResumeAfterLongPause).toHaveBeenCalledTimes(1);
+    // A later connectivity event must not refresh again.
+    handlers["network:networkStatusChange"]({ connected: true } as never);
+    expect(deps.onResumeAfterLongPause).toHaveBeenCalledTimes(1);
+  });
+
+  it("navigates in-app when a universal link opens the app", async () => {
+    const { deps, handlers } = makeDeps();
+    await registerNativeLifecycle(deps);
+    handlers["app:appUrlOpen"]({ url: "https://app.goinmotus.com/messages/abc?x=1" } as never);
+    expect(deps.navigate).toHaveBeenCalledWith("/messages/abc?x=1");
+    handlers["app:appUrlOpen"]({ url: "inmotus://clients/42" } as never);
+    expect(deps.navigate).toHaveBeenLastCalledWith("/clients/42");
+  });
+
+  it("ignores an opened URL from a foreign host", async () => {
+    const { deps, handlers } = makeDeps();
+    await registerNativeLifecycle(deps);
+    handlers["app:appUrlOpen"]({ url: "https://evil.example/dashboard" } as never);
+    handlers["app:appUrlOpen"]({ url: "inmotus:////evil.com" } as never);
+    expect(deps.navigate).not.toHaveBeenCalled();
+  });
+
+  it("navigates once to the launch URL on a cold start from a link", async () => {
+    const { deps } = makeDeps();
+    vi.mocked(deps.app.getLaunchUrl).mockResolvedValue({ url: "https://app.goinmotus.com/programs/7" });
+    await registerNativeLifecycle(deps);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(deps.navigate).toHaveBeenCalledTimes(1);
+    expect(deps.navigate).toHaveBeenCalledWith("/programs/7");
+  });
+
+  it("does not navigate for a launch URL at the root, a foreign launch URL, or a rejected getLaunchUrl", async () => {
+    for (const setup of [
+      (d: LifecycleDeps) => vi.mocked(d.app.getLaunchUrl).mockResolvedValue({ url: "https://app.goinmotus.com/" }),
+      (d: LifecycleDeps) => vi.mocked(d.app.getLaunchUrl).mockResolvedValue({ url: "https://evil.example/x" }),
+      (d: LifecycleDeps) => vi.mocked(d.app.getLaunchUrl).mockRejectedValue(new Error("none")),
+    ]) {
+      const { deps } = makeDeps();
+      setup(deps);
+      await registerNativeLifecycle(deps);
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(deps.navigate).not.toHaveBeenCalled();
+    }
+  });
+
   it("treats a rejected getStatus as offline and does not refresh", async () => {
     const { deps, handlers } = makeDeps();
     vi.mocked(deps.network.getStatus).mockRejectedValue(new Error("no network"));
@@ -220,7 +289,12 @@ describe("registerNativeLifecycle", () => {
     const cleanup = await registerNativeLifecycle(deps);
     cleanup();
     await Promise.resolve();
-    expect(removed.sort()).toEqual(["app:appStateChange", "app:backButton", "network:networkStatusChange"]);
+    expect(removed.sort()).toEqual([
+      "app:appStateChange",
+      "app:appUrlOpen",
+      "app:backButton",
+      "network:networkStatusChange",
+    ]);
     expect(deps.doc.removeEventListener).toHaveBeenCalled();
   });
 

@@ -110,6 +110,7 @@ export function NativeProvider({ children }: { children: React.ReactNode }) {
         origin: window.location.origin,
         now: () => Date.now(),
         historyBack: () => window.history.back(),
+        navigate: (path) => router.push(path),
         onOnlineChange: setIsOnline,
         onAppVersion: (appVersion) => setInfo((prev) => ({ ...prev, appVersion })),
         onResumeAfterLongPause: () => router.refresh(),

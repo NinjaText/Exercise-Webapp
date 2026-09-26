@@ -74,5 +74,16 @@
 	<string>Inmotus RX lets you choose existing photos for progress and meal logs.</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.goinmotus.app</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>inmotus</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>

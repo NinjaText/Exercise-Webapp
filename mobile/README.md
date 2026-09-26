@@ -147,11 +147,37 @@ npm test                 # must pass
 - **Sign-in opens Safari/Chrome instead of staying in the app** — add the missing domain to `server.allowNavigation` in `mobile/capacitor.config.ts`, then `npm run sync` again.
 - **Blank screen on launch** — run `npm run verify`; it prints `mobile verify OK` or a list of problems, including whether `server.url` is `https://app.goinmotus.com` for any build headed to a store. The resolved config files it checks live at `ios/App/App/capacitor.config.json` and `android/app/src/main/assets/capacitor.config.json` — read those directly if you need to see the actual values.
 
-`npm run verify` checks the *resolved* config that `cap sync` actually wrote (not just the source file), including: the server URL and cleartext flag, the allowed navigation hosts, the offline page and its bundled `server-url.js`, splash screen / status bar / safe-area plugin settings, the required `Info.plist` usage-description strings, and the required Android permissions. It prints either `mobile verify OK` or a list of problems — it does not print the resolved config itself.
+`npm run verify` checks the *resolved* config that `cap sync` actually wrote (not just the source file), including: the server URL and cleartext flag, the allowed navigation hosts, the offline page and its bundled `server-url.js`, splash screen / status bar / safe-area plugin settings, the required `Info.plist` usage-description strings, the required Android permissions, and the link wiring (section 12: the Associated Domains entitlement referenced exactly once, the `inmotus` scheme on both platforms, and an Android `pathPrefix` for every entry in `lib/native/deep-link-paths.json`). It prints either `mobile verify OK` or a list of problems — it does not print the resolved config itself.
 
-## 12. Secrets that must never be committed
+## 12. Links that open the app
+
+Three kinds of link open inside the app instead of the browser:
+
+- **Universal links (iOS)** and **app links (Android)** — ordinary `https://app.goinmotus.com/...` links under the prefixes listed in `lib/native/deep-link-paths.json` (`/dashboard`, `/programs`, `/messages`, `/clients`, `/p`, ...). That JSON file is the single list: the web app serves it to Apple, and `npm run verify` fails if the Android manifest's `pathPrefix` lines drift from it.
+- **`inmotus://` links** — e.g. `inmotus://dashboard` or `inmotus://clients/42`. These work in every build, Debug included, with no server setup.
+
+The app only ever follows these links to a path on its own site; a link to any other host is ignored.
+
+**One-time setup, before the first TestFlight / Play build that should handle https links:**
+
+1. In Vercel → the web project → Settings → Environment Variables, add for **Production**:
+   - `APPLE_TEAM_ID` — the 10-character Team ID from Apple Developer → **Membership**.
+   - `ANDROID_SHA256_CERT_FINGERPRINTS` — Play Console → your app → **Test and release → App integrity → App signing** → *App signing key certificate* → **SHA-256 certificate fingerprint** (looks like `AB:CD:...`). If you also want links to open locally built release APKs, add your upload key's SHA-256 too, comma-separated.
+2. Redeploy, then open both in a browser — each must load as JSON (not a 404 and not a sign-in page):
+   - `https://app.goinmotus.com/.well-known/apple-app-site-association`
+   - `https://app.goinmotus.com/.well-known/assetlinks.json`
+
+   Until the variables are set these URLs return 404. That's harmless: the app still works, https links just open in the browser instead.
+
+**Why universal links only work in TestFlight / Release builds:** the Associated Domains entitlement (`ios/App/App/App.entitlements`) is attached only to the **Release** build configuration. A free Apple ID (Personal Team) can't sign that entitlement, so leaving it off Debug keeps free-Apple-ID Debug builds on your own phone working (section 3). The consequence is that you test https links on iOS from a TestFlight or Release build; use `inmotus://dashboard` (e.g. typed into Notes and tapped) to test link handling in a Debug build. When enabling the entitlement for Release for the first time, the Apple Developer account must have the **Associated Domains** capability on the `com.goinmotus.app` identifier — Xcode's automatic signing adds it.
+
+## 13. Secrets that must never be committed
 
 - The Android upload keystore file and its passwords.
 - Later (Plan 3, push notifications): `GoogleService-Info.plist` and `google-services.json`.
+
+Configuration that lives in Vercel (not in this repo) — not secret, but set it there, not in a committed file:
+
+- `APPLE_TEAM_ID` and `ANDROID_SHA256_CERT_FINGERPRINTS` (Production) — needed for the link association files (section 12). Optional: when missing, `/.well-known/...` returns 404 and the app keeps working.
 
 Keep all of these out of git entirely — do not add them to this repo even temporarily.

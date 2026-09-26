@@ -18,6 +18,33 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- Universal (app) links. Prefixes mirror lib/native/deep-link-paths.json;
+                 npm run verify fails if they drift. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="app.goinmotus.com" />
+                <data android:pathPrefix="/dashboard" />
+                <data android:pathPrefix="/programs" />
+                <data android:pathPrefix="/messages" />
+                <data android:pathPrefix="/calendar" />
+                <data android:pathPrefix="/sessions" />
+                <data android:pathPrefix="/nutrition" />
+                <data android:pathPrefix="/clients" />
+                <data android:pathPrefix="/check-ins" />
+                <data android:pathPrefix="/settings" />
+                <data android:pathPrefix="/p" />
+                <data android:pathPrefix="/onboarding" />
+                <data android:pathPrefix="/sign-in" />
+            </intent-filter>
+            <!-- inmotus:// custom scheme. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="inmotus" />
+            </intent-filter>
         </activity>
 
         <provider
