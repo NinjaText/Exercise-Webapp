@@ -9,6 +9,7 @@ const mockNotFound = vi.fn(() => {
   throw new Error("NEXT_NOT_FOUND");
 });
 
+vi.mock("@/lib/native/server", () => ({ getNativeInfo: vi.fn(async () => ({ isNative: false })) }));
 vi.mock("@/lib/services/sellable-package.service", () => ({
   getSellablePackageBySlug: mockGetSellablePackageBySlug,
 }));

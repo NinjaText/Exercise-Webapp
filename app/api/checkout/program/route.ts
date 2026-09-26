@@ -1,8 +1,15 @@
 import { NextResponse } from "next/server";
 import { getSellablePackageBySlug } from "@/lib/services/sellable-package.service";
 import { createProgramCheckoutSession } from "@/lib/payments/program-checkout";
+import { getNativeInfo } from "@/lib/native/server";
 
 export async function POST(req: Request) {
+  // Defence in depth: the app never shows a Buy button, but a crafted request
+  // from the shell must not be able to start a checkout either (Apple 3.1.1).
+  if ((await getNativeInfo()).isNative) {
+    return new NextResponse("Purchases are not available in the app", { status: 403 });
+  }
+
   const body = (await req.json()) as { slug?: string; withBundle?: boolean };
   if (!body.slug) return new NextResponse("Missing slug", { status: 400 });
 

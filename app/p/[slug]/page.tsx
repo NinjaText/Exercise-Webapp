@@ -7,6 +7,8 @@ import { brandIconsMetadata } from "@/lib/branding/metadata";
 import { BrandStyle } from "@/components/branding/brand-style";
 import { OrgIdentity } from "@/components/branding/org-identity";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { getNativeInfo } from "@/lib/native/server";
+import { NativePurchaseNotice } from "@/components/billing/native-purchase-notice";
 import { BuyButton } from "./buy-button";
 
 export async function generateMetadata({
@@ -38,6 +40,7 @@ export default async function SalesPage({
 
   const branding = await getOrgBranding(pkg.trainer.clerkOrgId ?? null);
   const brandingVm = toViewModel(branding);
+  const native = await getNativeInfo();
 
   const price = (pkg.priceInCents / 100).toFixed(2);
   const bundle = pkg.upsell && pkg.upsell.programTemplateId ? pkg.upsell : null;
@@ -55,18 +58,25 @@ export default async function SalesPage({
             {pkg.description && <p className="text-body text-muted-foreground">{pkg.description}</p>}
           </CardHeader>
           <CardContent className="flex flex-col gap-6">
-            <div className="flex flex-col gap-1">
-              <p className="text-display tabular-nums text-foreground">${price}</p>
-              <p className="text-caption">One-time payment</p>
-            </div>
-            <BuyButton
-              slug={pkg.slug!}
-              bundle={
-                bundle
-                  ? { name: bundle.name, price: (bundle.priceInCents / 100).toFixed(2), description: bundle.description ?? "" }
-                  : null
-              }
-            />
+            {/* No price or purchase path inside the native app (Apple 3.1.1). */}
+            {native.isNative ? (
+              <NativePurchaseNotice />
+            ) : (
+              <>
+                <div className="flex flex-col gap-1">
+                  <p className="text-display tabular-nums text-foreground">${price}</p>
+                  <p className="text-caption">One-time payment</p>
+                </div>
+                <BuyButton
+                  slug={pkg.slug!}
+                  bundle={
+                    bundle
+                      ? { name: bundle.name, price: (bundle.priceInCents / 100).toFixed(2), description: bundle.description ?? "" }
+                      : null
+                  }
+                />
+              </>
+            )}
           </CardContent>
         </Card>
       </div>
