@@ -16,8 +16,11 @@ export interface QuickResourceItem {
   bodyAreas: string[];
 }
 
-/** Deliberately small: the dashboard is meant to fit one viewport. */
-const MAX_RESOURCES = 3;
+/**
+ * Capped so the dashboard still fits one screen — the card sits beside the
+ * Inbox, and past ~6 rows the two columns stop reading as a pair.
+ */
+const MAX_RESOURCES = 6;
 
 /**
  * Shortcut into the client's On-Demand ("Resource") programs — warm-ups,
@@ -25,7 +28,13 @@ const MAX_RESOURCES = 3;
  * empty-state card, so a client who was never given Resources never sees a
  * section that can't do anything for them.
  */
-export function QuickResourcesRow({ resources }: { resources: QuickResourceItem[] }) {
+export function QuickResourcesList({
+  resources,
+  className,
+}: {
+  resources: QuickResourceItem[];
+  className?: string;
+}) {
   if (resources.length === 0) return null;
 
   return (
@@ -33,17 +42,18 @@ export function QuickResourcesRow({ resources }: { resources: QuickResourceItem[
       title="Resources"
       icon={Library}
       action={{ label: "View all", href: "/programs?type=resources" }}
+      className={className}
     >
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="space-y-2">
         {resources.slice(0, MAX_RESOURCES).map((resource) => (
-          <ResourceCard key={resource.id} resource={resource} />
+          <ResourceRow key={resource.id} resource={resource} />
         ))}
       </div>
     </SectionCard>
   );
 }
 
-function ResourceCard({ resource }: { resource: QuickResourceItem }) {
+function ResourceRow({ resource }: { resource: QuickResourceItem }) {
   const { icon: Icon, label } = getProgramCategoryVisual(resource);
 
   const meta = [
@@ -56,10 +66,10 @@ function ResourceCard({ resource }: { resource: QuickResourceItem }) {
   return (
     <Link
       href={`/programs/${resource.id}`}
-      className="flex items-center gap-3 rounded-xl border border-border/60 bg-card p-3.5 shadow-sm transition-colors hover:border-primary/40 hover:bg-muted/40"
+      className="flex items-center gap-3 rounded-xl border border-border/60 p-2.5 transition-colors hover:border-primary/40 hover:bg-muted/30"
     >
-      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand-soft text-brand-foreground">
-        <Icon className="h-5 w-5" />
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-soft text-brand-foreground">
+        <Icon className="size-4.5" />
       </span>
       <span className="min-w-0">
         <span className="block truncate text-sm font-semibold">{resource.name}</span>

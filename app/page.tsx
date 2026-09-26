@@ -1,171 +1,113 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
-import { motion, useInView } from "framer-motion";
+import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { SiteNavbar } from "@/components/layout/site-navbar";
 import { SiteFooter } from "@/components/layout/site-footer";
-import { FadeUp, FadeIn } from "@/components/layout/scroll-reveal";
+import { FadeUp } from "@/components/layout/scroll-reveal";
 import {
-  Brain,
-  Users,
-  MessageSquare,
-  BarChart3,
-  TrendingUp,
   ArrowRight,
   Dumbbell,
   Check,
-  Star,
-  Zap,
-  Shield,
-  ChevronDown,
   Play,
   Sparkles,
   Clock,
-  HeartPulse,
+  Stethoscope,
+  Users,
+  ShieldCheck,
+  Pencil,
+  FileText,
+  ClipboardList,
+  Smartphone,
+  BarChart3,
+  MessageSquare,
+  ChevronLeft,
+  ChevronRight,
+  ChevronDown,
+  Quote,
 } from "lucide-react";
-
-// ── Animation helpers ───────────────────────────────────────────────────────
-
-// Animated counter
-function AnimatedNumber({ value, suffix = "" }: { value: number; suffix?: string }) {
-  const ref = useRef(null);
-  const isInView = useInView(ref, { once: true });
-  const [display, setDisplay] = useState(0);
-
-  useEffect(() => {
-    if (!isInView) return;
-    const start = Date.now();
-    const duration = 1800;
-    const raf = requestAnimationFrame(function tick() {
-      const elapsed = Date.now() - start;
-      const progress = Math.min(elapsed / duration, 1);
-      const eased = 1 - Math.pow(1 - progress, 3);
-      setDisplay(Math.round(eased * value));
-      if (progress < 1) requestAnimationFrame(tick);
-    });
-    return () => cancelAnimationFrame(raf);
-  }, [isInView, value]);
-
-  return (
-    <span ref={ref}>
-      {display}
-      {suffix}
-    </span>
-  );
-}
 
 // ── Data ────────────────────────────────────────────────────────────────────
 
-const features = [
+const heroTrust = ["No credit card required", "Cancel anytime", "HIPAA-ready"];
+
+const mockFields = [
+  { label: "Client Goal", value: "Return to golf" },
+  { label: "Current Issues", value: "Low back pain" },
+  { label: "Limitations / Precautions", value: "Avoid jumping, plyometrics" },
+  { label: "Equipment", value: "Dumbbells, resistance bands" },
+  { label: "Frequency", value: "3 sessions per week" },
+];
+
+const mockExercises = [
+  { name: "90/90 Hip Rotation", dose: "2 x 8 reps" },
+  { name: "Glute Bridge", dose: "3 x 12 reps" },
+  { name: "Split Squat", dose: "3 x 8 reps each" },
+  { name: "Single Arm Row", dose: "3 x 10 reps each" },
+];
+
+const valueProps = [
+  { icon: Stethoscope, title: "Built by a Doctor", detail: "of Physical Therapy" },
+  { icon: Users, title: "Designed for physical therapists,", detail: "trainers, and performance professionals" },
+  { icon: Clock, title: "Programs", detail: "in minutes" },
+  { icon: ShieldCheck, title: "You're always in control.", detail: "Review, edit and personalize." },
+];
+
+const creationPaths = [
   {
-    icon: Brain,
-    title: "PT-Inspired AI Programming",
+    icon: Sparkles,
+    title: "Generate a Program",
+    badge: "AI-assisted",
     description:
-      "Our AI was designed by a Doctor of Physical Therapy to recommend appropriate exercises, progressions, regressions, and modifications based on your client's goals, experience, movement limitations, and available equipment.",
+      "Enter your client's goals, limitations, precautions, equipment, and preferences. Get a personalized starting point in seconds.",
     gradient: "from-blue-500 to-indigo-500",
-    bg: "bg-blue-50",
-    iconColor: "text-blue-600",
   },
   {
-    icon: Dumbbell,
-    title: "Exercise Library",
-    description:
-      "A curated library of rehabilitation exercises with video instructions, progressions, regressions, and contraindication tagging.",
-    gradient: "from-teal-500 to-cyan-500",
-    bg: "bg-teal-50",
-    iconColor: "text-teal-600",
-  },
-  {
-    icon: Users,
-    title: "Client Portal",
-    description:
-      "Clients access guided sessions on any device. Step-by-step instructions, video demos, and set logging — all in one place.",
+    icon: Pencil,
+    title: "Build Manually",
+    badge: null,
+    description: "Use our exercise library, templates, or create from scratch.",
     gradient: "from-violet-500 to-purple-500",
-    bg: "bg-violet-50",
-    iconColor: "text-violet-600",
   },
   {
-    icon: MessageSquare,
-    title: "Feedback & Alerts",
-    description:
-      "Clients rate every exercise after each session. Trainers receive instant alerts on pain or difficulty reports.",
-    gradient: "from-amber-500 to-orange-500",
-    bg: "bg-amber-50",
-    iconColor: "text-amber-600",
-  },
-  {
-    icon: BarChart3,
-    title: "Adherence Tracking",
-    description:
-      "Automatic tracking of session completions, skipped exercises, and weekly compliance rates. See who needs a check-in.",
-    gradient: "from-emerald-500 to-green-500",
-    bg: "bg-emerald-50",
-    iconColor: "text-emerald-600",
-  },
-  {
-    icon: TrendingUp,
-    title: "Outcome Monitoring",
-    description:
-      "Record functional assessments over time and visualise client progress with interactive charts and trend lines.",
-    gradient: "from-rose-500 to-pink-500",
-    bg: "bg-rose-50",
-    iconColor: "text-rose-600",
+    icon: FileText,
+    title: "Upload a Program",
+    badge: null,
+    description: "Turn a PDF, Word doc, or existing plan into a structured program.",
+    gradient: "from-emerald-500 to-teal-500",
   },
 ];
 
-const steps = [
-  {
-    number: "01",
-    icon: Users,
-    title: "Create Client Profile",
-    description:
-      "Add your client and capture their health history, limitations, available equipment, and rehabilitation goals.",
-    color: "from-blue-500 to-indigo-500",
-  },
-  {
-    number: "02",
-    icon: Sparkles,
-    title: "Generate AI Program",
-    description:
-      "Select focus areas and let the AI build a personalised program from your exercise library in seconds.",
-    color: "from-violet-500 to-purple-500",
-  },
-  {
-    number: "03",
-    icon: TrendingUp,
-    title: "Track & Adjust",
-    description:
-      "Monitor adherence, review session feedback, and adjust programs in real time as your client progresses.",
-    color: "from-emerald-500 to-teal-500",
-  },
+const platformFeatures = [
+  { icon: Dumbbell, title: "Exercise Library", description: "Hundreds of exercises with videos and cues." },
+  { icon: ClipboardList, title: "Templates", description: "Save time with pre-built programs." },
+  { icon: Smartphone, title: "Client App", description: "A seamless experience for your clients." },
+  { icon: BarChart3, title: "Tracking & Insights", description: "Monitor adherence, pain/difficulty, and progress." },
+  { icon: MessageSquare, title: "Messaging", description: "Stay connected with built-in messaging." },
 ];
 
 const testimonials = [
   {
-    name: "Dr. Sarah Chen",
+    name: "Dr. Amanda Lee, DPT",
     role: "Physical Therapist",
-    organization: "Motion Health Organization",
-    quote:
-      "INMOTUS RX cut my program creation time from 45 minutes to under 2 minutes. The AI understands contraindications and creates thoughtful progressions I would have designed myself.",
-    avatar: "SC",
+    quote: "Inmotus saves me hours each week and helps me create better programs for my patients.",
+    avatar: "AL",
     gradient: "from-blue-500 to-indigo-500",
   },
   {
-    name: "James Rodriguez",
-    role: "Post-Surgical Client",
-    organization: "",
+    name: "Dr. Sarah Chen",
+    role: "Physical Therapist · Motion Health Organization",
     quote:
-      "Having a guided workout on my phone with clear instructions made me actually stick with my exercises. My therapist could see my progress in real time too.",
-    avatar: "JR",
+      "INMOTUS RX cut my program creation time from 45 minutes to under 2 minutes. The AI understands contraindications and creates thoughtful progressions I would have designed myself.",
+    avatar: "SC",
     gradient: "from-violet-500 to-purple-500",
   },
   {
     name: "Dr. Emily Thompson",
-    role: "Orthopedic Surgeon",
-    organization: "Summit Orthopaedics",
+    role: "Orthopedic Surgeon · Summit Orthopaedics",
     quote:
       "I refer clients to trainers on INMOTUS RX because I can see adherence data and outcomes. It closes the feedback loop I never had before.",
     avatar: "ET",
@@ -228,24 +170,167 @@ const pricingPlans = [
   },
 ];
 
-const stats = [
-  { value: 500, suffix: "+", label: "Trainers", icon: Users },
-  { value: 10000, suffix: "+", label: "Clients", icon: HeartPulse },
-  { value: 95, suffix: "%", label: "Adherence Rate", icon: TrendingUp },
-  { value: 2, suffix: " min", label: "Program Generation", icon: Clock },
-];
+// ── Hero mockup ─────────────────────────────────────────────────────────────
+
+/** Static preview of the Create Program screen: client info in, Week 1 out. */
+function CreateProgramMockup() {
+  return (
+    <div className="relative rounded-2xl border border-white/10 bg-white/5 p-2 shadow-2xl backdrop-blur-sm">
+      <div className="absolute inset-0 rounded-2xl bg-linear-to-br from-blue-500/10 via-transparent to-indigo-500/10" />
+      <div className="relative overflow-hidden rounded-xl bg-[#f8fafc] shadow-inner">
+        {/* Window chrome */}
+        <div className="flex items-center gap-2 border-b border-slate-200 bg-white px-4 py-3">
+          <div className="h-2.5 w-2.5 rounded-full bg-red-400/80" />
+          <div className="h-2.5 w-2.5 rounded-full bg-amber-400/80" />
+          <div className="h-2.5 w-2.5 rounded-full bg-green-400/80" />
+          <p className="ml-3 text-sm font-semibold text-slate-800">Create Program</p>
+        </div>
+
+        <div className="grid gap-4 p-4 sm:grid-cols-[1.15fr_1fr] sm:p-5">
+          {/* Client input */}
+          <div>
+            <div className="mb-4 flex gap-1 rounded-lg bg-slate-100 p-1 text-[11px] font-medium">
+              <span className="flex-1 rounded-md bg-white py-1 text-center text-blue-600 shadow-sm">Generate</span>
+              <span className="flex-1 py-1 text-center text-slate-500">Manual Build</span>
+              <span className="flex-1 py-1 text-center text-slate-500">Upload</span>
+            </div>
+            <div className="space-y-2">
+              {mockFields.map((field, i) => (
+                <motion.div
+                  key={field.label}
+                  className="grid grid-cols-[92px_1fr] items-center gap-2"
+                  initial={{ opacity: 0, x: -12 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.4, delay: 0.9 + i * 0.08 }}
+                >
+                  <span className="text-[10px] leading-tight text-slate-500">{field.label}</span>
+                  <span className="truncate rounded-md border border-slate-200 bg-white px-2 py-1.5 text-[11px] text-slate-700">
+                    {field.value}
+                  </span>
+                </motion.div>
+              ))}
+            </div>
+            <div className="mt-4 flex items-center justify-center gap-1.5 rounded-lg bg-[#0a0f1e] py-2 text-[11px] font-semibold text-white">
+              <Sparkles className="h-3 w-3" />
+              Generate Program
+            </div>
+          </div>
+
+          {/* Program preview */}
+          <div className="rounded-lg border border-slate-200 bg-white p-3">
+            <div className="mb-2 flex items-center justify-between">
+              <p className="text-[11px] font-semibold text-slate-800">Program Preview</p>
+              <span className="flex items-center gap-1 rounded border border-slate-200 px-1.5 py-0.5 text-[10px] text-slate-500">
+                Week 1 <ChevronDown className="h-2.5 w-2.5" />
+              </span>
+            </div>
+            <p className="mb-2 text-[11px] font-semibold text-slate-700">Day 1</p>
+            <div className="space-y-2">
+              {mockExercises.map((ex, i) => (
+                <motion.div
+                  key={ex.name}
+                  className="flex items-center gap-2.5"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4, delay: 1.4 + i * 0.12 }}
+                >
+                  <div className="flex h-8 w-10 shrink-0 items-center justify-center rounded-md bg-linear-to-br from-slate-100 to-slate-200">
+                    <Dumbbell className="h-3.5 w-3.5 text-slate-400" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="truncate text-[11px] font-medium text-slate-800">{ex.name}</p>
+                    <p className="text-[10px] text-slate-500">{ex.dose}</p>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+            <p className="mt-3 flex items-center gap-1 text-[10px] font-medium text-blue-600">
+              View Full Program <ArrowRight className="h-2.5 w-2.5" />
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Testimonial carousel ────────────────────────────────────────────────────
+
+function TestimonialCarousel() {
+  const [index, setIndex] = useState(0);
+  const t = testimonials[index];
+  const go = (delta: number) => setIndex((i) => (i + delta + testimonials.length) % testimonials.length);
+
+  return (
+    <div>
+      <div className="flex items-center gap-3 sm:gap-5">
+        <button
+          type="button"
+          onClick={() => go(-1)}
+          aria-label="Previous testimonial"
+          className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 transition-colors hover:border-slate-300 hover:text-slate-900 sm:flex"
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </button>
+
+        <div className="relative min-h-[220px] flex-1 overflow-hidden rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={t.name}
+              initial={{ opacity: 0, x: 24 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -24 }}
+              transition={{ duration: 0.3 }}
+              className="flex flex-col gap-6 sm:flex-row sm:items-center"
+            >
+              <div className={`flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl bg-linear-to-br ${t.gradient} text-xl font-bold text-white shadow-md`}>
+                {t.avatar}
+              </div>
+              <div>
+                <Quote className="mb-2 h-5 w-5 text-slate-300" />
+                <p className="text-lg leading-relaxed text-slate-700">&ldquo;{t.quote}&rdquo;</p>
+                <p className="mt-4 font-semibold text-slate-900">{t.name}</p>
+                <p className="text-sm text-slate-500">{t.role}</p>
+              </div>
+            </motion.div>
+          </AnimatePresence>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => go(1)}
+          aria-label="Next testimonial"
+          className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 transition-colors hover:border-slate-300 hover:text-slate-900 sm:flex"
+        >
+          <ChevronRight className="h-4 w-4" />
+        </button>
+      </div>
+
+      <div className="mt-6 flex justify-center gap-2">
+        {testimonials.map((item, i) => (
+          <button
+            key={item.name}
+            type="button"
+            onClick={() => setIndex(i)}
+            aria-label={`Show testimonial ${i + 1}`}
+            aria-current={i === index}
+            className={`h-2 rounded-full transition-all ${i === index ? "w-6 bg-slate-800" : "w-2 bg-slate-300 hover:bg-slate-400"}`}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
 
 // ── Component ───────────────────────────────────────────────────────────────
 
 export default function LandingPage() {
-  const heroRef = useRef(null);
-
   return (
     <div className="min-h-screen overflow-x-hidden bg-white">
       <SiteNavbar />
 
       {/* ── Hero ──────────────────────────────────────────────────────────── */}
-      <section ref={heroRef} className="relative flex min-h-screen items-center overflow-hidden bg-[#0a0f1e] pt-16">
+      <section className="relative overflow-hidden bg-[#0a0f1e] pt-16">
         {/* Animated gradient orbs */}
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
           <motion.div
@@ -258,11 +343,6 @@ export default function LandingPage() {
             animate={{ scale: [1.1, 1, 1.1], opacity: [0.4, 0.2, 0.4] }}
             transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
           />
-          <motion.div
-            className="absolute top-1/2 left-1/2 h-[400px] w-[400px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-cyan-500/10 blur-[100px]"
-            animate={{ scale: [1, 1.2, 1] }}
-            transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
-          />
           {/* Subtle grid */}
           <div
             className="absolute inset-0 opacity-[0.03]"
@@ -274,49 +354,51 @@ export default function LandingPage() {
           />
         </div>
 
-        <div className="relative mx-auto w-full max-w-7xl px-4 py-24 sm:px-6 sm:py-32 lg:px-8">
-          <div className="mx-auto max-w-4xl text-center">
-            {/* Pill badge */}
-            <motion.div
+        <div className="relative mx-auto grid w-full max-w-7xl items-center gap-14 px-4 py-20 sm:px-6 sm:py-28 lg:grid-cols-[1fr_1.1fr] lg:px-8">
+          {/* Copy */}
+          <div>
+            <motion.p
+              className="mb-6 text-xs font-semibold tracking-[0.2em] text-blue-300 uppercase"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.2 }}
             >
-              <Badge className="mb-8 gap-1.5 border border-blue-400/30 bg-blue-500/10 px-4 py-1.5 text-sm text-blue-300 backdrop-blur-sm hover:bg-blue-500/20">
-                <Zap className="h-3.5 w-3.5 fill-current" />
-                PT-Inspired Exercise Intelligence
-              </Badge>
-            </motion.div>
+              Exercise Programming for Professionals
+            </motion.p>
 
-            {/* Headline */}
             <motion.h1
-              className="text-5xl font-extrabold leading-[1.1] tracking-tight text-white sm:text-6xl lg:text-7xl"
+              className="text-5xl font-extrabold leading-[1.05] tracking-tight text-white sm:text-6xl"
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.7, delay: 0.35, ease: [0.22, 1, 0.36, 1] }}
             >
-              Smarter Programming{" "}
-              <span className="relative">
-                <span className="bg-linear-to-r from-blue-300 via-cyan-300 to-teal-300 bg-clip-text text-transparent">
-                  Starts Here.
-                </span>
+              Build Better Exercise Programs.
+              <span className="block bg-linear-to-r from-blue-300 via-cyan-300 to-teal-300 bg-clip-text text-transparent">
+                In Minutes.
               </span>
             </motion.h1>
 
-            {/* Subheading */}
             <motion.p
-              className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-slate-400 sm:text-xl"
+              className="mt-6 max-w-xl text-lg leading-8 text-slate-400"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.7, delay: 0.5 }}
             >
-              Built by a Doctor of Physical Therapy to help personal trainers create safer,
-              more personalized programs in minutes using AI-powered exercise intelligence.
+              Create personalized programs from client goals, limitations, precautions, and available
+              equipment — or build manually and upload existing programs.
             </motion.p>
 
-            {/* CTA buttons */}
+            <motion.p
+              className="mt-4 font-semibold text-slate-200"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.6, delay: 0.6 }}
+            >
+              Developed by a Doctor of Physical Therapy.
+            </motion.p>
+
             <motion.div
-              className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row"
+              className="mt-10 flex flex-col gap-4 sm:flex-row sm:items-center"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.65 }}
@@ -327,7 +409,7 @@ export default function LandingPage() {
                 asChild
               >
                 <Link href="/sign-up">
-                  Start for Free
+                  Start Free
                   <ArrowRight className="h-4.5 w-4.5" />
                 </Link>
               </Button>
@@ -339,182 +421,98 @@ export default function LandingPage() {
               >
                 <Link href="/sign-in">
                   <Play className="h-4 w-4 fill-current" />
-                  Watch Demo
+                  Watch 60-Second Demo
                 </Link>
               </Button>
             </motion.div>
 
-            {/* Trust row */}
             <motion.div
-              className="mt-10 flex flex-wrap items-center justify-center gap-6 text-sm text-slate-500"
+              className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-slate-500"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 0.6, delay: 0.8 }}
             >
-              {[
-                { icon: Shield, label: "HIPAA Compliant" },
-                { icon: Check, label: "No credit card required" },
-                { icon: Users, label: "500+ trainers" },
-              ].map(({ icon: Icon, label }) => (
+              {heroTrust.map((label) => (
                 <div key={label} className="flex items-center gap-1.5">
-                  <Icon className="h-4 w-4 text-emerald-400" />
+                  <Check className="h-4 w-4 text-emerald-400" />
                   <span>{label}</span>
                 </div>
               ))}
             </motion.div>
           </div>
 
-          {/* Dashboard mockup */}
+          {/* Product preview */}
           <motion.div
-            className="mx-auto mt-20 max-w-5xl"
             initial={{ opacity: 0, y: 60, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            transition={{ duration: 0.9, delay: 0.7, ease: [0.22, 1, 0.36, 1] }}
+            transition={{ duration: 0.9, delay: 0.6, ease: [0.22, 1, 0.36, 1] }}
           >
-            <div className="relative rounded-2xl border border-white/10 bg-white/5 p-2 shadow-2xl backdrop-blur-sm">
-              {/* Glow */}
-              <div className="absolute inset-0 rounded-2xl bg-linear-to-br from-blue-500/10 via-transparent to-indigo-500/10" />
-              <div className="relative rounded-xl bg-[#f8fafc] p-4 sm:p-6 shadow-inner">
-                {/* Window chrome */}
-                <div className="mb-5 flex items-center gap-2">
-                  <div className="h-3 w-3 rounded-full bg-red-400/80" />
-                  <div className="h-3 w-3 rounded-full bg-amber-400/80" />
-                  <div className="h-3 w-3 rounded-full bg-green-400/80" />
-                  <div className="ml-4 h-5 w-56 rounded-md bg-slate-200" />
-                </div>
-                {/* App content preview */}
-                <div className="grid gap-4 sm:grid-cols-4">
-                  {[
-                    { label: "Active Clients", value: "127", change: "+12 this week", color: "blue" },
-                    { label: "Active Programs", value: "342", change: "+28 this week", color: "emerald" },
-                    { label: "Adherence Rate", value: "94%", change: "+3% vs last month", color: "violet" },
-                    { label: "Pending Feedback", value: "8", change: "3 need attention", color: "amber" },
-                  ].map((card, i) => (
-                    <motion.div
-                      key={card.label}
-                      className={`rounded-xl p-5 ${
-                        card.color === "blue" ? "bg-linear-to-br from-blue-50 to-indigo-50" :
-                        card.color === "emerald" ? "bg-linear-to-br from-emerald-50 to-teal-50" :
-                        card.color === "violet" ? "bg-linear-to-br from-violet-50 to-purple-50" :
-                        "bg-linear-to-br from-amber-50 to-orange-50"
-                      }`}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.5, delay: 0.9 + i * 0.1 }}
-                    >
-                      <p className={`text-xs font-medium ${
-                        card.color === "blue" ? "text-blue-600" :
-                        card.color === "emerald" ? "text-emerald-600" :
-                        card.color === "violet" ? "text-violet-600" :
-                        "text-amber-600"
-                      }`}>{card.label}</p>
-                      <p className="mt-2 text-3xl font-bold text-slate-800">{card.value}</p>
-                      <p className="mt-1 text-xs text-emerald-600">{card.change}</p>
-                    </motion.div>
-                  ))}
-                </div>
-                {/* Mock session list */}
-                <div className="mt-4 space-y-2">
-                  {[
-                    { name: "Maria Santos", program: "Shoulder Rehab Protocol", date: "Today, 2:00 PM", status: "Scheduled", statusColor: "blue" },
-                    { name: "John Park", program: "Knee Strengthening", date: "Today, 4:00 PM", status: "Completed", statusColor: "green" },
-                  ].map((s, i) => (
-                    <motion.div
-                      key={s.name}
-                      className="flex items-center justify-between rounded-lg border border-slate-100 bg-white px-4 py-3"
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ duration: 0.4, delay: 1.1 + i * 0.1 }}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className={`h-8 w-8 rounded-full bg-linear-to-br ${i === 0 ? "from-blue-400 to-indigo-500" : "from-violet-400 to-purple-500"} flex items-center justify-center text-xs font-bold text-white`}>
-                          {s.name.split(" ").map(n => n[0]).join("")}
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-slate-800">{s.name}</p>
-                          <p className="text-xs text-slate-500">{s.program}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <span className="text-xs text-slate-400">{s.date}</span>
-                        <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${s.statusColor === "blue" ? "bg-blue-100 text-blue-700" : "bg-green-100 text-green-700"}`}>
-                          {s.status}
-                        </span>
-                      </div>
-                    </motion.div>
-                  ))}
-                </div>
+            <p className="mb-3 text-right text-sm italic text-slate-400">
+              Turn client information into a structured program in seconds.
+            </p>
+            <CreateProgramMockup />
+          </motion.div>
+        </div>
+      </section>
+
+      {/* ── Value props ───────────────────────────────────────────────────── */}
+      <section className="border-b border-slate-100 bg-white py-10">
+        <div className="mx-auto grid max-w-7xl gap-8 px-4 sm:grid-cols-2 sm:px-6 lg:grid-cols-4 lg:divide-x lg:divide-slate-200 lg:px-8">
+          {valueProps.map(({ icon: Icon, title, detail }, i) => (
+            <FadeUp key={title} delay={i * 0.08} className="flex items-center gap-4 lg:px-6 lg:first:pl-0">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+                <Icon className="h-5 w-5 text-primary" />
               </div>
-            </div>
-          </motion.div>
-
-          {/* Scroll indicator */}
-          <motion.div
-            className="absolute bottom-10 left-1/2 -translate-x-1/2"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 1.4 }}
-          >
-            <motion.div
-              animate={{ y: [0, 8, 0] }}
-              transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
-              className="flex flex-col items-center gap-1 text-slate-500"
-            >
-              <span className="text-xs tracking-widest uppercase">Scroll</span>
-              <ChevronDown className="h-4 w-4" />
-            </motion.div>
-          </motion.div>
+              <p className="text-sm leading-snug">
+                <span className="font-semibold text-slate-900">{title}</span>
+                <br />
+                <span className="text-slate-500">{detail}</span>
+              </p>
+            </FadeUp>
+          ))}
         </div>
       </section>
 
-      {/* ── Stats ─────────────────────────────────────────────────────────── */}
-      <section className="border-y border-slate-100 bg-white py-14">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-2 gap-8 sm:grid-cols-4">
-            {stats.map(({ value, suffix, label, icon: Icon }, i) => (
-              <FadeUp key={label} delay={i * 0.1} className="text-center">
-                <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
-                  <Icon className="h-5 w-5 text-primary" />
-                </div>
-                <p className="text-4xl font-extrabold tracking-tight text-slate-900">
-                  <AnimatedNumber value={value} suffix={suffix} />
-                </p>
-                <p className="mt-1 text-sm font-medium text-slate-500">{label}</p>
-              </FadeUp>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── Features ──────────────────────────────────────────────────────── */}
-      <section id="features" className="py-24 sm:py-32">
+      {/* ── Three ways to create ──────────────────────────────────────────── */}
+      <section id="how-it-works" className="bg-slate-50 py-24 sm:py-28">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <FadeUp className="mx-auto max-w-2xl text-center">
             <Badge className="mb-4 border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100">
-              Platform Features
+              How It Works
             </Badge>
             <h2 className="text-4xl font-extrabold tracking-tight text-slate-900 sm:text-5xl">
-              Everything your practice needs
+              Three Ways to Create Programs
             </h2>
             <p className="mt-4 text-lg text-slate-600">
-              A complete platform for creating, assigning, and monitoring home exercise programs.
+              Choose the workflow that fits your style. Inmotus adapts to you.
             </p>
           </FadeUp>
 
-          <div className="mt-16 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {features.map((feature, i) => {
-              const Icon = feature.icon;
+          <div className="mt-16 grid gap-6 lg:grid-cols-3">
+            {creationPaths.map((path, i) => {
+              const Icon = path.icon;
               return (
-                <FadeUp key={feature.title} delay={i * 0.08}>
-                  <div className="group relative h-full overflow-hidden rounded-2xl border border-slate-200 bg-white p-8 transition-all duration-300 hover:-translate-y-1 hover:border-slate-300 hover:shadow-xl">
-                    <div className={`mb-5 inline-flex rounded-xl bg-linear-to-br ${feature.gradient} p-3 text-white shadow-lg`}>
+                <FadeUp key={path.title} delay={i * 0.1}>
+                  <Link
+                    href="/sign-up"
+                    className="group relative flex h-full items-start gap-5 overflow-hidden rounded-2xl border border-slate-200 bg-white p-8 transition-all duration-300 hover:-translate-y-1 hover:border-slate-300 hover:shadow-xl"
+                  >
+                    <div className={`inline-flex shrink-0 rounded-xl bg-linear-to-br ${path.gradient} p-3 text-white shadow-lg`}>
                       <Icon className="h-6 w-6" />
                     </div>
-                    <h3 className="mb-3 text-xl font-semibold text-slate-900">{feature.title}</h3>
-                    <p className="text-sm leading-relaxed text-slate-600">{feature.description}</p>
-                    {/* Hover gradient shine */}
-                    <div className={`absolute inset-0 rounded-2xl bg-linear-to-br ${feature.gradient} opacity-0 transition-opacity duration-300 group-hover:opacity-[0.03]`} />
-                  </div>
+                    <div className="flex-1">
+                      <div className="mb-2 flex flex-wrap items-center gap-2">
+                        <h3 className="text-xl font-semibold text-slate-900">{path.title}</h3>
+                        {path.badge && (
+                          <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-700">
+                            {path.badge}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sm leading-relaxed text-slate-600">{path.description}</p>
+                    </div>
+                    <ChevronRight className="mt-1 h-5 w-5 shrink-0 text-slate-400 transition-transform group-hover:translate-x-1 group-hover:text-slate-700" />
+                  </Link>
                 </FadeUp>
               );
             })}
@@ -522,98 +520,44 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── How it Works ──────────────────────────────────────────────────── */}
-      <section id="how-it-works" className="relative overflow-hidden bg-slate-950 py-24 sm:py-32">
-        {/* Background glow */}
-        <div className="pointer-events-none absolute inset-0">
-          <div className="absolute top-0 left-1/4 h-96 w-96 rounded-full bg-blue-600/10 blur-[120px]" />
-          <div className="absolute bottom-0 right-1/4 h-96 w-96 rounded-full bg-indigo-600/10 blur-[120px]" />
-        </div>
-
-        <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+      {/* ── Platform features ─────────────────────────────────────────────── */}
+      <section id="features" className="py-24 sm:py-28">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <FadeUp className="mx-auto max-w-2xl text-center">
-            <Badge className="mb-4 border-emerald-400/30 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20">
-              Simple Process
-            </Badge>
-            <h2 className="text-4xl font-extrabold tracking-tight text-white sm:text-5xl">
-              Live in 3 steps
+            <h2 className="text-4xl font-extrabold tracking-tight text-slate-900 sm:text-5xl">
+              A complete platform for exercise professionals
             </h2>
-            <p className="mt-4 text-lg text-slate-400">
-              From client intake to guided sessions in minutes.
-            </p>
+            <p className="mt-4 text-lg text-slate-600">Program. Deliver. Monitor. All in one place.</p>
           </FadeUp>
 
-          <div className="relative mt-20 grid gap-8 lg:grid-cols-3">
-            {/* Connector line */}
-            <div className="absolute top-14 left-0 right-0 hidden h-px bg-linear-to-r from-transparent via-white/10 to-transparent lg:block" />
-
-            {steps.map((step, i) => {
-              const Icon = step.icon;
-              return (
-                <FadeUp key={step.number} delay={i * 0.15}>
-                  <div className="relative flex flex-col items-center text-center">
-                    <div className={`relative mb-6 flex h-28 w-28 items-center justify-center rounded-3xl bg-linear-to-br ${step.color} shadow-2xl`}>
-                      <Icon className="h-10 w-10 text-white" />
-                      <div className="absolute -top-3 -right-3 flex h-8 w-8 items-center justify-center rounded-full bg-white text-xs font-bold text-slate-900 shadow-lg">
-                        {step.number}
-                      </div>
-                    </div>
-                    <h3 className="mb-3 text-xl font-bold text-white">{step.title}</h3>
-                    <p className="text-sm leading-relaxed text-slate-400">{step.description}</p>
-                  </div>
-                </FadeUp>
-              );
-            })}
+          <div className="mt-16 grid grid-cols-2 gap-y-12 sm:grid-cols-3 lg:grid-cols-5 lg:divide-x lg:divide-slate-200">
+            {platformFeatures.map(({ icon: Icon, title, description }, i) => (
+              <FadeUp key={title} delay={i * 0.08} className="px-4 text-center">
+                <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10">
+                  <Icon className="h-6 w-6 text-primary" />
+                </div>
+                <h3 className="font-semibold text-slate-900">{title}</h3>
+                <p className="mt-1.5 text-sm leading-relaxed text-slate-500">{description}</p>
+              </FadeUp>
+            ))}
           </div>
         </div>
       </section>
 
       {/* ── Testimonials ──────────────────────────────────────────────────── */}
-      <section className="py-24 sm:py-32">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <FadeUp className="mx-auto max-w-2xl text-center">
-            <Badge className="mb-4 border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100">
-              Testimonials
-            </Badge>
-            <h2 className="text-4xl font-extrabold tracking-tight text-slate-900 sm:text-5xl">
-              Trusted by healthcare professionals
-            </h2>
-            <p className="mt-4 text-lg text-slate-600">
-              See what trainers and clients say about INMOTUS RX.
+      <section className="bg-slate-50 py-24 sm:py-28">
+        <div className="mx-auto grid max-w-7xl items-center gap-12 px-4 sm:px-6 lg:grid-cols-[1fr_1.6fr] lg:px-8">
+          <FadeUp>
+            <p className="mb-4 text-xs font-semibold tracking-[0.2em] text-slate-500 uppercase">
+              Real professionals. Real impact.
             </p>
+            <h2 className="text-4xl font-extrabold tracking-tight text-slate-900 sm:text-5xl">
+              Trusted by exercise professionals.
+            </h2>
           </FadeUp>
-
-          <div className="mt-16 grid gap-8 lg:grid-cols-3">
-            {testimonials.map((t, i) => (
-              <FadeUp key={t.name} delay={i * 0.12}>
-                <div className="group relative flex h-full flex-col rounded-2xl border border-slate-200 bg-white p-8 transition-all duration-300 hover:-translate-y-1 hover:border-slate-300 hover:shadow-xl">
-                  {/* Stars */}
-                  <div className="mb-5 flex gap-1">
-                    {[1, 2, 3, 4, 5].map((s) => (
-                      <Star key={s} className="h-4 w-4 fill-amber-400 text-amber-400" />
-                    ))}
-                  </div>
-
-                  <p className="flex-1 text-base leading-relaxed text-slate-600">
-                    &ldquo;{t.quote}&rdquo;
-                  </p>
-
-                  <div className="mt-8 flex items-center gap-4">
-                    <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-linear-to-br ${t.gradient} text-sm font-bold text-white shadow-md`}>
-                      {t.avatar}
-                    </div>
-                    <div>
-                      <p className="font-semibold text-slate-900">{t.name}</p>
-                      <p className="text-sm text-slate-500">{t.role}{t.organization ? ` · ${t.organization}` : ""}</p>
-                    </div>
-                  </div>
-
-                  {/* Hover accent line */}
-                  <div className={`absolute bottom-0 left-8 right-8 h-0.5 rounded-full bg-linear-to-r ${t.gradient} scale-x-0 transition-transform duration-300 group-hover:scale-x-100`} />
-                </div>
-              </FadeUp>
-            ))}
-          </div>
+          <FadeUp delay={0.1}>
+            <TestimonialCarousel />
+          </FadeUp>
         </div>
       </section>
 
@@ -710,7 +654,7 @@ export default function LandingPage() {
             transition={{ duration: 6, repeat: Infinity }}
           />
           <motion.div
-            className="absolute -bottom-20 right-1/3 h-64 w-64 rounded-full bg-indigo-500/20 blur-[80px]"
+            className="absolute -bottom-20 right-1/3 h-64 w-64 rounded-full bg-emerald-500/15 blur-[80px]"
             animate={{ scale: [1.2, 1, 1.2] }}
             transition={{ duration: 8, repeat: Infinity }}
           />
@@ -718,31 +662,25 @@ export default function LandingPage() {
         <div className="relative mx-auto max-w-4xl px-4 text-center sm:px-6 lg:px-8">
           <FadeUp>
             <h2 className="text-4xl font-extrabold text-white sm:text-5xl">
-              Ready to transform client care?
+              Movement creates possibility.
             </h2>
             <p className="mt-4 text-lg text-slate-400">
-              Join hundreds of trainers using AI to build better exercise programs.
+              Start building better programs today.
             </p>
-            <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
+            <div className="mt-10 flex justify-center">
               <Button
                 size="lg"
                 className="h-13 gap-2 bg-linear-to-r from-blue-500 to-indigo-500 border-0 px-10 text-base font-semibold text-white shadow-xl shadow-blue-500/30 hover:from-blue-600 hover:to-indigo-600"
                 asChild
               >
                 <Link href="/sign-up">
-                  Get Started for Free
+                  Start Free
                   <ArrowRight className="h-4.5 w-4.5" />
                 </Link>
               </Button>
-              <Button
-                variant="outline"
-                size="lg"
-                className="h-13 border-white/20 bg-white/5 px-10 text-base text-slate-200 hover:border-white/40 hover:bg-white/10 hover:text-white"
-                asChild
-              >
-                <Link href="/sign-in">Sign In</Link>
-              </Button>
             </div>
+            <p className="mt-4 text-sm text-slate-500">No credit card required&nbsp;&nbsp;|&nbsp;&nbsp;Cancel anytime</p>
+            <p className="mt-8 text-lg italic text-emerald-300/80">Better movement. Healthier lives.</p>
           </FadeUp>
         </div>
       </section>

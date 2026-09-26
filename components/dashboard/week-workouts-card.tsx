@@ -169,9 +169,18 @@ export function WeekWorkoutsCard({
         );
         const mostRecent = chronological[chronological.length - 1];
 
+        // Read the subtitle from the whole week, not from `matching`, so it
+        // doesn't flip between a client's programs as the status filter
+        // changes. It follows the session behind "Next:" so the two agree.
+        const primaryProgram = (upcoming ?? mostRecent)?.workout?.program;
+        const programIds = new Set(
+          entry.all.map((s) => s.workout?.program?.id).filter((id): id is string => !!id)
+        );
+
         return {
           client: entry.client,
-          programName: entry.matching[0]?.workout?.program?.name ?? "Workout",
+          programName: primaryProgram?.name ?? "Workout",
+          otherProgramCount: Math.max(0, programIds.size - (primaryProgram ? 1 : 0)),
           days: buildWeekDays(entry.all, now),
           nextSessionDate: upcoming ? new Date(upcoming.scheduledDate) : null,
           displayStatus: upcoming?.status ?? mostRecent?.status ?? null,

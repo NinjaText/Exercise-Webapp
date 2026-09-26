@@ -12,6 +12,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { BODY_REGIONS, DIFFICULTY_LEVELS, COMMON_EQUIPMENT } from "@/lib/utils/constants";
 import { bulkCreateExercisesAction, type BulkExerciseInput } from "@/actions/bulk-exercise-actions";
 import { isYouTubeUrl, isYouTubePlaylistUrl } from "@/lib/utils/video";
+import type { ExerciseContext } from "@/lib/utils/exercise-context";
+import { ExerciseContextSelector, describeExerciseContexts } from "@/components/exercises/exercise-context-selector";
 import { toast } from "sonner";
 import {
   Loader2, Sparkles, ChevronDown, ChevronUp,
@@ -29,7 +31,6 @@ const EXERCISE_PHASES = [
 
 type AiStatus = "idle" | "loading" | "done" | "error";
 type ImportMode = "youtube" | "playlist" | "search";
-type ExerciseContext = "CLINICAL" | "PERFORMANCE";
 
 interface PlaylistVideo {
   videoId: string;
@@ -201,7 +202,7 @@ export function BulkImportForm() {
   const router = useRouter();
 
   const [mode, setMode] = useState<ImportMode>("youtube");
-  const [exerciseContext, setExerciseContext] = useState<ExerciseContext>("CLINICAL");
+  const [exerciseContexts, setExerciseContexts] = useState<ExerciseContext[]>(["CLINICAL"]);
 
   const [youtubeInput, setYoutubeInput] = useState("");
   const [ytProcessing, setYtProcessing] = useState(false);
@@ -233,7 +234,7 @@ export function BulkImportForm() {
         const res = await fetch("/api/ai/generate-exercise-metadata", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ youtubeUrl: url, context: exerciseContext }),
+          body: JSON.stringify({ youtubeUrl: url, contexts: exerciseContexts }),
         });
 
         if (!res.ok) {
@@ -461,7 +462,7 @@ export function BulkImportForm() {
       const res = await fetch("/api/ai/generate-exercise-metadata", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: row.name, context: exerciseContext }),
+        body: JSON.stringify({ name: row.name, contexts: exerciseContexts }),
       });
       if (!res.ok) throw new Error();
       const { data: d } = await res.json();
@@ -592,35 +593,18 @@ export function BulkImportForm() {
       </div>
 
       {/* ── Exercise Context ── */}
-      <div className="flex items-center justify-between rounded-xl border bg-muted/40 p-3">
-        <div>
+      <div className="flex flex-col gap-3 rounded-xl border bg-muted/40 p-4 md:flex-row md:items-center md:justify-between">
+        <div className="md:max-w-xs">
           <p className="text-sm font-medium">Exercise Context</p>
           <p className="text-xs text-muted-foreground">
-            Shapes the tone of AI-generated metadata for every video processed below.
+            Who are these exercises for? Select one or both. {describeExerciseContexts(exerciseContexts)}
           </p>
         </div>
-        <div className="flex gap-1 rounded-lg border bg-background p-1">
-          <button
-            type="button"
-            onClick={() => setExerciseContext("CLINICAL")}
-            className={[
-              "rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
-              exerciseContext === "CLINICAL" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground",
-            ].join(" ")}
-          >
-            Rehab / Clinical
-          </button>
-          <button
-            type="button"
-            onClick={() => setExerciseContext("PERFORMANCE")}
-            className={[
-              "rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
-              exerciseContext === "PERFORMANCE" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground",
-            ].join(" ")}
-          >
-            Athletic / Performance
-          </button>
-        </div>
+        <ExerciseContextSelector
+          value={exerciseContexts}
+          onChange={setExerciseContexts}
+          className="w-full md:w-auto md:min-w-md"
+        />
       </div>
 
       {/* ── YouTube URLs panel ── */}
@@ -669,7 +653,7 @@ export function BulkImportForm() {
                 <div className="space-y-1">
                   <Progress value={ytProgressPct} className="h-1.5" />
                   <p className="text-xs text-muted-foreground">
-                    AI is analyzing each video and generating clinical metadata… this takes a few seconds per video.
+                    AI is analyzing each video and generating exercise metadata… this takes a few seconds per video.
                   </p>
                 </div>
               )}
@@ -740,7 +724,7 @@ export function BulkImportForm() {
                     <div className="space-y-1">
                       <Progress value={ytProgressPct} className="h-1.5" />
                       <p className="text-xs text-muted-foreground">
-                        AI is analyzing each video and generating clinical metadata… this takes a few seconds per video.
+                        AI is analyzing each video and generating exercise metadata… this takes a few seconds per video.
                         {ytProgress.total > 0 && ` (${ytProgress.done} of ${ytProgress.total})`}
                       </p>
                     </div>
@@ -768,7 +752,7 @@ export function BulkImportForm() {
           <div className="flex items-start gap-2 rounded-lg border border-info-border bg-info-soft px-4 py-3 text-sm text-info-foreground">
             <ListVideo className="mt-0.5 h-4 w-4 shrink-0" />
             <p>
-              Playlists can contain up to 200 videos. Use the checkboxes to select which videos to import — AI will generate full clinical metadata for each selected video.
+              Playlists can contain up to 200 videos. Use the checkboxes to select which videos to import — AI will generate full metadata for each selected video.
             </p>
           </div>
         </div>

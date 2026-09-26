@@ -7,31 +7,24 @@ import * as sessionService from "@/lib/services/session.service";
 import * as messageService from "@/lib/services/message.service";
 import * as programService from "@/lib/services/program.service";
 import { getClientIdsForTrainer } from "@/lib/services/client.service";
-import {
-  getDashboardInsights,
-  computeProgramWeek,
-} from "@/lib/services/dashboard-insights.service";
+import { getDashboardInsights } from "@/lib/services/dashboard-insights.service";
 import { computeCurrentStreak } from "@/lib/utils/streak";
 import { getProgramSchedulingType } from "@/lib/utils/program-scheduling";
 import type { TrainerMessagePreview } from "@/components/dashboard/trainer-message-banner";
-import type { ProgramProgressSummary } from "@/components/dashboard/program-progress-bar";
-import type { QuickResourceItem } from "@/components/dashboard/quick-resources-row";
+import type { QuickResourceItem } from "@/components/dashboard/quick-resources-list";
 import { startOfWeek, endOfWeek, startOfDay } from "date-fns";
 
-/** How many Resource cards the dashboard's quick-access row shows. */
-const MAX_DASHBOARD_RESOURCES = 3;
+/** How many Resources the dashboard's quick-access list shows. */
+const MAX_DASHBOARD_RESOURCES = 6;
 
 export default async function DashboardPage() {
   const user = await getCurrentUser();
 
   const now = new Date();
-  const weekStart = startOfWeek(now);
-  const weekEnd = endOfWeek(now);
 
   if (user.role === "TRAINER") {
     // The trainer dashboard renders a Mon–Sun status strip per client, so its
-    // session window must be a Monday-start week. The client dashboard's
-    // weekStart/weekEnd above stay locale-default and are untouched.
+    // session window must be a Monday-start week.
     const trainerWeekStart = startOfWeek(now, { weekStartsOn: 1 });
     const trainerWeekEnd = endOfWeek(now, { weekStartsOn: 1 });
 
@@ -102,27 +95,13 @@ export default async function DashboardPage() {
   const calendarWindow = sessionService.getClientCalendarWindow(now);
 
   const [
-    recentAssessments,
     calendarSessions,
-    completedThisWeek,
     completedSessionDates,
     exercisesCompleted,
     inboxThreads,
     assignedPrograms,
   ] = await Promise.all([
-    prisma.assessment.findMany({
-      where: { clientId: user.id },
-      orderBy: { createdAt: "desc" },
-      take: 5,
-    }),
     sessionService.getClientCalendarSessions(user.id, calendarWindow),
-    prisma.workoutSessionV2.count({
-      where: {
-        clientId: user.id,
-        status: "COMPLETED",
-        completedAt: { gte: weekStart, lte: weekEnd },
-      },
-    }),
     prisma.workoutSessionV2.findMany({
       where: { clientId: user.id, status: "COMPLETED" },
       select: { startedAt: true, completedAt: true },
@@ -151,36 +130,8 @@ export default async function DashboardPage() {
       }
     : null;
 
-  // --- Program progress vs. Resources -----------------------------------
-  // A Resource has no schedule, so it can never be "the program you're on" —
-  // the progress card must pick a Scheduled one.
-  const scheduledPrograms = assignedPrograms.filter(
-    (p) => getProgramSchedulingType(p) === "SCHEDULED"
-  );
-  const currentProgram = scheduledPrograms.find((p) => p.status === "ACTIVE") ?? null;
-  const progressByProgramId = currentProgram
-    ? await programService.getProgramProgressMap([currentProgram.id])
-    : {};
-  const currentProgramProgress = currentProgram ? progressByProgramId[currentProgram.id] : undefined;
-
-  const programProgress: ProgramProgressSummary | null = currentProgram
-    ? {
-        programId: currentProgram.id,
-        programName: currentProgram.name,
-        week: computeProgramWeek(
-          {
-            id: currentProgram.id,
-            name: currentProgram.name,
-            startDate: currentProgram.startDate,
-            durationWeeks: currentProgram.durationWeeks,
-          },
-          now
-        ),
-        completedSessions: currentProgramProgress?.completed ?? 0,
-        totalSessions: currentProgramProgress?.total ?? 0,
-      }
-    : null;
-
+  // A Resource is the On-Demand half of the assigned programs — the Scheduled
+  // ones drive the calendar and the "Up next" hero instead.
   const resources: QuickResourceItem[] = assignedPrograms
     .filter((p) => getProgramSchedulingType(p) === "ON_DEMAND")
     .slice(0, MAX_DASHBOARD_RESOURCES)
@@ -220,14 +171,11 @@ export default async function DashboardPage() {
         firstName={user.firstName}
         upcomingSessions={upcomingSessions}
         calendarSessions={calendarSessions}
-        weeklyCompliance={completedThisWeek}
-        recentAssessments={recentAssessments}
         currentStreak={currentStreak}
         workoutsCompleted={workoutsCompleted}
         exercisesCompleted={exercisesCompleted}
         minutesExercised={minutesExercised}
         unreadTrainerMessage={unreadTrainerMessage}
-        programProgress={programProgress}
         resources={resources}
         inboxThreads={inboxThreads}
       />

@@ -37,22 +37,11 @@ const baseProps: DashboardProps = {
   firstName: "Jamie",
   upcomingSessions: [],
   calendarSessions: [],
-  weeklyCompliance: 2,
-  recentAssessments: [
-    { id: "a1", assessmentType: "GRIP_STRENGTH", value: 42, unit: "kg", createdAt: new Date() },
-  ],
   currentStreak: 3,
   workoutsCompleted: 5,
   exercisesCompleted: 20,
   minutesExercised: 120,
   unreadTrainerMessage: null,
-  programProgress: {
-    programId: "prog-1",
-    programName: "8-Week Strength Block",
-    week: { current: 3, total: 8 },
-    completedSessions: 6,
-    totalSessions: 16,
-  },
   resources: [
     {
       id: "res-1",
@@ -85,7 +74,7 @@ describe("ClientDashboard static render", () => {
     expect(html).toContain("Start workout");
     expect(html).toContain("TODAY");
     expect(countPrimaryButtons(html)).toBe(1);
-    expect((html.match(/data-slot="section-card"/g) ?? []).length).toBeGreaterThanOrEqual(4);
+    expect((html.match(/data-slot="section-card"/g) ?? []).length).toBe(4);
   });
 
   it("uses the workoutsCompleted fixture value on the Workouts completed stat", () => {
@@ -127,7 +116,66 @@ describe("ClientDashboard static render", () => {
     expect(html).toContain("Preview");
     expect(html).toContain("UPCOMING");
     expect(countPrimaryButtons(html)).toBe(0);
-    expect((html.match(/data-slot="section-card"/g) ?? []).length).toBeGreaterThanOrEqual(4);
+    expect((html.match(/data-slot="section-card"/g) ?? []).length).toBe(4);
+  });
+
+  it("puts the stat cards above the 'Up next' card", () => {
+    const html = renderToStaticMarkup(
+      <ClientDashboard {...baseProps} upcomingSessions={[makeSession()]} />
+    );
+
+    expect(html.indexOf("Current streak")).toBeGreaterThan(-1);
+    expect(html.indexOf("Current streak")).toBeLessThan(html.indexOf("Up next"));
+  });
+
+  it("drops the program-progress, weekly-compliance and assessment sections but keeps the week strip", () => {
+    const html = renderToStaticMarkup(
+      <ClientDashboard {...baseProps} upcomingSessions={[makeSession()]} />
+    );
+
+    expect(html).not.toContain("Program progress");
+    expect(html).not.toContain("This week");
+    expect(html).not.toContain("Assessments");
+    expect(html).toContain("Your week");
+  });
+
+  it("orders the page stats -> Up next -> Resources/Inbox -> week strip", () => {
+    const html = renderToStaticMarkup(
+      <ClientDashboard {...baseProps} upcomingSessions={[makeSession()]} />
+    );
+
+    const order = ["Current streak", "Up next", "Resources", "Inbox", "Your week"].map((label) =>
+      html.indexOf(label)
+    );
+
+    expect(order).not.toContain(-1);
+    expect(order).toEqual([...order].sort((a, b) => a - b));
+  });
+
+  it("gives Resources and Inbox a matching height so the row reads as a pair", () => {
+    const html = renderToStaticMarkup(
+      <ClientDashboard {...baseProps} upcomingSessions={[]} />
+    );
+
+    // Both cards stretch to the grid row's height rather than sitting at their
+    // natural heights — a regression here is what makes the pair look ragged.
+    // (`items-start` is deliberately not asserted against: PageHeader and
+    // SectionCard's own header both use it for unrelated reasons.)
+    expect((html.match(/data-slot="section-card"[^>]*\bh-full\b/g) ?? []).length).toBe(2);
+  });
+
+  it("gives the inbox the full width when the client has no resources", () => {
+    const withResources = renderToStaticMarkup(
+      <ClientDashboard {...baseProps} upcomingSessions={[]} />
+    );
+    const withoutResources = renderToStaticMarkup(
+      <ClientDashboard {...baseProps} upcomingSessions={[]} resources={[]} />
+    );
+
+    expect(withResources).toContain("lg:grid-cols-2");
+    expect(withResources).toContain("Morning Mobility");
+    expect(withoutResources).not.toContain("lg:grid-cols-2");
+    expect(withoutResources).not.toContain("Morning Mobility");
   });
 
   it("renders the empty state when nothing is scheduled", () => {
@@ -135,6 +183,6 @@ describe("ClientDashboard static render", () => {
 
     expect(html).toContain("Nothing scheduled right now");
     expect(countPrimaryButtons(html)).toBe(0);
-    expect((html.match(/data-slot="section-card"/g) ?? []).length).toBeGreaterThanOrEqual(4);
+    expect((html.match(/data-slot="section-card"/g) ?? []).length).toBe(4);
   });
 });

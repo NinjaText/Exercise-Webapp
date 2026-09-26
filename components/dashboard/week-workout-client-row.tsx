@@ -41,8 +41,10 @@ export interface WeekDayDot {
 
 export interface WeekWorkoutClientRowData {
   client: { id: string; firstName: string; lastName: string; email: string };
-  /** The program shown as the row's subtitle — the first one seen for this client this week. */
+  /** The program shown as the row's subtitle — the one behind the next session, else the most recent. */
   programName: string;
+  /** How many *other* programs this client has sessions from this week, shown as "+N". */
+  otherProgramCount?: number;
   days: WeekDayDot[];
   nextSessionDate: Date | null;
   /** Status of the next upcoming session, else of the most recent one. */
@@ -51,7 +53,7 @@ export interface WeekWorkoutClientRowData {
 }
 
 export function WeekWorkoutClientRow({ row }: { row: WeekWorkoutClientRowData }) {
-  const { client, programName, days, nextSessionDate, displayStatus, metrics } = row;
+  const { client, programName, otherProgramCount = 0, days, nextSessionDate, displayStatus, metrics } = row;
   const initials = getInitials(client);
   const displayName = getDisplayName(client);
 
@@ -72,7 +74,12 @@ export function WeekWorkoutClientRow({ row }: { row: WeekWorkoutClientRowData })
             <span className="block truncate text-sm font-semibold hover:underline">
               {displayName}
             </span>
-            <span className="block truncate text-xs text-muted-foreground">{programName}</span>
+            <span className="flex min-w-0 items-baseline gap-1 text-xs text-muted-foreground">
+              <span className="truncate">{programName}</span>
+              {otherProgramCount > 0 && (
+                <span className="shrink-0 font-medium">+{otherProgramCount}</span>
+              )}
+            </span>
             <span className="block truncate text-[11px] text-muted-foreground/70">
               {metrics?.lastCompletedAt
                 ? `Active ${formatDaysAgoLong(metrics.lastCompletedAt)}`

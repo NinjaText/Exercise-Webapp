@@ -16,11 +16,15 @@ import {
 } from "@/components/ui/dialog";
 import { Trash2 } from "lucide-react";
 import { deleteClientProgramAction } from "@/actions/program-actions";
+import { SchedulingPill } from "@/components/programs/program-picker";
+import { getProgramSchedulingType } from "@/lib/utils/program-scheduling";
 
 interface AssignedProgram {
   id: string;
   name: string;
   status: string;
+  /** null on programs written before the field existed — read via getProgramSchedulingType. */
+  schedulingType?: string | null;
   _count: { workouts: number };
 }
 
@@ -64,6 +68,7 @@ export function AssignedProgramsList({ programs }: { programs: AssignedProgram[]
                 {prog._count.workouts} workouts
               </p>
             </Link>
+            <SchedulingPill kind={getProgramSchedulingType(prog)} />
             <StatusBadge status={prog.status} />
             <Button
               variant="ghost"

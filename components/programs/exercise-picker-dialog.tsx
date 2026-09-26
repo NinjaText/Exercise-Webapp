@@ -28,6 +28,8 @@ import {
 import { cn } from "@/lib/utils";
 import { UniversalVideoPlayer } from "@/components/exercises/universal-video-player";
 import { YouTubeVideoSearch } from "@/components/exercises/youtube-video-search";
+import { ExerciseContextSelector } from "@/components/exercises/exercise-context-selector";
+import type { ExerciseContext } from "@/lib/utils/exercise-context";
 import { createOrganizationExerciseAction } from "@/actions/exercise-actions";
 import { isYouTubeUrl, hasRealVideoUrl, parseYoutubeUrls } from "@/lib/utils/video";
 import { toast } from "sonner";
@@ -572,7 +574,7 @@ export function ExercisePickerDialog({
   const [isPending, startTransition] = useTransition();
   const [createTab, setCreateTab] = useState<"ai" | "manual">("ai");
 
-  const [aiContext, setAiContext] = useState<"CLINICAL" | "PERFORMANCE">("CLINICAL");
+  const [aiContexts, setAiContexts] = useState<ExerciseContext[]>(["CLINICAL"]);
   const [aiVideoMode, setAiVideoMode] = useState<"paste" | "search">("search");
   const [aiSearchQuery, setAiSearchQuery] = useState("");
   const [aiSearchLoading, setAiSearchLoading] = useState(false);
@@ -692,7 +694,7 @@ export function ExercisePickerDialog({
         const res = await fetch("/api/ai/generate-exercise-metadata", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ youtubeUrl: url, context: aiContext }),
+          body: JSON.stringify({ youtubeUrl: url, contexts: aiContexts }),
         });
         const json = await res.json();
         if (!res.ok) {
@@ -758,7 +760,7 @@ export function ExercisePickerDialog({
     setView("list");
     setSelectedExerciseIds(new Set());
     setCreateTab("ai");
-    setAiContext("CLINICAL");
+    setAiContexts(["CLINICAL"]);
     setAiVideoMode("search");
     setAiSearchQuery("");
     setAiSearchVideos([]);
@@ -893,28 +895,8 @@ export function ExercisePickerDialog({
                   <TabsContent value="ai" className="mt-0 space-y-4">
                     <div className="space-y-1.5">
                       <Label className="text-xs font-semibold">Exercise Context</Label>
-                      <div className="flex gap-1 rounded-md border bg-muted/40 p-1 w-fit">
-                        <button
-                          type="button"
-                          onClick={() => setAiContext("CLINICAL")}
-                          className={cn(
-                            "rounded px-2.5 py-1 text-xs font-medium transition-colors",
-                            aiContext === "CLINICAL" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
-                          )}
-                        >
-                          Rehab / Clinical
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setAiContext("PERFORMANCE")}
-                          className={cn(
-                            "rounded px-2.5 py-1 text-xs font-medium transition-colors",
-                            aiContext === "PERFORMANCE" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
-                          )}
-                        >
-                          Athletic / Performance
-                        </button>
-                      </div>
+                      <ExerciseContextSelector value={aiContexts} onChange={setAiContexts} compact />
+                      <p className="text-[11px] text-muted-foreground">Select one or both.</p>
                     </div>
 
                     <div className="space-y-1.5">
