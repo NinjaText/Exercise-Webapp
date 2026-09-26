@@ -8,7 +8,7 @@
     "verify": "node scripts/verify.cjs",
     "test": "node --test 'scripts/*.test.cjs'",
     "assets:placeholder": "node scripts/make-placeholder-assets.cjs",
-    "assets": "capacitor-assets generate --iconBackgroundColor '#3F46C8' --iconBackgroundColorDark '#151a2e' --splashBackgroundColor '#3F46C8' --splashBackgroundColorDark '#151a2e'",
+    "assets": "capacitor-assets generate --ios --android --iconBackgroundColor '#3F46C8' --iconBackgroundColorDark '#151a2e' --splashBackgroundColor '#3F46C8' --splashBackgroundColorDark '#151a2e'",
     "version:set": "node scripts/set-version.cjs"
   },
   "dependencies": {
