@@ -52,6 +52,9 @@ const config: CapacitorConfig = {
     StatusBar: { overlaysWebView: true, style: "LIGHT" },
     Keyboard: { resize: "body" },
     SystemBars: { insetsHandling: "css", initialViewportFitValueHint: "cover" },
+    // Empty array: no system banner/sound/badge while the app is foregrounded.
+    // Foreground notifications are shown in-app as a toast instead.
+    PushNotifications: { presentationOptions: [] },
   },
 };
 

@@ -9,6 +9,7 @@ const {
   checkAndroidManifest,
   checkStampedVersions,
   checkDeepLinks,
+  checkPush,
 } = require("./verify.cjs");
 
 test("resolveServerUrl defaults to production and trims trailing slashes", () => {
@@ -34,6 +35,7 @@ const good = (platform) => ({
     SplashScreen: { launchAutoHide: true, launchShowDuration: 5000, launchFadeOutDuration: 200 },
     StatusBar: { style: "LIGHT" },
     SystemBars: { insetsHandling: "css", initialViewportFitValueHint: "cover" },
+    PushNotifications: { presentationOptions: [] },
   },
 });
 const files = ["index.html", "offline.html", "server-url.js"];
@@ -107,6 +109,18 @@ test("flags a non-never iOS contentInset", () => {
   const c = good("ios");
   c.ios.contentInset = "automatic";
   assert.ok(checkResolvedConfig(c, "ios", files).some((p) => p.includes("contentInset")));
+});
+
+test("flags a non-empty PushNotifications.presentationOptions", () => {
+  const c = good("android");
+  c.plugins.PushNotifications.presentationOptions = ["badge"];
+  assert.ok(checkResolvedConfig(c, "android", files).some((p) => p.includes("PushNotifications.presentationOptions")));
+});
+
+test("flags a missing PushNotifications plugin config", () => {
+  const c = good("ios");
+  delete c.plugins.PushNotifications;
+  assert.ok(checkResolvedConfig(c, "ios", files).some((p) => p.includes("PushNotifications.presentationOptions")));
 });
 
 const PLIST_OK = `<dict>
@@ -271,4 +285,48 @@ test("checkDeepLinks flags entitlements not referenced at all, and a missing sch
   assert.ok(problems.some((p) => p.includes("appears 0 times")));
   assert.ok(problems.some((p) => p.includes("does not register inmotus")));
   assert.ok(problems.some((p) => p.includes('android:scheme="inmotus"')));
+});
+
+const wiredPush = () => ({
+  appDelegate: [
+    "func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {",
+    "    NotificationCenter.default.post(name: .capacitorDidRegisterForRemoteNotifications, object: deviceToken)",
+    "}",
+    "func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {",
+    "    NotificationCenter.default.post(name: .capacitorDidFailToRegisterForRemoteNotifications, object: error)",
+    "}",
+  ].join("\n"),
+  entitlements: "<dict><key>aps-environment</key><string>production</string></dict>",
+  manifest: [
+    '<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />',
+    '<meta-data android:name="com.google.firebase.messaging.default_notification_icon" android:resource="@drawable/ic_stat_notify" />',
+    '<meta-data android:name="com.google.firebase.messaging.default_notification_channel_id" android:value="default" />',
+  ].join("\n"),
+});
+
+test("checkPush passes a fully wired project", () => {
+  assert.deepEqual(checkPush(wiredPush()), []);
+});
+
+test("checkPush flags AppDelegate missing either device-token callback", () => {
+  const w = wiredPush();
+  w.appDelegate = w.appDelegate.replace("capacitorDidFailToRegisterForRemoteNotifications", "somethingElse");
+  const problems = checkPush(w);
+  assert.ok(problems.some((p) => p.includes("didFailToRegisterForRemoteNotificationsWithError")));
+  assert.equal(problems.length, 1);
+});
+
+test("checkPush flags a missing aps-environment entitlement", () => {
+  const w = wiredPush();
+  w.entitlements = "<dict></dict>";
+  assert.deepEqual(checkPush(w), ["ios: App.entitlements missing aps-environment"]);
+});
+
+test("checkPush flags a missing POST_NOTIFICATIONS permission or FCM meta-data", () => {
+  const w = wiredPush();
+  w.manifest = "<manifest></manifest>";
+  const problems = checkPush(w);
+  assert.ok(problems.some((p) => p.includes("POST_NOTIFICATIONS")));
+  assert.ok(problems.some((p) => p.includes("default_notification_icon")));
+  assert.ok(problems.some((p) => p.includes("default_notification_channel_id")));
 });

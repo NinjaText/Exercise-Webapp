@@ -179,10 +179,34 @@ The app only ever follows these links to a path on its own site; a link to any o
 
 **Why universal links only work in TestFlight / Release builds:** the Associated Domains entitlement (`ios/App/App/App.entitlements`) is attached only to the **Release** build configuration. A free Apple ID (Personal Team) can't sign that entitlement, so leaving it off Debug keeps free-Apple-ID Debug builds on your own phone working (section 3). The consequence is that you test https links on iOS from a TestFlight or Release build; use `inmotus://dashboard` (e.g. typed into Notes and tapped) to test link handling in a Debug build. When enabling the entitlement for Release for the first time, the Apple Developer account must have the **Associated Domains** capability on the `com.goinmotus.app` identifier — Xcode's automatic signing adds it.
 
-## 13. Secrets that must never be committed
+## 13. Push notifications
+
+Push is wired into both native projects (`@capacitor/push-notifications`), but each store needs its own one-time setup before it can actually deliver anything.
+
+**Android (FCM)**
+
+1. In the [Firebase console](https://console.firebase.google.com/), create (or open) a project, then add an Android app with package name `com.goinmotus.app`.
+2. Download the generated `google-services.json` and place it at `mobile/android/app/google-services.json`. It's git-ignored (section 14) — every machine that builds a release needs its own copy.
+3. Firebase console → **Project settings → Service accounts → Generate new private key**. Base64-encode the downloaded JSON file and set it as `FIREBASE_SERVICE_ACCOUNT_JSON` in Vercel (Production) — the server uses it to sign FCM v1 API calls.
+
+**iOS (APNs)**
+
+1. [Apple Developer](https://developer.apple.com/account) → **Certificates, Identifiers & Profiles** → your `com.goinmotus.app` identifier → enable the **Push Notifications** capability.
+2. **Keys** → create a new APNs Auth Key (one key works for every app under the team). Download the `.p8` file — Apple only lets you download it once.
+3. In Vercel (Production), set:
+   - `APNS_KEY_P8` — base64 of the `.p8` file's contents.
+   - `APNS_KEY_ID` — the Key ID shown next to the key.
+   - `APPLE_TEAM_ID` — the same 10-character Team ID used for universal links (section 12).
+   - `APNS_PRODUCTION=1` — sends to Apple's production APNs host instead of the sandbox. Required for TestFlight and App Store builds; leave unset only when testing against a Debug build's sandbox token.
+
+**Why it only works in Release/TestFlight builds:** like the Associated Domains entitlement (section 12), `App.entitlements`' `aps-environment` key is attached only to the **Release** build configuration — a free Apple ID (Personal Team) can't sign it. A Debug build on your own phone (section 3) never registers for push.
+
+As with the other Vercel-side configuration in section 14, changing any of these env vars needs a **redeploy** to take effect — saving the variable alone changes nothing for a running deployment. If a schema change is ever needed for push (device tokens, preferences), that's `npx prisma db push`, run by the project owner, not from this checklist.
+
+## 14. Secrets that must never be committed
 
 - The Android upload keystore file and its passwords.
-- Later (Plan 3, push notifications): `GoogleService-Info.plist` and `google-services.json`.
+- `GoogleService-Info.plist` and `google-services.json` (section 13).
 
 Configuration that lives in Vercel (not in this repo) — not secret, but set it there, not in a committed file:
 

@@ -58,6 +58,11 @@ function checkResolvedConfig(config, platform, publicFiles) {
     problems.push(`${platform}: plugins.SystemBars.initialViewportFitValueHint must be cover`);
   }
 
+  const pushNotifications = plugins.PushNotifications || {};
+  if (!Array.isArray(pushNotifications.presentationOptions) || pushNotifications.presentationOptions.length !== 0) {
+    problems.push(`${platform}: plugins.PushNotifications.presentationOptions must be an empty array`);
+  }
+
   if (platform === "ios") {
     const ios = config.ios || {};
     if (ios.contentInset !== "never") problems.push(`${platform}: ios.contentInset must be never`);
@@ -181,6 +186,34 @@ function checkDeepLinks({ entitlements, pbxproj, infoPlist, manifest, paths }) {
   return problems;
 }
 
+// Native push wiring. AppDelegate must forward the APNs device-token
+// callbacks to Capacitor, the entitlement must request production APNs, and
+// the manifest must have the runtime permission plus the FCM default-icon /
+// default-channel meta-data (without them, Android silently falls back to a
+// generic bell and the "Miscellaneous" channel).
+function checkPush({ appDelegate, entitlements, manifest }) {
+  const problems = [];
+  if (!appDelegate.includes("capacitorDidRegisterForRemoteNotifications")) {
+    problems.push("ios: AppDelegate.swift missing didRegisterForRemoteNotificationsWithDeviceToken forwarding");
+  }
+  if (!appDelegate.includes("capacitorDidFailToRegisterForRemoteNotifications")) {
+    problems.push("ios: AppDelegate.swift missing didFailToRegisterForRemoteNotificationsWithError forwarding");
+  }
+  if (!entitlements.includes("<key>aps-environment</key>")) {
+    problems.push("ios: App.entitlements missing aps-environment");
+  }
+  if (!manifest.includes('android:name="android.permission.POST_NOTIFICATIONS"')) {
+    problems.push("AndroidManifest: permission POST_NOTIFICATIONS missing");
+  }
+  if (!manifest.includes('android:name="com.google.firebase.messaging.default_notification_icon"')) {
+    problems.push("AndroidManifest: com.google.firebase.messaging.default_notification_icon meta-data missing");
+  }
+  if (!manifest.includes('android:name="com.google.firebase.messaging.default_notification_channel_id"')) {
+    problems.push("AndroidManifest: com.google.firebase.messaging.default_notification_channel_id meta-data missing");
+  }
+  return problems;
+}
+
 function readIfExists(p) {
   return fs.existsSync(p) ? fs.readFileSync(p, "utf8") : null;
 }
@@ -219,15 +252,19 @@ function main() {
 
   const pathsRaw = readIfExists(path.join(__dirname, "../../lib/native/deep-link-paths.json"));
   if (!pathsRaw) problems.push("lib/native/deep-link-paths.json not found");
+  const entitlements = readIfExists(path.join(root, "ios/App/App/App.entitlements")) || "";
+  const manifest = readIfExists(path.join(root, "android/app/src/main/AndroidManifest.xml")) || "";
+  const appDelegate = readIfExists(path.join(root, "ios/App/App/AppDelegate.swift")) || "";
   problems.push(
     ...checkDeepLinks({
-      entitlements: readIfExists(path.join(root, "ios/App/App/App.entitlements")) || "",
+      entitlements,
       pbxproj: readIfExists(path.join(root, "ios/App/App.xcodeproj/project.pbxproj")) || "",
       infoPlist: readIfExists(path.join(root, "ios/App/App/Info.plist")) || "",
-      manifest: readIfExists(path.join(root, "android/app/src/main/AndroidManifest.xml")) || "",
+      manifest,
       paths: pathsRaw ? JSON.parse(pathsRaw) : [],
     })
   );
+  problems.push(...checkPush({ appDelegate, entitlements, manifest }));
 
   if (release) {
     const pkgRaw = readIfExists(path.join(root, "package.json"));
@@ -239,6 +276,11 @@ function main() {
     if (pkgRaw && pbxprojRaw && gradleRaw) {
       const { version } = JSON.parse(pkgRaw);
       problems.push(...checkStampedVersions({ version, pbxproj: pbxprojRaw, gradle: gradleRaw }));
+    }
+    // Android push cannot work without this file. It's git-ignored (mobile/.gitignore)
+    // and must be placed by hand before a release build.
+    if (!fs.existsSync(path.join(root, "android/app/google-services.json"))) {
+      problems.push("android: android/app/google-services.json missing — required for push notifications in a release build");
     }
   }
 
@@ -261,4 +303,5 @@ module.exports = {
   checkAndroidManifest,
   checkStampedVersions,
   checkDeepLinks,
+  checkPush,
 };
