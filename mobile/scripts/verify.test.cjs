@@ -1,7 +1,14 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const { resolveServerUrl, DEFAULT_SERVER_URL } = require("../server-url.cjs");
-const { checkResolvedConfig, checkReleaseConfig, UA_PATTERN, checkInfoPlist, checkAndroidManifest } = require("./verify.cjs");
+const {
+  checkResolvedConfig,
+  checkReleaseConfig,
+  UA_PATTERN,
+  checkInfoPlist,
+  checkAndroidManifest,
+  checkStampedVersions,
+} = require("./verify.cjs");
 
 test("resolveServerUrl defaults to production and trims trailing slashes", () => {
   assert.equal(resolveServerUrl({}), DEFAULT_SERVER_URL);
@@ -23,7 +30,7 @@ const good = (platform) => ({
     allowNavigation: ["app.goinmotus.com", "*.goinmotus.com", "*.clerk.accounts.dev", "*.accounts.dev"],
   },
   plugins: {
-    SplashScreen: { launchAutoHide: true, launchShowDuration: 3000, launchFadeOutDuration: 200 },
+    SplashScreen: { launchAutoHide: true, launchShowDuration: 5000, launchFadeOutDuration: 200 },
     StatusBar: { style: "LIGHT" },
     SystemBars: { insetsHandling: "css", initialViewportFitValueHint: "cover" },
   },
@@ -135,4 +142,48 @@ test("checkReleaseConfig flags a preview deployment URL", () => {
   const c = good("ios");
   c.server.url = "https://preview-xyz.vercel.app";
   assert.ok(checkReleaseConfig(c, "ios").some((p) => p.includes("server.url")));
+});
+
+const pbxproj = (marketing, code) => `
+				CURRENT_PROJECT_VERSION = ${code};
+				MARKETING_VERSION = ${marketing};
+				PRODUCT_BUNDLE_IDENTIFIER = com.goinmotus.app;
+				CURRENT_PROJECT_VERSION = ${code};
+				MARKETING_VERSION = ${marketing};
+`;
+const gradle = (name, code) => `
+        versionCode ${code}
+        versionName "${name}"
+`;
+
+test("checkStampedVersions passes when native files match package.json", () => {
+  assert.deepEqual(
+    checkStampedVersions({ version: "1.2.3", pbxproj: pbxproj("1.2.3", 10203), gradle: gradle("1.2.3", 10203) }),
+    []
+  );
+});
+
+test("checkStampedVersions flags both platforms when the package was bumped but not stamped", () => {
+  const problems = checkStampedVersions({
+    version: "1.3.0",
+    pbxproj: pbxproj("1.2.3", 10203),
+    gradle: gradle("1.2.3", 10203),
+  });
+  assert.ok(problems.some((p) => p.includes("ios") && p.includes("MARKETING_VERSION")));
+  assert.ok(problems.some((p) => p.includes("ios") && p.includes("CURRENT_PROJECT_VERSION")));
+  assert.ok(problems.some((p) => p.includes("android") && p.includes("versionName")));
+  assert.ok(problems.some((p) => p.includes("android") && p.includes("versionCode")));
+});
+
+test("checkStampedVersions flags a stale occurrence when only one of two pbxproj entries was stamped", () => {
+  const stale = `
+				CURRENT_PROJECT_VERSION = 10203;
+				MARKETING_VERSION = 1.2.3;
+				CURRENT_PROJECT_VERSION = 10102;
+				MARKETING_VERSION = 1.1.2;
+`;
+  const problems = checkStampedVersions({ version: "1.2.3", pbxproj: stale, gradle: gradle("1.2.3", 10203) });
+  assert.ok(problems.some((p) => p.includes("MARKETING_VERSION is 1.1.2")));
+  assert.ok(problems.some((p) => p.includes("CURRENT_PROJECT_VERSION is 10102")));
+  assert.equal(problems.filter((p) => p.includes("ios")).length, 2);
 });

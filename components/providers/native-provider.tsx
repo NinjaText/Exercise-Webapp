@@ -65,13 +65,11 @@ export function NativeProvider({ children }: { children: React.ReactNode }) {
       override: readOverride(),
       allowOverride: ALLOW_OVERRIDE,
     });
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- resolving the native shell (Capacitor platform, query/localStorage override) requires browser APIs unavailable during SSR; this runs once on mount to sync from that external system.
     setInfo(resolved);
     applyDocumentFlags(resolved);
   }, []);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- navigator.onLine is only readable client-side; this seeds state from that external system before subscribing to online/offline events below.
     setIsOnline(navigator.onLine);
     const goOnline = () => setIsOnline(true);
     const goOffline = () => setIsOnline(false);

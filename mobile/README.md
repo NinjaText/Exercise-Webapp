@@ -30,7 +30,7 @@ This is a native shell (Capacitor) around the hosted Inmotus RX web app at `http
 ```
 npm run sync && npm run open:ios
 ```
-Xcode opens. Select the `App` target → **Signing & Capabilities** → pick your own team (a free Apple ID works for installing on your own device — it does not need the paid Apple Developer Program). Plug your iPhone in with a cable, select it as the run destination, and press **Run** (▶).
+Xcode opens. Select the `App` target → **Signing & Capabilities** → pick your own team (a free Apple ID works for installing on your own device — it does not need the paid Apple Developer Program). If `com.goinmotus.app` is already registered under the company's Apple Developer team (Plan 0), a free Personal Team cannot sign it — choose the company team instead. Plug your iPhone in with a cable, select it as the run destination, and press **Run** (▶).
 
 The first time, the app installs but iOS refuses to open it and shows **"Untrusted Developer"**. On the phone go to **Settings → General → VPN & Device Management**, tap your Apple ID under "Developer App", and tap **Trust**. After that it opens normally.
 
@@ -72,7 +72,7 @@ npm run verify:release
 
 Warnings:
 - A dev build pointed at your laptop must **never** be uploaded to the App Store or Play Console.
-- `npm run verify` will flag cleartext traffic on an `https://` URL as a problem — it's a safety check, not a bug, if you see it while still pointed at a `http://` dev URL.
+- `npm run verify:release` refuses any non-production URL (a laptop IP, a preview URL) — that's a safety check, not a bug, if it fails while you're still pointed at a dev URL. (`npm run verify` alone does not check this — see section 9.)
 
 ## 5. Preview builds
 
@@ -114,9 +114,10 @@ npm run assets
 Before either platform, make sure you're pointed at production: `npm run sync && npm run verify:release` must print OK (see section 9).
 
 **iOS** — requires an active Apple Developer Program membership (from Plan 0).
-1. In Xcode: **Product → Archive**.
-2. **Distribute App → App Store Connect → Upload**.
-3. In App Store Connect, add the build to **TestFlight** for internal testing before any public release.
+1. In Xcode, select **Any iOS Device (arm64)** as the run destination (not a simulator or your plugged-in phone) — otherwise **Product → Archive** is greyed out.
+2. **Product → Archive**.
+3. **Distribute App → App Store Connect → Upload**.
+4. In App Store Connect, add the build to **TestFlight** for internal testing before any public release.
 
 **Android** — requires a Play Console account (from Plan 0).
 1. In Android Studio: **Build → Generate Signed Bundle / APK → Android App Bundle**.
@@ -130,20 +131,25 @@ npm run sync            # no CAP_SERVER_URL set — resolves to production
 npm run verify:release  # must print "mobile verify OK" — refuses any non-production URL
 npm test                 # must pass
 ```
-`npm run verify:release` does everything `npm run verify` does, plus it fails if `server.url` is anything other than `https://app.goinmotus.com` (a laptop IP, a preview URL, anything left over from sections 4/5) — `npm run verify` alone would not catch that. Also confirm the version was bumped and stamped (section 6).
+`npm run verify:release` does everything `npm run verify` does, plus it fails if `server.url` is anything other than `https://app.goinmotus.com` (a laptop IP, a preview URL, anything left over from sections 4/5) — `npm run verify` alone would not catch that. It also checks that the version stamped into the Xcode project and the Gradle project matches `mobile/package.json`'s `"version"` (section 6) — a bumped-but-unstamped version is flagged on both platforms.
 
-## 10. Troubleshooting
+## 10. Debugging the app
+
+- **iOS**: on the iPhone, **Settings → Safari → Advanced** and turn on **Web Inspector**. On the Mac, in Safari: **Settings → Advanced** → show the **Develop** menu, then **Develop → \<your iPhone\> → \<the page\>**. This only attaches to Debug builds.
+- **Android**: enable USB debugging on the phone (section 3), plug it in, then open `chrome://inspect` in desktop Chrome and select the page under the connected device.
+
+## 11. Troubleshooting
 
 - **`[error] Parsing capacitor.config.ts failed … Cannot use import statement outside a module`** — TypeScript 7 got installed in `mobile/`. `cap sync` keeps using the previous resolved config when this happens, so it can silently mask changes. Keep `typescript@^5` in `mobile/package.json`.
 - **App icon appears but won't open / "Untrusted Developer"** — expected the first time you install with a free/personal Apple ID. On the phone: **Settings → General → VPN & Device Management** → tap your Apple ID developer profile → **Trust**. If it recurs a week later, your free Apple ID's signing has simply expired after its 7-day limit — re-run from Xcode.
 - **Live-reload build shows the offline page** — usually the phone and Mac aren't on the same Wi-Fi network (check for cellular data or a guest/isolated network on the phone), or macOS was told to block incoming connections for `node` (System Settings → Network → Firewall → Options, allow incoming connections for node, or re-trigger the "Allow" prompt by restarting `npm run dev:lan`).
 - **`npm test` fails or behaves oddly on Node 22+** — it must use the quoted glob form, `node --test 'scripts/*.test.cjs'` (already how the script is defined). The unquoted directory form (`node --test scripts/`) fails on newer Node versions — don't "simplify" it back.
 - **Sign-in opens Safari/Chrome instead of staying in the app** — add the missing domain to `server.allowNavigation` in `mobile/capacitor.config.ts`, then `npm run sync` again.
-- **Blank screen on launch** — run `npm run verify` and check `server.url` in the printed/resolved config; it should be `https://app.goinmotus.com` for any build headed to a store.
+- **Blank screen on launch** — run `npm run verify`; it prints `mobile verify OK` or a list of problems, including whether `server.url` is `https://app.goinmotus.com` for any build headed to a store. The resolved config files it checks live at `ios/App/App/capacitor.config.json` and `android/app/src/main/assets/capacitor.config.json` — read those directly if you need to see the actual values.
 
-`npm run verify` checks the *resolved* config that `cap sync` actually wrote (not just the source file), including: the server URL and cleartext flag, the allowed navigation hosts, the offline page and its bundled `server-url.js`, splash screen / status bar / safe-area plugin settings, the required `Info.plist` usage-description strings, and the required Android permissions.
+`npm run verify` checks the *resolved* config that `cap sync` actually wrote (not just the source file), including: the server URL and cleartext flag, the allowed navigation hosts, the offline page and its bundled `server-url.js`, splash screen / status bar / safe-area plugin settings, the required `Info.plist` usage-description strings, and the required Android permissions. It prints either `mobile verify OK` or a list of problems — it does not print the resolved config itself.
 
-## 11. Secrets that must never be committed
+## 12. Secrets that must never be committed
 
 - The Android upload keystore file and its passwords.
 - Later (Plan 3, push notifications): `GoogleService-Info.plist` and `google-services.json`.

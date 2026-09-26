@@ -106,18 +106,68 @@ describe("registerNativeLifecycle", () => {
     expect(deps.app.minimizeApp).toHaveBeenCalled();
   });
 
-  it("refreshes only after a long background", async () => {
+  it("refreshes only after a long background, while online", async () => {
     const { deps, handlers } = makeDeps();
+    vi.mocked(deps.network.getStatus).mockResolvedValue({ connected: true });
     await registerNativeLifecycle(deps);
     vi.mocked(deps.now).mockReturnValue(0);
     handlers["app:appStateChange"]({ isActive: false } as never);
     vi.mocked(deps.now).mockReturnValue(10_000);
     handlers["app:appStateChange"]({ isActive: true } as never);
+    await Promise.resolve();
+    await Promise.resolve();
     expect(deps.onResumeAfterLongPause).not.toHaveBeenCalled();
     handlers["app:appStateChange"]({ isActive: false } as never);
     vi.mocked(deps.now).mockReturnValue(10_000 + RESUME_REFRESH_AFTER_MS);
     handlers["app:appStateChange"]({ isActive: true } as never);
+    await Promise.resolve();
+    await Promise.resolve();
     expect(deps.onResumeAfterLongPause).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not refresh when resuming after a long pause while offline", async () => {
+    const { deps, handlers } = makeDeps();
+    vi.mocked(deps.network.getStatus).mockResolvedValue({ connected: false });
+    await registerNativeLifecycle(deps);
+    vi.mocked(deps.now).mockReturnValue(0);
+    handlers["app:appStateChange"]({ isActive: false } as never);
+    vi.mocked(deps.now).mockReturnValue(RESUME_REFRESH_AFTER_MS);
+    handlers["app:appStateChange"]({ isActive: true } as never);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(deps.onResumeAfterLongPause).not.toHaveBeenCalled();
+  });
+
+  it("refreshes exactly once when connectivity returns after an offline resume", async () => {
+    const { deps, handlers } = makeDeps();
+    vi.mocked(deps.network.getStatus).mockResolvedValue({ connected: false });
+    await registerNativeLifecycle(deps);
+    vi.mocked(deps.now).mockReturnValue(0);
+    handlers["app:appStateChange"]({ isActive: false } as never);
+    vi.mocked(deps.now).mockReturnValue(RESUME_REFRESH_AFTER_MS);
+    handlers["app:appStateChange"]({ isActive: true } as never);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(deps.onResumeAfterLongPause).not.toHaveBeenCalled();
+    handlers["network:networkStatusChange"]({ connected: true } as never);
+    expect(deps.onResumeAfterLongPause).toHaveBeenCalledTimes(1);
+    // Only the first connected transition after the pause consumes the debt.
+    handlers["network:networkStatusChange"]({ connected: true } as never);
+    expect(deps.onResumeAfterLongPause).toHaveBeenCalledTimes(1);
+  });
+
+  it("treats a rejected getStatus as offline and does not refresh", async () => {
+    const { deps, handlers } = makeDeps();
+    vi.mocked(deps.network.getStatus).mockRejectedValue(new Error("no network"));
+    await registerNativeLifecycle(deps);
+    vi.mocked(deps.now).mockReturnValue(0);
+    handlers["app:appStateChange"]({ isActive: false } as never);
+    vi.mocked(deps.now).mockReturnValue(RESUME_REFRESH_AFTER_MS);
+    handlers["app:appStateChange"]({ isActive: true } as never);
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(deps.onResumeAfterLongPause).not.toHaveBeenCalled();
   });
 
   it("forwards connectivity changes", async () => {

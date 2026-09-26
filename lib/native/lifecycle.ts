@@ -78,6 +78,12 @@ export async function registerNativeLifecycle(deps: LifecycleDeps): Promise<() =
   deps.network.getStatus().then((s) => deps.onOnlineChange(s.connected)).catch(ignore);
 
   let hiddenAt: number | null = null;
+  // Set when a resume-triggered refresh was skipped because the device was
+  // offline at the time; consumed by the next networkStatusChange that
+  // reports connectivity, so data still refreshes without a destructive
+  // navigation while offline (spec §5: never route through offline.html for
+  // a resume the user didn't ask for).
+  let refreshOwed = false;
   const handles = await Promise.all([
     deps.app.addListener("backButton", ({ canGoBack }) => {
       if (decideBackAction(canGoBack) === "back") deps.historyBack();
@@ -88,10 +94,28 @@ export async function registerNativeLifecycle(deps: LifecycleDeps): Promise<() =
         hiddenAt = deps.now();
         return;
       }
-      if (shouldRefreshOnResume(hiddenAt, deps.now())) deps.onResumeAfterLongPause();
+      const wasLongPause = shouldRefreshOnResume(hiddenAt, deps.now());
       hiddenAt = null;
+      if (!wasLongPause) return;
+      deps.network
+        .getStatus()
+        .then((status) => {
+          if (status.connected) deps.onResumeAfterLongPause();
+          else refreshOwed = true;
+        })
+        .catch(() => {
+          // Can't tell — treat as offline rather than risk a destructive
+          // navigation on a failed RSC fetch.
+          refreshOwed = true;
+        });
     }),
-    deps.network.addListener("networkStatusChange", ({ connected }) => deps.onOnlineChange(connected)),
+    deps.network.addListener("networkStatusChange", ({ connected }) => {
+      deps.onOnlineChange(connected);
+      if (connected && refreshOwed) {
+        refreshOwed = false;
+        deps.onResumeAfterLongPause();
+      }
+    }),
   ]);
 
   const onClick = (e: ClickLike) => {

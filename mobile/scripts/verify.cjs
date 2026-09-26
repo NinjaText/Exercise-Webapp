@@ -5,6 +5,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const { DEFAULT_SERVER_URL } = require("../server-url.cjs");
+const { versionCodeFor } = require("./version.cjs");
 
 // Must stay in step with lib/native/platform.ts in the web app.
 const UA_PATTERN = /InmotusApp\/(\d+\.\d+\.\d+)\s*\((ios|android)\)/i;
@@ -37,7 +38,7 @@ function checkResolvedConfig(config, platform, publicFiles) {
   const plugins = config.plugins || {};
   const splash = plugins.SplashScreen || {};
   if (splash.launchAutoHide !== true) problems.push(`${platform}: plugins.SplashScreen.launchAutoHide must be true`);
-  if (splash.launchShowDuration !== 3000) problems.push(`${platform}: plugins.SplashScreen.launchShowDuration must be 3000`);
+  if (splash.launchShowDuration !== 5000) problems.push(`${platform}: plugins.SplashScreen.launchShowDuration must be 5000`);
   if (splash.launchFadeOutDuration !== 200) problems.push(`${platform}: plugins.SplashScreen.launchFadeOutDuration must be 200`);
 
   const statusBar = plugins.StatusBar || {};
@@ -67,6 +68,45 @@ function checkReleaseConfig(config, platform) {
     problems.push(`${platform}: server.url is "${server.url}", must be ${DEFAULT_SERVER_URL} for a release build`);
   }
   if (server.cleartext) problems.push(`${platform}: server.cleartext must be false for a release build`);
+  return problems;
+}
+
+// Catches the "bumped package.json but forgot npm run version:set" mistake:
+// the UA suffix (from package.json, via capacitor.config.ts) would report one
+// version while App.getInfo() (from the stamped native project files) reports
+// another, and a store rejects a re-submitted build number besides.
+function checkStampedVersions({ version, pbxproj, gradle }) {
+  const problems = [];
+  const code = versionCodeFor(version);
+
+  const marketingMatches = [...pbxproj.matchAll(/MARKETING_VERSION = ([^;]+);/g)];
+  if (marketingMatches.length === 0) problems.push("ios: MARKETING_VERSION not found in project.pbxproj");
+  for (const m of marketingMatches) {
+    if (m[1] !== version) problems.push(`ios: MARKETING_VERSION is ${m[1]}, must be ${version} (run npm run version:set)`);
+  }
+
+  const projectVersionMatches = [...pbxproj.matchAll(/CURRENT_PROJECT_VERSION = ([^;]+);/g)];
+  if (projectVersionMatches.length === 0) problems.push("ios: CURRENT_PROJECT_VERSION not found in project.pbxproj");
+  for (const m of projectVersionMatches) {
+    if (m[1] !== String(code)) {
+      problems.push(`ios: CURRENT_PROJECT_VERSION is ${m[1]}, must be ${code} (run npm run version:set)`);
+    }
+  }
+
+  const versionNameMatches = [...gradle.matchAll(/versionName "([^"]*)"/g)];
+  if (versionNameMatches.length === 0) problems.push("android: versionName not found in build.gradle");
+  for (const m of versionNameMatches) {
+    if (m[1] !== version) problems.push(`android: versionName is ${m[1]}, must be ${version} (run npm run version:set)`);
+  }
+
+  const versionCodeMatches = [...gradle.matchAll(/versionCode (\d+)/g)];
+  if (versionCodeMatches.length === 0) problems.push("android: versionCode not found in build.gradle");
+  for (const m of versionCodeMatches) {
+    if (Number(m[1]) !== code) {
+      problems.push(`android: versionCode is ${m[1]}, must be ${code} (run npm run version:set)`);
+    }
+  }
+
   return problems;
 }
 
@@ -132,6 +172,19 @@ function main() {
   problems.push(...checkInfoPlist(readIfExists(path.join(root, "ios/App/App/Info.plist")) || ""));
   problems.push(...checkAndroidManifest(readIfExists(path.join(root, "android/app/src/main/AndroidManifest.xml")) || ""));
 
+  if (release) {
+    const pkgRaw = readIfExists(path.join(root, "package.json"));
+    const pbxprojRaw = readIfExists(path.join(root, "ios/App/App.xcodeproj/project.pbxproj"));
+    const gradleRaw = readIfExists(path.join(root, "android/app/build.gradle"));
+    if (!pkgRaw) problems.push("package.json not found");
+    if (!pbxprojRaw) problems.push("ios: ios/App/App.xcodeproj/project.pbxproj not found");
+    if (!gradleRaw) problems.push("android: android/app/build.gradle not found");
+    if (pkgRaw && pbxprojRaw && gradleRaw) {
+      const { version } = JSON.parse(pkgRaw);
+      problems.push(...checkStampedVersions({ version, pbxproj: pbxprojRaw, gradle: gradleRaw }));
+    }
+  }
+
   if (problems.length) {
     console.error("mobile verify FAILED:\n - " + problems.join("\n - "));
     process.exit(1);
@@ -141,4 +194,12 @@ function main() {
 
 if (require.main === module) main();
 
-module.exports = { UA_PATTERN, REQUIRED_HOSTS, checkResolvedConfig, checkReleaseConfig, checkInfoPlist, checkAndroidManifest };
+module.exports = {
+  UA_PATTERN,
+  REQUIRED_HOSTS,
+  checkResolvedConfig,
+  checkReleaseConfig,
+  checkInfoPlist,
+  checkAndroidManifest,
+  checkStampedVersions,
+};
