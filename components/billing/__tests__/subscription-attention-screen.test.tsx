@@ -17,4 +17,13 @@ describe("SubscriptionAttentionScreen", () => {
       expect(html).toContain("Sign out");
     });
   }
+
+  it("uses an <h1> for the page layout, and an <h2> (no <h1>) for the inline layout so the host page's own <h1> stays unique", () => {
+    const pageHtml = renderToStaticMarkup(<SubscriptionAttentionScreen reason="manage" layout="page" />);
+    expect(pageHtml).toContain("<h1");
+
+    const inlineHtml = renderToStaticMarkup(<SubscriptionAttentionScreen reason="manage" layout="inline" />);
+    expect(inlineHtml).toContain("<h2");
+    expect(inlineHtml).not.toContain("<h1");
+  });
 });

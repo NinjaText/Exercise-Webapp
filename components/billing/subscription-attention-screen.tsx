@@ -27,10 +27,11 @@ export function SubscriptionAttentionScreen({
   reason: AttentionReason;
   layout?: "page" | "inline";
 }) {
+  const Headline = layout === "inline" ? "h2" : "h1";
   const body = (
     <div className="mx-auto flex max-w-sm flex-col items-center gap-4 text-center">
       <div className="size-12 rounded-full bg-muted" aria-hidden />
-      <h1 className="text-xl font-semibold text-foreground">{HEADLINE[reason]}</h1>
+      <Headline className="text-xl font-semibold text-foreground">{HEADLINE[reason]}</Headline>
       <p className="text-sm text-muted-foreground">
         {REASON_TEXT[reason] ? `${REASON_TEXT[reason]} ` : ""}
         Your subscription is managed from your account on the web.
