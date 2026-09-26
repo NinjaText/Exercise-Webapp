@@ -16,45 +16,81 @@ export interface DeletionBlocker {
 
 /**
  * Rows another real user depends on as their own asset (a client's paid
- * subscription, a trainer's sellable package or check-in template, a legacy
- * plan that may still be assigned to a different client). We refuse with a
- * specific reason instead of silently deleting something a third party
- * relies on. `includeActiveClients` adds the self-serve rule from the mobile
- * spec §6: a trainer must deactivate or reassign clients before leaving.
+ * subscription, a sellable package somebody actually bought, a check-in
+ * template assigned to a client, a legacy plan assigned to a different
+ * client). We refuse with a specific reason instead of silently deleting
+ * something a third party relies on.
+ *
+ * These checks are dependency-aware, not existence-aware. There is no UI to
+ * delete a check-in template and packages can only be deactivated, so a
+ * trainer who ever created one would otherwise be permanently unable to
+ * delete their account — which is exactly what Apple 5.1.1(v) forbids. A row
+ * nobody depends on is the departing user's own data and `deleteUserData`
+ * removes it.
+ *
+ * `includeActiveClients` adds the self-serve rule from the mobile spec §6.
  */
 export async function findDeletionBlockers(
   userId: string,
   options: { includeActiveClients: boolean }
 ): Promise<DeletionBlocker[]> {
   const [packageCount, subscriptionCount, legacyPlanCount, checkInTemplateCount] = await Promise.all([
-    prisma.coachPackage.count({ where: { trainerId: userId } }),
+    // Only packages someone has actually subscribed to. An unsold package is
+    // the trainer's own listing and is cleaned up on delete.
+    prisma.coachPackage.count({ where: { trainerId: userId, subscriptions: { some: {} } } }),
     prisma.clientSubscription.count({ where: { clientId: userId } }),
-    prisma.workoutPlan.count({ where: { createdById: userId } }),
-    prisma.checkInTemplate.count({ where: { trainerId: userId } }),
+    // Only plans assigned to a DIFFERENT client. Unassigned plans and plans
+    // this user assigned to themselves are their own data.
+    prisma.workoutPlan.count({
+      where: {
+        createdById: userId,
+        AND: [{ clientId: { not: null } }, { clientId: { not: userId } }],
+      },
+    }),
+    // Only templates with at least one assignment. `CheckInAssignment`
+    // declares `onDelete: Cascade` from its template, so deleting an assigned
+    // template would take a client's whole check-in history with it.
+    prisma.checkInTemplate.count({ where: { trainerId: userId, assignments: { some: {} } } }),
   ]);
 
   const blockers: DeletionBlocker[] = [];
   if (packageCount > 0) {
-    blockers.push({ code: "PACKAGES", count: packageCount, message: `this trainer has ${packageCount} coaching package(s) for sale. Remove them first.` });
+    blockers.push({ code: "PACKAGES", count: packageCount, message: `this trainer has ${packageCount} coaching package(s) with active subscribers. Cancel those subscriptions first.` });
   }
   if (subscriptionCount > 0) {
     blockers.push({ code: "CLIENT_SUBSCRIPTIONS", count: subscriptionCount, message: `this client has ${subscriptionCount} billing subscription(s) on file. Cancel them first.` });
   }
   if (legacyPlanCount > 0) {
-    blockers.push({ code: "LEGACY_PLANS", count: legacyPlanCount, message: `this trainer authored ${legacyPlanCount} legacy workout plan(s) that may still be assigned to other clients. Reassign or remove them first.` });
+    blockers.push({ code: "LEGACY_PLANS", count: legacyPlanCount, message: `this trainer authored ${legacyPlanCount} legacy workout plan(s) still assigned to other clients. Reassign or remove them first.` });
   }
   if (checkInTemplateCount > 0) {
-    blockers.push({ code: "CHECKIN_TEMPLATES", count: checkInTemplateCount, message: `this trainer created ${checkInTemplateCount} check-in template(s) that may be assigned to other clients. Remove them first.` });
+    blockers.push({ code: "CHECKIN_TEMPLATES", count: checkInTemplateCount, message: `this trainer created ${checkInTemplateCount} check-in template(s) assigned to other clients. Unassign them first.` });
   }
 
   if (options.includeActiveClients) {
     const user = await prisma.user.findUnique({ where: { id: userId }, select: { role: true, clerkOrgId: true } });
     if (user?.role === "TRAINER" && user.clerkOrgId) {
-      const activeClients = await prisma.user.count({
-        where: { clerkOrgId: user.clerkOrgId, role: "CLIENT", isActive: true },
+      // Clients belong to the organization, not to an individual trainer —
+      // this schema has no per-trainer client assignment, so the count below
+      // is organization-wide. In a multi-trainer clinic a colleague still
+      // covers those clients, so a departing trainer must not be told to
+      // deactivate other people's clients. Only the last active trainer is
+      // blocked, because then the clients really would be abandoned.
+      const otherActiveTrainers = await prisma.user.count({
+        where: {
+          clerkOrgId: user.clerkOrgId,
+          role: "TRAINER",
+          isActive: true,
+          id: { not: userId },
+        },
       });
-      if (activeClients > 0) {
-        blockers.push({ code: "ACTIVE_CLIENTS", count: activeClients, message: `your organization still has ${activeClients} active client(s). Deactivate or reassign them before deleting your account.` });
+      if (otherActiveTrainers === 0) {
+        const activeClients = await prisma.user.count({
+          where: { clerkOrgId: user.clerkOrgId, role: "CLIENT", isActive: true },
+        });
+        if (activeClients > 0) {
+          blockers.push({ code: "ACTIVE_CLIENTS", count: activeClients, message: `your organization still has ${activeClients} active client(s) and you are its only active trainer. Deactivate or reassign them before deleting your account.` });
+        }
       }
     }
   }
@@ -84,7 +120,10 @@ export async function findDeletionBlockers(
  * on an already-empty set is a no-op), so a mid-sequence failure just leaves
  * the retry with less left to clean up.
  *
- * Callers must run `findDeletionBlockers` first.
+ * Callers MUST run `findDeletionBlockers` first and abort if it returns
+ * anything. This function deletes leaf rows before it can discover a
+ * restrict violation on the user row, so calling it on a blocked user
+ * destroys health data and then fails.
  */
 export async function deleteUserData(userId: string): Promise<void> {
   const v2SessionIds = (
@@ -133,5 +172,46 @@ export async function deleteUserData(userId: string): Promise<void> {
   await prisma.dismissedInsight.deleteMany({ where: { trainerId: userId } });
   await prisma.assessment.deleteMany({ where: { clientId: userId } });
   await prisma.clientProfile.deleteMany({ where: { userId } });
+
+  // Structural rows `findDeletionBlockers` has already cleared as having no
+  // third-party dependents: an unsold package, a template nobody is assigned
+  // to, a legacy plan that is unassigned or assigned to this user. They hang
+  // off required relations to User, so they must go before the user row.
+  // Deleted leaf-first rather than trusting the emulated cascade, for the
+  // same reason as everything above.
+  await prisma.coachPackage.deleteMany({ where: { trainerId: userId } });
+
+  const checkInTemplateIds = (
+    await prisma.checkInTemplate.findMany({ where: { trainerId: userId }, select: { id: true } })
+  ).map((t) => t.id);
+  if (checkInTemplateIds.length) {
+    await prisma.checkInQuestion.deleteMany({ where: { templateId: { in: checkInTemplateIds } } });
+  }
+  await prisma.checkInTemplate.deleteMany({ where: { trainerId: userId } });
+
+  const legacyPlanIds = (
+    await prisma.workoutPlan.findMany({ where: { createdById: userId }, select: { id: true } })
+  ).map((plan) => plan.id);
+  if (legacyPlanIds.length) {
+    const planSessionIds = (
+      await prisma.workoutSession.findMany({ where: { planId: { in: legacyPlanIds } }, select: { id: true } })
+    ).map((session) => session.id);
+    if (planSessionIds.length) {
+      await prisma.sessionExercise.deleteMany({ where: { sessionId: { in: planSessionIds } } });
+      await prisma.workoutSession.deleteMany({ where: { id: { in: planSessionIds } } });
+    }
+    const planBlockIds = (
+      await prisma.workoutBlock.findMany({ where: { planId: { in: legacyPlanIds } }, select: { id: true } })
+    ).map((block) => block.id);
+    if (planBlockIds.length) {
+      await prisma.blockExercise.deleteMany({ where: { blockId: { in: planBlockIds } } });
+      await prisma.workoutBlock.deleteMany({ where: { id: { in: planBlockIds } } });
+    }
+    // `Message.plan`/`Message.planExercise` are optional relations, so Prisma
+    // nulls them rather than refusing.
+    await prisma.planExercise.deleteMany({ where: { planId: { in: legacyPlanIds } } });
+    await prisma.workoutPlan.deleteMany({ where: { id: { in: legacyPlanIds } } });
+  }
+
   await prisma.user.delete({ where: { id: userId } });
 }

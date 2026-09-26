@@ -2,8 +2,11 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 vi.mock('@/lib/prisma', () => ({
   prisma: {
+    // updateMany, not update: the service tolerates a trainer whose
+    // subscription row is gone (deleted account) instead of throwing P2025
+    // and making Stripe retry the event for days.
     trainerSubscription: {
-      update: vi.fn(),
+      updateMany: vi.fn(),
     },
   },
 }))
@@ -31,7 +34,7 @@ import {
 } from '@/lib/services/stripe-billing.service'
 import type Stripe from 'stripe'
 
-const mockUpdate = vi.mocked(prisma.trainerSubscription.update)
+const mockUpdate = vi.mocked(prisma.trainerSubscription.updateMany)
 const mockRetrieve = vi.mocked(stripe.subscriptions.retrieve)
 
 beforeEach(() => vi.clearAllMocks())

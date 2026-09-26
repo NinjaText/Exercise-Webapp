@@ -79,6 +79,15 @@ export async function POST(req: Request) {
       }
       case "customer.subscription.deleted": {
         const sub = event.data.object as Stripe.Subscription;
+        // A trainer who deleted their account no longer has a
+        // TrainerSubscription row. `update` would throw P2025 -> 500 -> days of
+        // Stripe retries, so check first and ignore events for customers we no
+        // longer track. When the row exists, update it and notify as usual.
+        const canceledRow = await prisma.trainerSubscription.findUnique({
+          where: { stripeCustomerId: sub.customer as string },
+          select: { id: true },
+        });
+        if (!canceledRow) break;
         const updated = await prisma.trainerSubscription.update({
           where: { stripeCustomerId: sub.customer as string },
           data: { status: "CANCELED" },
@@ -107,6 +116,12 @@ export async function POST(req: Request) {
       }
       case "invoice.payment_failed": {
         const invoice = event.data.object as Stripe.Invoice;
+        // Same guard as above: tolerate a trainer who deleted their account.
+        const pastDueRow = await prisma.trainerSubscription.findUnique({
+          where: { stripeCustomerId: invoice.customer as string },
+          select: { id: true },
+        });
+        if (!pastDueRow) break;
         const updated = await prisma.trainerSubscription.update({
           where: { stripeCustomerId: invoice.customer as string },
           data: { status: "PAST_DUE" },

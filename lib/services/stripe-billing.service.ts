@@ -15,6 +15,14 @@ function stripeStatusToSubStatus(status: Stripe.Subscription.Status): SubStatus 
   }
 }
 
+/**
+ * These writes use `updateMany` rather than `update`: a trainer who has
+ * deleted their account has no `TrainerSubscription` row, and `update` throws
+ * P2025 for a missing row, which surfaces as a 500 on the Stripe webhook and
+ * makes Stripe retry the same doomed event for days. `updateMany` is a no-op
+ * when nothing matches, which is the correct outcome for an event about a
+ * customer we no longer track. Neither caller uses the returned record.
+ */
 export async function syncSubscriptionFromStripe(
   stripeCustomerId: string,
   subscription: Stripe.Subscription
@@ -22,7 +30,7 @@ export async function syncSubscriptionFromStripe(
   const priceId = subscription.items.data[0]?.price.id ?? null;
   const plan = priceId ? tierFromPriceId(priceId) : null;
 
-  await prisma.trainerSubscription.update({
+  await prisma.trainerSubscription.updateMany({
     where: { stripeCustomerId },
     data: {
       stripeSubscriptionId: subscription.id,
@@ -47,7 +55,7 @@ export async function activateSubscriptionFromCheckout(
   const priceId = subscription.items.data[0]?.price.id ?? null;
   const plan = priceId ? tierFromPriceId(priceId) : null;
 
-  await prisma.trainerSubscription.update({
+  await prisma.trainerSubscription.updateMany({
     where: { stripeCustomerId },
     data: {
       stripeSubscriptionId: subscriptionId,

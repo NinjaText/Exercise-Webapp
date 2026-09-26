@@ -46,11 +46,13 @@ describe("Sidebar / nav-items parity", () => {
   });
 
   it("renders every client primary nav and account nav entry, and leaks no trainer-only href", () => {
-    mockPathname = "/dashboard";
+    // "/settings" reveals the settings sub-nav (Notifications), which is
+    // visible to both roles on settings pages only.
+    mockPathname = "/settings";
     const html = renderToStaticMarkup(
       <Sidebar
         role="CLIENT"
-        currentPath="/dashboard"
+        currentPath="/settings"
         unreadMessageCount={0}
         userName="Jane Client"
         userEmail="jane@example.com"
@@ -63,7 +65,8 @@ describe("Sidebar / nav-items parity", () => {
     }
 
     for (const item of getAccountNav("TRAINER")) {
-      if (item.href === "/settings") continue; // shared with CLIENT_ACCOUNT_NAV
+      const sharedWithClient = getAccountNav("CLIENT").some((c) => c.href === item.href);
+      if (sharedWithClient) continue;
       expect(html).not.toContain(`href="${item.href}"`);
     }
     for (const item of getPrimaryNav("TRAINER")) {

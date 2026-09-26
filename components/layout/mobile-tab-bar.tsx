@@ -110,6 +110,7 @@ export function MobileTabBar({ role, unreadMessageCount, isAdmin = false }: Mobi
                     <Link
                       href={item.href}
                       onClick={() => setMoreOpen(false)}
+                      aria-current={item.href === active ? "page" : undefined}
                       className={cn(
                         "flex min-h-[72px] flex-col items-center justify-center gap-1.5 rounded-xl border border-border bg-background text-xs font-medium",
                         item.href === active ? "border-primary/40 text-primary" : "text-foreground"

@@ -20,7 +20,7 @@ vi.mock('next/server', async (importOriginal) => ({
 }))
 vi.mock('@/lib/prisma', () => ({
   prisma: {
-    trainerSubscription: { update: vi.fn() },
+    trainerSubscription: { findUnique: vi.fn(), update: vi.fn() },
     programPurchase: { findUnique: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
     program: { updateMany: vi.fn() },
   },
@@ -54,6 +54,7 @@ const TRAINER = { trainerId: 't1', trainer: { email: 't@example.com', firstName:
 beforeEach(() => {
   vi.clearAllMocks()
   vi.spyOn(console, 'error').mockImplementation(() => {})
+  vi.mocked(prisma.trainerSubscription.findUnique).mockResolvedValue({ id: 'ts_1' } as never)
   vi.mocked(prisma.trainerSubscription.update).mockResolvedValue(TRAINER as never)
 })
 
@@ -98,6 +99,25 @@ describe('customer.subscription.deleted', () => {
     expect(arg.recipientEmail).toBe('t@example.com')
     expect(arg.email).toMatchObject({ billingLink: expect.stringContaining('/settings/billing') })
   })
+})
+
+// A trainer who deleted their account has no TrainerSubscription row left.
+// Stripe still sends events for that customer; they must be acknowledged and
+// ignored rather than throwing P2025 and triggering days of retries.
+describe('events for a customer we no longer track', () => {
+  for (const [type, object] of [
+    ['customer.subscription.deleted', { customer: 'cus_gone' }],
+    ['invoice.payment_failed', { customer: 'cus_gone', amount_due: 4900, currency: 'usd' }],
+  ] as const) {
+    it(`${type}: returns 200 without updating or notifying`, async () => {
+      vi.mocked(prisma.trainerSubscription.findUnique).mockResolvedValue(null)
+      constructEvent.mockReturnValue({ type, data: { object } })
+
+      expect((await post()).status).toBe(200)
+      expect(prisma.trainerSubscription.update).not.toHaveBeenCalled()
+      expect(notifyUser).not.toHaveBeenCalled()
+    })
+  }
 })
 
 describe('charge.refunded', () => {

@@ -171,7 +171,7 @@ export function ExerciseGrid({ exercises, activeSource, organizationOrgId, favor
       </div>
 
       {mounted && canAdopt && selectMode && visibleSelectedIds.length > 0 && createPortal(
-        <div className="fixed inset-x-0 bottom-6 z-50 flex justify-center px-4">
+        <div className="fixed inset-x-0 bottom-[calc(1.5rem_+_var(--tab-bar-height)_+_var(--safe-bottom))] z-50 flex justify-center px-4 lg:bottom-6">
           <div className="flex items-center gap-3 rounded-full border border-border bg-background/95 px-4 py-2 shadow-lg backdrop-blur">
             <span className="text-sm font-medium">{visibleSelectedIds.length} selected</span>
             <Button size="sm" onClick={handleBulkAdopt} disabled={isAdopting}>

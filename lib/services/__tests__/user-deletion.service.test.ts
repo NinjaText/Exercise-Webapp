@@ -2,10 +2,14 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
-    coachPackage: { count: vi.fn() },
+    coachPackage: { count: vi.fn(), deleteMany: vi.fn() },
     clientSubscription: { count: vi.fn() },
-    workoutPlan: { count: vi.fn() },
-    checkInTemplate: { count: vi.fn() },
+    workoutPlan: { count: vi.fn(), findMany: vi.fn(), deleteMany: vi.fn() },
+    checkInTemplate: { count: vi.fn(), findMany: vi.fn(), deleteMany: vi.fn() },
+    checkInQuestion: { deleteMany: vi.fn() },
+    workoutBlock: { findMany: vi.fn(), deleteMany: vi.fn() },
+    blockExercise: { deleteMany: vi.fn() },
+    planExercise: { deleteMany: vi.fn() },
     user: { findUnique: vi.fn(), count: vi.fn(), delete: vi.fn() },
     workoutSessionV2: { findMany: vi.fn(), deleteMany: vi.fn() },
     sessionExerciseLog: { findMany: vi.fn(), deleteMany: vi.fn() },
@@ -53,6 +57,9 @@ beforeEach(() => {
   p.sessionExerciseLog.findMany.mockResolvedValue([]);
   p.workoutSession.findMany.mockResolvedValue([]);
   p.habitDefinition.findMany.mockResolvedValue([]);
+  p.workoutPlan.findMany.mockResolvedValue([]);
+  p.checkInTemplate.findMany.mockResolvedValue([]);
+  p.workoutBlock.findMany.mockResolvedValue([]);
 });
 
 describe("findDeletionBlockers", () => {
@@ -69,9 +76,38 @@ describe("findDeletionBlockers", () => {
     expect(blockers[0].message).toMatch(/2 coaching package/);
   });
 
-  it("blocks a trainer who still has active clients when asked to", async () => {
+  // The blockers exist to protect rows a third party depends on. There is no
+  // UI to delete a check-in template and packages can only be deactivated, so
+  // counting mere existence would lock a trainer out of deleting their
+  // account forever — the exact thing Apple 5.1.1(v) forbids.
+  it("only counts packages that have a subscriber", async () => {
+    await findDeletionBlockers("u1", { includeActiveClients: false });
+    expect(p.coachPackage.count).toHaveBeenCalledWith({
+      where: { trainerId: "u1", subscriptions: { some: {} } },
+    });
+  });
+
+  it("only counts check-in templates that have an assignment", async () => {
+    await findDeletionBlockers("u1", { includeActiveClients: false });
+    expect(p.checkInTemplate.count).toHaveBeenCalledWith({
+      where: { trainerId: "u1", assignments: { some: {} } },
+    });
+  });
+
+  it("only counts legacy plans assigned to a different client", async () => {
+    await findDeletionBlockers("u1", { includeActiveClients: false });
+    expect(p.workoutPlan.count).toHaveBeenCalledWith({
+      where: {
+        createdById: "u1",
+        AND: [{ clientId: { not: null } }, { clientId: { not: "u1" } }],
+      },
+    });
+  });
+
+  it("blocks the last active trainer of an org that still has active clients", async () => {
     p.user.findUnique.mockResolvedValue({ role: "TRAINER", clerkOrgId: "org_1" });
-    p.user.count.mockResolvedValue(3);
+    // First count: other active trainers (none). Second: active clients.
+    p.user.count.mockResolvedValueOnce(0).mockResolvedValueOnce(3);
     const blockers = await findDeletionBlockers("u1", { includeActiveClients: true });
     expect(blockers).toEqual([expect.objectContaining({ code: "ACTIVE_CLIENTS", count: 3 })]);
     // The count is organization-wide (this schema has no per-trainer client
@@ -82,6 +118,25 @@ describe("findDeletionBlockers", () => {
     expect(p.user.count).toHaveBeenCalledWith({
       where: { clerkOrgId: "org_1", role: "CLIENT", isActive: true },
     });
+  });
+
+  // Clients are organization-wide in this schema, so a departing trainer was
+  // being told to deactivate colleagues' clients. If a colleague is still
+  // active the clients are not abandoned and the blocker does not apply.
+  it("does not block a trainer when another active trainer remains in the org", async () => {
+    p.user.findUnique.mockResolvedValue({ role: "TRAINER", clerkOrgId: "org_1" });
+    p.user.count.mockResolvedValueOnce(1);
+    expect(await findDeletionBlockers("u1", { includeActiveClients: true })).toEqual([]);
+    expect(p.user.count).toHaveBeenCalledTimes(1);
+    expect(p.user.count).toHaveBeenCalledWith({
+      where: { clerkOrgId: "org_1", role: "TRAINER", isActive: true, id: { not: "u1" } },
+    });
+  });
+
+  it("does not block the last active trainer when the org has no active clients", async () => {
+    p.user.findUnique.mockResolvedValue({ role: "TRAINER", clerkOrgId: "org_1" });
+    p.user.count.mockResolvedValueOnce(0).mockResolvedValueOnce(0);
+    expect(await findDeletionBlockers("u1", { includeActiveClients: true })).toEqual([]);
   });
 
   it("does not check active clients for a client account", async () => {
@@ -121,5 +176,34 @@ describe("deleteUserData", () => {
     expect(p.dismissedInsight.deleteMany.mock.invocationCallOrder[0]).toBeLessThan(p.user.delete.mock.invocationCallOrder[0]);
     expect(p.assessment.deleteMany.mock.invocationCallOrder[0]).toBeLessThan(p.user.delete.mock.invocationCallOrder[0]);
     expect(p.clientProfile.deleteMany.mock.invocationCallOrder[0]).toBeLessThan(p.user.delete.mock.invocationCallOrder[0]);
+  });
+
+  // findDeletionBlockers no longer refuses on the mere existence of these
+  // rows, so deleteUserData has to clear them or the user row's restrict
+  // would still fail.
+  it("clears the structural rows the blockers no longer refuse on, before the user row", async () => {
+    p.checkInTemplate.findMany.mockResolvedValue([{ id: "t1" }]);
+    p.workoutPlan.findMany.mockResolvedValue([{ id: "p1" }]);
+    p.workoutSession.findMany.mockResolvedValue([{ id: "ws1" }]);
+    p.workoutBlock.findMany.mockResolvedValue([{ id: "b1" }]);
+
+    await deleteUserData("u1");
+
+    expect(p.coachPackage.deleteMany).toHaveBeenCalledWith({ where: { trainerId: "u1" } });
+    expect(p.checkInQuestion.deleteMany).toHaveBeenCalledWith({ where: { templateId: { in: ["t1"] } } });
+    expect(p.checkInTemplate.deleteMany).toHaveBeenCalledWith({ where: { trainerId: "u1" } });
+    expect(p.blockExercise.deleteMany).toHaveBeenCalledWith({ where: { blockId: { in: ["b1"] } } });
+    expect(p.workoutBlock.deleteMany).toHaveBeenCalledWith({ where: { id: { in: ["b1"] } } });
+    expect(p.planExercise.deleteMany).toHaveBeenCalledWith({ where: { planId: { in: ["p1"] } } });
+    expect(p.workoutPlan.deleteMany).toHaveBeenCalledWith({ where: { id: { in: ["p1"] } } });
+
+    for (const fn of [
+      p.coachPackage.deleteMany,
+      p.checkInTemplate.deleteMany,
+      p.planExercise.deleteMany,
+      p.workoutPlan.deleteMany,
+    ]) {
+      expect(fn.mock.invocationCallOrder[0]).toBeLessThan(p.user.delete.mock.invocationCallOrder[0]);
+    }
   });
 });

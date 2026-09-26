@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { logAudit, deriveActorType, AUDIT_ACTIONS } from "@/lib/services/audit-log.service";
 import { applyPendingAssignmentsForNewClient } from "@/lib/services/pending-program-assignment.service";
-import { deleteUserData } from "@/lib/services/user-deletion.service";
+import { deleteUserData, findDeletionBlockers } from "@/lib/services/user-deletion.service";
 import type { InviteClientMetadata } from "@/actions/invite-client-action";
 
 /**
@@ -83,10 +83,26 @@ export async function POST(req: Request) {
       const user = await prisma.user.findUnique({ where: { clerkId: id }, select: { id: true } });
       if (user) {
         try {
+          // `deleteUserData` deletes leaf-first and only hits the restrict on
+          // the user row at the very end, so running it on a blocked user
+          // destroys health data (messages, progress photos, clinical notes,
+          // client profile) and *then* throws. Its contract is that callers
+          // check blockers first; this one has to as well.
+          const blockers = await findDeletionBlockers(user.id, { includeActiveClients: false });
+          if (blockers.length > 0) {
+            // Delete nothing. A retry would hit the identical state, so ack
+            // with 200 rather than making Svix redeliver forever — this needs
+            // a human, and the log line below is what they act on.
+            console.error(
+              "[clerk-webhook] user.deleted skipped: rows other users depend on",
+              { userId: user.id, clerkId: id, blockers: blockers.map((b) => b.code) }
+            );
+            return new NextResponse("Blocked: manual cleanup required", { status: 200 });
+          }
           await deleteUserData(user.id);
         } catch (error) {
-          // Leave the row in place for a retry rather than half-deleting it;
-          // Svix redelivers on a non-2xx response.
+          // A genuine failure (DB blip, timeout) — worth retrying, so signal
+          // a non-2xx and let Svix redeliver.
           console.error("[clerk-webhook] user.deleted cleanup failed for", id, error);
           return new NextResponse("Cleanup failed", { status: 500 });
         }

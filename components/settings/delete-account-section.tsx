@@ -96,7 +96,8 @@ export function DeleteAccountSection({ role }: DeleteAccountSectionProps) {
           Permanently removes your profile, health and fitness records, messages, and
           notification devices. This cannot be undone.
           {role === "TRAINER" && (
-            <> You must deactivate or reassign your active clients first.</>
+            <> If you are your organization&apos;s only active trainer, deactivate or
+            reassign its active clients first.</>
           )}
         </CardDescription>
       </CardHeader>
