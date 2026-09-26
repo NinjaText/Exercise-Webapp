@@ -10,6 +10,7 @@ export default defineConfig({
       '**/dist/**',
       '.claude/worktrees/**',
       'worktrees/**',
+      'mobile/**',
     ],
   },
   resolve: {

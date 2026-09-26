@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Inmotus RX</string>
+    <string name="title_activity_main">Inmotus RX</string>
+    <string name="package_name">com.goinmotus.app</string>
+    <string name="custom_url_scheme">com.goinmotus.app</string>
+</resources>

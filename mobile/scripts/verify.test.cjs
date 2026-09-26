@@ -1,0 +1,57 @@
+const test = require("node:test");
+const assert = require("node:assert/strict");
+const { resolveServerUrl, DEFAULT_SERVER_URL } = require("../server-url.cjs");
+const { checkResolvedConfig, UA_PATTERN } = require("./verify.cjs");
+
+test("resolveServerUrl defaults to production and trims trailing slashes", () => {
+  assert.equal(resolveServerUrl({}), DEFAULT_SERVER_URL);
+  assert.equal(resolveServerUrl({ CAP_SERVER_URL: "  " }), DEFAULT_SERVER_URL);
+  assert.equal(resolveServerUrl({ CAP_SERVER_URL: "http://192.168.1.20:3000/" }), "http://192.168.1.20:3000");
+});
+
+const good = (platform) => ({
+  appId: "com.goinmotus.app",
+  appName: "Inmotus RX",
+  [platform]: { appendUserAgent: `InmotusApp/1.0.0 (${platform})` },
+  server: {
+    url: "https://app.goinmotus.com",
+    cleartext: false,
+    errorPath: "offline.html",
+    allowNavigation: ["app.goinmotus.com", "*.goinmotus.com", "*.clerk.accounts.dev", "*.accounts.dev"],
+  },
+});
+const files = ["index.html", "offline.html", "server-url.js"];
+
+test("a correct resolved config has no problems on either platform", () => {
+  assert.deepEqual(checkResolvedConfig(good("ios"), "ios", files), []);
+  assert.deepEqual(checkResolvedConfig(good("android"), "android", files), []);
+});
+
+test("UA_PATTERN matches the web parser's expectations", () => {
+  assert.match("Mozilla/5.0 InmotusApp/1.0.0 (ios)", UA_PATTERN);
+  assert.doesNotMatch("InmotusApp/1.0 (ios)", UA_PATTERN);
+});
+
+test("flags a missing or malformed user-agent suffix", () => {
+  const c = good("ios");
+  c.ios.appendUserAgent = "InmotusApp/1.0.0";
+  assert.ok(checkResolvedConfig(c, "ios", files).some((p) => p.includes("user agent")));
+});
+
+test("flags a missing Clerk host in allowNavigation", () => {
+  const c = good("android");
+  c.server.allowNavigation = ["app.goinmotus.com"];
+  const problems = checkResolvedConfig(c, "android", files);
+  assert.ok(problems.some((p) => p.includes("*.clerk.accounts.dev")));
+});
+
+test("flags a missing offline page or server-url file", () => {
+  assert.ok(checkResolvedConfig(good("ios"), "ios", ["index.html"]).some((p) => p.includes("offline.html")));
+  assert.ok(checkResolvedConfig(good("ios"), "ios", ["index.html", "offline.html"]).some((p) => p.includes("server-url.js")));
+});
+
+test("flags cleartext on an https URL", () => {
+  const c = good("ios");
+  c.server.cleartext = true;
+  assert.ok(checkResolvedConfig(c, "ios", files).some((p) => p.includes("cleartext")));
+});

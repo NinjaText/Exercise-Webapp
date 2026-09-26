@@ -19,6 +19,7 @@ const eslintConfig = defineConfig([
     // Git worktrees checked out under the repo must not be linted from the root.
     ".claude/**",
     "worktrees/**",
+    "mobile/**",
     "node_modules/**",
   ]),
   {

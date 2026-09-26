@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>You're offline — Inmotus RX</title>
+    <script src="server-url.js"></script>
+    <style>
+      :root { color-scheme: light; }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+        padding: max(24px, env(safe-area-inset-top)) 24px max(24px, env(safe-area-inset-bottom));
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        background: #f7f8fc; color: #151a2e; text-align: center;
+      }
+      main { max-width: 320px; }
+      .mark { width: 64px; height: 64px; border-radius: 16px; background: #3F46C8; color: #fff;
+        display: inline-flex; align-items: center; justify-content: center; font-weight: 800; font-size: 24px; }
+      h1 { font-size: 20px; margin: 20px 0 8px; }
+      p { font-size: 15px; line-height: 1.5; color: #5b6177; margin: 0 0 24px; }
+      button { width: 100%; min-height: 48px; border: 0; border-radius: 12px; background: #3F46C8;
+        color: #fff; font-size: 16px; font-weight: 600; }
+      button:active { opacity: 0.85; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="mark" aria-hidden="true">RX</div>
+      <h1>You're offline</h1>
+      <p>Inmotus RX needs an internet connection. Check your Wi-Fi or mobile data and try again.</p>
+      <button id="retry" type="button">Try again</button>
+    </main>
+    <script>
+      function retry() {
+        var url = window.INMOTUS_SERVER_URL;
+        if (url) window.location.replace(url);
+        else window.location.reload();
+      }
+      document.getElementById("retry").addEventListener("click", retry);
+      // Come back on our own as soon as the device reports connectivity.
+      window.addEventListener("online", retry);
+      // The server may be down rather than the device offline; retry gently.
+      setInterval(function () { if (navigator.onLine) retry(); }, 10000);
+    </script>
+  </body>
+</html>
