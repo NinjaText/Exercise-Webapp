@@ -28,4 +28,19 @@ describe("NativeProvider", () => {
     const html = renderToStaticMarkup(<Probe />);
     expect(html).toContain('data-native="false"');
   });
+
+  // No update is required on this static server pass (the version-gate
+  // effect that could set it never runs under renderToStaticMarkup), so this
+  // covers only the default, unblocked state; UpdateRequiredScreen's own
+  // focus/inert-target markup is covered by its own component test.
+  it("renders children through a non-inert, non-hidden wrapper when no update is required", () => {
+    const html = renderToStaticMarkup(
+      <NativeProvider>
+        <Probe />
+      </NativeProvider>
+    );
+    expect(html).toContain('data-native="false"');
+    expect(html).not.toContain("inert");
+    expect(html).not.toContain("aria-hidden");
+  });
 });

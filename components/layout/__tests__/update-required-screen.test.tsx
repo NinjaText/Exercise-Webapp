@@ -12,6 +12,17 @@ describe("UpdateRequiredScreen", () => {
     expect(html).toContain('aria-modal="true"');
   });
 
+  it("is focusable and describes itself via an id that exists in the markup", () => {
+    const html = renderToStaticMarkup(
+      <UpdateRequiredScreen platform="ios" storeUrl={null} onOpenStore={vi.fn()} />
+    );
+    expect(html).toContain('tabindex="-1"');
+    const match = /aria-describedby="([^"]+)"/.exec(html);
+    expect(match).not.toBeNull();
+    const describedById = match![1];
+    expect(html).toContain(`id="${describedById}"`);
+  });
+
   it("names the App Store on iOS", () => {
     const html = renderToStaticMarkup(
       <UpdateRequiredScreen platform="ios" storeUrl="https://apps.apple.com/app/id1" onOpenStore={vi.fn()} />

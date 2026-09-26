@@ -150,9 +150,17 @@ export function NativeProvider({ children }: { children: React.ReactNode }) {
     };
   }, [info.isNative, info.platform, info.appVersion, resumeTick]);
 
+  const blocked = Boolean(updateRequired && info.platform);
+
   return (
     <NativeContext.Provider value={{ ...info, isOnline }}>
-      {children}
+      {/* Always rendered so toggling `blocked` never remounts (and loses the
+          state of) the app underneath; `display: contents` keeps layout
+          unchanged, and `inert` removes the whole subtree from focus, tab
+          order and assistive-tech traversal while UpdateRequiredScreen blocks. */}
+      <div className="contents" inert={blocked ? true : undefined} aria-hidden={blocked ? true : undefined}>
+        {children}
+      </div>
       {updateRequired && info.platform && (
         <UpdateRequiredScreen
           platform={info.platform}
