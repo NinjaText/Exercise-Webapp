@@ -1,7 +1,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const { resolveServerUrl, DEFAULT_SERVER_URL } = require("../server-url.cjs");
-const { checkResolvedConfig, UA_PATTERN } = require("./verify.cjs");
+const { checkResolvedConfig, UA_PATTERN, checkInfoPlist, checkAndroidManifest } = require("./verify.cjs");
 
 test("resolveServerUrl defaults to production and trims trailing slashes", () => {
   assert.equal(resolveServerUrl({}), DEFAULT_SERVER_URL);
@@ -80,4 +80,40 @@ test("flags a non-never iOS contentInset", () => {
   const c = good("ios");
   c.ios.contentInset = "automatic";
   assert.ok(checkResolvedConfig(c, "ios", files).some((p) => p.includes("contentInset")));
+});
+
+const PLIST_OK = `<dict>
+<key>NSMicrophoneUsageDescription</key><string>x</string>
+<key>NSCameraUsageDescription</key><string>x</string>
+<key>NSPhotoLibraryUsageDescription</key><string>x</string>
+<key>ITSAppUsesNonExemptEncryption</key><false/>
+</dict>`;
+
+test("Info.plist with every required key passes", () => {
+  assert.deepEqual(checkInfoPlist(PLIST_OK), []);
+});
+
+test("Info.plist missing the microphone string is flagged", () => {
+  const text = PLIST_OK.replace("<key>NSMicrophoneUsageDescription</key><string>x</string>", "");
+  assert.ok(checkInfoPlist(text).some((p) => p.includes("NSMicrophoneUsageDescription")));
+});
+
+test("Info.plist must declare no non-exempt encryption", () => {
+  const text = PLIST_OK.replace("<false/>", "<true/>");
+  assert.ok(checkInfoPlist(text).some((p) => p.includes("ITSAppUsesNonExemptEncryption")));
+});
+
+const MANIFEST_OK = `<manifest>
+<uses-permission android:name="android.permission.INTERNET" />
+<uses-permission android:name="android.permission.RECORD_AUDIO" />
+<uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+</manifest>`;
+
+test("AndroidManifest with the audio permissions passes", () => {
+  assert.deepEqual(checkAndroidManifest(MANIFEST_OK), []);
+});
+
+test("AndroidManifest missing RECORD_AUDIO is flagged", () => {
+  const text = MANIFEST_OK.replace('<uses-permission android:name="android.permission.RECORD_AUDIO" />', "");
+  assert.ok(checkAndroidManifest(text).some((p) => p.includes("RECORD_AUDIO")));
 });

@@ -56,12 +56,30 @@ function checkResolvedConfig(config, platform, publicFiles) {
   return problems;
 }
 
-function checkInfoPlist(_text) {
-  return [];
+const PLIST_REQUIRED_STRINGS = [
+  "NSMicrophoneUsageDescription",
+  "NSCameraUsageDescription",
+  "NSPhotoLibraryUsageDescription",
+];
+
+function checkInfoPlist(text) {
+  const problems = [];
+  for (const key of PLIST_REQUIRED_STRINGS) {
+    const re = new RegExp(`<key>${key}</key>\\s*<string>[^<]+</string>`);
+    if (!re.test(text)) problems.push(`Info.plist: ${key} missing or empty`);
+  }
+  if (!/<key>ITSAppUsesNonExemptEncryption<\/key>\s*<false\/>/.test(text)) {
+    problems.push("Info.plist: ITSAppUsesNonExemptEncryption must be <false/>");
+  }
+  return problems;
 }
 
-function checkAndroidManifest(_text) {
-  return [];
+const ANDROID_REQUIRED_PERMISSIONS = ["INTERNET", "RECORD_AUDIO", "MODIFY_AUDIO_SETTINGS"];
+
+function checkAndroidManifest(text) {
+  return ANDROID_REQUIRED_PERMISSIONS
+    .filter((p) => !text.includes(`android:name="android.permission.${p}"`))
+    .map((p) => `AndroidManifest: permission ${p} missing`);
 }
 
 function readIfExists(p) {

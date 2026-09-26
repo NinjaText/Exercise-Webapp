@@ -66,5 +66,13 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Inmotus RX uses the microphone to record voice notes for your trainer or client.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Inmotus RX uses the camera so you can take progress and meal photos.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Inmotus RX lets you choose existing photos for progress and meal logs.</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 </dict>
 </plist>
