@@ -61,4 +61,27 @@ describe('NOTIFICATION_REGISTRY', () => {
     expect(subject({ senderName: 'Mike Chen', role: 'client' })).toBe('Mike Chen left you a voice note')
     expect(subject({ senderName: 'Mike Chen', role: 'trainer' })).toBe('Mike Chen left a voice note')
   })
+  it('marks exactly the types a CLIENT can receive as clientFacing (org-branded mail)', () => {
+    const clientFacing = allTypes.filter((t) => NOTIFICATION_REGISTRY[t].clientFacing).sort()
+    expect(clientFacing).toEqual(
+      [
+        NOTIFICATION_TYPES.SESSION_REMINDER,
+        NOTIFICATION_TYPES.CHECK_IN_DUE,
+        NOTIFICATION_TYPES.NEW_MESSAGE,
+        NOTIFICATION_TYPES.VOICE_MEMO,
+        NOTIFICATION_TYPES.FEEDBACK_RESPONSE,
+        NOTIFICATION_TYPES.NUTRITION_COMMENT,
+        NOTIFICATION_TYPES.NUTRITION_NUDGE_MEALS,
+        NOTIFICATION_TYPES.NUTRITION_NUDGE_PROTEIN,
+        NOTIFICATION_TYPES.NUTRITION_NUDGE_WATER,
+      ].sort()
+    )
+  })
+
+  it('never brands billing (transactional) mail', () => {
+    for (const type of allTypes) {
+      const entry = NOTIFICATION_REGISTRY[type]
+      if (entry.transactional) expect(entry.clientFacing, `${type}`).toBe(false)
+    }
+  })
 })

@@ -27,6 +27,8 @@ const ACTION_LABELS: Record<string, string> = {
   EXERCISE_UPDATED: "Updated exercise",
   EXERCISE_DELETED: "Deleted exercise",
   CLINIC_SETTINGS_UPDATED: "Updated clinic settings",
+  BRANDING_UPDATED: "Updated branding",
+  BRANDING_RESET: "Reset branding to defaults",
 };
 
 /**

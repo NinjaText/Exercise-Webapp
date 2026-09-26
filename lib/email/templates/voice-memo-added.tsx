@@ -1,5 +1,6 @@
 import * as React from "react"
 import { EmailLayout } from "./layout"
+import type { EmailBrandProps } from "@/lib/email/branding"
 
 interface VoiceMemoAddedEmailProps {
   recipientName: string
@@ -8,9 +9,12 @@ interface VoiceMemoAddedEmailProps {
   sessionLink: string
   role: "trainer" | "client"
   unsubscribeUrl?: string
+  /** Org branding — set only when a client receives this (see lib/email/branding.ts). */
+  brand?: EmailBrandProps
 }
 
 export function VoiceMemoAddedEmail({
+  brand,
   recipientName,
   senderName,
   workoutName,
@@ -21,7 +25,9 @@ export function VoiceMemoAddedEmail({
   return (
     <EmailLayout
       title="Voice Memo"
-      accent="#16a34a"
+      organizationName={brand?.organizationName}
+      accent={brand?.accent ?? "#16a34a"}
+      logoUrl={brand?.logoUrl}
       greeting={`Hi ${recipientName},`}
       intro={
         role === "client" ? (

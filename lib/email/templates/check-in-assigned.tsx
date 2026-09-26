@@ -1,5 +1,6 @@
 import * as React from "react";
 import { EmailLayout } from "./layout";
+import type { EmailBrandProps } from "@/lib/email/branding";
 
 interface CheckInAssignedEmailProps {
   recipientName: string;
@@ -7,9 +8,12 @@ interface CheckInAssignedEmailProps {
   dueDate: string;
   checkInLink: string;
   unsubscribeUrl?: string;
+  /** Org branding — set only when a client receives this (see lib/email/branding.ts). */
+  brand?: EmailBrandProps;
 }
 
 export function CheckInAssignedEmail({
+  brand,
   recipientName,
   templateName,
   dueDate,
@@ -19,7 +23,9 @@ export function CheckInAssignedEmail({
   return (
     <EmailLayout
       title="New check-in"
-      accent="#2563eb"
+      organizationName={brand?.organizationName}
+      accent={brand?.accent ?? "#2563eb"}
+      logoUrl={brand?.logoUrl}
       greeting={`Hi ${recipientName},`}
       intro="Your trainer has assigned you a new check-in."
       details={[

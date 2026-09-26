@@ -1,5 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
+// `getSellablePackageBySlug` is `React.cache()`-wrapped (dedupes the sales
+// page's generateMetadata + page-body lookups); make it a passthrough here
+// so each test call reaches the mocked prisma call, same as branding.service.test.ts.
+vi.mock('react', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('react')>()),
+  cache: <T,>(fn: T) => fn,
+}))
+
 vi.mock('@/lib/prisma', () => ({
   prisma: {
     coachPackage: {
@@ -81,16 +89,39 @@ describe('getSellablePackageBySlug', () => {
   it('returns null for an inactive or missing package', async () => {
     mockFindFirst.mockResolvedValue(null)
     expect(await getSellablePackageBySlug('nope')).toBeNull()
-    expect(mockFindFirst).toHaveBeenCalledWith(expect.objectContaining({ where: { slug: 'nope', isActive: true } }))
+    expect(mockFindFirst).toHaveBeenCalledWith({
+      where: { slug: 'nope', isActive: true },
+      include: { trainer: { select: { clerkOrgId: true } } },
+    })
   })
 
   it('resolves the upsell package when present', async () => {
-    mockFindFirst.mockResolvedValue({ id: 'pkg1', slug: 'golf', upsellPackageId: 'pkg2', isActive: true } as any)
+    mockFindFirst.mockResolvedValue({
+      id: 'pkg1',
+      slug: 'golf',
+      upsellPackageId: 'pkg2',
+      isActive: true,
+      trainer: { clerkOrgId: 'org_123' },
+    } as any)
     mockFindUnique.mockResolvedValue({ id: 'pkg2', slug: 'bundle', isActive: true } as any)
 
     const result = await getSellablePackageBySlug('golf')
     expect(result?.id).toBe('pkg1')
     expect(result?.upsell?.id).toBe('pkg2')
+    expect(result?.trainer.clerkOrgId).toBe('org_123')
+  })
+
+  it('passes through a null clerkOrgId for a trainer with no organization', async () => {
+    mockFindFirst.mockResolvedValue({
+      id: 'pkg1',
+      slug: 'golf',
+      upsellPackageId: null,
+      isActive: true,
+      trainer: { clerkOrgId: null },
+    } as unknown as Awaited<ReturnType<typeof prisma.coachPackage.findFirst>>)
+
+    const result = await getSellablePackageBySlug('golf')
+    expect(result?.trainer.clerkOrgId).toBeNull()
   })
 })
 

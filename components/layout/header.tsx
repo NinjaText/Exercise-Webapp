@@ -11,12 +11,15 @@ import { NotificationPanel } from "@/components/notifications/notification-panel
 import { useSearch } from "@/components/search/search-provider";
 import { Breadcrumbs, useBreadcrumb } from "./breadcrumb-context";
 import type { User, Notification } from "@prisma/client";
+import type { BrandingViewModel } from "@/lib/branding/types";
 
 interface HeaderProps {
   user: User;
   unreadMessageCount: number;
   unreadNotificationCount: number;
   initialNotifications: Notification[];
+  /** Client-safe branding subset (never tokens/CSS). */
+  branding: BrandingViewModel;
 }
 
 export function Header({
@@ -24,6 +27,7 @@ export function Header({
   unreadMessageCount,
   unreadNotificationCount,
   initialNotifications,
+  branding,
 }: HeaderProps) {
   const pathname = usePathname();
   const { crumbs } = useBreadcrumb();
@@ -51,6 +55,7 @@ export function Header({
             userEmail={user.email}
             userImageUrl={user.imageUrl}
             mobileMode
+            branding={branding}
           />
         </SheetContent>
       </Sheet>
@@ -59,7 +64,7 @@ export function Header({
         {crumbs.length > 0 ? (
           <Breadcrumbs crumbs={crumbs} />
         ) : (
-          <span className="text-sm font-semibold tracking-tight">INMOTUS RX</span>
+          <span className="text-sm font-semibold tracking-tight">{branding.displayName}</span>
         )}
       </div>
 

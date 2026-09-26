@@ -178,7 +178,6 @@ export async function deleteUserData(userId: string): Promise<void> {
   if (habitIds.length) await prisma.habitLog.deleteMany({ where: { habitId: { in: habitIds } } });
   await prisma.habitDefinition.deleteMany({ where: { clientId: userId } });
   await prisma.clinicalNote.deleteMany({ where: { OR: [{ clientId: userId }, { trainerId: userId }] } });
-  await prisma.coachBranding.deleteMany({ where: { trainerId: userId } });
   await prisma.trainerSubscription.deleteMany({ where: { trainerId: userId } });
   await prisma.pendingProgramAssignment.deleteMany({ where: { trainerId: userId } });
   await prisma.dismissedInsight.deleteMany({ where: { trainerId: userId } });

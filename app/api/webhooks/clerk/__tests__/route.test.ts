@@ -21,6 +21,7 @@ vi.mock('@/lib/prisma', () => ({
   prisma: {
     user: { deleteMany: vi.fn(), updateMany: vi.fn(), upsert: vi.fn(), findUnique: vi.fn() },
     auditLog: { create: vi.fn() },
+    organization: { updateMany: vi.fn() },
   },
 }))
 vi.mock('@/lib/services/user-deletion.service', () => ({
@@ -28,16 +29,24 @@ vi.mock('@/lib/services/user-deletion.service', () => ({
   findDeletionBlockers: vi.fn(),
 }))
 
+vi.mock('next/cache', () => ({ revalidateTag: vi.fn() }))
+vi.mock('@/lib/services/branding.service', () => ({
+  brandingTag: (id: string) => `org-branding:${id}`,
+}))
+
 process.env.CLERK_WEBHOOK_SECRET = 'test_secret'
 
 import { prisma } from '@/lib/prisma'
 import { deleteUserData, findDeletionBlockers } from '@/lib/services/user-deletion.service'
+import { revalidateTag } from 'next/cache'
 import { POST } from '../route'
 
 const mockFindUnique = vi.mocked(prisma.user.findUnique)
 const mockAuditCreate = vi.mocked(prisma.auditLog.create)
 const mockDeleteUserData = vi.mocked(deleteUserData)
 const mockFindBlockers = vi.mocked(findDeletionBlockers)
+const mockOrgUpdateMany = vi.mocked(prisma.organization.updateMany)
+const mockRevalidateTag = vi.mocked(revalidateTag)
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -164,5 +173,35 @@ describe('user.deleted webhook event', () => {
 
     expect(mockDeleteUserData).not.toHaveBeenCalled()
     expect(res.status).toBe(500)
+  })
+})
+
+describe('organization.updated webhook event', () => {
+  it('syncs the org name to the DB row via updateMany', async () => {
+    const res = await POST(makeRequest({ type: 'organization.updated', data: { id: 'org_1', name: 'New Name' } }))
+
+    expect(res.status).toBe(200)
+    expect(mockOrgUpdateMany).toHaveBeenCalledWith({
+      where: { clerkOrgId: 'org_1' },
+      data: { name: 'New Name' },
+    })
+  })
+
+  it('expires the org branding cache tag after the rename (revalidateTag — updateTag throws in route handlers)', async () => {
+    await POST(makeRequest({ type: 'organization.updated', data: { id: 'org_1', name: 'New Name' } }))
+
+    expect(mockRevalidateTag).toHaveBeenCalledWith('org-branding:org_1', 'max')
+    expect(mockOrgUpdateMany.mock.invocationCallOrder[0])
+      .toBeLessThan(mockRevalidateTag.mock.invocationCallOrder[0])
+  })
+
+  it('ignores events without a non-empty string name', async () => {
+    await POST(makeRequest({ type: 'organization.updated', data: { id: 'org_1', name: '' } }))
+    await POST(makeRequest({ type: 'organization.updated', data: { id: 'org_1', name: '   ' } }))
+    await POST(makeRequest({ type: 'organization.updated', data: { id: 'org_1' } }))
+    await POST(makeRequest({ type: 'organization.updated', data: { id: 'org_1', name: 42 } }))
+
+    expect(mockOrgUpdateMany).not.toHaveBeenCalled()
+    expect(mockRevalidateTag).not.toHaveBeenCalled()
   })
 })

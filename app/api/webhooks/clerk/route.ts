@@ -4,6 +4,8 @@ import { WebhookEvent } from "@clerk/nextjs/server";
 import { clerkClient } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import { revalidateTag } from "next/cache";
+import { brandingTag } from "@/lib/services/branding.service";
 import { logAudit, deriveActorType, AUDIT_ACTIONS } from "@/lib/services/audit-log.service";
 import { applyPendingAssignmentsForNewClient } from "@/lib/services/pending-program-assignment.service";
 import { deleteUserData, findDeletionBlockers } from "@/lib/services/user-deletion.service";
@@ -194,6 +196,23 @@ export async function POST(req: Request) {
       where: { clerkId: public_user_data.user_id },
       data: { clerkOrgId: null },
     });
+  }
+
+  // Keep the DB org profile's name in sync with renames made in Clerk.
+  // updateMany so an org without a row yet is a no-op (it's lazily created).
+  if (evt.type === "organization.updated") {
+    const { id, name } = evt.data as { id: string; name?: unknown };
+    const trimmed = typeof name === "string" ? name.trim() : "";
+    if (id && trimmed) {
+      await prisma.organization.updateMany({
+        where: { clerkOrgId: id },
+        data: { name: trimmed },
+      });
+      // The name feeds the branded display name. updateTag throws outside a
+      // Server Action, so a Route Handler uses revalidateTag (stale-while-
+      // revalidate with the "max" profile).
+      revalidateTag(brandingTag(id), "max");
+    }
   }
 
   if (evt.type === "session.created" || evt.type === "session.ended") {

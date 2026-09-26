@@ -9,7 +9,7 @@ import { PageShell } from "@/components/shared/page-shell";
 export const maxDuration = 120; // parallel per-week LLM calls can take up to ~30s; 120s gives headroom for larger programs
 
 export const metadata = {
-  title: "Generate AI Program - Unity Health",
+  title: "Generate AI Program",
   description: "Generate a personalized program using AI",
 };
 

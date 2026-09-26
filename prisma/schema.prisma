@@ -102,6 +102,12 @@ enum ExerciseSource {
   ORGANIZATION @map("CLINIC")
 }
 
+enum ExerciseSourcePreference {
+  BOTH
+  UNIVERSAL
+  ORGANIZATION
+}
+
 enum AuditActorType {
   SUPER_ADMIN
   TRAINER
@@ -155,7 +161,6 @@ model User {
   notifications             Notification[]          @relation("Notifications")
   packages                  CoachPackage[]          @relation("Packages")
   subscriptions             ClientSubscription[]    @relation("Subscriptions")
-  branding                  CoachBranding?          @relation("Branding")
   clinicalNotesAsClient     ClinicalNote[]          @relation("ClinicalNotesClient")
   clinicalNotesAsTrainer    ClinicalNote[]          @relation("ClinicalNotesTrainer")
   trainerSubscription       TrainerSubscription?    @relation("TrainerSubscription")
@@ -186,6 +191,45 @@ model AuditLog {
   @@index([orgId, createdAt])
   @@index([actorId, createdAt])
   @@index([action, createdAt])
+}
+
+/// Canonical organization record. One per Clerk organization. Profile fields
+/// were previously in Clerk publicMetadata; brand* fields are new.
+model Organization {
+  id                       String                   @id @default(auto()) @map("_id") @db.ObjectId
+  clerkOrgId               String                   @unique
+  /// Mirror of the Clerk organization name. Clerk is updated on every save
+  /// and dashboard edits are mirrored back by the organization.updated webhook.
+  name                     String
+  tagline                  String?
+  phone                    String?
+  email                    String?
+  website                  String?
+  address                  String?
+  exerciseSourcePreference ExerciseSourcePreference @default(BOTH)
+
+  // ── Branding ─────────────────────────────────────────────────────────────
+  /// Master switch. false → every surface uses the product defaults, even if
+  /// the fields below are set. Lets a trainer preview/prepare without exposing.
+  brandingEnabled     Boolean   @default(false)
+  /// Name shown in the shell, title, emails. null → `name`.
+  brandDisplayName    String?
+  /// "#RRGGBB", lower-case. null → product primary. The only color input.
+  brandPrimaryColor   String?
+  /// PNG on R2, for light surfaces (header, PDFs, onboarding).
+  brandLogoOnLightUrl String?
+  /// PNG on R2, for dark surfaces (the sidebar, the email header bar). null → logoOnLight on a light plate.
+  brandLogoOnDarkUrl  String?
+  /// Square PNG (512×512) on R2. Source of favicon/apple-icon derivatives.
+  brandMarkUrl        String?
+  /// Derived from the mark at upload time (32×32 and 180×180 PNG).
+  brandFaviconUrl     String?
+  brandAppleIconUrl   String?
+  brandUpdatedAt      DateTime?
+  brandUpdatedById    String?   @db.ObjectId
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model ClientProfile {
@@ -986,21 +1030,6 @@ model ClinicalNote {
 
   @@index([clientId, appointmentDate])
   @@map("clinical_notes")
-}
-
-model CoachBranding {
-  id             String   @id @default(auto()) @map("_id") @db.ObjectId
-  trainerId      String   @unique @db.ObjectId
-  trainer        User     @relation("Branding", fields: [trainerId], references: [id])
-  primaryColor   String   @default("#2563eb")
-  accentColor    String   @default("#f59e0b")
-  fontFamily     String   @default("Inter")
-  logoUrl        String?
-  faviconUrl     String?
-  welcomeMessage String?
-  customDomain   String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
 }
 
 // --- Stripe Trainer Subscription ---

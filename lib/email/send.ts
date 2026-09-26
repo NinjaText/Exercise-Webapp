@@ -8,6 +8,58 @@ export function emailFrom(): string {
   return process.env.RESEND_FROM_EMAIL ?? DEFAULT_FROM;
 }
 
+const MAX_DISPLAY_NAME_CHARS = 64;
+
+// Invisible bidi / zero-width / format characters. They let a name render as
+// something other than what it is (e.g. U+202E reverses the text after it),
+// so they are dropped outright.
+const INVISIBLE_FORMAT_CHARS_RE = /[\u200b-\u200f\u202a-\u202e\u2060-\u2064\u2066-\u2069\ufeff]/g;
+
+/**
+ * The bare address of a sender value. `RESEND_FROM_EMAIL` may be either
+ * `addr` or `Name <addr>` (Resend accepts both); only the address may sit
+ * behind a branded display name, or the header would nest two names.
+ */
+function bareSenderAddress(value: string): string {
+  const match = /<([^<>\s]+)>\s*$/.exec(value);
+  return match ? match[1] : value.trim();
+}
+
+/**
+ * Builds a `From` value with an RFC 5322 quoted display name in front of the
+ * verified sending address: `"Summit PT" <noreply@…>`. When `address` is
+ * itself `Name <addr>`, only `addr` is used.
+ *
+ * The display name comes from trainer-editable org branding, so it is treated
+ * as hostile: line breaks (CR, LF, tab, U+2028/9) become spaces and every
+ * other control character is dropped — a name can never start a new header
+ * line — as are bidi/zero-width format characters (U+200B–U+200F,
+ * U+202A–U+202E, U+2060–U+2064, U+2066–U+2069, U+FEFF). Angle brackets and
+ * `@` are removed so the name cannot pose as an address. `\` and `"` are then
+ * escaped for the quoted-string. Other non-ASCII (accents, emoji) is kept;
+ * Resend encodes it. Capped at 64 code points. Returns `address` unchanged
+ * when nothing printable is left.
+ */
+export function formatFromHeader(displayName: string, address: string): string {
+  const cleaned = displayName
+    .replace(INVISIBLE_FORMAT_CHARS_RE, "")
+    .replace(/[\r\n\t\u2028\u2029]/g, " ")
+    .replace(/[\u0000-\u001f\u007f-\u009f<>@]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  const capped = Array.from(cleaned).slice(0, MAX_DISPLAY_NAME_CHARS).join("").trim();
+  if (!capped) return address;
+  return `"${capped.replace(/["\\]/g, "\\$&")}" <${bareSenderAddress(address)}>`;
+}
+
+// One plain address, no display name, no list, no whitespace/header chars.
+const PLAIN_EMAIL_RE = /^[^\s@<>()",;:\\[\]]+@[^\s@<>()",;:\\[\]]+\.[^\s@<>()",;:\\[\]]+$/;
+
+/** True for a single plain address safe to use as `Reply-To`. */
+export function isPlainEmailAddress(value: unknown): value is string {
+  return typeof value === "string" && value.length <= 254 && PLAIN_EMAIL_RE.test(value);
+}
+
 /**
  * Development safety valve: when `EMAIL_REDIRECT_TO` is set, every email goes
  * to that address instead of its real recipient.
@@ -50,6 +102,14 @@ export async function sendEmail(args: {
    * Omit for transactional mail (billing), which has no unsubscribe link.
    */
   unsubscribeUrl?: string;
+  /**
+   * Display name for the `From` header (org branding on client mail). The
+   * address stays the verified sender from `emailFrom()`. Omit to send from
+   * the bare address.
+   */
+  fromName?: string;
+  /** `Reply-To` (the org's contact email). Dropped unless a single plain address. */
+  replyTo?: string;
 }): Promise<boolean> {
   const { to, redirectedFrom } = resolveRecipient(args.to);
   if (redirectedFrom) {
@@ -68,12 +128,16 @@ export async function sendEmail(args: {
       }
     : undefined;
 
+  const from = args.fromName ? formatFromHeader(args.fromName, emailFrom()) : emailFrom();
+  const replyTo = isPlainEmailAddress(args.replyTo) ? args.replyTo : undefined;
+
   try {
     const result = await getResend().emails.send({
-      from: emailFrom(),
+      from,
       to,
       subject: args.subject,
       react: args.react,
+      ...(replyTo ? { replyTo } : {}),
       ...(headers ? { headers } : {}),
     });
 

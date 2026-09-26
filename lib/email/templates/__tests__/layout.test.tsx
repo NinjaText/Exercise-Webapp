@@ -90,4 +90,45 @@ describe("EmailLayout", () => {
     expect(html).toContain("#dc2626");
     expect(html).not.toContain("#2563eb");
   });
+  it("renders the logo image in the header bar when logoUrl is given", () => {
+    const html = renderToStaticMarkup(
+      <EmailLayout
+        title="T"
+        greeting="Hi,"
+        intro="i"
+        organizationName="Summit PT"
+        logoUrl="https://assets.test/branding/org_1/logo-on-dark-abcd1234.png"
+      />
+    );
+
+    expect(html).toMatch(/<img[^>]+src="https:\/\/assets\.test\/branding\/org_1\/logo-on-dark-abcd1234\.png"/);
+    expect(html).toMatch(/<img[^>]+alt="Summit PT"/);
+    expect(html).toMatch(/<img[^>]+height="32"/);
+    expect(html).toMatch(/<img[^>]+style="[^"]*width:auto/);
+    // The name still appears in the footer copyright line.
+    expect(html).toContain("Summit PT");
+  });
+
+  it("renders the name as text, and no image, without a logoUrl", () => {
+    const html = renderToStaticMarkup(
+      <EmailLayout title="T" greeting="Hi," intro="i" organizationName="Summit PT" />
+    );
+
+    expect(html).not.toContain("<img");
+    expect(html).toMatch(/<p[^>]*>Summit PT<\/p>/);
+  });
+
+  it("does not render the header name text when a logo replaces it", () => {
+    const html = renderToStaticMarkup(
+      <EmailLayout
+        title="T"
+        greeting="Hi,"
+        intro="i"
+        organizationName="Summit PT"
+        logoUrl="https://assets.test/l.png"
+      />
+    );
+
+    expect(html).not.toMatch(/<p[^>]*>Summit PT<\/p>/);
+  });
 });

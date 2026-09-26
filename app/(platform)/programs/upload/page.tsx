@@ -9,7 +9,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { PageShell } from "@/components/shared/page-shell";
 
 export const metadata = {
-  title: "Upload Program Brief - Unity Health",
+  title: "Upload Program Brief",
   description: "Upload a program brief file and generate a professional AI program",
 };
 

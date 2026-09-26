@@ -4,6 +4,11 @@ import { auth } from '@clerk/nextjs/server'
 import { prisma } from '@/lib/prisma'
 import { renderToBuffer } from '@react-pdf/renderer'
 import { ProgramDocument, buildProgramPdfSections } from '@/lib/pdf/program-document'
+import { DEFAULT_DISPLAY_NAME } from '@/lib/branding/defaults'
+import { fetchPdfLogo } from '@/lib/pdf/fetch-pdf-logo'
+import { resolvePdfBranding } from '@/lib/pdf/pdf-branding'
+import { getOrgBranding } from '@/lib/services/branding.service'
+import { getOrganizationOrNull } from '@/lib/services/organization.service'
 
 export async function GET(
   _request: NextRequest,
@@ -20,6 +25,7 @@ export async function GET(
     where: { id },
     include: {
       client: { select: { firstName: true, lastName: true } },
+      trainer: { select: { clerkOrgId: true } },
       workouts: {
         orderBy: { orderIndex: 'asc' },
         include: {
@@ -52,6 +58,16 @@ export async function GET(
     ? `${program.client.firstName} ${program.client.lastName}`
     : null
 
+  // Org name from the Organization row; logo + accent only when the trainer's
+  // org has branding enabled (own R2 assets only).
+  const clerkOrgId = program.trainer?.clerkOrgId ?? null
+  const [org, branding] = await Promise.all([
+    clerkOrgId ? getOrganizationOrNull(clerkOrgId) : Promise.resolve(null),
+    getOrgBranding(clerkOrgId),
+  ])
+  const pdfBranding = resolvePdfBranding(org, branding)
+  const logoBuffer = await fetchPdfLogo(pdfBranding.logoUrl)
+
   const sections = buildProgramPdfSections(
     program.workouts as unknown as Record<string, unknown>[]
   )
@@ -60,7 +76,9 @@ export async function GET(
     React.createElement(ProgramDocument, {
       programName: program.name,
       clientName,
-      organizationName: 'INMOTUS RX',
+      organizationName: pdfBranding.organizationName ?? DEFAULT_DISPLAY_NAME,
+      logoBuffer,
+      accentHex: pdfBranding.accentHex,
       sections,
       equipmentRequired: program.equipmentRequired ?? [],
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

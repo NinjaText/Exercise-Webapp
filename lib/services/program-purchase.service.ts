@@ -1,4 +1,6 @@
+import { cache } from "react";
 import { clerkClient } from "@clerk/nextjs/server";
+import type { ProgramPurchase } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { duplicateProgram, assignProgram } from "@/lib/services/program.service";
 import { sendProgramWelcomeEmail } from "@/lib/email/send-program-welcome";
@@ -10,6 +12,20 @@ export interface FulfillSessionInput {
   currency: string | null;
   packageIds: string[];
 }
+
+/**
+ * `React.cache()`-wrapped so the sales success page's `generateMetadata`
+ * (which only needs `orgId` for branding) and its page body (which needs the
+ * full row for claim/pending status) share one DB read per request instead
+ * of two.
+ */
+export const getPurchaseBySessionId = cache(
+  async (sessionId: string): Promise<ProgramPurchase | null> => {
+    return prisma.programPurchase.findUnique({
+      where: { stripeCheckoutSessionId: sessionId },
+    });
+  }
+);
 
 export async function fulfillProgramPurchase(
   session: FulfillSessionInput
@@ -169,6 +185,7 @@ export async function fulfillProgramPurchase(
       programName,
       loginUrl: `${process.env.NEXT_PUBLIC_APP_URL}/p/${packages[0].slug}/success?session_id=${session.id}`,
       isNewAccount,
+      clerkOrgId: orgId,
     });
   }
 

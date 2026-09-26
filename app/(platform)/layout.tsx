@@ -1,3 +1,4 @@
+import type { Metadata, Viewport } from "next";
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
@@ -9,6 +10,29 @@ import { SearchProvider } from "@/components/search/search-provider";
 import { CommandPalette } from "@/components/search/command-palette";
 import { BreadcrumbProvider } from "@/components/layout/breadcrumb-context";
 import { MobileTabBar } from "@/components/layout/mobile-tab-bar";
+import { BrandStyle } from "@/components/branding/brand-style";
+import { getCurrentBranding, getOrgBranding } from "@/lib/services/branding.service";
+import { toViewModel } from "@/lib/branding/types";
+import { brandIconsMetadata, brandViewport } from "@/lib/branding/metadata";
+
+// Both deduped with the layout's own read via React.cache in branding.service.
+export async function generateMetadata(): Promise<Metadata> {
+  const b = await getCurrentBranding();
+  return {
+    // `absolute`, not `default`: a layout's own title is still run through the
+    // root template ("%s | INMOTUS RX"), which gave "Yahya Clinic | INMOTUS RX"
+    // on every page without a title of its own.
+    title: { template: `%s | ${b.displayName}`, absolute: b.displayName },
+    // Full replacement of the root PRODUCT_ICONS when branded; no key at all
+    // when unbranded so the product favicon is inherited.
+    ...brandIconsMetadata(b),
+  };
+}
+
+export async function generateViewport(): Promise<Viewport> {
+  const b = await getCurrentBranding();
+  return brandViewport(b);
+}
 
 export default async function PlatformLayout({ children }: { children: React.ReactNode }) {
   const { userId, orgId } = await auth();
@@ -48,6 +72,7 @@ export default async function PlatformLayout({ children }: { children: React.Rea
     unreadNotificationCount,
     initialNotifications,
     adminAccess,
+    branding,
   ] = await Promise.all([
     prisma.message.count({
       where: { recipientId: user.id, isRead: false },
@@ -62,16 +87,21 @@ export default async function PlatformLayout({ children }: { children: React.Rea
       take: 20,
     }),
     isSuperAdmin(),
+    // DB user's clerkOrgId is canonical (clients inherit their trainer's org).
+    getOrgBranding(user.clerkOrgId ?? null),
   ]);
 
   // Workout voice notes now live inside the normal message threads, so the nav
   // shows one combined unread badge rather than a second voice-only badge.
   const unreadMessageCount = unreadChatCount + unreadVoiceNoteCount;
+  // Only the serialisable, client-safe subset crosses into client components.
+  const brandingVm = toViewModel(branding);
 
   return (
     <SearchProvider>
       <BreadcrumbProvider>
         <div data-app-shell className="flex h-dvh overflow-hidden bg-[oklch(0.97_0.005_247)]">
+          <BrandStyle branding={branding} />
           <Sidebar
             role={user.role}
             currentPath=""
@@ -80,6 +110,7 @@ export default async function PlatformLayout({ children }: { children: React.Rea
             userEmail={user.email}
             userImageUrl={user.imageUrl}
             isAdmin={adminAccess}
+            branding={brandingVm}
           />
           <div className="flex flex-1 flex-col overflow-hidden">
             <Header
@@ -87,6 +118,7 @@ export default async function PlatformLayout({ children }: { children: React.Rea
               unreadMessageCount={unreadMessageCount}
               unreadNotificationCount={unreadNotificationCount}
               initialNotifications={initialNotifications}
+              branding={brandingVm}
             />
             <main className="flex-1 overflow-y-auto p-4 pb-[calc(1rem_+_var(--tab-bar-height)_+_var(--safe-bottom))] sm:p-6 sm:pb-[calc(1.5rem_+_var(--tab-bar-height)_+_var(--safe-bottom))] lg:pb-6">
               <div className="page-enter">{children}</div>

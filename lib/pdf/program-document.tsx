@@ -1,5 +1,5 @@
 import React from 'react'
-import { Document, Page, Text, View, Link, StyleSheet } from '@react-pdf/renderer'
+import { Document, Page, Text, View, Link, Image, StyleSheet } from '@react-pdf/renderer'
 
 // ─── Data transformer (pure, testable) ──────────────────────────────────────
 
@@ -77,6 +77,7 @@ export function buildProgramPdfSections(
 const styles = StyleSheet.create({
   page: { padding: 40, fontFamily: 'Helvetica', fontSize: 11, color: '#111827' },
   header: { marginBottom: 24 },
+  logo: { height: 48, maxWidth: 200, alignSelf: 'flex-start', objectFit: 'contain', marginBottom: 10 },
   title: { fontSize: 20, fontFamily: 'Helvetica-Bold', color: '#1d4ed8', marginBottom: 4 },
   subtitle: { fontSize: 11, color: '#6b7280' },
   workoutSection: { marginBottom: 20 },
@@ -128,6 +129,10 @@ interface ProgramDocumentProps {
   programName: string
   clientName: string | null
   organizationName: string
+  /** Org logo (PNG) rendered above the title; omitted/null → no logo. */
+  logoBuffer?: Buffer | null
+  /** Text-safe brand hex for the title; omitted → product colour. */
+  accentHex?: string | null
   sections: PdfSection[]
   equipmentRequired?: string[]
 }
@@ -136,6 +141,8 @@ export function ProgramDocument({
   programName,
   clientName,
   organizationName,
+  logoBuffer,
+  accentHex,
   sections,
   equipmentRequired = [],
 }: ProgramDocumentProps) {
@@ -144,7 +151,12 @@ export function ProgramDocument({
     <Document>
       <Page size="A4" style={styles.page}>
         <View style={styles.header}>
-          <Text style={styles.title}>{programName}</Text>
+          {logoBuffer && (
+            <Image style={styles.logo} src={{ data: logoBuffer, format: 'png' }} />
+          )}
+          <Text style={accentHex ? [styles.title, { color: accentHex }] : styles.title}>
+            {programName}
+          </Text>
           {clientName && <Text style={styles.subtitle}>Client: {clientName}</Text>}
           <Text style={styles.subtitle}>{organizationName}</Text>
         </View>

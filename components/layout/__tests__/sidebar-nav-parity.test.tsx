@@ -2,6 +2,10 @@ import { describe, it, expect, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import { Sidebar } from "../sidebar";
 import { ADMIN_NAV, getAccountNav, getPrimaryNav } from "../nav-items";
+import { DEFAULT_BRANDING } from "@/lib/branding/resolve";
+import { toViewModel } from "@/lib/branding/types";
+
+const UNBRANDED = toViewModel(DEFAULT_BRANDING);
 
 // The sidebar hand-writes the Account and Admin blocks as literal JSX (the
 // nesting under /settings and the Admin pill badge aren't expressible as a
@@ -30,6 +34,7 @@ describe("Sidebar / nav-items parity", () => {
     mockPathname = "/settings";
     const html = renderToStaticMarkup(
       <Sidebar
+        branding={UNBRANDED}
         role="TRAINER"
         currentPath="/settings"
         unreadMessageCount={0}
@@ -51,6 +56,7 @@ describe("Sidebar / nav-items parity", () => {
     mockPathname = "/settings";
     const html = renderToStaticMarkup(
       <Sidebar
+        branding={UNBRANDED}
         role="CLIENT"
         currentPath="/settings"
         unreadMessageCount={0}

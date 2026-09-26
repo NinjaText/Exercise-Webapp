@@ -17,7 +17,6 @@ import { saveOrganizationProfile, type OrganizationMetadata } from "@/actions/or
 import { type ExerciseSourcePreference } from "@/lib/utils/exercise-picker";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
-import Image from "next/image";
 
 interface OrganizationProfileFormProps {
   initialData?: OrganizationMetadata;
@@ -26,7 +25,6 @@ interface OrganizationProfileFormProps {
 export function OrganizationProfileForm({ initialData }: OrganizationProfileFormProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-  const [logoUrl, setLogoUrl] = useState(initialData?.logoUrl ?? "");
   const [exerciseSourcePreference, setExerciseSourcePreference] = useState<ExerciseSourcePreference>(
     initialData?.exerciseSourcePreference ?? "BOTH"
   );
@@ -39,7 +37,6 @@ export function OrganizationProfileForm({ initialData }: OrganizationProfileForm
     const result = await saveOrganizationProfile({
       organizationName: formData.get("organizationName") as string,
       tagline: (formData.get("tagline") as string) || undefined,
-      logoUrl: logoUrl || undefined,
       phone: (formData.get("phone") as string) || undefined,
       email: (formData.get("email") as string) || undefined,
       website: (formData.get("website") as string) || undefined,
@@ -77,18 +74,6 @@ export function OrganizationProfileForm({ initialData }: OrganizationProfileForm
             defaultValue={initialData?.tagline ?? ""}
             placeholder="e.g., Evidence-based rehabilitation"
           />
-        </FormField>
-
-        <FormField label="Organization Logo" hint="Logo upload is temporarily unavailable.">
-          {logoUrl && (
-            <Image
-              src={logoUrl}
-              alt="Organization logo"
-              width={80}
-              height={80}
-              className="rounded-md border"
-            />
-          )}
         </FormField>
       </FormSection>
 

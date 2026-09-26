@@ -4,11 +4,13 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { UserButton } from "@clerk/nextjs";
 import { clerkAppearance } from "@/lib/ui/clerk-appearance";
-import { Settings, Activity, Shield, CreditCard, History, Building2, Bell } from "lucide-react";
+import { Settings, Shield, CreditCard, History, Building2, Bell, Palette } from "lucide-react";
 import { findActiveHref, getAccountNav, getPrimaryNav } from "./nav-items";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { OrgIdentity } from "@/components/branding/org-identity";
+import type { BrandingViewModel } from "@/lib/branding/types";
 
 interface SidebarProps {
   role: "TRAINER" | "CLIENT";
@@ -20,6 +22,8 @@ interface SidebarProps {
   userImageUrl?: string | null;
   mobileMode?: boolean;
   isAdmin?: boolean;
+  /** Client-safe branding subset (never tokens/CSS). */
+  branding: BrandingViewModel;
 }
 
 export function Sidebar({
@@ -29,6 +33,7 @@ export function Sidebar({
   userEmail,
   mobileMode = false,
   isAdmin = false,
+  branding,
 }: SidebarProps) {
   const pathname = usePathname();
   const links = getPrimaryNav(role);
@@ -67,22 +72,16 @@ export function Sidebar({
     <aside
       className={cn("w-64 flex-col bg-sidebar", mobileMode ? "flex" : "hidden lg:flex")}
       style={{
-        background: "linear-gradient(180deg, var(--sidebar), oklch(0.15 0.04 264))",
+        background: "linear-gradient(180deg, var(--sidebar), var(--sidebar-gradient-end))",
       }}
     >
       {/* Logo */}
       <div className="flex h-16 items-center gap-3 border-b border-sidebar-border/60 px-5">
-        <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-muted shadow-sm">
-          <Activity className="h-4 w-4 text-muted-foreground" />
-        </div>
-        <div>
-          <span className="text-[15px] font-bold tracking-tight text-sidebar-foreground">
-            INMOTUS RX
-          </span>
-          <p className="text-[10px] font-medium text-sidebar-foreground/40 uppercase tracking-widest">
-            {role === "TRAINER" ? "Trainer Portal" : "Client Portal"}
-          </p>
-        </div>
+        <OrgIdentity
+          branding={branding}
+          surface="dark"
+          subtitle={role === "TRAINER" ? "Trainer Portal" : "Client Portal"}
+        />
       </div>
 
       {/* Navigation */}
@@ -121,6 +120,7 @@ export function Sidebar({
           <div className="ml-4 mt-0.5 space-y-0.5 border-l border-sidebar-border/50 pl-2">
             {navItem("/settings/notifications", "Notifications", Bell)}
             {role === "TRAINER" && navItem("/settings/clinic", "Organization", Building2)}
+            {role === "TRAINER" && navItem("/settings/branding", "Branding", Palette)}
             {role === "TRAINER" && navItem("/settings/audit-log", "Audit Log", History)}
           </div>
         )}
@@ -160,6 +160,12 @@ export function Sidebar({
             </p>
           </div>
         </div>
+        {/* Spec §12.3 default: clients of a branded org see a small product credit. */}
+        {branding.enabled && role === "CLIENT" && (
+          <p className="mt-2 text-center text-[10px] text-sidebar-foreground/40">
+            Powered by INMOTUS RX
+          </p>
+        )}
       </div>
     </aside>
   );
