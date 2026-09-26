@@ -1,7 +1,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const { resolveServerUrl, DEFAULT_SERVER_URL } = require("../server-url.cjs");
-const { checkResolvedConfig, UA_PATTERN, checkInfoPlist, checkAndroidManifest } = require("./verify.cjs");
+const { checkResolvedConfig, checkReleaseConfig, UA_PATTERN, checkInfoPlist, checkAndroidManifest } = require("./verify.cjs");
 
 test("resolveServerUrl defaults to production and trims trailing slashes", () => {
   assert.equal(resolveServerUrl({}), DEFAULT_SERVER_URL);
@@ -116,4 +116,23 @@ test("AndroidManifest with the audio permissions passes", () => {
 test("AndroidManifest missing RECORD_AUDIO is flagged", () => {
   const text = MANIFEST_OK.replace('<uses-permission android:name="android.permission.RECORD_AUDIO" />', "");
   assert.ok(checkAndroidManifest(text).some((p) => p.includes("RECORD_AUDIO")));
+});
+
+test("checkReleaseConfig passes a production config", () => {
+  assert.deepEqual(checkReleaseConfig(good("ios"), "ios"), []);
+});
+
+test("checkReleaseConfig flags a LAN dev URL", () => {
+  const c = good("android");
+  c.server.url = "http://192.168.1.20:3000";
+  c.server.cleartext = true;
+  const problems = checkReleaseConfig(c, "android");
+  assert.ok(problems.some((p) => p.includes("server.url")));
+  assert.ok(problems.some((p) => p.includes("cleartext")));
+});
+
+test("checkReleaseConfig flags a preview deployment URL", () => {
+  const c = good("ios");
+  c.server.url = "https://preview-xyz.vercel.app";
+  assert.ok(checkReleaseConfig(c, "ios").some((p) => p.includes("server.url")));
 });

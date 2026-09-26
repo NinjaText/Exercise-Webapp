@@ -32,6 +32,10 @@ npm run sync && npm run open:ios
 ```
 Xcode opens. Select the `App` target → **Signing & Capabilities** → pick your own team (a free Apple ID works for installing on your own device — it does not need the paid Apple Developer Program). Plug your iPhone in with a cable, select it as the run destination, and press **Run** (▶).
 
+The first time, the app installs but iOS refuses to open it and shows **"Untrusted Developer"**. On the phone go to **Settings → General → VPN & Device Management**, tap your Apple ID under "Developer App", and tap **Trust**. After that it opens normally.
+
+A free (non-paid) Apple ID's signing expires after **7 days** — the app simply stops opening on the phone. There's nothing wrong; just plug the phone back into Xcode and press **Run** again to re-sign it.
+
 **Android**
 On the phone: Settings → About phone → tap **Build number** 7 times to enable Developer options, then turn on **USB debugging** under Developer options.
 ```
@@ -41,11 +45,15 @@ Android Studio opens the project. Plug the phone in, select it as the run target
 
 ## 4. Point the app at your laptop (live reload)
 
+Your iPhone/Android phone and your Mac must be on the **same Wi-Fi network** — not cellular, and not a "guest" or client-isolated Wi-Fi network (common on office/coffee-shop Wi-Fi, which blocks devices from reaching each other). Use your home network if in doubt.
+
 From the repo root:
 ```
 npm run dev:lan
 ```
-This starts Next.js listening on your LAN, not just `localhost`. Find your Mac's LAN IP:
+This starts Next.js listening on your LAN, not just `localhost`. The first time you run it, macOS may pop up **"Do you want the application node to accept incoming network connections?"** — click **Allow** (if you click Deny, the phone can never reach it).
+
+Find your Mac's LAN IP:
 ```
 ipconfig getifaddr en0
 ```
@@ -58,8 +66,9 @@ Run the app from Xcode or Android Studio as in section 3 — it now loads your l
 **Afterwards, restore production before any release build:**
 ```
 npm run sync
+npm run verify:release
 ```
-(no `CAP_SERVER_URL` set — this falls back to `https://app.goinmotus.com`).
+(no `CAP_SERVER_URL` set — this falls back to `https://app.goinmotus.com`; `verify:release` confirms nothing dev/preview is left wired in — see section 9).
 
 Warnings:
 - A dev build pointed at your laptop must **never** be uploaded to the App Store or Play Console.
@@ -102,6 +111,8 @@ npm run assets
 
 ## 8. Release builds
 
+Before either platform, make sure you're pointed at production: `npm run sync && npm run verify:release` must print OK (see section 9).
+
 **iOS** — requires an active Apple Developer Program membership (from Plan 0).
 1. In Xcode: **Product → Archive**.
 2. **Distribute App → App Store Connect → Upload**.
@@ -116,14 +127,16 @@ npm run assets
 
 ```
 npm run sync            # no CAP_SERVER_URL set — resolves to production
-npm run verify           # must print "mobile verify OK"
+npm run verify:release  # must print "mobile verify OK" — refuses any non-production URL
 npm test                 # must pass
 ```
-And confirm the version was bumped and stamped (section 6).
+`npm run verify:release` does everything `npm run verify` does, plus it fails if `server.url` is anything other than `https://app.goinmotus.com` (a laptop IP, a preview URL, anything left over from sections 4/5) — `npm run verify` alone would not catch that. Also confirm the version was bumped and stamped (section 6).
 
 ## 10. Troubleshooting
 
 - **`[error] Parsing capacitor.config.ts failed … Cannot use import statement outside a module`** — TypeScript 7 got installed in `mobile/`. `cap sync` keeps using the previous resolved config when this happens, so it can silently mask changes. Keep `typescript@^5` in `mobile/package.json`.
+- **App icon appears but won't open / "Untrusted Developer"** — expected the first time you install with a free/personal Apple ID. On the phone: **Settings → General → VPN & Device Management** → tap your Apple ID developer profile → **Trust**. If it recurs a week later, your free Apple ID's signing has simply expired after its 7-day limit — re-run from Xcode.
+- **Live-reload build shows the offline page** — usually the phone and Mac aren't on the same Wi-Fi network (check for cellular data or a guest/isolated network on the phone), or macOS was told to block incoming connections for `node` (System Settings → Network → Firewall → Options, allow incoming connections for node, or re-trigger the "Allow" prompt by restarting `npm run dev:lan`).
 - **`npm test` fails or behaves oddly on Node 22+** — it must use the quoted glob form, `node --test 'scripts/*.test.cjs'` (already how the script is defined). The unquoted directory form (`node --test scripts/`) fails on newer Node versions — don't "simplify" it back.
 - **Sign-in opens Safari/Chrome instead of staying in the app** — add the missing domain to `server.allowNavigation` in `mobile/capacitor.config.ts`, then `npm run sync` again.
 - **Blank screen on launch** — run `npm run verify` and check `server.url` in the printed/resolved config; it should be `https://app.goinmotus.com` for any build headed to a store.

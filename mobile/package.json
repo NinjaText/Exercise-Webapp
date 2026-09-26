@@ -6,6 +6,7 @@
   "scripts": {
     "sync": "node scripts/write-www-config.cjs && cap sync",
     "verify": "node scripts/verify.cjs",
+    "verify:release": "node scripts/verify.cjs --release",
     "test": "node --test 'scripts/*.test.cjs'",
     "open:ios": "cap open ios",
     "open:android": "cap open android",

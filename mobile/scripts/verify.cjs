@@ -4,6 +4,7 @@
  */
 const fs = require("node:fs");
 const path = require("node:path");
+const { DEFAULT_SERVER_URL } = require("../server-url.cjs");
 
 // Must stay in step with lib/native/platform.ts in the web app.
 const UA_PATTERN = /InmotusApp\/(\d+\.\d+\.\d+)\s*\((ios|android)\)/i;
@@ -56,6 +57,19 @@ function checkResolvedConfig(config, platform, publicFiles) {
   return problems;
 }
 
+// Stricter than checkResolvedConfig: a laptop IP or a preview URL passes the
+// normal checks (cleartext just has to match the scheme) but must never ship
+// to a store. Run with --release right before an archive/signed bundle.
+function checkReleaseConfig(config, platform) {
+  const problems = [];
+  const server = config.server || {};
+  if (server.url !== DEFAULT_SERVER_URL) {
+    problems.push(`${platform}: server.url is "${server.url}", must be ${DEFAULT_SERVER_URL} for a release build`);
+  }
+  if (server.cleartext) problems.push(`${platform}: server.cleartext must be false for a release build`);
+  return problems;
+}
+
 const PLIST_REQUIRED_STRINGS = [
   "NSMicrophoneUsageDescription",
   "NSCameraUsageDescription",
@@ -87,6 +101,7 @@ function readIfExists(p) {
 }
 
 function main() {
+  const release = process.argv.includes("--release");
   const root = path.join(__dirname, "..");
   const targets = {
     ios: { config: "ios/App/App/capacitor.config.json", public: "ios/App/App/public" },
@@ -101,9 +116,11 @@ function main() {
     }
     const pub = path.join(root, t.public);
     const files = fs.existsSync(pub) ? fs.readdirSync(pub) : [];
-    problems.push(...checkResolvedConfig(JSON.parse(raw), platform, files));
+    const config = JSON.parse(raw);
+    problems.push(...checkResolvedConfig(config, platform, files));
+    if (release) problems.push(...checkReleaseConfig(config, platform));
     const serverUrlJs = readIfExists(path.join(pub, "server-url.js")) || "";
-    const url = JSON.parse(raw).server && JSON.parse(raw).server.url;
+    const url = config.server && config.server.url;
     if (url && !serverUrlJs.includes(JSON.stringify(url))) {
       problems.push(`${platform}: bundled server-url.js does not point at ${url}`);
     }
@@ -124,4 +141,4 @@ function main() {
 
 if (require.main === module) main();
 
-module.exports = { UA_PATTERN, REQUIRED_HOSTS, checkResolvedConfig, checkInfoPlist, checkAndroidManifest };
+module.exports = { UA_PATTERN, REQUIRED_HOSTS, checkResolvedConfig, checkReleaseConfig, checkInfoPlist, checkAndroidManifest };
