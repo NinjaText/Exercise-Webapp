@@ -12,12 +12,29 @@ export const DEEP_LINK_PATH_PREFIXES: readonly string[] = paths;
 const UNSAFE_CHARS = /[\\\u0000-\u001f\u007f]/;
 
 /**
- * Resolve the candidate against the app origin and accept it only if it stays
- * there — pattern-matching the string alone misses the parser's quirks.
+ * The last gate, applied to what pathFromAppUrl actually returns: a
+ * single-slash path, free of backslashes and control characters, that still
+ * resolves to the app origin when resolved on its own. Checking the input
+ * alone is not enough — dot segments ("/..//evil.com") normalise into a
+ * protocol-relative "//evil.com" only after resolution.
+ */
+function isSafeInAppPath(out: string, origin: string): boolean {
+  if (!out.startsWith("/") || out.startsWith("//") || UNSAFE_CHARS.test(out)) return false;
+  try {
+    return new URL(out, origin).origin === origin;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Resolve the candidate against the app origin and accept the result only if
+ * it stays there — pattern-matching the string alone misses the parser's
+ * quirks.
  */
 function safePath(candidate: string, host: string): string | null {
-  if (!candidate.startsWith("/") || candidate.startsWith("//") || UNSAFE_CHARS.test(candidate)) return null;
   const origin = `https://${host}`;
+  if (!isSafeInAppPath(candidate, origin)) return null;
   let resolved: URL;
   try {
     resolved = new URL(candidate, origin);
@@ -25,7 +42,8 @@ function safePath(candidate: string, host: string): string | null {
     return null;
   }
   if (resolved.origin !== origin) return null;
-  return `${resolved.pathname}${resolved.search}${resolved.hash}`;
+  const out = `${resolved.pathname}${resolved.search}${resolved.hash}`;
+  return isSafeInAppPath(out, origin) ? out : null;
 }
 
 export function pathFromAppUrl(url: string, host: string = APP_HOST): string | null {

@@ -49,6 +49,62 @@ describe("pathFromAppUrl: backslash and encoding tricks", () => {
   });
 });
 
+describe("pathFromAppUrl: dot-segment tricks", () => {
+  const ORIGIN = "https://app.goinmotus.com";
+
+  it.each([
+    "inmotus://..//evil.com",
+    "inmotus://.//evil.com",
+    "inmotus://%2e%2e//evil.com",
+    "inmotus://..//evil.accounts.dev/x",
+  ])("rejects %s", (url) => {
+    expect(pathFromAppUrl(url)).toBeNull();
+  });
+
+  it("keeps a leading .. on the app origin", () => {
+    const result = pathFromAppUrl("inmotus://../dashboard");
+    expect(result).toBe("/dashboard");
+    expect(new URL(result ?? "/", ORIGIN).origin).toBe(ORIGIN);
+  });
+});
+
+// Every URL probed anywhere in this file: a non-null result must always be a
+// single-slash path that re-resolves to the app origin.
+const ALL_PROBES = [
+  "https://app.goinmotus.com/messages/abc?x=1#m2",
+  "inmotus://clients/42",
+  "inmotus:///dashboard",
+  "https://evil.example/dashboard",
+  "https://app.goinmotus.com.evil.io/x",
+  "mailto:a@b.c",
+  "not a url",
+  "inmotus:////evil.com",
+  "https://app.goinmotus.com//evil.com",
+  "inmotus:/\\evil.com",
+  "inmotus:///\\evil.com",
+  "inmotus://\\evil.com",
+  "https://app.goinmotus.com/\\evil.com",
+  "inmotus://%5C%5Cevil.com",
+  "inmotus://clients/42?x=1#h",
+  "inmotus://..//evil.com",
+  "inmotus://.//evil.com",
+  "inmotus://%2e%2e//evil.com",
+  "inmotus://..//evil.accounts.dev/x",
+  "inmotus://../dashboard",
+];
+
+describe("pathFromAppUrl: output property", () => {
+  const ORIGIN = "https://app.goinmotus.com";
+  it.each(ALL_PROBES)("%s yields null or a single-slash path on the app origin", (url) => {
+    const result = pathFromAppUrl(url);
+    if (result === null) return;
+    expect(result.startsWith("/")).toBe(true);
+    expect(result.startsWith("//")).toBe(false);
+    expect(/[\\\u0000-\u001f\u007f]/.test(result)).toBe(false);
+    expect(new URL(result, ORIGIN).origin).toBe(ORIGIN);
+  });
+});
+
 describe("association files", () => {
   it("builds the AASA with the team-qualified app ID and every prefix", () => {
     const aasa = buildAppleAppSiteAssociation("ABCDE12345") as { applinks: { details: { appIDs: string[]; components: { "/": string }[] }[] } };

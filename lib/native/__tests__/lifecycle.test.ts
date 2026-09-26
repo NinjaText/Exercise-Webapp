@@ -428,6 +428,24 @@ describe("createHandledLinksStore", () => {
     expect(store.has("inmotus://clients/1")).toBe(true);
   });
 
+  it("keeps the 20 newest URLs: the 21st evicts the oldest, and re-adding moves a URL to newest", () => {
+    const data = new Map<string, string>();
+    const storage = { getItem: (k: string) => data.get(k) ?? null, setItem: (k: string, v: string) => void data.set(k, v) };
+    const store = createHandledLinksStore(() => storage);
+    for (let i = 1; i <= 20; i++) store.add(`inmotus://cap/${i}`);
+    // Re-adding #1 moves it to newest, so #2 is now the oldest.
+    store.add("inmotus://cap/1");
+    store.add("inmotus://cap/21");
+    const stored = JSON.parse(data.get(HANDLED_DEEP_LINKS_KEY) ?? "[]") as string[];
+    expect(stored).toHaveLength(20);
+    expect(store.has("inmotus://cap/2")).toBe(false);
+    expect(store.has("inmotus://cap/1")).toBe(true);
+    expect(store.has("inmotus://cap/21")).toBe(true);
+    expect(stored.at(-2)).toBe("inmotus://cap/1");
+    expect(stored.at(-1)).toBe("inmotus://cap/21");
+    expect(stored[0]).toBe("inmotus://cap/3");
+  });
+
   it("ignores corrupt stored data", () => {
     const storage = { getItem: () => "{not json", setItem: () => undefined };
     expect(createHandledLinksStore(() => storage).has("x")).toBe(false);
