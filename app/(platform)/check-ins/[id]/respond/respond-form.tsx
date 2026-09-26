@@ -10,6 +10,7 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { submitCheckInResponseAction } from "@/actions/checkin-actions";
+import { haptic } from "@/lib/native/haptics";
 import { Send } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
@@ -176,6 +177,7 @@ export function RespondForm({ assignment, questions }: Props) {
         answers
       );
       if (result.success) {
+        void haptic("medium");
         toast.success("Check-in submitted successfully!");
         router.push("/check-ins");
       } else {

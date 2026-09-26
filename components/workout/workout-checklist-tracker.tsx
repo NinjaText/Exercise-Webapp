@@ -37,6 +37,7 @@ import {
 } from "./workout-tokens";
 import { ROLE_CLASSES } from "@/lib/ui/status";
 import { formatBodyRegion } from "@/lib/utils/formatting";
+import { haptic } from "@/lib/native/haptics";
 import { VoiceMemoRecorder } from "@/components/voice-memo/VoiceMemoRecorder";
 import { getWorkoutVoiceMemos } from "@/actions/voice-memo-actions";
 import type { VoiceMemoData } from "@/actions/voice-memo-actions";
@@ -424,6 +425,7 @@ export function WorkoutChecklistTracker({
         [ex.id]: { ...(prev[ex.id] ?? {}), [setIndex]: entry },
       }));
 
+      void haptic();
       onSetLogged?.(ex.id, setIndex, entry);
 
       if (allDone) {

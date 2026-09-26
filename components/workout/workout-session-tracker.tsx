@@ -43,6 +43,7 @@ import {
 import { cn } from "@/lib/utils";
 import { ROLE_CLASSES } from "@/lib/ui/status";
 import { aggregateProgramEquipment } from "@/lib/utils/program-equipment";
+import { haptic } from "@/lib/native/haptics";
 import { VoiceMemoRecorder } from "@/components/voice-memo/VoiceMemoRecorder";
 import { getWorkoutVoiceMemos } from "@/actions/voice-memo-actions";
 import type { VoiceMemoData } from "@/actions/voice-memo-actions";
@@ -450,6 +451,7 @@ export function WorkoutSessionTracker({
       });
       setActiveSetLogs((prev) => ({ ...prev, [setIdx]: { ...prev[setIdx], completed: true } }));
       setCompletedKeys((prev) => new Set(prev).add(key));
+      void haptic();
       onExerciseToggle?.(blockExercise.id, true);
       onSetLogged?.(blockExercise.id, dbSetIndex, {
         actualReps: logData?.actualReps,

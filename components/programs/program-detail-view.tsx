@@ -46,6 +46,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { format } from "date-fns";
+import { Capacitor } from "@capacitor/core";
+import { saveOrDownload } from "@/lib/native/download";
 import { toLocalCalendarDate } from "@/lib/utils/calendar-date";
 import { aggregateProgramEquipment } from "@/lib/utils/program-equipment";
 import { pickStartableSession } from "@/lib/utils/session-picker";
@@ -238,12 +240,11 @@ export function ProgramDetailView({
     const res = await fetch(`/api/programs/${program.id as string}/pdf`);
     if (!res.ok) { toast.error("Failed to generate PDF"); return; }
     const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${(program.name as string).replace(/[^a-z0-9]/gi, "_").toLowerCase()}.pdf`;
-    a.click();
-    URL.revokeObjectURL(url);
+    try {
+      await saveOrDownload(blob, `${(program.name as string).replace(/[^a-z0-9]/gi, "_").toLowerCase()}.pdf`);
+    } catch {
+      toast.error("Failed to save PDF");
+    }
   }
 
   async function handleDuplicate() {
@@ -263,7 +264,14 @@ export function ProgramDetailView({
       ? [{ label: "Sell this program", icon: Tag, onSelect: () => setSellOpen(true) }]
       : []),
     { label: "Download PDF", icon: Download, onSelect: () => void handleDownloadPdf() },
-    { label: "Print", icon: Printer, onSelect: () => window.open(pdfUrl) },
+    {
+      label: "Print",
+      icon: Printer,
+      // The PDF route needs the session cookie, which the system browser
+      // does not have, so on native fetch the PDF and hand it to the share
+      // sheet instead (which offers Print).
+      onSelect: () => (Capacitor.isNativePlatform() ? void handleDownloadPdf() : window.open(pdfUrl)),
+    },
   ];
 
   const editButton = (

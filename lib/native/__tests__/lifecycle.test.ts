@@ -177,16 +177,42 @@ describe("registerNativeLifecycle", () => {
     expect(deps.onOnlineChange).toHaveBeenLastCalledWith(true);
   });
 
+  function anchorEvent(attrs: Record<string, string>) {
+    return {
+      preventDefault: vi.fn(),
+      defaultPrevented: false,
+      target: { closest: () => ({ getAttribute: (name: string) => attrs[name] ?? null }) },
+    };
+  }
+
   it("opens external links in the system browser and leaves internal ones alone", async () => {
     const { deps, click } = makeDeps();
     await registerNativeLifecycle(deps);
-    const external = { preventDefault: vi.fn(), defaultPrevented: false, target: { closest: () => ({ getAttribute: () => "https://youtube.com/x" }) } };
+    const external = anchorEvent({ href: "https://youtube.com/x" });
     click(external);
     expect(external.preventDefault).toHaveBeenCalled();
     expect(deps.browser.open).toHaveBeenCalledWith({ url: "https://youtube.com/x" });
-    const internal = { preventDefault: vi.fn(), defaultPrevented: false, target: { closest: () => ({ getAttribute: () => "/clients" }) } };
+    const internal = anchorEvent({ href: "/clients" });
     click(internal);
     expect(internal.preventDefault).not.toHaveBeenCalled();
+  });
+
+  it("sends a same-origin target=_blank link to the system browser", async () => {
+    const { deps, click } = makeDeps();
+    await registerNativeLifecycle(deps);
+    const blankSameOrigin = anchorEvent({ href: "/public/program-brief", target: "_blank" });
+    click(blankSameOrigin);
+    expect(blankSameOrigin.preventDefault).toHaveBeenCalled();
+    expect(deps.browser.open).toHaveBeenCalledWith({ url: "https://app.goinmotus.com/public/program-brief" });
+  });
+
+  it("leaves a same-origin link without target alone", async () => {
+    const { deps, click } = makeDeps();
+    await registerNativeLifecycle(deps);
+    const noTarget = anchorEvent({ href: "/clients" });
+    click(noTarget);
+    expect(noTarget.preventDefault).not.toHaveBeenCalled();
+    expect(deps.browser.open).not.toHaveBeenCalled();
   });
 
   it("removes every listener on cleanup", async () => {

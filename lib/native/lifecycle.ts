@@ -122,9 +122,21 @@ export async function registerNativeLifecycle(deps: LifecycleDeps): Promise<() =
     if (e.defaultPrevented) return;
     const anchor = e.target?.closest?.("a[href]");
     const href = anchor?.getAttribute("href");
-    if (!href || !shouldOpenExternally(href, deps.origin)) return;
-    e.preventDefault();
-    deps.browser.open({ url: new URL(href, deps.origin).toString() }).catch(ignore);
+    if (!href) return;
+    if (shouldOpenExternally(href, deps.origin)) {
+      e.preventDefault();
+      deps.browser.open({ url: new URL(href, deps.origin).toString() }).catch(ignore);
+      return;
+    }
+    // A native web view has no tabs: a same-origin target="_blank" link would
+    // otherwise replace the app page (e.g. the public program-brief
+    // template). Send it to the system browser instead. This suits public,
+    // unauthenticated pages — an authenticated page opened this way would
+    // lack the session the in-app view carries.
+    if (anchor?.getAttribute("target") === "_blank") {
+      e.preventDefault();
+      deps.browser.open({ url: new URL(href, deps.origin).toString() }).catch(ignore);
+    }
   };
   deps.doc.addEventListener("click", onClick as (e: never) => void, true);
 

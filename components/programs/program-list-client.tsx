@@ -77,6 +77,7 @@ import {
   Repeat,
 } from "lucide-react";
 import { toast } from "sonner";
+import { saveOrDownload } from "@/lib/native/download";
 import {
   duplicateProgramAction,
   deleteProgramAction,
@@ -385,12 +386,7 @@ function downloadCsv(filename: string, rows: string[][]) {
     .map((row) => row.map((cell) => `"${cell.replace(/"/g, '""')}"`).join(","))
     .join("\n");
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = filename;
-  link.click();
-  URL.revokeObjectURL(url);
+  void saveOrDownload(blob, filename).catch(() => toast.error("Failed to export CSV"));
 }
 
 function WorkoutCount({ count }: { count: number }) {
