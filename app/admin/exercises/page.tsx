@@ -1,7 +1,7 @@
 import { getAllExercises } from "@/lib/services/admin.service";
 import { Button } from "@/components/ui/button";
 import { Plus, UploadCloud, FileSpreadsheet } from "lucide-react";
-import { AdminExercisesTable } from "@/components/admin/exercises-table";
+import { AdminExercisesGrid } from "@/components/admin/exercises-grid";
 import { AdminExerciseFilters } from "@/components/admin/admin-exercise-filters";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
@@ -22,7 +22,7 @@ export default async function AdminExercisesPage({ searchParams }: PageProps) {
 
   const { items: exercises, total, totalPages } = await getAllExercises({
     page,
-    pageSize: 25,
+    pageSize: 24,
     search,
     bodyRegions,
     isAssessment: activeKind === "assessment",
@@ -91,7 +91,7 @@ export default async function AdminExercisesPage({ searchParams }: PageProps) {
         <AdminExerciseFilters search={search} selected={bodyRegions} />
       </PageToolbar>
 
-      <AdminExercisesTable
+      <AdminExercisesGrid
         exercises={exercises}
         total={total}
         totalPages={totalPages}
