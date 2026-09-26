@@ -21,9 +21,19 @@ export type DeleteOwnAccountResult =
  * Stripe reports a missing object as `resource_missing`; an already-cancelled
  * subscription comes back as an invalid-request whose message says so.
  */
-function isAlreadyCancelled(error: unknown): boolean {
+function isAlreadyCancelled(error: unknown, subscriptionId: string): boolean {
   const e = error as { code?: string; message?: string } | null;
-  if (e?.code === "resource_missing") return true;
+  if (e?.code === "resource_missing") {
+    // Stripe also returns `resource_missing` when the key or mode does not
+    // match the object (test key against a live subscription, or the wrong
+    // account), where the subscription is very much alive and still billing.
+    // We cannot tell the two apart from the error alone, so we keep treating
+    // it as cancelled but leave a trace to diagnose from.
+    console.warn(
+      `[account-deletion] Stripe returned resource_missing for subscription ${subscriptionId}; treating the cancel as already-cancelled. If the API key or mode is mismatched, this subscription may still be billing.`
+    );
+    return true;
+  }
   const message = typeof e?.message === "string" ? e.message.toLowerCase() : "";
   return (
     message.includes("no such subscription") ||
@@ -50,7 +60,7 @@ async function cancelTrainerBilling(userId: string): Promise<void> {
   try {
     await stripe.subscriptions.cancel(subscription.stripeSubscriptionId);
   } catch (error) {
-    if (isAlreadyCancelled(error)) return;
+    if (isAlreadyCancelled(error, subscription.stripeSubscriptionId)) return;
     throw error;
   }
 }

@@ -39,12 +39,24 @@ export async function findDeletionBlockers(
     // the trainer's own listing and is cleaned up on delete.
     prisma.coachPackage.count({ where: { trainerId: userId, subscriptions: { some: {} } } }),
     prisma.clientSubscription.count({ where: { clientId: userId } }),
-    // Only plans assigned to a DIFFERENT client. Unassigned plans and plans
-    // this user assigned to themselves are their own data.
+    // Plans this user authored that another human depends on. Assignment
+    // alone is not enough: `WorkoutSession.clientId` is INDEPENDENT of
+    // `WorkoutPlan.clientId` (a session records who actually trained, the
+    // plan records who it is currently assigned to), and both
+    // `WorkoutSession.plan` and `PlanExercise.plan` declare `onDelete:
+    // Cascade` — `ExerciseFeedback.planExercise` cascades in turn. So a plan
+    // a trainer UNASSIGNED (`assignClientToPlanAction` writes
+    // `clientId: clientId ?? null`) still carries that client's pain scores,
+    // session notes, actuals and feedback, and deleting it destroys them.
+    // Block on any of the three, not just on the current assignment.
     prisma.workoutPlan.count({
       where: {
         createdById: userId,
-        AND: [{ clientId: { not: null } }, { clientId: { not: userId } }],
+        OR: [
+          { AND: [{ clientId: { not: null } }, { clientId: { not: userId } }] },
+          { sessions: { some: { clientId: { not: userId } } } },
+          { exercises: { some: { feedback: { some: { clientId: { not: userId } } } } } },
+        ],
       },
     }),
     // Only templates with at least one assignment. `CheckInAssignment`
@@ -61,7 +73,7 @@ export async function findDeletionBlockers(
     blockers.push({ code: "CLIENT_SUBSCRIPTIONS", count: subscriptionCount, message: `this client has ${subscriptionCount} billing subscription(s) on file. Cancel them first.` });
   }
   if (legacyPlanCount > 0) {
-    blockers.push({ code: "LEGACY_PLANS", count: legacyPlanCount, message: `this trainer authored ${legacyPlanCount} legacy workout plan(s) still assigned to other clients. Reassign or remove them first.` });
+    blockers.push({ code: "LEGACY_PLANS", count: legacyPlanCount, message: `this trainer authored ${legacyPlanCount} legacy workout plan(s) that are assigned to other clients or hold other clients' training history. Reassign or delete those plans first.` });
   }
   if (checkInTemplateCount > 0) {
     blockers.push({ code: "CHECKIN_TEMPLATES", count: checkInTemplateCount, message: `this trainer created ${checkInTemplateCount} check-in template(s) assigned to other clients. Unassign them first.` });
@@ -193,8 +205,16 @@ export async function deleteUserData(userId: string): Promise<void> {
     await prisma.workoutPlan.findMany({ where: { createdById: userId }, select: { id: true } })
   ).map((plan) => plan.id);
   if (legacyPlanIds.length) {
+    // Scoped to this user's OWN sessions. `WorkoutSession.clientId` is
+    // independent of the plan's `clientId`, so gathering by `planId` alone
+    // would sweep up another client's training history. `findDeletionBlockers`
+    // now refuses such a plan outright, so this should never have anything to
+    // exclude — it is defence in depth, not the primary guard.
+    // `WorkoutBlock`, `BlockExercise` and `PlanExercise` carry no owner column
+    // of their own (checked against prisma/schema.prisma), so they stay keyed
+    // on the plan; `SessionExercise` is keyed on the now-scoped session ids.
     const planSessionIds = (
-      await prisma.workoutSession.findMany({ where: { planId: { in: legacyPlanIds } }, select: { id: true } })
+      await prisma.workoutSession.findMany({ where: { planId: { in: legacyPlanIds }, clientId: userId }, select: { id: true } })
     ).map((session) => session.id);
     if (planSessionIds.length) {
       await prisma.sessionExercise.deleteMany({ where: { sessionId: { in: planSessionIds } } });
