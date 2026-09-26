@@ -1,5 +1,4 @@
 import { auth } from "@clerk/nextjs/server";
-import { SignUp } from "@clerk/nextjs";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { ClientOnboardingForm } from "@/components/onboarding/client-onboarding-form";
@@ -10,7 +9,8 @@ import { resolveBranding } from "@/lib/branding/resolve";
 import { toViewModel } from "@/lib/branding/types";
 import { resolveClientOnboardingOrgId } from "@/lib/branding/client-onboarding";
 import { resolveClubTrainerInvite } from "@/lib/services/club-trainer.service";
-import { clerkAuthAppearance } from "@/lib/ui/clerk-appearance";
+import { NativeAwareSignUp } from "@/components/auth/native-aware-auth";
+import { getNativeInfo } from "@/lib/native/server";
 
 export default async function ClientOnboardingPage() {
   const { userId, orgId } = await auth();
@@ -19,6 +19,7 @@ export default async function ClientOnboardingPage() {
   // from the invitation URL and complete account creation inline. The org
   // isn't known yet, so product branding (no lookup).
   if (!userId) {
+    const native = await getNativeInfo();
     return (
       <AuthShell
         branding={toViewModel(resolveBranding(null))}
@@ -26,7 +27,7 @@ export default async function ClientOnboardingPage() {
         headline="Welcome to your rehabilitation program."
         subhead="Create your account to accept your invitation."
       >
-        <SignUp routing="hash" forceRedirectUrl="/onboarding/client" appearance={clerkAuthAppearance()} />
+        <NativeAwareSignUp nativeFromServer={native.isNative} routing="hash" forceRedirectUrl="/onboarding/client" />
       </AuthShell>
     );
   }

@@ -6,10 +6,12 @@ import { EmailPanel } from "@/components/settings/account/email-panel";
 import { PasswordPanel } from "@/components/settings/account/password-panel";
 import { ConnectedAccountsPanel } from "@/components/settings/account/connected-accounts-panel";
 import { SessionsPanel } from "@/components/settings/account/sessions-panel";
+import { getNativeInfo } from "@/lib/native/server";
 import { DeleteAccountSection } from "@/components/settings/delete-account-section";
 
 export default async function AccountSettingsPage() {
   const user = await getCurrentUser();
+  const native = await getNativeInfo();
 
   return (
     <SettingsPanels>
@@ -19,7 +21,9 @@ export default async function AccountSettingsPage() {
       />
       <EmailPanel />
       <PasswordPanel />
-      <ConnectedAccountsPanel />
+      {/* Connecting Google would start OAuth inside the app's web view: blocked
+          on Android, and against Apple 4.8's email-only sign-in. Web only. */}
+      {!native.isNative && <ConnectedAccountsPanel />}
       <SessionsPanel />
       <DeleteAccountSection role={user.role} />
 

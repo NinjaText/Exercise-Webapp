@@ -3,6 +3,8 @@
 import { usePathname } from "next/navigation";
 import { UserButton } from "@clerk/nextjs";
 import { clerkAppearance } from "@/lib/ui/clerk-appearance";
+import { profileAppearanceFor } from "@/lib/native/auth-appearance";
+import { useNative } from "@/hooks/use-native";
 import { Settings, Shield } from "lucide-react";
 import { findActiveHref, getAccountNav, getPrimaryNav } from "./nav-items";
 import {
@@ -45,6 +47,7 @@ export function Sidebar({
   branding,
 }: SidebarProps) {
   const pathname = usePathname();
+  const { isNative } = useNative();
   const links = getPrimaryNav(role, hiddenHrefs);
 
   // Collect every href rendered in this sidebar so we can find the best match.
@@ -103,7 +106,13 @@ export function Sidebar({
       </ScrollArea>
 
       <SidebarUserBlock
-        menu={<UserButton signInUrl="/sign-in" appearance={clerkAppearance} />}
+        menu={
+          <UserButton
+            signInUrl="/sign-in"
+            appearance={clerkAppearance}
+            userProfileProps={{ appearance: profileAppearanceFor(isNative) }}
+          />
+        }
         name={userName}
         email={userEmail}
         footer={

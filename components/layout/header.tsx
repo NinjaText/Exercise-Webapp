@@ -3,6 +3,8 @@
 import { usePathname } from "next/navigation";
 import { UserButton } from "@clerk/nextjs";
 import { clerkAppearance } from "@/lib/ui/clerk-appearance";
+import { profileAppearanceFor } from "@/lib/native/auth-appearance";
+import { useNative } from "@/hooks/use-native";
 import { Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sidebar } from "./sidebar";
@@ -33,6 +35,7 @@ export function Header({
   hiddenHrefs = [],
 }: HeaderProps) {
   const pathname = usePathname();
+  const { isNative } = useNative();
   const { crumbs } = useBreadcrumb();
   const { setOpen: openSearch } = useSearch();
 
@@ -87,7 +90,11 @@ export function Header({
 
         {/* User button (always visible top-right; contains sign out) */}
         <div className="flex size-11 shrink-0 items-center justify-center lg:size-9">
-          <UserButton signInUrl="/sign-in" appearance={clerkAppearance} />
+          <UserButton
+            signInUrl="/sign-in"
+            appearance={clerkAppearance}
+            userProfileProps={{ appearance: profileAppearanceFor(isNative) }}
+          />
         </div>
       </div>
     </header>
