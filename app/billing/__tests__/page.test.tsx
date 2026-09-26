@@ -14,6 +14,7 @@ vi.mock("@/lib/prisma", () => ({
   },
 }));
 vi.mock("@/lib/org-capabilities.server", () => ({ getOrgForUser: vi.fn(), getCapabilitiesForUser: vi.fn() }));
+vi.mock("@/lib/native/server", () => ({ getNativeInfo: vi.fn(async () => ({ isNative: false })) }));
 vi.mock("@/lib/services/club-member.service", () => ({ ensureMemberSubscription: vi.fn() }));
 vi.mock("@/components/billing/pricing-cards", () => ({ PricingCards: () => null }));
 vi.mock("@/lib/services/branding.service", () => ({

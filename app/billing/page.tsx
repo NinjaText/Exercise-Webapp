@@ -2,6 +2,8 @@ import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { PricingCards } from "@/components/billing/pricing-cards";
+import { SubscriptionAttentionScreen } from "@/components/billing/subscription-attention-screen";
+import { getNativeInfo } from "@/lib/native/server";
 import { differenceInDays } from "date-fns";
 import { getCapabilitiesForUser, getOrgForUser } from "@/lib/org-capabilities.server";
 import { getOrgCapabilities } from "@/lib/org-capabilities";
@@ -25,6 +27,15 @@ export default async function BillingPage({
 
   const user = await prisma.user.findUnique({ where: { clerkId: userId } });
   if (!user) redirect("/dashboard");
+
+  // Inside the native app no plan, price or checkout may appear (Apple 3.1.1),
+  // for trainers and club members alike: show the neutral screen instead.
+  const native = await getNativeInfo();
+  const attentionScreen = async () => {
+    const { reason } = await searchParams;
+    const r = reason === "trial_expired" || reason === "payment_failed" ? reason : "manage";
+    return <SubscriptionAttentionScreen reason={r} />;
+  };
   if (user.role === "CLIENT") {
     const org = await getOrgForUser(user);
     if (!org || getOrgCapabilities(org).billing !== "member") redirect("/dashboard");
@@ -35,6 +46,7 @@ export default async function BillingPage({
       await ensureMemberSubscription(user.id, org);
       memberSub = await prisma.memberSubscription.findUnique({ where: { userId: user.id } });
     }
+    if (native.isNative) return attentionScreen();
     const { reason: memberReason } = await searchParams;
     return <MemberBillingView org={org} sub={memberSub} reason={memberReason ?? null} userId={user.id} />;
   }
@@ -45,6 +57,8 @@ export default async function BillingPage({
   const sub = await prisma.trainerSubscription.findUnique({
     where: { trainerId: user.id },
   });
+
+  if (native.isNative) return attentionScreen();
 
   const { reason } = await searchParams;
 

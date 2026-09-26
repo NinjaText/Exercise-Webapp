@@ -3,6 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { isSuperAdmin } from "@/lib/current-user";
+import { getNativeInfo } from "@/lib/native/server";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 import { getUnreadVoiceNoteCount } from "@/lib/services/inbox.service";
@@ -10,6 +11,7 @@ import { SearchProvider } from "@/components/search/search-provider";
 import { CommandPalette } from "@/components/search/command-palette";
 import { BreadcrumbProvider } from "@/components/layout/breadcrumb-context";
 import { MobileTabBar } from "@/components/layout/mobile-tab-bar";
+import { withNativeHidden } from "@/components/layout/nav-items";
 import { MemberTrialBanner } from "@/components/billing/member-trial-banner";
 import { BrandStyle } from "@/components/branding/brand-style";
 import { getCurrentBranding, getOrgBranding } from "@/lib/services/branding.service";
@@ -78,7 +80,9 @@ export default async function PlatformLayout({ children }: { children: React.Rea
     memberTrialDays = memberTrialBannerDays(sub, now);
   }
 
-  const hiddenHrefs = hiddenNavHrefs(caps);
+  // Inside the native app, payment routes and prompts are hidden (Apple 3.1.1).
+  const { isNative } = await getNativeInfo();
+  const hiddenHrefs = withNativeHidden(hiddenNavHrefs(caps), isNative);
 
   const [
     unreadChatCount,
@@ -139,7 +143,7 @@ export default async function PlatformLayout({ children }: { children: React.Rea
             {/* Spec §2.1 gutter: 16 mobile / 24 ≥1024 / 32 ≥1536. Below lg the bottom
                 padding also clears the fixed tab bar and the safe area. */}
             <main className="flex-1 overflow-y-auto p-4 pb-[calc(1rem_+_var(--tab-bar-height)_+_var(--safe-bottom))] lg:p-6 2xl:p-8">
-              {memberTrialDays !== null && <MemberTrialBanner daysLeft={memberTrialDays} />}
+              {memberTrialDays !== null && !isNative && <MemberTrialBanner daysLeft={memberTrialDays} />}
               <div className="page-enter">{children}</div>
             </main>
             <MobileTabBar

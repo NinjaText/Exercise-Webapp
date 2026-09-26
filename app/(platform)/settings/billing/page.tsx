@@ -8,6 +8,8 @@ import { PricingCards } from "@/components/billing/pricing-cards";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { SettingsPanel, SettingsPanels } from "@/components/settings/settings-section";
 import { TIER_CONFIG, type PlanTier } from "@/lib/stripe-config";
+import { SubscriptionAttentionScreen } from "@/components/billing/subscription-attention-screen";
+import { getNativeInfo } from "@/lib/native/server";
 
 const INCLUDED = [
   "AI workout generation",
@@ -31,6 +33,12 @@ export default async function BillingSettingsPage() {
   const user = await requireRole("TRAINER");
   // Club trainers never pay (trainerBilling off).
   await requireCapability("trainerBilling");
+
+  // Inside the native app no plan, price or payment surface may appear
+  // (Apple 3.1.1); the settings layout already supplies the page header.
+  if ((await getNativeInfo()).isNative) {
+    return <SubscriptionAttentionScreen reason="manage" layout="inline" />;
+  }
 
   const sub = await prisma.trainerSubscription.findUnique({
     where: { trainerId: user.id },

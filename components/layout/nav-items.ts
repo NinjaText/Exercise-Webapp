@@ -67,6 +67,14 @@ export const ADMIN_NAV: NavItem = { href: "/admin", label: "Super Admin", icon: 
 const TRAINER_TAB_HREFS = ["/dashboard", "/clients", "/programs", "/messages"];
 const CLIENT_TAB_HREFS = ["/dashboard", "/programs", "/calendar", "/nutrition", "/messages"];
 
+/** Routes that sell or manage payment; never shown inside the native app (Apple 3.1.1). */
+export const NATIVE_HIDDEN_HREFS = ["/settings/billing"];
+
+/** The capability-hidden hrefs plus, inside the native app, the payment routes. */
+export function withNativeHidden(hidden: string[], isNative: boolean): string[] {
+  return isNative ? Array.from(new Set([...hidden, ...NATIVE_HIDDEN_HREFS])) : hidden;
+}
+
 /**
  * `hidden` holds hrefs the org's capabilities switch off (see
  * lib/org-capabilities.ts → hiddenNavHrefs). Empty for trainer orgs, so the

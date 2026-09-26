@@ -6,8 +6,11 @@ import {
   getMoreItems,
   getPrimaryNav,
   getTabLayout,
+  NATIVE_HIDDEN_HREFS,
+  withNativeHidden,
   type Role,
 } from "../nav-items";
+import { getSettingsTabs } from "@/components/settings/settings-tabs";
 
 describe("getTabLayout", () => {
   it("gives clients five tabs and nothing under More", () => {
@@ -77,6 +80,25 @@ describe("getMoreItems", () => {
         }
       }
     }
+  });
+});
+
+describe("native navigation filtering", () => {
+  const billing = (items: { href: string }[]) => items.some((i) => i.href === "/settings/billing");
+
+  it("adds the payment routes to the hidden list only inside the native app", () => {
+    expect(withNativeHidden([], false)).toEqual([]);
+    expect(withNativeHidden([], true)).toEqual(NATIVE_HIDDEN_HREFS);
+    expect(withNativeHidden(["/messages"], true)).toEqual(["/messages", "/settings/billing"]);
+  });
+
+  it("doesn't duplicate a route the org's capabilities already hide", () => {
+    expect(withNativeHidden(["/settings/billing"], true)).toEqual(["/settings/billing"]);
+  });
+
+  it("hides the trainer's Billing settings tab inside the native app only", () => {
+    expect(billing(getSettingsTabs("TRAINER", withNativeHidden([], false)))).toBe(true);
+    expect(billing(getSettingsTabs("TRAINER", withNativeHidden([], true)))).toBe(false);
   });
 });
 
