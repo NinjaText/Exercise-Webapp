@@ -3,6 +3,52 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
+// Network seams for the default transports: a scripted HTTP/2 client for APNs
+// and a fake firebase-admin whose sendEach returns scripted responses.
+const h2 = vi.hoisted(() => ({
+  requests: [] as { headers: Record<string, string>; body: string }[],
+  responses: [] as { status: number; body?: string }[],
+}));
+
+vi.mock("node:http2", async () => {
+  const { EventEmitter } = await import("node:events");
+  const connect = vi.fn(() => {
+    const session = Object.assign(new EventEmitter(), {
+      destroy: vi.fn(),
+      request: (headers: Record<string, string>) => {
+        const stream = Object.assign(new EventEmitter(), {
+          setEncoding: () => {},
+          end: (body: string) => {
+            h2.requests.push({ headers, body });
+            const r = h2.responses.shift() ?? { status: 200 };
+            void Promise.resolve().then(() => {
+              stream.emit("response", { ":status": r.status });
+              if (r.body) stream.emit("data", r.body);
+              stream.emit("end");
+              stream.emit("close");
+            });
+          },
+        });
+        return stream;
+      },
+    });
+    return session;
+  });
+  return { default: { connect }, connect };
+});
+
+const fcm = vi.hoisted(() => ({ sendEach: vi.fn() }));
+
+vi.mock("firebase-admin/app", () => ({
+  cert: vi.fn((serviceAccount: unknown) => serviceAccount),
+  getApps: vi.fn(() => []),
+  initializeApp: vi.fn(() => ({ name: "push" })),
+}));
+
+vi.mock("firebase-admin/messaging", () => ({
+  getMessaging: vi.fn(() => ({ sendEach: fcm.sendEach })),
+}));
+
 vi.mock("@/lib/services/push-device.service", () => ({
   listDevices: vi.fn(),
   removeTokens: vi.fn(),
@@ -120,13 +166,14 @@ describe("isDeadFcmError", () => {
   it.each([
     "messaging/registration-token-not-registered",
     "messaging/invalid-registration-token",
-    "messaging/invalid-argument",
   ])("treats %s as dead", (code) => {
     expect(isDeadFcmError(code)).toBe(true);
   });
 
-  it("treats internal errors and missing codes as transient", () => {
+  it("treats internal errors, payload errors and missing codes as transient", () => {
     expect(isDeadFcmError("messaging/internal-error")).toBe(false);
+    // Also returned for a malformed payload, so it must not prune tokens.
+    expect(isDeadFcmError("messaging/invalid-argument")).toBe(false);
     expect(isDeadFcmError(undefined)).toBe(false);
   });
 });
@@ -336,6 +383,103 @@ describe("sendPushToUser", () => {
     ]);
 
     await expect(sendPushToUser("u1", msg)).resolves.toBeUndefined();
+    expect(mockRemoveTokens).not.toHaveBeenCalled();
+  });
+});
+
+describe("default FCM transport", () => {
+  it("maps mixed sendEach responses to outcomes by index", async () => {
+    vi.stubEnv(
+      "FIREBASE_SERVICE_ACCOUNT_JSON",
+      Buffer.from(JSON.stringify({ project_id: "p" })).toString("base64")
+    );
+    mockListDevices.mockResolvedValue([
+      { token: "a-ok", platform: "ANDROID" },
+      { token: "a-dead", platform: "ANDROID" },
+      { token: "a-transient", platform: "ANDROID" },
+      { token: "a-missing", platform: "ANDROID" },
+    ]);
+    fcm.sendEach.mockResolvedValue({
+      responses: [
+        { success: true, messageId: "m1" },
+        { success: false, error: { code: "messaging/registration-token-not-registered" } },
+        { success: false, error: { code: "messaging/internal-error" } },
+        // No 4th response: treated as transient.
+      ],
+    });
+    const msg: PushMessage = { title: "Hi", link: "/x" };
+
+    await sendPushToUser("u1", msg);
+
+    expect(fcm.sendEach).toHaveBeenCalledWith(
+      ["a-ok", "a-dead", "a-transient", "a-missing"].map((t) => buildFcmMessage(t, msg))
+    );
+    expect(mockRemoveTokens).toHaveBeenCalledWith(["a-dead"]);
+  });
+});
+
+describe("default APNs transport", () => {
+  function configureApns() {
+    const { privateKey } = crypto.generateKeyPairSync("ec", { namedCurve: "P-256" });
+    const pem = privateKey.export({ type: "pkcs8", format: "pem" }).toString();
+    vi.stubEnv("APNS_KEY_P8", Buffer.from(pem).toString("base64"));
+    vi.stubEnv("APNS_KEY_ID", "KEY123");
+    vi.stubEnv("APPLE_TEAM_ID", "TEAM456");
+  }
+
+  beforeEach(() => {
+    h2.requests.length = 0;
+    h2.responses.length = 0;
+  });
+
+  it("posts to /3/device/<token> and prunes only dead responses", async () => {
+    configureApns();
+    mockListDevices.mockResolvedValue([
+      { token: "i-ok", platform: "IOS" },
+      { token: "i-gone", platform: "IOS" },
+      { token: "i-bad", platform: "IOS" },
+      { token: "i-throttled", platform: "IOS" },
+    ]);
+    h2.responses.push(
+      { status: 200 },
+      { status: 410, body: JSON.stringify({ reason: "Unregistered" }) },
+      { status: 400, body: JSON.stringify({ reason: "BadDeviceToken" }) },
+      { status: 429, body: JSON.stringify({ reason: "TooManyRequests" }) }
+    );
+    const msg: PushMessage = { title: "Hi", body: "B", link: "/x" };
+
+    await sendPushToUser("u1", msg);
+
+    expect(h2.requests[0].headers).toMatchObject({
+      ":method": "POST",
+      ":path": "/3/device/i-ok",
+      "apns-topic": "com.goinmotus.app",
+      "apns-push-type": "alert",
+      "apns-priority": "10",
+    });
+    expect(h2.requests[0].headers.authorization).toMatch(/^bearer [^.]+\.[^.]+\.[^.]+$/);
+    expect(h2.requests[0].body).toBe(JSON.stringify(buildApnsPayload(msg)));
+    expect(mockRemoveTokens).toHaveBeenCalledWith(["i-gone", "i-bad"]);
+  });
+
+  it("reuses the cached JWT, and re-signs after a 403 ExpiredProviderToken", async () => {
+    configureApns();
+    mockListDevices.mockResolvedValue([{ token: "i1", platform: "IOS" }]);
+    const msg: PushMessage = { title: "Hi" };
+    h2.responses.push(
+      { status: 200 },
+      { status: 200 },
+      { status: 403, body: JSON.stringify({ reason: "ExpiredProviderToken" }) },
+      { status: 200 }
+    );
+
+    for (let i = 0; i < 4; i++) await sendPushToUser("u1", msg);
+
+    const auth = h2.requests.map((r) => r.headers.authorization);
+    expect(auth[1]).toBe(auth[0]);
+    expect(auth[2]).toBe(auth[1]);
+    // ES256 signatures are randomised, so a fresh signature differs even within the same second.
+    expect(auth[3]).not.toBe(auth[2]);
     expect(mockRemoveTokens).not.toHaveBeenCalled();
   });
 });

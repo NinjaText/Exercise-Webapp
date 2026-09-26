@@ -41,11 +41,16 @@ const APNS_JWT_TTL_SECONDS = 50 * 60;
 
 const FCM_APP_NAME = "push";
 
+// Token errors only. `messaging/invalid-argument` is deliberately excluded:
+// FCM also returns it for a malformed payload, and treating it as dead would
+// prune every Android token a user has because of one bad message.
 const DEAD_FCM_CODES = new Set([
   "messaging/registration-token-not-registered",
   "messaging/invalid-registration-token",
-  "messaging/invalid-argument",
 ]);
+
+/** 403 reasons meaning our provider JWT was rejected, so it must be re-signed. */
+const APNS_JWT_REJECTED_REASONS = new Set(["ExpiredProviderToken", "InvalidProviderToken"]);
 
 const DEAD_APNS_REASONS = new Set([
   "BadDeviceToken",
@@ -164,12 +169,23 @@ interface FcmClient {
 let fcmClient: Promise<FcmClient | null> | undefined;
 
 async function createFcmClient(serviceAccountB64: string): Promise<FcmClient | null> {
+  let firebaseApp: typeof import("firebase-admin/app");
+  let firebaseMessaging: typeof import("firebase-admin/messaging");
+  try {
+    [firebaseApp, firebaseMessaging] = await Promise.all([
+      import("firebase-admin/app"),
+      import("firebase-admin/messaging"),
+    ]);
+  } catch {
+    logOnce("error", "[push] firebase-admin failed to load");
+    return null;
+  }
+  const { cert, getApps, initializeApp } = firebaseApp;
+  const { getMessaging } = firebaseMessaging;
   try {
     const serviceAccount = JSON.parse(
       Buffer.from(serviceAccountB64, "base64").toString("utf8")
     );
-    const { cert, getApps, initializeApp } = await import("firebase-admin/app");
-    const { getMessaging } = await import("firebase-admin/messaging");
     const app =
       getApps().find((a) => a.name === FCM_APP_NAME) ??
       initializeApp({ credential: cert(serviceAccount) }, FCM_APP_NAME);
@@ -263,6 +279,10 @@ function sendOneApns(
       } catch {
         // Empty or non-JSON body: classify on status alone.
       }
+      if (status === 403 && reason !== undefined && APNS_JWT_REJECTED_REASONS.has(reason)) {
+        // Force the next batch to sign a fresh provider token.
+        cachedApnsJwt = undefined;
+      }
       finish({ token, ok: false, dead: isDeadApnsResponse(status, reason) });
     });
     // A stream that errors or closes without a full response is transient.
@@ -294,6 +314,10 @@ function sendApnsBatch(
   });
 
   const batch = Promise.all(tokens.map((token) => sendOneApns(session, jwt, token, body)));
+  // This is the timeout that bounds the APNs path: unlike the generic bound in
+  // runTransport (same 10s, set later, so this one fires first), it also tears
+  // down the HTTP/2 session in `finally`, so a hung stream cannot leak a socket.
+  // runTransport's bound remains the backstop for FCM and injected transports.
   return withTimeout(batch, PUSH_TIMEOUT_MS, () => {
     console.error("[push] APNs batch timed out");
     return tokens.map(transient);
