@@ -1,5 +1,6 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
+import { getNativeInfo } from "@/lib/native/server";
 import { stripe } from "@/lib/stripe";
 import { prisma } from "@/lib/prisma";
 import { getOrgCapabilities } from "@/lib/org-capabilities";
@@ -11,6 +12,12 @@ import { activeUserOnly } from "@/lib/auth/active-user";
 const TRIAL_END_MIN_LEAD_MS = 48 * 60 * 60 * 1000;
 
 export async function POST() {
+  // Defence in depth: no native UI reaches this route, but a crafted request
+  // from the shell must not be able to start a purchase either (Apple 3.1.1).
+  if ((await getNativeInfo()).isNative) {
+    return new NextResponse("Purchases are not available in the app", { status: 403 });
+  }
+
   const { userId } = await auth();
   if (!userId) return new NextResponse("Unauthorized", { status: 401 });
 

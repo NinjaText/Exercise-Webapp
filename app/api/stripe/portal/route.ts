@@ -3,8 +3,16 @@ import { NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
 import { prisma } from "@/lib/prisma";
 import { getCapabilitiesForUser } from "@/lib/org-capabilities.server";
+import { getNativeInfo } from "@/lib/native/server";
 
 export async function POST() {
+  // Defence in depth: no native UI reaches this route, but a crafted request
+  // from the shell must not be able to open the billing portal (which allows
+  // plan changes and upgrades — a purchase path) either (Apple 3.1.1).
+  if ((await getNativeInfo()).isNative) {
+    return new NextResponse("Purchases are not available in the app", { status: 403 });
+  }
+
   const { userId } = await auth();
   if (!userId) return new NextResponse("Unauthorized", { status: 401 });
 
