@@ -15,6 +15,23 @@ describe("safeFilename", () => {
   it("falls back when nothing usable remains", () => {
     expect(safeFilename("///", "program.pdf")).toBe("program.pdf");
   });
+  it("keeps the extension when the sanitised body is all underscores", () => {
+    expect(safeFilename("________.pdf")).toBe("download.pdf");
+  });
+  it("keeps the extension when the name is only an extension", () => {
+    expect(safeFilename(".pdf")).toBe("download.pdf");
+  });
+  it("preserves emoji in the body", () => {
+    expect(safeFilename("🏋️ Plan.pdf")).toBe("🏋️ Plan.pdf");
+  });
+  it("preserves non-Latin scripts in the body", () => {
+    expect(safeFilename("腹筋トレーニング.pdf")).toBe("腹筋トレーニング.pdf");
+  });
+  it("truncates a very long extension-less name with no extension added back", () => {
+    const out = safeFilename("x".repeat(300));
+    expect(out.length).toBeLessThanOrEqual(100);
+    expect(out).not.toContain(".");
+  });
 });
 
 function deps(overrides: Partial<DownloadDeps> = {}): DownloadDeps {

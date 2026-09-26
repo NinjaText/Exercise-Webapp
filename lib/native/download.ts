@@ -7,17 +7,35 @@ import { Capacitor } from "@capacitor/core";
 
 const MAX_NAME = 100;
 
+// A trailing extension is split off before the body is sanitised, so an
+// all-non-Latin or all-punctuation body (e.g. a CJK name pre-sanitised by a
+// caller into "________.pdf") falls back to a generated body while keeping
+// the extension — Android derives the share sheet's MIME type from it, so
+// losing it silently breaks Print/preview.
+const EXTENSION = /\.[A-Za-z0-9]{1,10}$/;
+
 export function safeFilename(name: string, fallback = "download"): string {
   const cleaned = name
     .replace(/[\u0000-\u001f\u007f]/g, "")
     .replace(/[\\/]+/g, "_")
+    .trim();
+
+  const extMatch = cleaned.match(EXTENSION);
+  const ext = extMatch ? extMatch[0] : "";
+  const body = (ext ? cleaned.slice(0, -ext.length) : cleaned)
     .replace(/^[_.]+/, "")
     .trim();
-  if (!cleaned) return fallback;
-  if (cleaned.length <= MAX_NAME) return cleaned;
-  const dot = cleaned.lastIndexOf(".");
-  const ext = dot > 0 && cleaned.length - dot <= 10 ? cleaned.slice(dot) : "";
-  return cleaned.slice(0, MAX_NAME - ext.length) + ext;
+
+  if (!body) {
+    if (!ext) return fallback;
+    const fallbackExtMatch = fallback.match(EXTENSION);
+    const fallbackBase = fallbackExtMatch ? fallback.slice(0, -fallbackExtMatch[0].length) : fallback;
+    return `${fallbackBase}${ext}`;
+  }
+
+  const full = `${body}${ext}`;
+  if (full.length <= MAX_NAME) return full;
+  return body.slice(0, MAX_NAME - ext.length) + ext;
 }
 
 export interface DownloadDeps {
