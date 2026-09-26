@@ -120,6 +120,11 @@ enum AuditActorType {
   SYSTEM
 }
 
+enum PushPlatform {
+  IOS
+  ANDROID
+}
+
 model User {
   id          String   @id @default(auto()) @map("_id") @db.ObjectId
   clerkId     String   @unique
@@ -177,6 +182,7 @@ model User {
 
   pendingProgramAssignments PendingProgramAssignment[] @relation("PendingProgramAssignments")
   dismissedInsights         DismissedInsight[]         @relation("DismissedInsights")
+  pushDevices               PushDevice[]               @relation("PushDevices")
 }
 
 model AuditLog {
@@ -980,6 +986,7 @@ model NotificationPreference {
   messages     Boolean  @default(true)
   nutrition    Boolean  @default(true)
   billing      Boolean  @default(true)
+  pushEnabled  Boolean  @default(true)
   unsubToken   String   @unique
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -1201,4 +1208,22 @@ model JoinCodeAttempt {
   createdAt DateTime @default(now())
 
   @@index([key, createdAt])
+}
+
+/// A registered native-app push token for a user. Keyed on the token itself
+/// (unique) rather than on (userId, token), so a token Apple/Google reassigns
+/// to a different install — e.g. after an app reinstall or account switch on
+/// the same device — is simply reassigned to the new owner on registration
+/// rather than left duplicated under the old one.
+model PushDevice {
+  id         String       @id @default(auto()) @map("_id") @db.ObjectId
+  userId     String       @db.ObjectId
+  user       User         @relation("PushDevices", fields: [userId], references: [id])
+  token      String       @unique
+  platform   PushPlatform
+  appVersion String?
+  lastSeenAt DateTime     @default(now())
+  createdAt  DateTime     @default(now())
+
+  @@index([userId])
 }

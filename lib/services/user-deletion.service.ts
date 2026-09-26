@@ -189,6 +189,7 @@ export async function deleteUserData(userId: string): Promise<void> {
   await prisma.dismissedInsight.deleteMany({ where: { trainerId: userId } });
   await prisma.assessment.deleteMany({ where: { clientId: userId } });
   await prisma.clientProfile.deleteMany({ where: { userId } });
+  await prisma.pushDevice.deleteMany({ where: { userId } });
 
   // Structural rows `findDeletionBlockers` has already cleared as having no
   // third-party dependents: an unsold package, a template nobody is assigned

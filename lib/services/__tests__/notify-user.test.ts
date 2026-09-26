@@ -57,7 +57,7 @@ import { notifyUser } from '../notification.service'
 
 const PREFS_ALL_ON = {
   id: 'p1', userId: 'u1', emailEnabled: true,
-  sessions: true, messages: true, nutrition: true, billing: true,
+  sessions: true, messages: true, nutrition: true, billing: true, pushEnabled: true,
   unsubToken: 'tok_abc',
 }
 

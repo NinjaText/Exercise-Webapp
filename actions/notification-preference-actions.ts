@@ -9,7 +9,7 @@ import {
   type PreferenceValues,
 } from "@/lib/services/notification-preference.service";
 
-const EDITABLE_KEYS = ["emailEnabled", "sessions", "messages", "nutrition"] as const;
+const EDITABLE_KEYS = ["emailEnabled", "sessions", "messages", "nutrition", "pushEnabled"] as const;
 
 /**
  * Either the user's values, or an explicit failure.
@@ -35,7 +35,7 @@ export async function getMyPreferenceAction(): Promise<PreferenceReadResult> {
 /**
  * Saves the signed-in user's preferences.
  *
- * The patch arrives from the client, so it is filtered to the four editable
+ * The patch arrives from the client, so it is filtered to the five editable
  * boolean keys. `userId` cannot be spoofed and `billing` cannot be set.
  */
 export async function updateMyPreferenceAction(

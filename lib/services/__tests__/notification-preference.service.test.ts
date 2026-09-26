@@ -21,6 +21,7 @@ import {
   getOrCreatePreference,
   isAllowedByPrefs,
   isEmailAllowed,
+  isPushAllowed,
   updatePreference,
   resolveUnsubToken,
 } from '../notification-preference.service'
@@ -33,6 +34,7 @@ const row = {
   messages: false,
   nutrition: true,
   billing: true,
+  pushEnabled: true,
   unsubToken: 'tok_abc',
 }
 
@@ -179,6 +181,36 @@ describe('isAllowedByPrefs', () => {
   })
 })
 
+describe('isPushAllowed', () => {
+  const on = { ...PREFERENCE_DEFAULTS }
+
+  it('allows a billing (transactional) type even with pushEnabled off', () => {
+    expect(isPushAllowed({ ...on, pushEnabled: false }, NOTIFICATION_TYPES.PAYMENT_FAILED)).toBe(
+      true
+    )
+  })
+
+  it('blocks a non-transactional type when pushEnabled is off', () => {
+    expect(isPushAllowed({ ...on, pushEnabled: false }, NOTIFICATION_TYPES.NEW_MESSAGE)).toBe(
+      false
+    )
+  })
+
+  it('blocks a type whose category is off even with pushEnabled on', () => {
+    expect(
+      isPushAllowed({ ...on, messages: false }, NOTIFICATION_TYPES.NEW_MESSAGE)
+    ).toBe(false)
+  })
+
+  it('allows a type whose category and pushEnabled are both on', () => {
+    expect(isPushAllowed(on, NOTIFICATION_TYPES.SESSION_REMINDER)).toBe(true)
+  })
+
+  it('blocks an unknown type', () => {
+    expect(isPushAllowed(on, 'NOT_A_REAL_TYPE' as never)).toBe(false)
+  })
+})
+
 describe('isEmailAllowed', () => {
   it('reads the row and applies it', async () => {
     vi.mocked(prisma.notificationPreference.findUnique).mockResolvedValue(row as never)
@@ -201,6 +233,17 @@ describe('updatePreference', () => {
     expect(args.update).toEqual({ messages: false, nutrition: false })
     expect(args.create.unsubToken).toMatch(/^[0-9a-f]{64}$/)
     expect(args.create.messages).toBe(false)
+  })
+
+  it('accepts a pushEnabled change', async () => {
+    await updatePreference('u1', { pushEnabled: false })
+
+    const args = vi.mocked(prisma.notificationPreference.upsert).mock.calls[0][0] as {
+      update: Record<string, unknown>
+      create: Record<string, unknown>
+    }
+    expect(args.update).toEqual({ pushEnabled: false })
+    expect(args.create.pushEnabled).toBe(false)
   })
 
   it('drops an attempted billing change', async () => {

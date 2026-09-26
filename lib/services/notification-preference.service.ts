@@ -9,6 +9,7 @@ export interface PreferenceValues {
   messages: boolean;
   nutrition: boolean;
   billing: boolean;
+  pushEnabled: boolean;
 }
 
 /** What a user with no stored row gets: everything on. */
@@ -18,12 +19,13 @@ export const PREFERENCE_DEFAULTS: PreferenceValues = {
   messages: true,
   nutrition: true,
   billing: true,
+  pushEnabled: true,
 };
 
 /** `billing` is omitted — it is transactional and has no working toggle. */
 export type PreferencePatch = Partial<Omit<PreferenceValues, "billing">>;
 
-const EDITABLE_KEYS = ["emailEnabled", "sessions", "messages", "nutrition"] as const;
+const EDITABLE_KEYS = ["emailEnabled", "sessions", "messages", "nutrition", "pushEnabled"] as const;
 
 function newToken(): string {
   return randomBytes(32).toString("hex");
@@ -36,6 +38,7 @@ function toValues(row: PreferenceValues): PreferenceValues {
     messages: row.messages,
     nutrition: row.nutrition,
     billing: row.billing,
+    pushEnabled: row.pushEnabled,
   };
 }
 
@@ -66,7 +69,14 @@ export async function getPreference(userId: string): Promise<PreferenceValues> {
     return await readPreference(userId);
   } catch (err) {
     console.error(`[notification-preference] lookup failed for ${userId}:`, err);
-    return { emailEnabled: false, sessions: false, messages: false, nutrition: false, billing: false };
+    return {
+      emailEnabled: false,
+      sessions: false,
+      messages: false,
+      nutrition: false,
+      billing: false,
+      pushEnabled: false,
+    };
   }
 }
 
@@ -117,6 +127,21 @@ export function isAllowedByPrefs(prefs: PreferenceValues, type: NotificationType
 
 export async function isEmailAllowed(userId: string, type: NotificationType): Promise<boolean> {
   return isAllowedByPrefs(await getPreference(userId), type);
+}
+
+/**
+ * Whether this type may be pushed, given these preferences. Pure.
+ *
+ * Mirrors `isAllowedByPrefs`, gated by `pushEnabled` instead of `emailEnabled`:
+ * transactional types always go through, everything else needs both the push
+ * master switch and its category on.
+ */
+export function isPushAllowed(prefs: PreferenceValues, type: NotificationType): boolean {
+  const entry = NOTIFICATION_REGISTRY[type];
+  if (!entry) return false;
+  if (entry.transactional) return true;
+  if (!prefs.pushEnabled) return false;
+  return prefs[entry.category];
 }
 
 /**

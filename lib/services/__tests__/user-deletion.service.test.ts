@@ -40,6 +40,7 @@ vi.mock("@/lib/prisma", () => ({
     dismissedInsight: { deleteMany: vi.fn() },
     assessment: { deleteMany: vi.fn() },
     clientProfile: { deleteMany: vi.fn() },
+    pushDevice: { deleteMany: vi.fn() },
   },
 }));
 
@@ -284,6 +285,15 @@ describe("deleteUserData", () => {
     expect(p.dismissedInsight.deleteMany.mock.invocationCallOrder[0]).toBeLessThan(p.user.delete.mock.invocationCallOrder[0]);
     expect(p.assessment.deleteMany.mock.invocationCallOrder[0]).toBeLessThan(p.user.delete.mock.invocationCallOrder[0]);
     expect(p.clientProfile.deleteMany.mock.invocationCallOrder[0]).toBeLessThan(p.user.delete.mock.invocationCallOrder[0]);
+  });
+
+  it("deletes registered push devices before the user row", async () => {
+    await deleteUserData("u1");
+
+    expect(p.pushDevice.deleteMany).toHaveBeenCalledWith({ where: { userId: "u1" } });
+    expect(p.pushDevice.deleteMany.mock.invocationCallOrder[0]).toBeLessThan(
+      p.user.delete.mock.invocationCallOrder[0]
+    );
   });
 
   // findDeletionBlockers no longer refuses on the mere existence of these

@@ -5,7 +5,7 @@ vi.mock('@/lib/services/notification-preference.service', () => ({
   readPreference: vi.fn(),
   updatePreference: vi.fn(),
   PREFERENCE_DEFAULTS: {
-    emailEnabled: true, sessions: true, messages: true, nutrition: true, billing: true,
+    emailEnabled: true, sessions: true, messages: true, nutrition: true, billing: true, pushEnabled: true,
   },
 }))
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
@@ -24,12 +24,14 @@ beforeEach(() => {
 describe('getMyPreferenceAction', () => {
   it('returns the current user preferences', async () => {
     vi.mocked(readPreference).mockResolvedValue({
-      emailEnabled: true, sessions: false, messages: true, nutrition: true, billing: true,
+      emailEnabled: true, sessions: false, messages: true, nutrition: true, billing: true, pushEnabled: true,
     })
 
     await expect(getMyPreferenceAction()).resolves.toEqual({
       ok: true,
-      values: { emailEnabled: true, sessions: false, messages: true, nutrition: true, billing: true },
+      values: {
+        emailEnabled: true, sessions: false, messages: true, nutrition: true, billing: true, pushEnabled: true,
+      },
     })
     expect(readPreference).toHaveBeenCalledWith('u1')
   })
@@ -54,6 +56,13 @@ describe('updateMyPreferenceAction', () => {
     expect(res).toEqual({ success: true })
     expect(updatePreference).toHaveBeenCalledWith('u1', { messages: false })
     expect(revalidatePath).toHaveBeenCalledWith('/settings/notifications')
+  })
+
+  it('accepts and persists a pushEnabled change', async () => {
+    const res = await updateMyPreferenceAction({ pushEnabled: false })
+
+    expect(res).toEqual({ success: true })
+    expect(updatePreference).toHaveBeenCalledWith('u1', { pushEnabled: false })
   })
 
   it('strips any key that is not an editable boolean', async () => {

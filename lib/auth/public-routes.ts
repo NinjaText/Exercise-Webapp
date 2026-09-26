@@ -37,4 +37,7 @@ export const PUBLIC_ROUTES = [
   // Minimum-version gate: the native shell must be able to check this before
   // (or without ever having) a signed-in session.
   "/api/mobile/config",
+  // Push token cleanup after sign-out: no session by then; holding the device
+  // token is the credential, and the route only deletes by that token.
+  "/api/push/unregister",
 ] as const;
