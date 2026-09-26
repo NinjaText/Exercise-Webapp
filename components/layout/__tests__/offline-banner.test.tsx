@@ -11,7 +11,7 @@ describe("OfflineBanner", () => {
   // with), so the offline case is exercised by mocking the hook module for just
   // this test (vi.doMock is unhoisted, unlike vi.mock, so the test above keeps
   // using the real hook and its "online by default" behaviour).
-  it("renders the status strip above page chrome and modals, pinned to z-[60], while offline", async () => {
+  it("renders the status strip above page chrome and modals, pinned to z-[60] and click-through, while offline", async () => {
     vi.resetModules();
     vi.doMock("@/hooks/use-native", () => ({ useNative: () => ({ isOnline: false }) }));
     const { OfflineBanner: OfflineBannerWhenOffline } = await import("../offline-banner");
@@ -19,6 +19,7 @@ describe("OfflineBanner", () => {
     expect(html).toContain('role="status"');
     expect(html).toContain("No internet connection");
     expect(html).toContain("z-[60]");
+    expect(html).toContain("pointer-events-none");
     vi.doUnmock("@/hooks/use-native");
   });
 });

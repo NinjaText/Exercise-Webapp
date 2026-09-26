@@ -13,12 +13,12 @@ import { useNative } from "@/hooks/use-native";
  * `/about`). components/ui dialogs, sheets, dropdowns, popovers and tooltips also
  * cap at z-50 for both their backdrop and their content, so there is no numeric gap
  * between "above chrome" and "below an open modal" to land in; any value that beats
- * chrome will also sit above them. In practice this only matters for full-height
- * Sheets (e.g. the left nav in components/layout/header.tsx), whose close button is
- * `top-3 right-3` (~12-40px from the top) against this banner's ~28px height, so at
- * most the button's upper half is briefly covered while the lower half stays
- * clickable. That partial, rare (offline + a sheet open at once) overlap is accepted
- * over the alternative of the banner being permanently invisible behind page chrome.
+ * chrome will also sit above them (e.g. a full-height Sheet's `top-3 right-3` close
+ * button, as in components/layout/header.tsx's left nav). The banner is purely
+ * informational with no interactive children, so it carries `pointer-events-none`:
+ * it still paints above everything, but taps pass straight through to whatever sits
+ * underneath, so an open sheet's close button stays fully clickable despite the
+ * visual overlap.
  */
 export function OfflineBanner() {
   const { isOnline } = useNative();
@@ -27,7 +27,7 @@ export function OfflineBanner() {
     <div
       role="status"
       aria-live="polite"
-      className="fixed inset-x-0 top-0 z-[60] flex items-center justify-center gap-2 border-b border-warning-border bg-warning-soft px-4 pb-1.5 text-xs font-medium text-warning-foreground"
+      className="pointer-events-none fixed inset-x-0 top-0 z-[60] flex items-center justify-center gap-2 border-b border-warning-border bg-warning-soft px-4 pb-1.5 text-xs font-medium text-warning-foreground"
       style={{ paddingTop: "calc(var(--safe-top) + 0.375rem)" }}
     >
       <WifiOff className="size-3.5" aria-hidden />
