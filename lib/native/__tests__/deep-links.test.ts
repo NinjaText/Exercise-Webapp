@@ -21,6 +21,34 @@ describe("pathFromAppUrl", () => {
   });
 });
 
+describe("pathFromAppUrl: backslash and encoding tricks", () => {
+  const ORIGIN = "https://app.goinmotus.com";
+  const staysHome = (result: string | null) => expect(new URL(result ?? "/", ORIGIN).origin).toBe(ORIGIN);
+
+  it.each([
+    "inmotus:/\\evil.com",
+    "inmotus:///\\evil.com",
+    "inmotus://\\evil.com",
+    "https://app.goinmotus.com/\\evil.com",
+  ])("rejects %s", (url) => {
+    const result = pathFromAppUrl(url);
+    expect(result).toBeNull();
+    staysHome(result);
+  });
+
+  it("does not let percent-encoded backslashes escape the origin", () => {
+    const result = pathFromAppUrl("inmotus://%5C%5Cevil.com");
+    staysHome(result);
+    if (result !== null) expect(result.startsWith("//")).toBe(false);
+  });
+
+  it("still maps a normal scheme link with query and hash", () => {
+    const result = pathFromAppUrl("inmotus://clients/42?x=1#h");
+    expect(result).toBe("/clients/42?x=1#h");
+    staysHome(result);
+  });
+});
+
 describe("association files", () => {
   it("builds the AASA with the team-qualified app ID and every prefix", () => {
     const aasa = buildAppleAppSiteAssociation("ABCDE12345") as { applinks: { details: { appIDs: string[]; components: { "/": string }[] }[] } };

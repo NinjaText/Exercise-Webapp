@@ -34,6 +34,42 @@ export function shouldOpenExternally(href: string, currentOrigin: string): boole
   return url.origin !== new URL(currentOrigin).origin;
 }
 
+/** Remembers the last deep-link URL acted on, across web-view reloads. */
+export interface LastHandledStore {
+  get(): string | null;
+  set(url: string): void;
+}
+
+export const LAST_DEEP_LINK_KEY = "inmotus:last-deep-link";
+
+let lastHandledFallback: string | null = null;
+
+/**
+ * sessionStorage-backed store: it survives a full web-view reload (offline
+ * retry, sign-out reload, hard navigation) within one app session, which is
+ * exactly how long iOS keeps its launch URL and Android its launch intent.
+ * Falls back to a module variable when storage is unavailable or throws.
+ */
+export function createLastHandledStore(getStorage: () => Pick<Storage, "getItem" | "setItem">): LastHandledStore {
+  return {
+    get() {
+      try {
+        return getStorage().getItem(LAST_DEEP_LINK_KEY) ?? lastHandledFallback;
+      } catch {
+        return lastHandledFallback;
+      }
+    },
+    set(url) {
+      lastHandledFallback = url;
+      try {
+        getStorage().setItem(LAST_DEEP_LINK_KEY, url);
+      } catch {
+        // Fallback already recorded.
+      }
+    },
+  };
+}
+
 interface ListenerHandle {
   remove(): Promise<void>;
 }
@@ -63,6 +99,8 @@ export interface LifecycleDeps {
   historyBack(): void;
   /** Client-side navigation to an in-app path (a universal/app/scheme link). */
   navigate(path: string): void;
+  /** Guards against handling the same link twice (see createLastHandledStore). */
+  lastHandled: LastHandledStore;
   onOnlineChange(online: boolean): void;
   onAppVersion(version: string): void;
   onResumeAfterLongPause(): void;
@@ -82,6 +120,18 @@ export async function registerNativeLifecycle(deps: LifecycleDeps): Promise<() =
   deps.statusBar.setStyle({ style: "LIGHT" }).catch(ignore);
   deps.app.getInfo().then((info) => deps.onAppVersion(info.version)).catch(ignore);
   deps.network.getStatus().then((s) => deps.onOnlineChange(s.connected)).catch(ignore);
+
+  // One link, one navigation. On iOS a cold start from a link delivers it both
+  // as a retained appUrlOpen event and via getLaunchUrl(), and both platforms
+  // keep returning the launch URL for the whole app session — so every web
+  // view reload would otherwise push the user back to a stale link.
+  const openLink = (url: string, skipRoot: boolean) => {
+    const path = pathFromAppUrl(url);
+    if (!path || (skipRoot && path === "/")) return;
+    if (deps.lastHandled.get() === url) return;
+    deps.lastHandled.set(url);
+    deps.navigate(path);
+  };
 
   let hiddenAt: number | null = null;
   // Set when a resume-triggered refresh was skipped because the device was
@@ -132,10 +182,7 @@ export async function registerNativeLifecycle(deps: LifecycleDeps): Promise<() =
     // A universal link, app link or inmotus:// link opened while the app is
     // running. Only same-app paths are followed (pathFromAppUrl rejects other
     // hosts and protocol-relative paths).
-    deps.app.addListener("appUrlOpen", ({ url }) => {
-      const path = pathFromAppUrl(url);
-      if (path) deps.navigate(path);
-    }),
+    deps.app.addListener("appUrlOpen", ({ url }) => openLink(url, false)),
   ]);
 
   // Cold start from a link: the web view loaded the server root, so route to
@@ -143,8 +190,7 @@ export async function registerNativeLifecycle(deps: LifecycleDeps): Promise<() =
   deps.app
     .getLaunchUrl()
     .then((launch) => {
-      const path = launch && pathFromAppUrl(launch.url);
-      if (path && path !== "/") deps.navigate(path);
+      if (launch) openLink(launch.url, true);
     })
     .catch(ignore);
 

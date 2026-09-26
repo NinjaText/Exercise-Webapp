@@ -4,7 +4,7 @@ import { createContext, useContext, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Capacitor } from "@capacitor/core";
 import { resolveNativeInfo, WEB_INFO, type NativeInfo } from "@/lib/native/platform";
-import { registerNativeLifecycle } from "@/lib/native/lifecycle";
+import { createLastHandledStore, registerNativeLifecycle } from "@/lib/native/lifecycle";
 
 export interface NativeContextValue extends NativeInfo {
   /** Connectivity: @capacitor/network inside the native shell, browser online/offline events elsewhere. */
@@ -111,6 +111,7 @@ export function NativeProvider({ children }: { children: React.ReactNode }) {
         now: () => Date.now(),
         historyBack: () => window.history.back(),
         navigate: (path) => router.push(path),
+        lastHandled: createLastHandledStore(() => window.sessionStorage),
         onOnlineChange: setIsOnline,
         onAppVersion: (appVersion) => setInfo((prev) => ({ ...prev, appVersion })),
         onResumeAfterLongPause: () => router.refresh(),

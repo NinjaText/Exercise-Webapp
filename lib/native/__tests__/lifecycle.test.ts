@@ -1,6 +1,8 @@
 import { describe, it, expect, vi } from "vitest";
 import {
   RESUME_REFRESH_AFTER_MS,
+  LAST_DEEP_LINK_KEY,
+  createLastHandledStore,
   decideBackAction,
   registerNativeLifecycle,
   shouldOpenExternally,
@@ -50,7 +52,12 @@ describe("shouldOpenExternally", () => {
   });
 });
 
-function makeDeps() {
+function memoryLastHandled(initial: string | null = null) {
+  let value = initial;
+  return { get: vi.fn(() => value), set: vi.fn((url: string) => { value = url; }) };
+}
+
+function makeDeps(lastHandled = memoryLastHandled()) {
   const handlers: Record<string, (arg: never) => void> = {};
   const removed: string[] = [];
   const listen = (name: string) => (event: string, fn: (arg: never) => void) => {
@@ -82,6 +89,7 @@ function makeDeps() {
     now: vi.fn(() => 0),
     historyBack: vi.fn(),
     navigate: vi.fn(),
+    lastHandled,
     onOnlineChange: vi.fn(),
     onAppVersion: vi.fn(),
     onResumeAfterLongPause: vi.fn(),
@@ -225,6 +233,49 @@ describe("registerNativeLifecycle", () => {
     }
   });
 
+  it("navigates once when a cold-start link arrives as both a retained event and the launch URL", async () => {
+    const url = "https://app.goinmotus.com/messages/abc";
+    const { deps, handlers } = makeDeps();
+    vi.mocked(deps.app.getLaunchUrl).mockResolvedValue({ url });
+    // iOS delivers the retained appUrlOpen as soon as the listener registers.
+    const addListener = deps.app.addListener;
+    deps.app.addListener = ((event: string, fn: (e: never) => void) => {
+      const handle = (addListener as unknown as (e: string, f: (e: never) => void) => Promise<unknown>)(event, fn);
+      if (event === "appUrlOpen") fn({ url } as never);
+      return handle;
+    }) as unknown as LifecycleDeps["app"]["addListener"];
+    await registerNativeLifecycle(deps);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(deps.navigate).toHaveBeenCalledTimes(1);
+    expect(deps.navigate).toHaveBeenCalledWith("/messages/abc");
+    // A second delivery of the same event is ignored too.
+    handlers["app:appUrlOpen"]({ url } as never);
+    expect(deps.navigate).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not re-open a stale launch link after a web-view reload, but follows a new link", async () => {
+    const url = "https://app.goinmotus.com/programs/7";
+    const shared = memoryLastHandled();
+    const first = makeDeps(shared);
+    vi.mocked(first.deps.app.getLaunchUrl).mockResolvedValue({ url });
+    await registerNativeLifecycle(first.deps);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(first.deps.navigate).toHaveBeenCalledTimes(1);
+
+    // Simulated reload: a fresh registration, same launch URL, store survives.
+    const second = makeDeps(shared);
+    vi.mocked(second.deps.app.getLaunchUrl).mockResolvedValue({ url });
+    await registerNativeLifecycle(second.deps);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(second.deps.navigate).not.toHaveBeenCalled();
+
+    second.handlers["app:appUrlOpen"]({ url: "inmotus://clients/42" } as never);
+    expect(second.deps.navigate).toHaveBeenCalledWith("/clients/42");
+  });
+
   it("treats a rejected getStatus as offline and does not refresh", async () => {
     const { deps, handlers } = makeDeps();
     vi.mocked(deps.network.getStatus).mockRejectedValue(new Error("no network"));
@@ -303,5 +354,24 @@ describe("registerNativeLifecycle", () => {
     vi.mocked(deps.splash.hide).mockRejectedValue(new Error("no splash"));
     vi.mocked(deps.app.getInfo).mockRejectedValue(new Error("no info"));
     await expect(registerNativeLifecycle(deps)).resolves.toBeTypeOf("function");
+  });
+});
+
+describe("createLastHandledStore", () => {
+  it("round-trips through storage", () => {
+    const data = new Map<string, string>();
+    const storage = { getItem: (k: string) => data.get(k) ?? null, setItem: (k: string, v: string) => void data.set(k, v) };
+    const store = createLastHandledStore(() => storage);
+    store.set("inmotus://dashboard");
+    expect(data.get(LAST_DEEP_LINK_KEY)).toBe("inmotus://dashboard");
+    expect(createLastHandledStore(() => storage).get()).toBe("inmotus://dashboard");
+  });
+
+  it("falls back to memory when storage throws", () => {
+    const store = createLastHandledStore(() => {
+      throw new Error("SecurityError");
+    });
+    expect(() => store.set("inmotus://clients/1")).not.toThrow();
+    expect(store.get()).toBe("inmotus://clients/1");
   });
 });

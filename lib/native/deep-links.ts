@@ -6,10 +6,26 @@ export const APP_ID = "com.goinmotus.app";
 /** Single source for the AASA route, the Android manifest check and tests. */
 export const DEEP_LINK_PATH_PREFIXES: readonly string[] = paths;
 
-function safePath(path: string): string | null {
-  // "//evil.com" would be a protocol-relative URL: never navigate there.
-  if (!path.startsWith("/") || path.startsWith("//")) return null;
-  return path;
+// Backslashes are treated as "/" by the URL parser for http(s), so "/\evil.com"
+// would resolve as the protocol-relative "//evil.com". Control characters have
+// no business in a deep link either.
+const UNSAFE_CHARS = /[\\\u0000-\u001f\u007f]/;
+
+/**
+ * Resolve the candidate against the app origin and accept it only if it stays
+ * there — pattern-matching the string alone misses the parser's quirks.
+ */
+function safePath(candidate: string, host: string): string | null {
+  if (!candidate.startsWith("/") || candidate.startsWith("//") || UNSAFE_CHARS.test(candidate)) return null;
+  const origin = `https://${host}`;
+  let resolved: URL;
+  try {
+    resolved = new URL(candidate, origin);
+  } catch {
+    return null;
+  }
+  if (resolved.origin !== origin) return null;
+  return `${resolved.pathname}${resolved.search}${resolved.hash}`;
 }
 
 export function pathFromAppUrl(url: string, host: string = APP_HOST): string | null {
@@ -20,12 +36,12 @@ export function pathFromAppUrl(url: string, host: string = APP_HOST): string | n
     return null;
   }
   if (u.protocol === "https:" && u.hostname === host) {
-    return safePath(`${u.pathname}${u.search}${u.hash}`);
+    return safePath(`${u.pathname}${u.search}${u.hash}`, host);
   }
   if (u.protocol === `${APP_SCHEME}:`) {
     // inmotus://clients/42 parses with host "clients"; inmotus:///x has an empty host.
     const path = u.host ? `/${u.host}${u.pathname === "/" ? "" : u.pathname}` : u.pathname;
-    return safePath(`${path}${u.search}${u.hash}`);
+    return safePath(`${path}${u.search}${u.hash}`, host);
   }
   return null;
 }
