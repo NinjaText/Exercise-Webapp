@@ -47,6 +47,7 @@ import {
 } from "@/components/ui/dialog";
 import { format } from "date-fns";
 import { Capacitor } from "@capacitor/core";
+import { useNative } from "@/components/providers/native-provider";
 import { saveOrDownload } from "@/lib/native/download";
 import { toLocalCalendarDate } from "@/lib/utils/calendar-date";
 import { aggregateProgramEquipment } from "@/lib/utils/program-equipment";
@@ -94,6 +95,7 @@ export function ProgramDetailView({
   assignAction,
 }: ProgramDetailViewProps) {
   const router = useRouter();
+  const { isNative } = useNative();
   const [assignOpen, setAssignOpen] = useState(showAssignDialog);
   const [sellOpen, setSellOpen] = useState(false);
   const [detailExercise, setDetailExercise] = useState<Record<string, unknown> | null>(null);
@@ -260,7 +262,9 @@ export function ProgramDetailView({
 
   const shareOverflow = [
     { label: "Duplicate", icon: Copy, onSelect: handleDuplicate },
-    ...(isTemplate && !clientId
+    // Selling is web-only: the dialog shows prices and the public /p/<slug>
+    // sales link, which store review treats as in-app purchase UI.
+    ...(isTemplate && !clientId && !isNative
       ? [{ label: "Sell this program", icon: Tag, onSelect: () => setSellOpen(true) }]
       : []),
     { label: "Download PDF", icon: Download, onSelect: () => void handleDownloadPdf() },
@@ -638,11 +642,13 @@ export function ProgramDetailView({
         initialClientId={initialAssignClientId}
       />
 
-      <SellProgramDialog
-        programId={program.id as string}
-        open={sellOpen}
-        onOpenChange={setSellOpen}
-      />
+      {!isNative && (
+        <SellProgramDialog
+          programId={program.id as string}
+          open={sellOpen}
+          onOpenChange={setSellOpen}
+        />
+      )}
 
       {/* Exercise Detail Modal */}
       <Dialog open={!!detailExercise} onOpenChange={(open) => !open && setDetailExercise(null)}>

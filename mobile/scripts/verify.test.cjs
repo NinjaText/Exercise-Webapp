@@ -28,7 +28,7 @@ const good = (platform) => ({
     url: "https://app.goinmotus.com",
     cleartext: false,
     errorPath: "offline.html",
-    allowNavigation: ["app.goinmotus.com", "*.goinmotus.com", "*.clerk.accounts.dev", "*.accounts.dev"],
+    allowNavigation: ["app.goinmotus.com", "*.goinmotus.com", "abc-123.clerk.accounts.dev"],
   },
   plugins: {
     SplashScreen: { launchAutoHide: true, launchShowDuration: 5000, launchFadeOutDuration: 200 },
@@ -54,11 +54,30 @@ test("flags a missing or malformed user-agent suffix", () => {
   assert.ok(checkResolvedConfig(c, "ios", files).some((p) => p.includes("user agent")));
 });
 
-test("flags a missing Clerk host in allowNavigation", () => {
+test("flags a missing required host in allowNavigation", () => {
   const c = good("android");
   c.server.allowNavigation = ["app.goinmotus.com"];
   const problems = checkResolvedConfig(c, "android", files);
-  assert.ok(problems.some((p) => p.includes("*.clerk.accounts.dev")));
+  assert.ok(problems.some((p) => p.includes("missing *.goinmotus.com")));
+});
+
+test("passes the exact dev Clerk host but flags any other wildcard", () => {
+  assert.deepEqual(checkResolvedConfig(good("ios"), "ios", files), []);
+  for (const wildcard of ["*.accounts.dev", "*.clerk.accounts.dev", "*"]) {
+    const c = good("ios");
+    c.server.allowNavigation.push(wildcard);
+    assert.deepEqual(checkResolvedConfig(c, "ios", files), [
+      `ios: allowNavigation wildcard ${wildcard} is not allowed (only *.goinmotus.com)`,
+    ]);
+  }
+});
+
+test("release mode flags an accounts.dev Clerk host, and passes a goinmotus-only list", () => {
+  const dev = good("android");
+  assert.ok(checkReleaseConfig(dev, "android").some((p) => p.includes("abc-123.clerk.accounts.dev")));
+  const prod = good("android");
+  prod.server.allowNavigation = ["app.goinmotus.com", "*.goinmotus.com"];
+  assert.deepEqual(checkReleaseConfig(prod, "android"), []);
 });
 
 test("flags a missing offline page or server-url file", () => {
@@ -127,7 +146,9 @@ test("AndroidManifest missing RECORD_AUDIO is flagged", () => {
 });
 
 test("checkReleaseConfig passes a production config", () => {
-  assert.deepEqual(checkReleaseConfig(good("ios"), "ios"), []);
+  const c = good("ios");
+  c.server.allowNavigation = ["app.goinmotus.com", "*.goinmotus.com"];
+  assert.deepEqual(checkReleaseConfig(c, "ios"), []);
 });
 
 test("checkReleaseConfig flags a LAN dev URL", () => {
@@ -221,6 +242,18 @@ test("checkDeepLinks flags a path prefix missing from the Android manifest", () 
   const w = wiredDeepLinks();
   w.paths = [...deepLinkPaths, "/messages"];
   assert.deepEqual(checkDeepLinks(w), ["AndroidManifest: pathPrefix /messages missing"]);
+});
+
+test("checkDeepLinks flags a stale manifest pathPrefix that is not in the JSON list", () => {
+  const w = wiredDeepLinks();
+  w.manifest = w.manifest.replace("</intent-filter>", '<data android:pathPrefix="/settings" />\n</intent-filter>');
+  assert.deepEqual(checkDeepLinks(w), ["AndroidManifest: pathPrefix /settings is not in lib/native/deep-link-paths.json"]);
+});
+
+test("the shipped deep-link list leaves billing settings and public sales pages to the browser", () => {
+  const paths = require("../../lib/native/deep-link-paths.json");
+  assert.ok(!paths.includes("/settings"), "/settings/billing (dunning email) must open in the browser");
+  assert.ok(!paths.includes("/p"), "/p/<slug> sales links must open in the browser");
 });
 
 test("checkDeepLinks flags entitlements referenced by more than one build configuration", () => {

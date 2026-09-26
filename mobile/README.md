@@ -133,6 +133,14 @@ npm test                 # must pass
 ```
 `npm run verify:release` does everything `npm run verify` does, plus it fails if `server.url` is anything other than `https://app.goinmotus.com` (a laptop IP, a preview URL, anything left over from sections 4/5) — `npm run verify` alone would not catch that. It also checks that the version stamped into the Xcode project and the Gradle project matches `mobile/package.json`'s `"version"` (section 6) — a bumped-but-unstamped version is flagged on both platforms.
 
+### Device checklist (sign-in)
+
+On a real device, signed in, check each by hand before submitting:
+
+- **Settings → profile**: the connected-accounts section (Google) is hidden.
+- **Sign-in → "Use another method"** for a Google-linked account: no Google option is offered.
+- **Clerk's reverification prompt** (e.g. changing the password) for a Google-only account: it appears and can be completed, or fails cleanly, without leaving the app for Google.
+
 ## 10. Debugging the app
 
 - **iOS**: on the iPhone, **Settings → Safari → Advanced** and turn on **Web Inspector**. On the Mac, in Safari: **Settings → Advanced** → show the **Develop** menu, then **Develop → \<your iPhone\> → \<the page\>**. This only attaches to Debug builds.
@@ -144,16 +152,16 @@ npm test                 # must pass
 - **App icon appears but won't open / "Untrusted Developer"** — expected the first time you install with a free/personal Apple ID. On the phone: **Settings → General → VPN & Device Management** → tap your Apple ID developer profile → **Trust**. If it recurs a week later, your free Apple ID's signing has simply expired after its 7-day limit — re-run from Xcode.
 - **Live-reload build shows the offline page** — usually the phone and Mac aren't on the same Wi-Fi network (check for cellular data or a guest/isolated network on the phone), or macOS was told to block incoming connections for `node` (System Settings → Network → Firewall → Options, allow incoming connections for node, or re-trigger the "Allow" prompt by restarting `npm run dev:lan`).
 - **`npm test` fails or behaves oddly on Node 22+** — it must use the quoted glob form, `node --test 'scripts/*.test.cjs'` (already how the script is defined). The unquoted directory form (`node --test scripts/`) fails on newer Node versions — don't "simplify" it back.
-- **Sign-in opens Safari/Chrome instead of staying in the app** — add the missing domain to `server.allowNavigation` in `mobile/capacitor.config.ts`, then `npm run sync` again.
+- **Sign-in opens Safari/Chrome instead of staying in the app** — the Clerk host wasn't resolved at sync time. `allowNavigation` holds `app.goinmotus.com`, `*.goinmotus.com` and exactly one Clerk host, decoded from `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` (there are deliberately no `*.accounts.dev` wildcards — anyone can register a Clerk instance there). Make sure the publishable key is in the repo-root `.env.local` (or `.env`, or your shell environment) and run `npm run sync` again; it prints `clerk frontend-API host -> <host>` when it found one and a warning when it didn't. `npm run verify:release` additionally refuses any `accounts.dev` host — a store build must use the production Clerk instance on a goinmotus.com domain.
 - **Blank screen on launch** — run `npm run verify`; it prints `mobile verify OK` or a list of problems, including whether `server.url` is `https://app.goinmotus.com` for any build headed to a store. The resolved config files it checks live at `ios/App/App/capacitor.config.json` and `android/app/src/main/assets/capacitor.config.json` — read those directly if you need to see the actual values.
 
-`npm run verify` checks the *resolved* config that `cap sync` actually wrote (not just the source file), including: the server URL and cleartext flag, the allowed navigation hosts, the offline page and its bundled `server-url.js`, splash screen / status bar / safe-area plugin settings, the required `Info.plist` usage-description strings, the required Android permissions, and the link wiring (section 12: the Associated Domains entitlement referenced exactly once, the `inmotus` scheme on both platforms, and an Android `pathPrefix` for every entry in `lib/native/deep-link-paths.json`). It prints either `mobile verify OK` or a list of problems — it does not print the resolved config itself.
+`npm run verify` checks the *resolved* config that `cap sync` actually wrote (not just the source file), including: the server URL and cleartext flag, the allowed navigation hosts, the offline page and its bundled `server-url.js`, splash screen / status bar / safe-area plugin settings, the required `Info.plist` usage-description strings, the required Android permissions, and the link wiring (section 12: the Associated Domains entitlement referenced exactly once, the `inmotus` scheme on both platforms, and an Android `pathPrefix` for exactly the entries in `lib/native/deep-link-paths.json`; no allowNavigation wildcard other than `*.goinmotus.com`). It prints either `mobile verify OK` or a list of problems — it does not print the resolved config itself.
 
 ## 12. Links that open the app
 
 Three kinds of link open inside the app instead of the browser:
 
-- **Universal links (iOS)** and **app links (Android)** — ordinary `https://app.goinmotus.com/...` links under the prefixes listed in `lib/native/deep-link-paths.json` (`/dashboard`, `/programs`, `/messages`, `/clients`, `/p`, ...). That JSON file is the single list: the web app serves it to Apple, and `npm run verify` fails if the Android manifest's `pathPrefix` lines drift from it.
+- **Universal links (iOS)** and **app links (Android)** — ordinary `https://app.goinmotus.com/...` links under the prefixes listed in `lib/native/deep-link-paths.json` (`/dashboard`, `/programs`, `/messages`, `/clients`, ...). That JSON file is the single list: the web app serves it to Apple, and `npm run verify` fails if the Android manifest's `pathPrefix` lines drift from it in either direction. `/settings` (the billing link in payment-failed emails) and `/p` (trainers' public sales pages) are deliberately **not** in the list: both must open in the browser, where the card can be updated or the program bought.
 - **`inmotus://` links** — e.g. `inmotus://dashboard` or `inmotus://clients/42`. These work in every build, Debug included, with no server setup.
 
 The app only ever follows these links to a path on its own site; a link to any other host is ignored.
@@ -183,5 +191,7 @@ Configuration that lives in Vercel (not in this repo) — not secret, but set it
 - `NEXT_PUBLIC_IOS_STORE_URL` and `NEXT_PUBLIC_ANDROID_STORE_URL` — the App Store / Play Store listing URLs the "Update required" screen's button opens. Optional: when unset, the screen still shows but has no button.
 
   Set the store URLs only once the listings exist (after the first TestFlight/Play submission), and raise `MOBILE_MIN_VERSION_*` only after the new version is live and approved in **both** stores — raising it earlier locks out users on a version that isn't yet available to install. Missing or malformed values here must never lock users out; the client-side check (`lib/native/version.ts`) treats anything it can't parse as "not blocked".
+
+Changing any of these in Vercel (`MOBILE_MIN_VERSION_*`, `NEXT_PUBLIC_*_STORE_URL`, `APPLE_TEAM_ID`, `ANDROID_SHA256_CERT_FINGERPRINTS`) takes effect only after a **redeploy** — saving the variable alone changes nothing for running deployments (and `NEXT_PUBLIC_*` values are baked in at build time).
 
 Keep all of these out of git entirely — do not add them to this repo even temporarily.

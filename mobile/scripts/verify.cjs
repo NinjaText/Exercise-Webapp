@@ -9,7 +9,10 @@ const { versionCodeFor } = require("./version.cjs");
 
 // Must stay in step with lib/native/platform.ts in the web app.
 const UA_PATTERN = /InmotusApp\/(\d+\.\d+\.\d+)\s*\((ios|android)\)/i;
-const REQUIRED_HOSTS = ["app.goinmotus.com", "*.goinmotus.com", "*.clerk.accounts.dev", "*.accounts.dev"];
+const REQUIRED_HOSTS = ["app.goinmotus.com", "*.goinmotus.com"];
+// The only wildcard allowed in allowNavigation. Clerk's dev host is added as
+// one exact host (decoded from the publishable key), never *.accounts.dev.
+const ALLOWED_WILDCARD = "*.goinmotus.com";
 
 function checkResolvedConfig(config, platform, publicFiles) {
   const problems = [];
@@ -30,6 +33,11 @@ function checkResolvedConfig(config, platform, publicFiles) {
   const nav = server.allowNavigation || [];
   for (const host of REQUIRED_HOSTS) {
     if (!nav.includes(host)) problems.push(`${platform}: allowNavigation missing ${host}`);
+  }
+  for (const host of nav) {
+    if (String(host).includes("*") && host !== ALLOWED_WILDCARD) {
+      problems.push(`${platform}: allowNavigation wildcard ${host} is not allowed (only ${ALLOWED_WILDCARD})`);
+    }
   }
   for (const f of ["offline.html", "server-url.js"]) {
     if (!publicFiles.includes(f)) problems.push(`${platform}: bundled ${f} missing — run npm run sync`);
@@ -68,6 +76,13 @@ function checkReleaseConfig(config, platform) {
     problems.push(`${platform}: server.url is "${server.url}", must be ${DEFAULT_SERVER_URL} for a release build`);
   }
   if (server.cleartext) problems.push(`${platform}: server.cleartext must be false for a release build`);
+  for (const host of server.allowNavigation || []) {
+    if (/accounts\.dev$/i.test(String(host))) {
+      problems.push(
+        `${platform}: allowNavigation has ${host} — a release build must use a production Clerk instance on a goinmotus.com domain`
+      );
+    }
+  }
   return problems;
 }
 
@@ -159,6 +174,10 @@ function checkDeepLinks({ entitlements, pbxproj, infoPlist, manifest, paths }) {
   for (const p of paths) {
     if (!manifest.includes(`android:pathPrefix="${p}"`)) problems.push(`AndroidManifest: pathPrefix ${p} missing`);
   }
+  // And the reverse: a stale manifest line would open links the AASA does not claim.
+  for (const m of manifest.matchAll(/android:pathPrefix="([^"]*)"/g)) {
+    if (!paths.includes(m[1])) problems.push(`AndroidManifest: pathPrefix ${m[1]} is not in lib/native/deep-link-paths.json`);
+  }
   return problems;
 }
 
@@ -235,6 +254,7 @@ if (require.main === module) main();
 module.exports = {
   UA_PATTERN,
   REQUIRED_HOSTS,
+  ALLOWED_WILDCARD,
   checkResolvedConfig,
   checkReleaseConfig,
   checkInfoPlist,

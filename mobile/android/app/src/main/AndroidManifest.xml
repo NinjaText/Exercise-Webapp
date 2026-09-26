@@ -33,8 +33,6 @@
                 <data android:pathPrefix="/nutrition" />
                 <data android:pathPrefix="/clients" />
                 <data android:pathPrefix="/check-ins" />
-                <data android:pathPrefix="/settings" />
-                <data android:pathPrefix="/p" />
                 <data android:pathPrefix="/onboarding" />
                 <data android:pathPrefix="/sign-in" />
             </intent-filter>

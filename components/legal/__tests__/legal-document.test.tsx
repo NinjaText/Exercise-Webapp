@@ -19,4 +19,21 @@ describe("LegalDocument", () => {
     expect(html).toContain("Terms of Service");
     expect(TERMS_OF_SERVICE.sections.some((s) => /not medical advice/i.test(s.paragraphs.join(" ")))).toBe(true);
   });
+
+  it("keeps the marketing navbar and footer on the web", () => {
+    const html = renderToStaticMarkup(<LegalDocument doc={PRIVACY_POLICY} />);
+    expect(html).toContain("Pricing");
+  });
+
+  it("drops the marketing navbar and footer inside the native app but keeps the document", () => {
+    for (const doc of [PRIVACY_POLICY, TERMS_OF_SERVICE]) {
+      const html = renderToStaticMarkup(<LegalDocument doc={doc} isNative />);
+      expect(html).not.toContain("Pricing");
+      expect(html).not.toContain("Get Started");
+      expect(html).toContain(doc.title);
+      for (const section of doc.sections) {
+        expect(html).toContain(section.heading);
+      }
+    }
+  });
 });
