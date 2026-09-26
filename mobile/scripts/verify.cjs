@@ -32,6 +32,27 @@ function checkResolvedConfig(config, platform, publicFiles) {
   for (const f of ["offline.html", "server-url.js"]) {
     if (!publicFiles.includes(f)) problems.push(`${platform}: bundled ${f} missing — run npm run sync`);
   }
+
+  const plugins = config.plugins || {};
+  const splash = plugins.SplashScreen || {};
+  if (splash.launchAutoHide !== true) problems.push(`${platform}: plugins.SplashScreen.launchAutoHide must be true`);
+  if (splash.launchShowDuration !== 3000) problems.push(`${platform}: plugins.SplashScreen.launchShowDuration must be 3000`);
+  if (splash.launchFadeOutDuration !== 200) problems.push(`${platform}: plugins.SplashScreen.launchFadeOutDuration must be 200`);
+
+  const statusBar = plugins.StatusBar || {};
+  if (statusBar.style !== "LIGHT") problems.push(`${platform}: plugins.StatusBar.style must be LIGHT`);
+
+  const systemBars = plugins.SystemBars || {};
+  if (systemBars.insetsHandling !== "css") problems.push(`${platform}: plugins.SystemBars.insetsHandling must be css`);
+  if (systemBars.initialViewportFitValueHint !== "cover") {
+    problems.push(`${platform}: plugins.SystemBars.initialViewportFitValueHint must be cover`);
+  }
+
+  if (platform === "ios") {
+    const ios = config.ios || {};
+    if (ios.contentInset !== "never") problems.push(`${platform}: ios.contentInset must be never`);
+  }
+
   return problems;
 }
 

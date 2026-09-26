@@ -6,7 +6,7 @@
   "scripts": {
     "sync": "node scripts/write-www-config.cjs && cap sync",
     "verify": "node scripts/verify.cjs",
-    "test": "node --test scripts/"
+    "test": "node --test 'scripts/*.test.cjs'"
   },
   "dependencies": {
     "@capacitor/android": "8.5.2",

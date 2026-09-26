@@ -12,12 +12,20 @@ test("resolveServerUrl defaults to production and trims trailing slashes", () =>
 const good = (platform) => ({
   appId: "com.goinmotus.app",
   appName: "Inmotus RX",
-  [platform]: { appendUserAgent: `InmotusApp/1.0.0 (${platform})` },
+  [platform]: {
+    appendUserAgent: `InmotusApp/1.0.0 (${platform})`,
+    ...(platform === "ios" ? { contentInset: "never" } : {}),
+  },
   server: {
     url: "https://app.goinmotus.com",
     cleartext: false,
     errorPath: "offline.html",
     allowNavigation: ["app.goinmotus.com", "*.goinmotus.com", "*.clerk.accounts.dev", "*.accounts.dev"],
+  },
+  plugins: {
+    SplashScreen: { launchAutoHide: true, launchShowDuration: 3000, launchFadeOutDuration: 200 },
+    StatusBar: { style: "LIGHT" },
+    SystemBars: { insetsHandling: "css", initialViewportFitValueHint: "cover" },
   },
 });
 const files = ["index.html", "offline.html", "server-url.js"];
@@ -54,4 +62,22 @@ test("flags cleartext on an https URL", () => {
   const c = good("ios");
   c.server.cleartext = true;
   assert.ok(checkResolvedConfig(c, "ios", files).some((p) => p.includes("cleartext")));
+});
+
+test("flags disabled splash screen auto-hide", () => {
+  const c = good("android");
+  c.plugins.SplashScreen.launchAutoHide = false;
+  assert.ok(checkResolvedConfig(c, "android", files).some((p) => p.includes("SplashScreen.launchAutoHide")));
+});
+
+test("flags a wrong status bar style", () => {
+  const c = good("android");
+  c.plugins.StatusBar.style = "DARK";
+  assert.ok(checkResolvedConfig(c, "android", files).some((p) => p.includes("StatusBar.style")));
+});
+
+test("flags a non-never iOS contentInset", () => {
+  const c = good("ios");
+  c.ios.contentInset = "automatic";
+  assert.ok(checkResolvedConfig(c, "ios", files).some((p) => p.includes("contentInset")));
 });
