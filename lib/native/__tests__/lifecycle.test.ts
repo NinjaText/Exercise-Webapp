@@ -1,8 +1,9 @@
 import { describe, it, expect, vi } from "vitest";
 import {
   RESUME_REFRESH_AFTER_MS,
-  LAST_DEEP_LINK_KEY,
-  createLastHandledStore,
+  COLD_START_PAIR_WINDOW_MS,
+  HANDLED_DEEP_LINKS_KEY,
+  createHandledLinksStore,
   decideBackAction,
   registerNativeLifecycle,
   shouldOpenExternally,
@@ -52,12 +53,12 @@ describe("shouldOpenExternally", () => {
   });
 });
 
-function memoryLastHandled(initial: string | null = null) {
-  let value = initial;
-  return { get: vi.fn(() => value), set: vi.fn((url: string) => { value = url; }) };
+function memoryHandledLinks(initial: string[] = []) {
+  const seen = new Set(initial);
+  return { has: vi.fn((url: string) => seen.has(url)), add: vi.fn((url: string) => void seen.add(url)) };
 }
 
-function makeDeps(lastHandled = memoryLastHandled()) {
+function makeDeps(handledLinks = memoryHandledLinks()) {
   const handlers: Record<string, (arg: never) => void> = {};
   const removed: string[] = [];
   const listen = (name: string) => (event: string, fn: (arg: never) => void) => {
@@ -89,7 +90,7 @@ function makeDeps(lastHandled = memoryLastHandled()) {
     now: vi.fn(() => 0),
     historyBack: vi.fn(),
     navigate: vi.fn(),
-    lastHandled,
+    handledLinks,
     onOnlineChange: vi.fn(),
     onAppVersion: vi.fn(),
     onResumeAfterLongPause: vi.fn(),
@@ -233,47 +234,98 @@ describe("registerNativeLifecycle", () => {
     }
   });
 
-  it("navigates once when a cold-start link arrives as both a retained event and the launch URL", async () => {
-    const url = "https://app.goinmotus.com/messages/abc";
+  const U = "https://app.goinmotus.com/messages/abc";
+  const flush = async () => {
+    for (let i = 0; i < 4; i++) await Promise.resolve();
+  };
+  /** A getLaunchUrl whose resolution the test controls. */
+  function deferredLaunch(deps: LifecycleDeps) {
+    let resolve!: (v: { url: string } | undefined) => void;
+    vi.mocked(deps.app.getLaunchUrl).mockReturnValue(new Promise((r) => (resolve = r)));
+    return (v: { url: string } | undefined) => resolve(v);
+  }
+
+  it("cold start: retained appUrlOpen before getLaunchUrl resolves navigates once", async () => {
     const { deps, handlers } = makeDeps();
-    vi.mocked(deps.app.getLaunchUrl).mockResolvedValue({ url });
-    // iOS delivers the retained appUrlOpen as soon as the listener registers.
-    const addListener = deps.app.addListener;
-    deps.app.addListener = ((event: string, fn: (e: never) => void) => {
-      const handle = (addListener as unknown as (e: string, f: (e: never) => void) => Promise<unknown>)(event, fn);
-      if (event === "appUrlOpen") fn({ url } as never);
-      return handle;
-    }) as unknown as LifecycleDeps["app"]["addListener"];
+    const resolveLaunch = deferredLaunch(deps);
     await registerNativeLifecycle(deps);
-    await Promise.resolve();
-    await Promise.resolve();
+    handlers["app:appUrlOpen"]({ url: U } as never);
+    resolveLaunch({ url: U });
+    await flush();
     expect(deps.navigate).toHaveBeenCalledTimes(1);
     expect(deps.navigate).toHaveBeenCalledWith("/messages/abc");
-    // A second delivery of the same event is ignored too.
-    handlers["app:appUrlOpen"]({ url } as never);
+  });
+
+  it("cold start: getLaunchUrl before the retained appUrlOpen navigates once", async () => {
+    const { deps, handlers } = makeDeps();
+    vi.mocked(deps.app.getLaunchUrl).mockResolvedValue({ url: U });
+    await registerNativeLifecycle(deps);
+    await flush();
+    handlers["app:appUrlOpen"]({ url: U } as never);
     expect(deps.navigate).toHaveBeenCalledTimes(1);
   });
 
-  it("does not re-open a stale launch link after a web-view reload, but follows a new link", async () => {
-    const url = "https://app.goinmotus.com/programs/7";
-    const shared = memoryLastHandled();
+  it("reload: a stale launch URL already handled this session does not navigate", async () => {
+    const { deps } = makeDeps(memoryHandledLinks([U]));
+    vi.mocked(deps.app.getLaunchUrl).mockResolvedValue({ url: U });
+    await registerNativeLifecycle(deps);
+    await flush();
+    expect(deps.navigate).not.toHaveBeenCalled();
+  });
+
+  it("reload after a cold start: the persisted store suppresses the launch URL", async () => {
+    const shared = memoryHandledLinks();
     const first = makeDeps(shared);
-    vi.mocked(first.deps.app.getLaunchUrl).mockResolvedValue({ url });
+    const resolveLaunch = deferredLaunch(first.deps);
     await registerNativeLifecycle(first.deps);
-    await Promise.resolve();
-    await Promise.resolve();
-    expect(first.deps.navigate).toHaveBeenCalledTimes(1);
-
-    // Simulated reload: a fresh registration, same launch URL, store survives.
+    // Event-first cold start: only appUrlOpen navigated, yet it must still count.
+    first.handlers["app:appUrlOpen"]({ url: U } as never);
+    resolveLaunch({ url: U });
+    await flush();
     const second = makeDeps(shared);
-    vi.mocked(second.deps.app.getLaunchUrl).mockResolvedValue({ url });
+    vi.mocked(second.deps.app.getLaunchUrl).mockResolvedValue({ url: U });
     await registerNativeLifecycle(second.deps);
-    await Promise.resolve();
-    await Promise.resolve();
+    await flush();
     expect(second.deps.navigate).not.toHaveBeenCalled();
+  });
 
-    second.handlers["app:appUrlOpen"]({ url: "inmotus://clients/42" } as never);
-    expect(second.deps.navigate).toHaveBeenCalledWith("/clients/42");
+  it("after the cold-start pair, tapping the same link again navigates again", async () => {
+    const { deps, handlers } = makeDeps();
+    vi.mocked(deps.app.getLaunchUrl).mockResolvedValue({ url: U });
+    await registerNativeLifecycle(deps);
+    await flush();
+    handlers["app:appUrlOpen"]({ url: U } as never); // the retained duplicate
+    handlers["app:appUrlOpen"]({ url: U } as never); // a real second tap
+    expect(deps.navigate).toHaveBeenCalledTimes(2);
+  });
+
+  it("a warm appUrlOpen always navigates, even to a URL handled before", async () => {
+    const { deps, handlers } = makeDeps(memoryHandledLinks([U]));
+    await registerNativeLifecycle(deps);
+    await flush();
+    handlers["app:appUrlOpen"]({ url: U } as never);
+    handlers["app:appUrlOpen"]({ url: U } as never);
+    expect(deps.navigate).toHaveBeenCalledTimes(2);
+  });
+
+  it("a different URL navigates", async () => {
+    const { deps, handlers } = makeDeps();
+    vi.mocked(deps.app.getLaunchUrl).mockResolvedValue({ url: U });
+    await registerNativeLifecycle(deps);
+    await flush();
+    handlers["app:appUrlOpen"]({ url: "inmotus://clients/42" } as never);
+    expect(deps.navigate).toHaveBeenCalledTimes(2);
+    expect(deps.navigate).toHaveBeenLastCalledWith("/clients/42");
+  });
+
+  it("the launch-side pairing expires, so a later same-URL tap still navigates when no retained event came", async () => {
+    const { deps, handlers } = makeDeps();
+    vi.mocked(deps.app.getLaunchUrl).mockResolvedValue({ url: U });
+    await registerNativeLifecycle(deps);
+    await flush();
+    vi.mocked(deps.now).mockReturnValue(COLD_START_PAIR_WINDOW_MS + 1);
+    handlers["app:appUrlOpen"]({ url: U } as never);
+    expect(deps.navigate).toHaveBeenCalledTimes(2);
   });
 
   it("treats a rejected getStatus as offline and does not refresh", async () => {
@@ -357,21 +409,27 @@ describe("registerNativeLifecycle", () => {
   });
 });
 
-describe("createLastHandledStore", () => {
-  it("round-trips through storage", () => {
+describe("createHandledLinksStore", () => {
+  it("round-trips through storage across store instances", () => {
     const data = new Map<string, string>();
     const storage = { getItem: (k: string) => data.get(k) ?? null, setItem: (k: string, v: string) => void data.set(k, v) };
-    const store = createLastHandledStore(() => storage);
-    store.set("inmotus://dashboard");
-    expect(data.get(LAST_DEEP_LINK_KEY)).toBe("inmotus://dashboard");
-    expect(createLastHandledStore(() => storage).get()).toBe("inmotus://dashboard");
+    createHandledLinksStore(() => storage).add("inmotus://dashboard");
+    expect(JSON.parse(data.get(HANDLED_DEEP_LINKS_KEY) ?? "[]")).toEqual(["inmotus://dashboard"]);
+    const again = createHandledLinksStore(() => storage);
+    expect(again.has("inmotus://dashboard")).toBe(true);
+    expect(again.has("inmotus://never-added")).toBe(false);
   });
 
   it("falls back to memory when storage throws", () => {
-    const store = createLastHandledStore(() => {
+    const store = createHandledLinksStore(() => {
       throw new Error("SecurityError");
     });
-    expect(() => store.set("inmotus://clients/1")).not.toThrow();
-    expect(store.get()).toBe("inmotus://clients/1");
+    expect(() => store.add("inmotus://clients/1")).not.toThrow();
+    expect(store.has("inmotus://clients/1")).toBe(true);
+  });
+
+  it("ignores corrupt stored data", () => {
+    const storage = { getItem: () => "{not json", setItem: () => undefined };
+    expect(createHandledLinksStore(() => storage).has("x")).toBe(false);
   });
 });
