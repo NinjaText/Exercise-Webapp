@@ -94,6 +94,7 @@ function makeDeps(handledLinks = memoryHandledLinks()) {
     onOnlineChange: vi.fn(),
     onAppVersion: vi.fn(),
     onResumeAfterLongPause: vi.fn(),
+    onResume: vi.fn(),
   };
   return { deps, handlers, removed, click: (e: unknown) => clickHandler?.(e) };
 }
@@ -115,6 +116,23 @@ describe("registerNativeLifecycle", () => {
     expect(deps.historyBack).toHaveBeenCalled();
     handlers["app:backButton"]({ canGoBack: false } as never);
     expect(deps.app.minimizeApp).toHaveBeenCalled();
+  });
+
+  it("fires onResume on every return to the foreground, short or long pause", async () => {
+    const { deps, handlers } = makeDeps();
+    vi.mocked(deps.network.getStatus).mockResolvedValue({ connected: true });
+    await registerNativeLifecycle(deps);
+    vi.mocked(deps.now).mockReturnValue(0);
+    handlers["app:appStateChange"]({ isActive: false } as never);
+    vi.mocked(deps.now).mockReturnValue(10_000); // short pause
+    handlers["app:appStateChange"]({ isActive: true } as never);
+    expect(deps.onResume).toHaveBeenCalledTimes(1);
+    await Promise.resolve();
+    await Promise.resolve();
+    handlers["app:appStateChange"]({ isActive: false } as never);
+    vi.mocked(deps.now).mockReturnValue(10_000 + RESUME_REFRESH_AFTER_MS); // long pause
+    handlers["app:appStateChange"]({ isActive: true } as never);
+    expect(deps.onResume).toHaveBeenCalledTimes(2);
   });
 
   it("refreshes only after a long background, while online", async () => {

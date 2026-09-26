@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { Capacitor } from "@capacitor/core";
 import { resolveNativeInfo, WEB_INFO, type NativeInfo } from "@/lib/native/platform";
 import { createHandledLinksStore, registerNativeLifecycle } from "@/lib/native/lifecycle";
+import { checkForRequiredUpdate } from "@/lib/native/version";
+import { UpdateRequiredScreen } from "@/components/layout/update-required-screen";
 
 export interface NativeContextValue extends NativeInfo {
   /** Connectivity: @capacitor/network inside the native shell, browser online/offline events elsewhere. */
@@ -58,6 +60,8 @@ export function NativeProvider({ children }: { children: React.ReactNode }) {
   // Server render and first client render are always "web" so hydration matches.
   const [info, setInfo] = useState<NativeInfo>(WEB_INFO);
   const [isOnline, setIsOnline] = useState(true);
+  const [updateRequired, setUpdateRequired] = useState<{ storeUrl: string | null } | null>(null);
+  const [resumeTick, setResumeTick] = useState(0);
 
   useEffect(() => {
     const resolved = resolveNativeInfo({
@@ -115,6 +119,7 @@ export function NativeProvider({ children }: { children: React.ReactNode }) {
         onOnlineChange: setIsOnline,
         onAppVersion: (appVersion) => setInfo((prev) => ({ ...prev, appVersion })),
         onResumeAfterLongPause: () => router.refresh(),
+        onResume: () => setResumeTick((tick) => tick + 1),
       });
       if (cancelled) dispose();
       else cleanup = dispose;
@@ -125,7 +130,38 @@ export function NativeProvider({ children }: { children: React.ReactNode }) {
     };
   }, [router]);
 
-  return <NativeContext.Provider value={{ ...info, isOnline }}>{children}</NativeContext.Provider>;
+  useEffect(() => {
+    // Only the real shell: the ?native= dev override sets appVersion to
+    // "0.0.0-debug", which isVersionBelow treats as malformed and never
+    // blocks, but there is no reason to call the remote endpoint from a
+    // desktop browser at all.
+    if (!Capacitor.isNativePlatform()) return;
+    if (!info.platform || !info.appVersion) return;
+    let cancelled = false;
+    checkForRequiredUpdate({
+      platform: info.platform,
+      appVersion: info.appVersion,
+      fetchConfig: () => fetch("/api/mobile/config").then((r) => r.json()),
+    }).then((result) => {
+      if (!cancelled) setUpdateRequired(result);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [info.isNative, info.platform, info.appVersion, resumeTick]);
+
+  return (
+    <NativeContext.Provider value={{ ...info, isOnline }}>
+      {children}
+      {updateRequired && info.platform && (
+        <UpdateRequiredScreen
+          platform={info.platform}
+          storeUrl={updateRequired.storeUrl}
+          onOpenStore={(url) => import("@capacitor/browser").then(({ Browser }) => Browser.open({ url }))}
+        />
+      )}
+    </NativeContext.Provider>
+  );
 }
 
 export function useNative(): NativeContextValue {

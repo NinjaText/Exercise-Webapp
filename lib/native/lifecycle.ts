@@ -123,6 +123,8 @@ export interface LifecycleDeps {
   onOnlineChange(online: boolean): void;
   onAppVersion(version: string): void;
   onResumeAfterLongPause(): void;
+  /** Fires on every return to the foreground, independent of pause length. */
+  onResume(): void;
 }
 
 interface ClickLike {
@@ -195,6 +197,7 @@ export async function registerNativeLifecycle(deps: LifecycleDeps): Promise<() =
         hiddenAt = deps.now();
         return;
       }
+      deps.onResume();
       const wasLongPause = shouldRefreshOnResume(hiddenAt, deps.now());
       hiddenAt = null;
       if (!wasLongPause) return;

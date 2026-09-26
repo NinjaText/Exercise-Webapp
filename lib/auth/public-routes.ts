@@ -34,4 +34,7 @@ export const PUBLIC_ROUTES = [
   // Universal-link / app-link association files: fetched by Apple and Google
   // with no session, and must return JSON rather than a sign-in redirect.
   "/.well-known/(.*)",
+  // Minimum-version gate: the native shell must be able to check this before
+  // (or without ever having) a signed-in session.
+  "/api/mobile/config",
 ] as const;

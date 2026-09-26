@@ -179,5 +179,9 @@ The app only ever follows these links to a path on its own site; a link to any o
 Configuration that lives in Vercel (not in this repo) — not secret, but set it there, not in a committed file:
 
 - `APPLE_TEAM_ID` and `ANDROID_SHA256_CERT_FINGERPRINTS` (Production) — needed for the link association files (section 12). Optional: when missing, `/.well-known/...` returns 404 and the app keeps working.
+- `MOBILE_MIN_VERSION_IOS` and `MOBILE_MIN_VERSION_ANDROID` — the lowest app version (`x.y.z`) each store's app is allowed to run. Below it, the app shows a full-screen "Update required" block instead of the app. Optional: default to `1.0.0`, i.e. no version is blocked until you raise these.
+- `NEXT_PUBLIC_IOS_STORE_URL` and `NEXT_PUBLIC_ANDROID_STORE_URL` — the App Store / Play Store listing URLs the "Update required" screen's button opens. Optional: when unset, the screen still shows but has no button.
+
+  Set the store URLs only once the listings exist (after the first TestFlight/Play submission), and raise `MOBILE_MIN_VERSION_*` only after the new version is live and approved in **both** stores — raising it earlier locks out users on a version that isn't yet available to install. Missing or malformed values here must never lock users out; the client-side check (`lib/native/version.ts`) treats anything it can't parse as "not blocked".
 
 Keep all of these out of git entirely — do not add them to this repo even temporarily.
