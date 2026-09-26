@@ -9,6 +9,10 @@ const { versionCodeFor } = require("./version.cjs");
 
 // Must stay in step with lib/native/platform.ts in the web app.
 const UA_PATTERN = /InmotusApp\/(\d+\.\d+\.\d+)\s*\((ios|android)\)/i;
+// The " push" token after the marker: this build can register for push.
+const UA_PUSH_PATTERN = /InmotusApp\/\d+\.\d+\.\d+\s*\((?:ios|android)\)\s+push\b/i;
+const ANDROID_PUSH_DISABLED_WARNING =
+  "android: android/app/google-services.json missing — Android push disabled in this build";
 const REQUIRED_HOSTS = ["app.goinmotus.com", "*.goinmotus.com"];
 // The only wildcard allowed in allowNavigation. Clerk's dev host is added as
 // one exact host (decoded from the publishable key), never *.accounts.dev.
@@ -23,6 +27,10 @@ function checkResolvedConfig(config, platform, publicFiles) {
   const m = typeof ua === "string" ? UA_PATTERN.exec(ua) : null;
   if (!m || m[2].toLowerCase() !== platform) {
     problems.push(`${platform}: user agent suffix "${ua}" does not match InmotusApp/<x.y.z> (${platform})`);
+  }
+  // APNs needs no Firebase, so every iOS build can register for push.
+  if (platform === "ios" && !(typeof ua === "string" && UA_PUSH_PATTERN.test(ua))) {
+    problems.push(`ios: user agent suffix "${ua}" is missing the " push" token`);
   }
 
   const server = config.server || {};
@@ -187,7 +195,9 @@ function checkDeepLinks({ entitlements, pbxproj, infoPlist, manifest, paths }) {
 }
 
 // Native push wiring. AppDelegate must forward the APNs device-token
-// callbacks to Capacitor, the entitlement must request production APNs, and
+// callbacks to Capacitor, the entitlement must declare aps-environment (its
+// value is "development"; Xcode rewrites it to "production" on App Store /
+// TestFlight export, so only the key is checked), and
 // the manifest must have the runtime permission plus the FCM default-icon /
 // default-channel meta-data (without them, Android silently falls back to a
 // generic bell and the "Miscellaneous" channel).
@@ -214,6 +224,27 @@ function checkPush({ appDelegate, entitlements, manifest }) {
   return problems;
 }
 
+// Android's " push" token must match whether google-services.json exists:
+// without the file, registering crashes the app natively, so the token must be
+// absent; with it, a missing token means the config is stale. A missing file
+// is only a warning here (the build works, without push); release mode fails.
+function checkAndroidPush(config, hasGoogleServices) {
+  const ua = (config.android && config.android.appendUserAgent) || "";
+  const hasToken = UA_PUSH_PATTERN.test(ua);
+  const problems = [];
+  const warnings = [];
+  if (hasGoogleServices && !hasToken) {
+    problems.push('android: google-services.json exists but the user agent has no " push" token — run npm run sync');
+  }
+  if (!hasGoogleServices) {
+    warnings.push(ANDROID_PUSH_DISABLED_WARNING);
+    if (hasToken) {
+      problems.push('android: user agent has the " push" token but google-services.json is missing — run npm run sync');
+    }
+  }
+  return { problems, warnings };
+}
+
 function readIfExists(p) {
   return fs.existsSync(p) ? fs.readFileSync(p, "utf8") : null;
 }
@@ -226,6 +257,8 @@ function main() {
     android: { config: "android/app/src/main/assets/capacitor.config.json", public: "android/app/src/main/assets/public" },
   };
   const problems = [];
+  const warnings = [];
+  const hasGoogleServices = fs.existsSync(path.join(root, "android/app/google-services.json"));
   for (const [platform, t] of Object.entries(targets)) {
     const raw = readIfExists(path.join(root, t.config));
     if (!raw) {
@@ -237,6 +270,11 @@ function main() {
     const config = JSON.parse(raw);
     problems.push(...checkResolvedConfig(config, platform, files));
     if (release) problems.push(...checkReleaseConfig(config, platform));
+    if (platform === "android") {
+      const androidPush = checkAndroidPush(config, hasGoogleServices);
+      problems.push(...androidPush.problems);
+      warnings.push(...androidPush.warnings);
+    }
     const serverUrlJs = readIfExists(path.join(pub, "server-url.js")) || "";
     const url = config.server && config.server.url;
     if (url && !serverUrlJs.includes(JSON.stringify(url))) {
@@ -279,11 +317,13 @@ function main() {
     }
     // Android push cannot work without this file. It's git-ignored (mobile/.gitignore)
     // and must be placed by hand before a release build.
-    if (!fs.existsSync(path.join(root, "android/app/google-services.json"))) {
+    if (!hasGoogleServices) {
       problems.push("android: android/app/google-services.json missing — required for push notifications in a release build");
     }
   }
 
+  // In release mode the missing file is already a failure listed below.
+  if (!release) for (const w of warnings) console.warn(`WARNING: ${w}`);
   if (problems.length) {
     console.error("mobile verify FAILED:\n - " + problems.join("\n - "));
     process.exit(1);
@@ -295,6 +335,8 @@ if (require.main === module) main();
 
 module.exports = {
   UA_PATTERN,
+  UA_PUSH_PATTERN,
+  ANDROID_PUSH_DISABLED_WARNING,
   REQUIRED_HOSTS,
   ALLOWED_WILDCARD,
   checkResolvedConfig,
@@ -304,4 +346,5 @@ module.exports = {
   checkStampedVersions,
   checkDeepLinks,
   checkPush,
+  checkAndroidPush,
 };

@@ -5,7 +5,7 @@ import { Capacitor } from "@capacitor/core";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { resolveNativeInfo } from "@/lib/native/platform";
-import { requestPushPermission, shouldShowPushPrompt } from "@/lib/native/push";
+import { canUsePush, requestPushPermission, shouldShowPushPrompt } from "@/lib/native/push";
 
 const VISITS_KEY = "inmotus:push-prompt-visits";
 const DISMISSED_KEY = "inmotus:push-prompt-dismissed";
@@ -16,6 +16,15 @@ function readStorage(key: string): string | null {
   } catch {
     return null;
   }
+}
+
+/** This device's shell info, including whether its build can use push at all. */
+function resolveShell() {
+  return resolveNativeInfo({
+    capacitorPlatform: Capacitor.getPlatform(),
+    allowOverride: false,
+    userAgent: navigator.userAgent,
+  });
 }
 
 function writeStorage(key: string, value: string) {
@@ -30,13 +39,14 @@ function writeStorage(key: string, value: string) {
  * The soft pre-permission ask, shown from the second dashboard visit inside
  * the native shell while the OS permission is still undecided. "Turn on"
  * raises the real OS dialog; "Not now" (or closing the sheet) stops asking.
+ * Never shown on a build without push (see NativeInfo.push).
  */
 export function PushPrompt() {
   const [open, setOpen] = useState(false);
   const counted = useRef(false);
 
   useEffect(() => {
-    if (!Capacitor.isNativePlatform()) return;
+    if (!Capacitor.isNativePlatform() || !canUsePush(resolveShell())) return;
     // Count each mount once, even under strict mode's double effect.
     let visits = Number(readStorage(VISITS_KEY)) || 0;
     if (!counted.current) {
@@ -49,7 +59,7 @@ export function PushPrompt() {
     import("@capacitor/push-notifications")
       .then(({ PushNotifications }) => PushNotifications.checkPermissions())
       .then(({ receive }) => {
-        if (!cancelled && shouldShowPushPrompt({ isNative: true, permission: receive, dismissed, visits })) {
+        if (!cancelled && shouldShowPushPrompt({ isNative: true, pushAvailable: true, permission: receive, dismissed, visits })) {
           setOpen(true);
         }
       })
@@ -66,8 +76,9 @@ export function PushPrompt() {
 
   async function turnOn() {
     setOpen(false);
-    const platform = resolveNativeInfo({ capacitorPlatform: Capacitor.getPlatform(), allowOverride: false }).platform;
-    if (!platform) return;
+    const native = resolveShell();
+    const platform = native.platform;
+    if (!canUsePush(native) || !platform) return;
     try {
       const { PushNotifications } = await import("@capacitor/push-notifications");
       await requestPushPermission({ plugin: PushNotifications, platform });
@@ -76,8 +87,8 @@ export function PushPrompt() {
     }
   }
 
-  if (!open) return null;
-
+  // Always mounted and driven by `open`, so closing plays the exit animation.
+  // Closed (and on the server, where the portal renders nothing) it is empty.
   return (
     <Sheet open={open} onOpenChange={(next) => (next ? setOpen(true) : dismiss())}>
       <SheetContent side="bottom" showCloseButton={false} className="rounded-t-2xl pb-[calc(1rem_+_var(--safe-bottom))]">

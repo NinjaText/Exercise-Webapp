@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { resolveNativeInfo, WEB_INFO, type NativeInfo } from "@/lib/native/platform";
 import { createHandledLinksStore, registerNativeLifecycle } from "@/lib/native/lifecycle";
 import { checkForRequiredUpdate } from "@/lib/native/version";
-import { PUSH_TOKEN_KEY, registerPush } from "@/lib/native/push";
+import { canUsePush, createPushTokenUnregisterer, registerPush } from "@/lib/native/push";
 import { registerPushDeviceAction } from "@/actions/push-actions";
 import { UpdateRequiredScreen } from "@/components/layout/update-required-screen";
 
@@ -72,13 +72,27 @@ export function NativeProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     infoRef.current = info;
   }, [info]);
-  const wasSignedIn = useRef<boolean | undefined>(undefined);
+  // One per provider, so concurrent sign-out triggers share one request.
+  const [unregisterPushToken] = useState(() =>
+    createPushTokenUnregisterer({
+      storage: () => window.localStorage,
+      // keepalive: sign-out is often followed by a full-page navigation.
+      post: (token) =>
+        fetch("/api/push/unregister", {
+          method: "POST",
+          body: JSON.stringify({ token }),
+          headers: { "content-type": "application/json" },
+          keepalive: true,
+        }),
+    })
+  );
 
   useEffect(() => {
     const resolved = resolveNativeInfo({
       capacitorPlatform: Capacitor.getPlatform(),
       override: readOverride(),
       allowOverride: ALLOW_OVERRIDE,
+      userAgent: navigator.userAgent,
     });
     setInfo(resolved);
     applyDocumentFlags(resolved);
@@ -145,10 +159,16 @@ export function NativeProvider({ children }: { children: React.ReactNode }) {
     // Push registration: real shell only, once per signed-in session per
     // mount. The effect re-runs only when the signed-in user changes; a
     // different user on the same device re-registers the token, which the
-    // server reassigns to them.
+    // server reassigns to them. Builds without push (an Android build with no
+    // google-services.json crashes natively on register) never get here.
     if (!Capacitor.isNativePlatform() || !isSignedIn || !userId) return;
-    const platform = resolveNativeInfo({ capacitorPlatform: Capacitor.getPlatform(), allowOverride: false }).platform;
-    if (!platform) return;
+    const native = resolveNativeInfo({
+      capacitorPlatform: Capacitor.getPlatform(),
+      allowOverride: false,
+      userAgent: navigator.userAgent,
+    });
+    const platform = native.platform;
+    if (!canUsePush(native) || !platform) return;
     let cleanup: (() => void) | undefined;
     let cancelled = false;
     let lastSentToken: string | null = null;
@@ -161,11 +181,21 @@ export function NativeProvider({ children }: { children: React.ReactNode }) {
         plugin: PushNotifications,
         platform,
         // Deferred so a throwing localStorage accessor is caught inside registerPush.
-        storage: { setItem: (key, value) => window.localStorage.setItem(key, value) },
+        // Both callbacks are no-ops once this run is cancelled (signed out or
+        // a different user), so a late token is never stored or sent for it.
+        storage: {
+          setItem: (key, value) => {
+            if (!cancelled) window.localStorage.setItem(key, value);
+          },
+        },
         onToken: (token) => {
-          if (token === lastSentToken) return;
-          lastSentToken = token;
-          registerPushDeviceAction({ token, platform, appVersion: infoRef.current.appVersion }).catch(() => undefined);
+          if (cancelled || token === lastSentToken) return;
+          registerPushDeviceAction({ token, platform, appVersion: infoRef.current.appVersion })
+            .then((result) => {
+              // Only a confirmed registration suppresses a resend of the same token.
+              if (result.success) lastSentToken = token;
+            })
+            .catch(() => undefined);
         },
         onForeground: ({ title, body, path }) => {
           toast(title ?? "New notification", {
@@ -185,29 +215,13 @@ export function NativeProvider({ children }: { children: React.ReactNode }) {
   }, [isSignedIn, userId, router]);
 
   useEffect(() => {
-    // Sign-out on this device: forget its token so the next user of the
-    // device doesn't receive the previous user's pushes. Only a real
-    // true -> false transition after Clerk has loaded counts.
-    if (!isLoaded) return;
-    const was = wasSignedIn.current;
-    wasSignedIn.current = isSignedIn;
-    if (!(was === true && isSignedIn === false) || !Capacitor.isNativePlatform()) return;
-    let token: string | null = null;
-    try {
-      token = window.localStorage.getItem(PUSH_TOKEN_KEY);
-      window.localStorage.removeItem(PUSH_TOKEN_KEY);
-    } catch {
-      return;
-    }
-    if (!token) return;
-    // keepalive: sign-out is often followed by a full-page navigation.
-    fetch("/api/push/unregister", {
-      method: "POST",
-      body: JSON.stringify({ token }),
-      headers: { "content-type": "application/json" },
-      keepalive: true,
-    }).catch(() => undefined);
-  }, [isLoaded, isSignedIn]);
+    // Signed out on this device — just now, or a session that expired while
+    // the app was closed: forget its stored token so the next user of the
+    // device doesn't receive the previous user's pushes. The token is removed
+    // locally only after the server confirms, so a failure retries next load.
+    if (!isLoaded || isSignedIn || !Capacitor.isNativePlatform()) return;
+    void unregisterPushToken();
+  }, [isLoaded, isSignedIn, unregisterPushToken]);
 
   useEffect(() => {
     // Only the real shell: the ?native= dev override sets appVersion to

@@ -10,7 +10,8 @@ import { APP_HOST, pathFromAppUrl } from "./deep-links";
 /** localStorage key for this device's push token, read back on sign-out. */
 export const PUSH_TOKEN_KEY = "inmotus:push-token";
 
-type PermissionState = "granted" | "denied" | "prompt" | "prompt-with-rationale";
+export type PushPermissionState = "granted" | "denied" | "prompt" | "prompt-with-rationale";
+type PermissionState = PushPermissionState;
 
 interface ListenerHandle {
   remove(): Promise<void>;
@@ -64,18 +65,103 @@ export function linkToPath(link: string | undefined | null): string | null {
   }
 }
 
+/**
+ * Whether push may be used at all: the real shell, on a build whose user agent
+ * carries the ` push` token (see NativeInfo.push). Everything that registers,
+ * requests permission or shows the prompt goes through this first.
+ */
+export function canUsePush(info: { isNative: boolean; platform?: "ios" | "android"; push?: boolean }): boolean {
+  return info.isNative && info.platform !== undefined && info.push === true;
+}
+
+function isUndecided(permission: PermissionState | null): boolean {
+  return permission === "prompt" || permission === "prompt-with-rationale";
+}
+
 export function shouldShowPushPrompt(args: {
   isNative: boolean;
+  /** This build can register for push (NativeInfo.push). */
+  pushAvailable: boolean;
   permission: PermissionState | null;
   dismissed: boolean;
   visits: number;
 }): boolean {
   return (
     args.isNative &&
-    (args.permission === "prompt" || args.permission === "prompt-with-rationale") &&
+    args.pushAvailable &&
+    isUndecided(args.permission) &&
     !args.dismissed &&
     args.visits >= 2
   );
+}
+
+/**
+ * Settings' push switch turned on: raise the OS dialog when the OS permission
+ * is still undecided (e.g. the soft prompt was dismissed), so turning push on
+ * actually turns it on for this device. Web and push-less builds: never.
+ */
+export function shouldRequestPushOnEnable(args: {
+  checked: boolean;
+  pushAvailable: boolean;
+  permission: PermissionState | null;
+}): boolean {
+  return args.checked && args.pushAvailable && isUndecided(args.permission);
+}
+
+/** Push is on in Settings but the OS blocks it: point the user at the phone's Settings. */
+export function shouldShowPushDeniedHint(args: {
+  pushEnabled: boolean;
+  pushAvailable: boolean;
+  permission: PermissionState | null;
+}): boolean {
+  return args.pushEnabled && args.pushAvailable && args.permission === "denied";
+}
+
+/**
+ * A function that tells the server to forget this device's stored token and
+ * removes it locally only once the server confirmed (2xx), so a failed request
+ * is retried on the next signed-out load. Concurrent calls share one request.
+ * Never rejects.
+ */
+export function createPushTokenUnregisterer(deps: {
+  storage: () => Pick<Storage, "getItem" | "removeItem">;
+  post: (token: string) => Promise<{ ok: boolean; status?: number }>;
+}): () => Promise<void> {
+  let inFlight: Promise<void> | null = null;
+  const run = async () => {
+    let token: string | null;
+    try {
+      token = deps.storage().getItem(PUSH_TOKEN_KEY);
+    } catch {
+      return;
+    }
+    if (!token) return;
+    try {
+      const res = await deps.post(token);
+      // A 4xx (other than timeout/rate limit) means the token can never be
+      // unregistered — e.g. it fails validation, so it was never stored
+      // server-side. Forget it rather than retrying on every launch.
+      const permanent =
+        res.status !== undefined && res.status >= 400 && res.status < 500 &&
+        res.status !== 408 && res.status !== 429;
+      if (!res.ok && !permanent) return;
+    } catch {
+      return;
+    }
+    try {
+      const storage = deps.storage();
+      // A different token may have been stored meanwhile (a new sign-in).
+      if (storage.getItem(PUSH_TOKEN_KEY) === token) storage.removeItem(PUSH_TOKEN_KEY);
+    } catch {
+      // Storage gone: nothing left to forget.
+    }
+  };
+  return () => {
+    inFlight ??= run().finally(() => {
+      inFlight = null;
+    });
+    return inFlight;
+  };
 }
 
 function linkFromData(data: unknown): string | null {

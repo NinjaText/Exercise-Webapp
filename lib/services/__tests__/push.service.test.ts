@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import http2 from "node:http2";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 vi.mock("server-only", () => ({}));
@@ -62,6 +63,7 @@ import {
   isDeadFcmError,
   isDeadApnsResponse,
   sendPushToUser,
+  resetPushCachesForTests,
   type PushMessage,
   type PushTransports,
   type SendOutcome,
@@ -76,6 +78,9 @@ function b64urlDecode(part: string): string {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // Module-level caches (APNs JWT, FCM client, once-only logs) would otherwise
+  // leak between tests and make them order-dependent.
+  resetPushCachesForTests();
   mockRemoveTokens.mockResolvedValue(undefined);
 });
 
@@ -460,6 +465,64 @@ describe("default APNs transport", () => {
     expect(h2.requests[0].headers.authorization).toMatch(/^bearer [^.]+\.[^.]+\.[^.]+$/);
     expect(h2.requests[0].body).toBe(JSON.stringify(buildApnsPayload(msg)));
     expect(mockRemoveTokens).toHaveBeenCalledWith(["i-gone", "i-bad"]);
+  });
+
+  it("sends to the production APNs host by default", async () => {
+    configureApns();
+    mockListDevices.mockResolvedValue([{ token: "i1", platform: "IOS" }]);
+
+    await sendPushToUser("u1", { title: "Hi" });
+
+    expect(vi.mocked(http2.connect)).toHaveBeenCalledWith("https://api.push.apple.com");
+  });
+
+  it("sends to the sandbox host only when APNS_SANDBOX is 1", async () => {
+    configureApns();
+    mockListDevices.mockResolvedValue([{ token: "i1", platform: "IOS" }]);
+
+    vi.stubEnv("APNS_SANDBOX", "1");
+    await sendPushToUser("u1", { title: "Hi" });
+    vi.stubEnv("APNS_SANDBOX", "true");
+    await sendPushToUser("u1", { title: "Hi" });
+
+    expect(vi.mocked(http2.connect).mock.calls.map((c) => c[0])).toEqual([
+      "https://api.sandbox.push.apple.com",
+      "https://api.push.apple.com",
+    ]);
+  });
+
+  it("warns once about a BadDeviceToken on the sandbox, and still prunes", async () => {
+    configureApns();
+    vi.stubEnv("APNS_SANDBOX", "1");
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    mockListDevices.mockResolvedValue([
+      { token: "i-bad-1", platform: "IOS" },
+      { token: "i-bad-2", platform: "IOS" },
+    ]);
+    h2.responses.push(
+      { status: 400, body: JSON.stringify({ reason: "BadDeviceToken" }) },
+      { status: 400, body: JSON.stringify({ reason: "BadDeviceToken" }) }
+    );
+
+    await sendPushToUser("u1", { title: "Hi" });
+
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn).toHaveBeenCalledWith(
+      "[push] BadDeviceToken on the APNs sandbox — is APNS_SANDBOX set for a production build?"
+    );
+    expect(mockRemoveTokens).toHaveBeenCalledWith(["i-bad-1", "i-bad-2"]);
+  });
+
+  it("does not warn about a BadDeviceToken on the production host", async () => {
+    configureApns();
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    mockListDevices.mockResolvedValue([{ token: "i-bad", platform: "IOS" }]);
+    h2.responses.push({ status: 400, body: JSON.stringify({ reason: "BadDeviceToken" }) });
+
+    await sendPushToUser("u1", { title: "Hi" });
+
+    expect(warn).not.toHaveBeenCalled();
+    expect(mockRemoveTokens).toHaveBeenCalledWith(["i-bad"]);
   });
 
   it("reuses the cached JWT, and re-signs after a 403 ExpiredProviderToken", async () => {

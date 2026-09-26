@@ -1,12 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useNative } from "@/components/providers/native-provider";
 import { Switch } from "@/components/ui/switch";
 import { SettingsPanel, SettingsPanels, SettingsRow } from "@/components/settings/settings-section";
 import { SettingsSaveBar } from "@/components/settings/settings-save-bar";
 import { updateMyPreferenceAction } from "@/actions/notification-preference-actions";
 import type { PreferenceValues } from "@/lib/services/notification-preference.service";
+import {
+  canUsePush,
+  requestPushPermission,
+  shouldRequestPushOnEnable,
+  shouldShowPushDeniedHint,
+  type PushPermissionState,
+} from "@/lib/native/push";
 import { toast } from "sonner";
 
 const CATEGORIES = [
@@ -27,8 +35,19 @@ const CATEGORIES = [
   },
 ];
 
+async function loadPushPlugin() {
+  const { PushNotifications } = await import("@capacitor/push-notifications");
+  return PushNotifications;
+}
+
 export function NotificationPreferencesForm({ initial }: { initial: PreferenceValues }) {
   const router = useRouter();
+  const native = useNative();
+  // Web, the ?native= dev override and push-less builds all come out false,
+  // which keeps the web behaviour: the switch only saves the preference.
+  const pushAvailable = canUsePush(native);
+  const platform = native.platform;
+  const [permission, setPermission] = useState<PushPermissionState | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState({
     emailEnabled: initial.emailEnabled,
@@ -41,6 +60,47 @@ export function NotificationPreferencesForm({ initial }: { initial: PreferenceVa
   // Categories apply to both channels, so they stay usable while either is on.
   const anyChannel = values.emailEnabled || values.pushEnabled;
   const dirty = (Object.keys(values) as (keyof typeof values)[]).some((k) => values[k] !== saved[k]);
+
+  useEffect(() => {
+    if (!pushAvailable) return;
+    let cancelled = false;
+    const check = () => {
+      loadPushPlugin()
+        .then((plugin) => plugin.checkPermissions())
+        .then(({ receive }) => {
+          if (!cancelled) setPermission(receive);
+        })
+        .catch(() => undefined);
+    };
+    check();
+    // Re-check on return from the phone's Settings, where the user may have
+    // just allowed (or blocked) notifications.
+    const onVisible = () => {
+      if (document.visibilityState === "visible") check();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      cancelled = true;
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [pushAvailable]);
+
+  function handlePushChange(checked: boolean) {
+    setValues((v) => ({ ...v, pushEnabled: checked }));
+    if (!platform || !shouldRequestPushOnEnable({ checked, pushAvailable, permission })) return;
+    // The soft prompt was dismissed (or never shown): turning push on here
+    // raises the OS dialog, and registers this device on "granted".
+    loadPushPlugin()
+      .then((plugin) => requestPushPermission({ plugin, platform }))
+      .then((result) => setPermission(result))
+      .catch(() => undefined);
+  }
+
+  const showDeniedHint = shouldShowPushDeniedHint({
+    pushEnabled: values.pushEnabled,
+    pushAvailable,
+    permission,
+  });
 
   async function handleSave() {
     setSaving(true);
@@ -88,9 +148,15 @@ export function NotificationPreferencesForm({ initial }: { initial: PreferenceVa
             <Switch
               id="pushEnabled"
               checked={values.pushEnabled}
-              onCheckedChange={(checked) => setValues((v) => ({ ...v, pushEnabled: checked }))}
+              aria-describedby={showDeniedHint ? "pushDeniedHint" : undefined}
+              onCheckedChange={handlePushChange}
             />
           </SettingsRow>
+          {showDeniedHint && (
+            <p id="pushDeniedHint" className="text-sm text-muted-foreground">
+              Notifications are turned off for Inmotus RX in your phone&apos;s Settings.
+            </p>
+          )}
         </SettingsPanel>
 
         <SettingsPanel
@@ -122,10 +188,10 @@ export function NotificationPreferencesForm({ initial }: { initial: PreferenceVa
             <div className="pt-4">
               <SettingsRow
                 label="Billing"
-                description="Payment failures, cancellations and refunds. Always sent, because they affect your access."
+                description="Payment failures, cancellations and refunds. Always sent by email and push, because they affect your access."
                 muted
               >
-                <Switch checked disabled aria-label="Billing emails are always sent" />
+                <Switch checked disabled aria-label="Billing notices are always sent by email and push" />
               </SettingsRow>
             </div>
           </div>

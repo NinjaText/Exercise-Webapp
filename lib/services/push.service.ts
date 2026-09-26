@@ -36,6 +36,14 @@ const PUSH_TIMEOUT_MS = 10_000;
 const APNS_TOPIC = "com.goinmotus.app";
 const APNS_HOST_PRODUCTION = "https://api.push.apple.com";
 const APNS_HOST_SANDBOX = "https://api.sandbox.push.apple.com";
+/**
+ * Production is the default: TestFlight, App Store and Xcode Archive builds all
+ * get production device tokens, and a production token sent to the sandbox is
+ * answered with 400 BadDeviceToken, which prunes it. Only a deployment serving
+ * development-signed builds (Run from Xcode on a device) sets APNS_SANDBOX=1.
+ */
+const APNS_SANDBOX_WARNING =
+  "[push] BadDeviceToken on the APNs sandbox — is APNS_SANDBOX set for a production build?";
 /** APNs provider tokens are valid for an hour; re-sign well before that. */
 const APNS_JWT_TTL_SECONDS = 50 * 60;
 
@@ -243,7 +251,8 @@ function sendOneApns(
   session: http2.ClientHttp2Session,
   jwt: string,
   token: string,
-  body: string
+  body: string,
+  sandbox: boolean
 ): Promise<SendOutcome> {
   return new Promise((resolve) => {
     let settled = false;
@@ -283,6 +292,11 @@ function sendOneApns(
         // Force the next batch to sign a fresh provider token.
         cachedApnsJwt = undefined;
       }
+      if (sandbox && status === 400 && reason === "BadDeviceToken") {
+        // Still pruned below, but this is the signature of a production token
+        // sent to the sandbox host, which would prune every iOS device.
+        logOnce("warn", APNS_SANDBOX_WARNING);
+      }
       finish({ token, ok: false, dead: isDeadApnsResponse(status, reason) });
     });
     // A stream that errors or closes without a full response is transient.
@@ -306,14 +320,15 @@ function sendApnsBatch(
     return Promise.resolve(tokens.map(transient));
   }
 
-  const host = process.env.APNS_PRODUCTION === "1" ? APNS_HOST_PRODUCTION : APNS_HOST_SANDBOX;
+  const sandbox = process.env.APNS_SANDBOX === "1";
+  const host = sandbox ? APNS_HOST_SANDBOX : APNS_HOST_PRODUCTION;
   const body = JSON.stringify(buildApnsPayload(msg));
   const session = http2.connect(host);
   session.on("error", (err) => {
     console.error("[push] APNs connection error:", describeError(err));
   });
 
-  const batch = Promise.all(tokens.map((token) => sendOneApns(session, jwt, token, body)));
+  const batch = Promise.all(tokens.map((token) => sendOneApns(session, jwt, token, body, sandbox)));
   // This is the timeout that bounds the APNs path: unlike the generic bound in
   // runTransport (same 10s, set later, so this one fires first), it also tears
   // down the HTTP/2 session in `finally`, so a hung stream cannot leak a socket.
@@ -340,6 +355,13 @@ function sendApns(tokens: string[], msg: PushMessage): Promise<SendOutcome[]> | 
 }
 
 const defaultTransports: PushTransports = { sendFcm, sendApns };
+
+/** Test-only: forgets the cached APNs JWT, FCM client and once-only log lines. */
+export function resetPushCachesForTests(): void {
+  cachedApnsJwt = undefined;
+  fcmClient = undefined;
+  loggedOnce.clear();
+}
 
 // ---------------------------------------------------------------------------
 // Entry point

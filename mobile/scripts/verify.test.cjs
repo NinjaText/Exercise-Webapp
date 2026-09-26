@@ -10,6 +10,9 @@ const {
   checkStampedVersions,
   checkDeepLinks,
   checkPush,
+  checkAndroidPush,
+  UA_PUSH_PATTERN,
+  ANDROID_PUSH_DISABLED_WARNING,
 } = require("./verify.cjs");
 
 test("resolveServerUrl defaults to production and trims trailing slashes", () => {
@@ -22,7 +25,7 @@ const good = (platform) => ({
   appId: "com.goinmotus.app",
   appName: "Inmotus RX",
   [platform]: {
-    appendUserAgent: `InmotusApp/1.0.0 (${platform})`,
+    appendUserAgent: `InmotusApp/1.0.0 (${platform})${platform === "ios" ? " push" : ""}`,
     ...(platform === "ios" ? { contentInset: "never" } : {}),
   },
   server: {
@@ -54,6 +57,44 @@ test("flags a missing or malformed user-agent suffix", () => {
   const c = good("ios");
   c.ios.appendUserAgent = "InmotusApp/1.0.0";
   assert.ok(checkResolvedConfig(c, "ios", files).some((p) => p.includes("user agent")));
+});
+
+test("flags an iOS user agent without the push token, but not an Android one", () => {
+  const c = good("ios");
+  c.ios.appendUserAgent = "InmotusApp/1.0.0 (ios)";
+  assert.deepEqual(checkResolvedConfig(c, "ios", files), ['ios: user agent suffix "InmotusApp/1.0.0 (ios)" is missing the " push" token']);
+  // Android's token depends on google-services.json; checkAndroidPush owns it.
+  assert.deepEqual(checkResolvedConfig(good("android"), "android", files), []);
+});
+
+test("UA_PUSH_PATTERN needs the token right after the marker", () => {
+  assert.match("Mozilla/5.0 InmotusApp/1.0.0 (ios) push", UA_PUSH_PATTERN);
+  assert.doesNotMatch("Mozilla/5.0 InmotusApp/1.0.0 (ios)", UA_PUSH_PATTERN);
+  assert.doesNotMatch("Mozilla/5.0 InmotusApp/1.0.0 (ios) pushy", UA_PUSH_PATTERN);
+  assert.doesNotMatch("push InmotusApp/1.0.0 (android)", UA_PUSH_PATTERN);
+});
+
+test("checkAndroidPush warns (does not fail) when google-services.json is missing", () => {
+  assert.deepEqual(checkAndroidPush(good("android"), false), { problems: [], warnings: [ANDROID_PUSH_DISABLED_WARNING] });
+  assert.match(ANDROID_PUSH_DISABLED_WARNING, /Android push disabled in this build/);
+});
+
+test("checkAndroidPush passes a push-enabled build with google-services.json", () => {
+  const c = good("android");
+  c.android.appendUserAgent = "InmotusApp/1.0.0 (android) push";
+  assert.deepEqual(checkAndroidPush(c, true), { problems: [], warnings: [] });
+});
+
+test("checkAndroidPush flags a user agent out of step with google-services.json", () => {
+  const stale = checkAndroidPush(good("android"), true);
+  assert.equal(stale.problems.length, 1);
+  assert.match(stale.problems[0], /no " push" token/);
+
+  const c = good("android");
+  c.android.appendUserAgent = "InmotusApp/1.0.0 (android) push";
+  const crashing = checkAndroidPush(c, false);
+  assert.equal(crashing.problems.length, 1);
+  assert.match(crashing.problems[0], /google-services.json is missing/);
 });
 
 test("flags a missing required host in allowNavigation", () => {
@@ -296,7 +337,7 @@ const wiredPush = () => ({
     "    NotificationCenter.default.post(name: .capacitorDidFailToRegisterForRemoteNotifications, object: error)",
     "}",
   ].join("\n"),
-  entitlements: "<dict><key>aps-environment</key><string>production</string></dict>",
+  entitlements: "<dict><key>aps-environment</key><string>development</string></dict>",
   manifest: [
     '<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />',
     '<meta-data android:name="com.google.firebase.messaging.default_notification_icon" android:resource="@drawable/ic_stat_notify" />',
@@ -308,7 +349,15 @@ test("checkPush passes a fully wired project", () => {
   assert.deepEqual(checkPush(wiredPush()), []);
 });
 
-test("checkPush flags AppDelegate missing either device-token callback", () => {
+test("checkPush flags AppDelegate missing the didRegister device-token callback", () => {
+  const w = wiredPush();
+  w.appDelegate = w.appDelegate.replace("capacitorDidRegisterForRemoteNotifications", "somethingElse");
+  assert.deepEqual(checkPush(w), [
+    "ios: AppDelegate.swift missing didRegisterForRemoteNotificationsWithDeviceToken forwarding",
+  ]);
+});
+
+test("checkPush flags AppDelegate missing the didFail device-token callback", () => {
   const w = wiredPush();
   w.appDelegate = w.appDelegate.replace("capacitorDidFailToRegisterForRemoteNotifications", "somethingElse");
   const problems = checkPush(w);

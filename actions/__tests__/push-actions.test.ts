@@ -82,6 +82,30 @@ describe('registerPushDeviceAction', () => {
   })
 })
 
+describe('error logging', () => {
+  it('logs a fixed message with only the error name and code, never the raw error', async () => {
+    const err = Object.assign(new Error('Unique constraint failed on token tok_secret'), {
+      name: 'PrismaClientKnownRequestError',
+      code: 'P2002',
+    })
+    vi.mocked(registerDevice).mockRejectedValueOnce(err)
+    vi.mocked(unregisterToken).mockRejectedValueOnce(err)
+
+    await registerPushDeviceAction({ token: 'tok_secret', platform: 'ios' })
+    await unregisterPushDeviceAction({ token: 'tok_secret' })
+
+    expect(console.error).toHaveBeenNthCalledWith(1, '[push] Failed to register push device', {
+      name: 'PrismaClientKnownRequestError',
+      code: 'P2002',
+    })
+    expect(console.error).toHaveBeenNthCalledWith(2, '[push] Failed to unregister push device', {
+      name: 'PrismaClientKnownRequestError',
+      code: 'P2002',
+    })
+    expect(JSON.stringify(vi.mocked(console.error).mock.calls)).not.toContain('tok_secret')
+  })
+})
+
 describe('unregisterPushDeviceAction', () => {
   it('unregisters the token scoped to the current user', async () => {
     const res = await unregisterPushDeviceAction({ token: 'tok_abc' })

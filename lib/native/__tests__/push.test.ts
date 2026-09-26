@@ -1,6 +1,10 @@
 import { describe, it, expect, vi } from "vitest";
 import {
   PUSH_TOKEN_KEY,
+  canUsePush,
+  createPushTokenUnregisterer,
+  shouldRequestPushOnEnable,
+  shouldShowPushDeniedHint,
   linkToPath,
   registerPush,
   requestPushPermission,
@@ -26,8 +30,21 @@ describe("linkToPath", () => {
   });
 });
 
+describe("canUsePush", () => {
+  it("needs the real shell with the push token", () => {
+    expect(canUsePush({ isNative: true, platform: "ios", push: true })).toBe(true);
+    expect(canUsePush({ isNative: true, platform: "android", push: true })).toBe(true);
+  });
+  it("is false on web, without a platform, or when the build has no push token", () => {
+    expect(canUsePush({ isNative: false })).toBe(false);
+    expect(canUsePush({ isNative: true, push: true })).toBe(false);
+    expect(canUsePush({ isNative: true, platform: "android", push: false })).toBe(false);
+    expect(canUsePush({ isNative: true, platform: "android" })).toBe(false);
+  });
+});
+
 describe("shouldShowPushPrompt", () => {
-  const base = { isNative: true, permission: "prompt" as const, dismissed: false, visits: 2 };
+  const base = { isNative: true, pushAvailable: true, permission: "prompt" as const, dismissed: false, visits: 2 };
   it("shows on the second native visit while permission is undecided", () => {
     expect(shouldShowPushPrompt(base)).toBe(true);
     expect(shouldShowPushPrompt({ ...base, permission: "prompt-with-rationale" })).toBe(true);
@@ -35,6 +52,7 @@ describe("shouldShowPushPrompt", () => {
   });
   it("does not show on web, on the first visit, once dismissed, or once decided", () => {
     expect(shouldShowPushPrompt({ ...base, isNative: false })).toBe(false);
+    expect(shouldShowPushPrompt({ ...base, pushAvailable: false })).toBe(false);
     expect(shouldShowPushPrompt({ ...base, visits: 1 })).toBe(false);
     expect(shouldShowPushPrompt({ ...base, dismissed: true })).toBe(false);
     expect(shouldShowPushPrompt({ ...base, permission: "granted" })).toBe(false);
@@ -43,15 +61,132 @@ describe("shouldShowPushPrompt", () => {
   });
 });
 
+describe("shouldRequestPushOnEnable", () => {
+  const base = { checked: true, pushAvailable: true, permission: "prompt" as const };
+  it("asks the OS when push is switched on while permission is undecided", () => {
+    expect(shouldRequestPushOnEnable(base)).toBe(true);
+    expect(shouldRequestPushOnEnable({ ...base, permission: "prompt-with-rationale" })).toBe(true);
+  });
+  it("does not ask when switching off, on web or push-less builds, or once decided", () => {
+    expect(shouldRequestPushOnEnable({ ...base, checked: false })).toBe(false);
+    expect(shouldRequestPushOnEnable({ ...base, pushAvailable: false })).toBe(false);
+    expect(shouldRequestPushOnEnable({ ...base, permission: "granted" })).toBe(false);
+    expect(shouldRequestPushOnEnable({ ...base, permission: "denied" })).toBe(false);
+    expect(shouldRequestPushOnEnable({ ...base, permission: null })).toBe(false);
+  });
+});
+
+describe("shouldShowPushDeniedHint", () => {
+  const base = { pushEnabled: true, pushAvailable: true, permission: "denied" as const };
+  it("shows while push is on in Settings but denied by the OS", () => {
+    expect(shouldShowPushDeniedHint(base)).toBe(true);
+  });
+  it("hides when push is off, on web or push-less builds, or when not denied", () => {
+    expect(shouldShowPushDeniedHint({ ...base, pushEnabled: false })).toBe(false);
+    expect(shouldShowPushDeniedHint({ ...base, pushAvailable: false })).toBe(false);
+    expect(shouldShowPushDeniedHint({ ...base, permission: "granted" })).toBe(false);
+    expect(shouldShowPushDeniedHint({ ...base, permission: "prompt" })).toBe(false);
+    expect(shouldShowPushDeniedHint({ ...base, permission: null })).toBe(false);
+  });
+});
+
+describe("createPushTokenUnregisterer", () => {
+  function setup(opts: { stored?: string | null; post?: () => Promise<{ ok: boolean; status?: number }> } = {}) {
+    const store = new Map<string, string>();
+    if (opts.stored !== null) store.set(PUSH_TOKEN_KEY, opts.stored ?? "tok-1");
+    const storage = {
+      getItem: (k: string) => store.get(k) ?? null,
+      removeItem: (k: string) => void store.delete(k),
+    };
+    const post = vi.fn(opts.post ?? (() => Promise.resolve({ ok: true })));
+    const unregister = createPushTokenUnregisterer({ storage: () => storage, post });
+    return { store, post, unregister };
+  }
+
+  it("posts the stored token and forgets it after a 2xx", async () => {
+    const { store, post, unregister } = setup();
+    await unregister();
+    expect(post).toHaveBeenCalledWith("tok-1");
+    expect(store.has(PUSH_TOKEN_KEY)).toBe(false);
+  });
+
+  it("keeps the token for a retry when the server fails or the request rejects", async () => {
+    const failed = setup({ post: () => Promise.resolve({ ok: false }) });
+    await failed.unregister();
+    expect(failed.store.get(PUSH_TOKEN_KEY)).toBe("tok-1");
+
+    const offline = setup({ post: () => Promise.reject(new TypeError("Failed to fetch")) });
+    await expect(offline.unregister()).resolves.toBeUndefined();
+    expect(offline.store.get(PUSH_TOKEN_KEY)).toBe("tok-1");
+  });
+
+  it("forgets the token on a permanent 4xx but keeps it on 408/429/5xx", async () => {
+    const bad = setup({ post: () => Promise.resolve({ ok: false, status: 400 }) });
+    await bad.unregister();
+    expect(bad.store.has(PUSH_TOKEN_KEY)).toBe(false);
+
+    for (const status of [408, 429, 500, 503]) {
+      const retry = setup({ post: () => Promise.resolve({ ok: false, status }) });
+      await retry.unregister();
+      expect(retry.store.get(PUSH_TOKEN_KEY)).toBe("tok-1");
+    }
+  });
+
+  it("does nothing without a stored token or storage", async () => {
+    const { post, unregister } = setup({ stored: null });
+    await unregister();
+    expect(post).not.toHaveBeenCalled();
+
+    const noStorage = vi.fn();
+    const throwing = createPushTokenUnregisterer({
+      storage: () => {
+        throw new Error("SecurityError");
+      },
+      post: noStorage,
+    });
+    await expect(throwing()).resolves.toBeUndefined();
+    expect(noStorage).not.toHaveBeenCalled();
+  });
+
+  it("shares one request between concurrent calls, and allows a later retry", async () => {
+    let respond: (r: { ok: boolean }) => void = () => {};
+    const { post, unregister } = setup({ post: () => new Promise((resolve) => (respond = resolve)) });
+    const first = unregister();
+    const second = unregister();
+    expect(second).toBe(first);
+    respond({ ok: false });
+    await first;
+    expect(post).toHaveBeenCalledTimes(1);
+
+    const retry = unregister();
+    expect(retry).not.toBe(first);
+    respond({ ok: true });
+    await retry;
+    expect(post).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not remove a different token stored while the request was in flight", async () => {
+    let respond: (r: { ok: boolean }) => void = () => {};
+    const { store, unregister } = setup({ post: () => new Promise((resolve) => (respond = resolve)) });
+    const done = unregister();
+    store.set(PUSH_TOKEN_KEY, "tok-2");
+    respond({ ok: true });
+    await done;
+    expect(store.get(PUSH_TOKEN_KEY)).toBe("tok-2");
+  });
+});
+
 type Permission = "granted" | "denied" | "prompt" | "prompt-with-rationale";
 
 function makeDeps(opts: { permission?: Permission; platform?: "ios" | "android" } = {}) {
   const handlers: Record<string, (arg: never) => void> = {};
+  const calls: string[] = [];
   const removed: string[] = [];
   const stored = new Map<string, string>();
   const deps: PushDeps = {
     plugin: {
       addListener: ((event: string, fn: (arg: never) => void) => {
+        calls.push(`addListener:${event}`);
         handlers[event] = fn;
         return Promise.resolve({
           remove: () => {
@@ -62,7 +197,10 @@ function makeDeps(opts: { permission?: Permission; platform?: "ios" | "android" 
       }) as unknown as PushDeps["plugin"]["addListener"],
       checkPermissions: vi.fn(() => Promise.resolve({ receive: opts.permission ?? "granted" })),
       requestPermissions: vi.fn(() => Promise.resolve({ receive: "granted" as Permission })),
-      register: vi.fn(() => Promise.resolve()),
+      register: vi.fn(() => {
+        calls.push("register");
+        return Promise.resolve();
+      }),
       createChannel: vi.fn(() => Promise.resolve()),
     },
     platform: opts.platform ?? "android",
@@ -71,7 +209,7 @@ function makeDeps(opts: { permission?: Permission; platform?: "ios" | "android" 
     onForeground: vi.fn(),
     navigate: vi.fn(),
   };
-  return { deps, handlers, removed, stored };
+  return { deps, handlers, removed, stored, calls };
 }
 
 const flush = async () => {
@@ -84,6 +222,15 @@ describe("registerPush", () => {
     await registerPush(deps);
     expect(deps.plugin.createChannel).toHaveBeenCalledWith({ id: "default", name: "Notifications", importance: 5 });
     expect(deps.plugin.register).toHaveBeenCalledTimes(1);
+  });
+
+  it("attaches the registration listener before calling register", async () => {
+    // A token issued before the listener exists would be lost.
+    const { deps, calls } = makeDeps({ permission: "granted" });
+    await registerPush(deps);
+    expect(calls).toContain("register");
+    expect(calls.indexOf("addListener:registration")).toBeGreaterThanOrEqual(0);
+    expect(calls.indexOf("addListener:registration")).toBeLessThan(calls.indexOf("register"));
   });
 
   it("does not create a channel on iOS but still registers", async () => {

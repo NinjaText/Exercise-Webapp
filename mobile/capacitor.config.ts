@@ -1,5 +1,5 @@
 import type { CapacitorConfig } from "@capacitor/cli";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 // CommonJS require keeps this loadable by the Capacitor CLI's TypeScript 5 transpile.
@@ -13,6 +13,12 @@ const { resolveClerkHost } = require("./clerk-host.cjs") as { resolveClerkHost: 
 // into the Xcode and Gradle projects.
 const { version } = JSON.parse(readFileSync(join(__dirname, "package.json"), "utf8")) as { version: string };
 const serverUrl = resolveServerUrl();
+// " push" after the UA marker tells the web app this build can register for
+// push. iOS always can (APNs needs no Firebase). On Android,
+// FirebaseMessaging.getInstance() throws natively — crashing the app — when
+// google-services.json was missing at build time, so the marker is added only
+// when the file exists. No marker means no push (lib/native/platform.ts).
+const androidPush = existsSync(join(__dirname, "android", "app", "google-services.json"));
 // Only this app's own Clerk frontend-API host (decoded from the publishable
 // key) — never a wildcard on accounts.dev, where anyone can register an
 // instance. A production Clerk host on *.goinmotus.com is already covered.
@@ -29,11 +35,11 @@ const config: CapacitorConfig = {
   webDir: "www",
   backgroundColor: "#ffffff",
   ios: {
-    appendUserAgent: `InmotusApp/${version} (ios)`,
+    appendUserAgent: `InmotusApp/${version} (ios) push`,
     contentInset: "never",
   },
   android: {
-    appendUserAgent: `InmotusApp/${version} (android)`,
+    appendUserAgent: `InmotusApp/${version} (android)${androidPush ? " push" : ""}`,
   },
   server: {
     url: serverUrl,

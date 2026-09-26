@@ -8,6 +8,16 @@ import {
   type PushPlatformInput,
 } from "@/lib/services/push-device.service";
 
+/**
+ * Error name and code only: the raw error (e.g. a Prisma error) can quote the
+ * query, including the device token.
+ */
+function errorSummary(err: unknown): { name: string; code?: string } {
+  if (!(err instanceof Error)) return { name: "unknown" };
+  const code = (err as { code?: unknown }).code;
+  return { name: err.name, ...(typeof code === "string" ? { code } : {}) };
+}
+
 function isPushPlatform(value: string): value is PushPlatformInput {
   return value === "ios" || value === "android";
 }
@@ -39,7 +49,7 @@ export async function registerPushDeviceAction(input: {
     });
     return { success: true };
   } catch (err) {
-    console.error("Failed to register push device:", err);
+    console.error("[push] Failed to register push device", errorSummary(err));
     return { success: false };
   }
 }
@@ -53,7 +63,7 @@ export async function unregisterPushDeviceAction(input: {
     await unregisterToken(input.token, user.id);
     return { success: true };
   } catch (err) {
-    console.error("Failed to unregister push device:", err);
+    console.error("[push] Failed to unregister push device", errorSummary(err));
     return { success: false };
   }
 }

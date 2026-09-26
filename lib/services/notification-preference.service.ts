@@ -112,36 +112,37 @@ export async function getOrCreatePreference(
 }
 
 /**
- * Whether this type may be emailed, given these preferences. Pure.
+ * Whether this type may go out on the channel whose master switch is
+ * `masterKey`. Transactional types always go through; everything else needs
+ * both the master switch and its category on. Unknown types never go out.
  *
  * Category names double as the boolean field names on the model, which is what
  * makes `prefs[entry.category]` work.
  */
-export function isAllowedByPrefs(prefs: PreferenceValues, type: NotificationType): boolean {
+function isChannelAllowed(
+  prefs: PreferenceValues,
+  type: NotificationType,
+  masterKey: "emailEnabled" | "pushEnabled"
+): boolean {
   const entry = NOTIFICATION_REGISTRY[type];
   if (!entry) return false;
   if (entry.transactional) return true;
-  if (!prefs.emailEnabled) return false;
+  if (!prefs[masterKey]) return false;
   return prefs[entry.category];
+}
+
+/** Whether this type may be emailed, given these preferences. Pure. */
+export function isAllowedByPrefs(prefs: PreferenceValues, type: NotificationType): boolean {
+  return isChannelAllowed(prefs, type, "emailEnabled");
 }
 
 export async function isEmailAllowed(userId: string, type: NotificationType): Promise<boolean> {
   return isAllowedByPrefs(await getPreference(userId), type);
 }
 
-/**
- * Whether this type may be pushed, given these preferences. Pure.
- *
- * Mirrors `isAllowedByPrefs`, gated by `pushEnabled` instead of `emailEnabled`:
- * transactional types always go through, everything else needs both the push
- * master switch and its category on.
- */
+/** Whether this type may be pushed, given these preferences. Pure. */
 export function isPushAllowed(prefs: PreferenceValues, type: NotificationType): boolean {
-  const entry = NOTIFICATION_REGISTRY[type];
-  if (!entry) return false;
-  if (entry.transactional) return true;
-  if (!prefs.pushEnabled) return false;
-  return prefs[entry.category];
+  return isChannelAllowed(prefs, type, "pushEnabled");
 }
 
 /**
