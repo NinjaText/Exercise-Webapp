@@ -2,6 +2,8 @@
 
 import { usePathname } from "next/navigation";
 import { UserButton } from "@clerk/nextjs";
+import { profileAppearanceFor } from "@/lib/native/auth-appearance";
+import { useNative } from "@/hooks/use-native";
 import {
   LayoutDashboard,
   Users,
@@ -42,6 +44,7 @@ interface AdminSidebarProps {
 
 export function AdminSidebar({ userName, userEmail, mobileMode = false }: AdminSidebarProps) {
   const pathname = usePathname();
+  const { isNative } = useNative();
 
   const isActive = (href: string, exact = false) =>
     exact ? pathname === href : pathname === href || pathname.startsWith(href + "/");
@@ -81,7 +84,16 @@ export function AdminSidebar({ userName, userEmail, mobileMode = false }: AdminS
         </div>
       </ScrollArea>
 
-      <SidebarUserBlock menu={<UserButton signInUrl="/sign-in" />} name={userName} email={userEmail} />
+      <SidebarUserBlock
+        menu={
+          <UserButton
+            signInUrl="/sign-in"
+            userProfileProps={{ appearance: profileAppearanceFor(isNative) }}
+          />
+        }
+        name={userName}
+        email={userEmail}
+      />
     </aside>
   );
 }
