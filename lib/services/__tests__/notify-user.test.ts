@@ -18,6 +18,8 @@ vi.mock('@/lib/email/send', () => ({ sendEmail: vi.fn() }))
 // registry below marks no type clientFacing, so this is never reached.
 vi.mock('@/lib/email/branding', () => ({ getClientEmailBranding: vi.fn(), templateBrand: vi.fn() }))
 
+vi.mock('@/lib/services/push.service', () => ({ sendPushToUser: vi.fn() }))
+
 vi.mock('@/lib/notifications/registry', () => ({
   NOTIFICATION_REGISTRY: {
     SESSION_REMINDER: {
@@ -53,6 +55,7 @@ vi.mock('@/lib/notifications/registry', () => ({
 
 import { prisma } from '@/lib/prisma'
 import { sendEmail } from '@/lib/email/send'
+import { sendPushToUser } from '@/lib/services/push.service'
 import { notifyUser } from '../notification.service'
 
 const PREFS_ALL_ON = {
@@ -72,6 +75,7 @@ beforeEach(() => {
     email: 'sarah@example.com', firstName: 'Sarah', lastName: 'Lee',
   } as never)
   vi.mocked(sendEmail).mockResolvedValue(true)
+  vi.mocked(sendPushToUser).mockResolvedValue(undefined)
 })
 
 const reminder = {
@@ -284,5 +288,108 @@ describe('notifyUser — never throws', () => {
     await expect(notifyUser(reminder)).resolves.toBeUndefined()
     expect(sendEmail).not.toHaveBeenCalled()
     expect(console.error).toHaveBeenCalled()
+  })
+})
+
+describe('notifyUser — push', () => {
+  const newMessage = {
+    userId: 'u1',
+    type: 'NEW_MESSAGE' as never,
+    title: 'New message from Mike',
+    body: 'Hey, are we still on for Tuesday?',
+    link: '/messages/thread-1',
+    email: { senderName: 'Mike Chen' },
+  }
+
+  it('sends a push mirroring the notification for a messages-category type under default prefs', async () => {
+    await notifyUser(newMessage)
+
+    expect(sendPushToUser).toHaveBeenCalledTimes(1)
+    expect(sendPushToUser).toHaveBeenCalledWith('u1', {
+      title: 'New message from Mike',
+      body: 'Hey, are we still on for Tuesday?',
+      link: '/messages/thread-1',
+    })
+  })
+
+  it('sends no push when pushEnabled is false, leaving the email unaffected', async () => {
+    vi.mocked(prisma.notificationPreference.findUnique).mockResolvedValue({
+      ...PREFS_ALL_ON, pushEnabled: false,
+    } as never)
+
+    await notifyUser(newMessage)
+
+    expect(sendPushToUser).not.toHaveBeenCalled()
+    expect(sendEmail).toHaveBeenCalledTimes(1)
+  })
+
+  it('sends no push when the category is toggled off', async () => {
+    vi.mocked(prisma.notificationPreference.findUnique).mockResolvedValue({
+      ...PREFS_ALL_ON, messages: false,
+    } as never)
+
+    await notifyUser(newMessage)
+
+    expect(sendPushToUser).not.toHaveBeenCalled()
+  })
+
+  it('sends a push for a transactional type even when pushEnabled is false', async () => {
+    vi.mocked(prisma.notificationPreference.findUnique).mockResolvedValue({
+      ...PREFS_ALL_ON, pushEnabled: false, billing: false,
+    } as never)
+
+    await notifyUser({
+      userId: 'u1',
+      type: 'PAYMENT_FAILED' as never,
+      title: 'Payment failed',
+      body: 'Your card was declined',
+      email: { amountDue: '$49.00' },
+    })
+
+    expect(sendPushToUser).toHaveBeenCalledTimes(1)
+  })
+
+  it('resolves, and still sends the email, when sendPushToUser rejects', async () => {
+    vi.mocked(sendPushToUser).mockRejectedValue(new Error('push down'))
+
+    await expect(notifyUser(newMessage)).resolves.toBeUndefined()
+
+    expect(sendEmail).toHaveBeenCalledTimes(1)
+  })
+
+  it('sends a push for a type whose registry entry has no email template', async () => {
+    await notifyUser({ ...reminder, type: 'EXERCISE_NOTE' as never })
+
+    expect(sendPushToUser).toHaveBeenCalledTimes(1)
+    expect(sendEmail).not.toHaveBeenCalled()
+  })
+
+  it('sends a push even when the email cooldown suppresses the email', async () => {
+    vi.mocked(prisma.notification.findFirst).mockResolvedValue({ id: 'n_old' } as never)
+
+    await notifyUser(newMessage)
+
+    expect(sendPushToUser).toHaveBeenCalledTimes(1)
+    expect(sendEmail).not.toHaveBeenCalled()
+  })
+
+  it('runs push concurrently with email: the email send is called before push is released', async () => {
+    let releasePush!: () => void
+    vi.mocked(sendPushToUser).mockReturnValue(
+      new Promise<void>((resolve) => {
+        releasePush = resolve
+      })
+    )
+
+    const done = notifyUser(newMessage)
+
+    await vi.waitFor(() => {
+      expect(sendEmail).toHaveBeenCalledTimes(1)
+    })
+    // sendEmail was reached with the push promise still unresolved.
+    expect(sendPushToUser).toHaveBeenCalledTimes(1)
+
+    releasePush()
+    await done
   })
 })
