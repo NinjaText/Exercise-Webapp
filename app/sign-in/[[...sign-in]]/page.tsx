@@ -1,11 +1,12 @@
-import { SignIn } from "@clerk/nextjs";
 import { AuthShell } from "@/components/auth/auth-shell";
-import { clerkAuthAppearance } from "@/lib/ui/clerk-appearance";
+import { NativeAwareSignIn } from "@/components/auth/native-aware-auth";
 import { getOrgBranding } from "@/lib/services/branding.service";
 import { toViewModel } from "@/lib/branding/types";
+import { getNativeInfo } from "@/lib/native/server";
 
 export default async function SignInPage() {
   const branding = toViewModel(await getOrgBranding(null));
+  const native = await getNativeInfo();
 
   return (
     <AuthShell
@@ -14,7 +15,7 @@ export default async function SignInPage() {
       headline="Welcome back"
       subhead="Sign in to manage your clients and programs."
     >
-      <SignIn forceRedirectUrl="/onboarding" appearance={clerkAuthAppearance()} />
+      <NativeAwareSignIn nativeFromServer={native.isNative} />
     </AuthShell>
   );
 }
