@@ -4,6 +4,9 @@ import { renderToStaticMarkup } from "react-dom/server";
 // NativeProvider's resume-refresh effect calls useRouter(); the app router
 // context isn't mounted under renderToStaticMarkup, so it's mocked here.
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: () => {} }) }));
+// The push effects read Clerk's session; ClerkProvider isn't mounted here.
+vi.mock("@clerk/nextjs", () => ({ useAuth: () => ({ isLoaded: false, isSignedIn: undefined, userId: null }) }));
+vi.mock("@/actions/push-actions", () => ({ registerPushDeviceAction: vi.fn() }));
 
 import { NativeProvider, useNative } from "../native-provider";
 

@@ -1,11 +1,15 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@clerk/nextjs";
 import { Capacitor } from "@capacitor/core";
+import { toast } from "sonner";
 import { resolveNativeInfo, WEB_INFO, type NativeInfo } from "@/lib/native/platform";
 import { createHandledLinksStore, registerNativeLifecycle } from "@/lib/native/lifecycle";
 import { checkForRequiredUpdate } from "@/lib/native/version";
+import { PUSH_TOKEN_KEY, registerPush } from "@/lib/native/push";
+import { registerPushDeviceAction } from "@/actions/push-actions";
 import { UpdateRequiredScreen } from "@/components/layout/update-required-screen";
 
 export interface NativeContextValue extends NativeInfo {
@@ -62,6 +66,13 @@ export function NativeProvider({ children }: { children: React.ReactNode }) {
   const [isOnline, setIsOnline] = useState(true);
   const [updateRequired, setUpdateRequired] = useState<{ storeUrl: string | null } | null>(null);
   const [resumeTick, setResumeTick] = useState(0);
+  const { isLoaded, isSignedIn, userId } = useAuth();
+  // Read at token time: appVersion arrives asynchronously from App.getInfo().
+  const infoRef = useRef(info);
+  useEffect(() => {
+    infoRef.current = info;
+  }, [info]);
+  const wasSignedIn = useRef<boolean | undefined>(undefined);
 
   useEffect(() => {
     const resolved = resolveNativeInfo({
@@ -129,6 +140,74 @@ export function NativeProvider({ children }: { children: React.ReactNode }) {
       cleanup?.();
     };
   }, [router]);
+
+  useEffect(() => {
+    // Push registration: real shell only, once per signed-in session per
+    // mount. The effect re-runs only when the signed-in user changes; a
+    // different user on the same device re-registers the token, which the
+    // server reassigns to them.
+    if (!Capacitor.isNativePlatform() || !isSignedIn || !userId) return;
+    const platform = resolveNativeInfo({ capacitorPlatform: Capacitor.getPlatform(), allowOverride: false }).platform;
+    if (!platform) return;
+    let cleanup: (() => void) | undefined;
+    let cancelled = false;
+    let lastSentToken: string | null = null;
+    (async () => {
+      const { PushNotifications } = await import("@capacitor/push-notifications");
+      // Strict mode's throwaway first run is cancelled before the import
+      // resolves, so it never registers.
+      if (cancelled) return;
+      const dispose = await registerPush({
+        plugin: PushNotifications,
+        platform,
+        // Deferred so a throwing localStorage accessor is caught inside registerPush.
+        storage: { setItem: (key, value) => window.localStorage.setItem(key, value) },
+        onToken: (token) => {
+          if (token === lastSentToken) return;
+          lastSentToken = token;
+          registerPushDeviceAction({ token, platform, appVersion: infoRef.current.appVersion }).catch(() => undefined);
+        },
+        onForeground: ({ title, body, path }) => {
+          toast(title ?? "New notification", {
+            description: body,
+            action: path ? { label: "View", onClick: () => router.push(path) } : undefined,
+          });
+        },
+        navigate: (path) => router.push(path),
+      });
+      if (cancelled) dispose();
+      else cleanup = dispose;
+    })().catch(() => undefined);
+    return () => {
+      cancelled = true;
+      cleanup?.();
+    };
+  }, [isSignedIn, userId, router]);
+
+  useEffect(() => {
+    // Sign-out on this device: forget its token so the next user of the
+    // device doesn't receive the previous user's pushes. Only a real
+    // true -> false transition after Clerk has loaded counts.
+    if (!isLoaded) return;
+    const was = wasSignedIn.current;
+    wasSignedIn.current = isSignedIn;
+    if (!(was === true && isSignedIn === false) || !Capacitor.isNativePlatform()) return;
+    let token: string | null = null;
+    try {
+      token = window.localStorage.getItem(PUSH_TOKEN_KEY);
+      window.localStorage.removeItem(PUSH_TOKEN_KEY);
+    } catch {
+      return;
+    }
+    if (!token) return;
+    // keepalive: sign-out is often followed by a full-page navigation.
+    fetch("/api/push/unregister", {
+      method: "POST",
+      body: JSON.stringify({ token }),
+      headers: { "content-type": "application/json" },
+      keepalive: true,
+    }).catch(() => undefined);
+  }, [isLoaded, isSignedIn]);
 
   useEffect(() => {
     // Only the real shell: the ?native= dev override sets appVersion to

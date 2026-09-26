@@ -32,11 +32,14 @@ export function NotificationPreferencesForm({ initial }: { initial: PreferenceVa
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState({
     emailEnabled: initial.emailEnabled,
+    pushEnabled: initial.pushEnabled,
     sessions: initial.sessions,
     messages: initial.messages,
     nutrition: initial.nutrition,
   });
   const [values, setValues] = useState(saved);
+  // Categories apply to both channels, so they stay usable while either is on.
+  const anyChannel = values.emailEnabled || values.pushEnabled;
   const dirty = (Object.keys(values) as (keyof typeof values)[]).some((k) => values[k] !== saved[k]);
 
   async function handleSave() {
@@ -74,11 +77,28 @@ export function NotificationPreferencesForm({ initial }: { initial: PreferenceVa
         </SettingsPanel>
 
         <SettingsPanel
+          title="Push notifications"
+          description="Applies to all your devices. Category switches below apply to email and push."
+        >
+          <SettingsRow
+            label="Push notifications"
+            description="Send a notification to my phone when something needs my attention."
+            htmlFor="pushEnabled"
+          >
+            <Switch
+              id="pushEnabled"
+              checked={values.pushEnabled}
+              onCheckedChange={(checked) => setValues((v) => ({ ...v, pushEnabled: checked }))}
+            />
+          </SettingsRow>
+        </SettingsPanel>
+
+        <SettingsPanel
           title="Categories"
           description={
-            values.emailEnabled
-              ? "Choose which kinds of email you want to receive."
-              : "Email notifications are off. Turn them on above to choose categories."
+            anyChannel
+              ? "Choose which kinds of email and push notifications you want to receive."
+              : "Email and push are both off. Turn one on above to choose categories."
           }
         >
           <div className="flex flex-col divide-y divide-border">
@@ -88,12 +108,12 @@ export function NotificationPreferencesForm({ initial }: { initial: PreferenceVa
                   label={category.label}
                   description={category.description}
                   htmlFor={category.key}
-                  muted={!values.emailEnabled}
+                  muted={!anyChannel}
                 >
                   <Switch
                     id={category.key}
-                    checked={values.emailEnabled && values[category.key]}
-                    disabled={!values.emailEnabled}
+                    checked={anyChannel && values[category.key]}
+                    disabled={!anyChannel}
                     onCheckedChange={(checked) => setValues((v) => ({ ...v, [category.key]: checked }))}
                   />
                 </SettingsRow>

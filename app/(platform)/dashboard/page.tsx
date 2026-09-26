@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { PageShell } from "@/components/shared/page-shell";
 import { TrainerDashboard } from "@/components/dashboard/trainer-dashboard";
 import { ClientDashboard } from "@/components/dashboard/client-dashboard";
+import { PushPrompt } from "@/components/native/push-prompt";
 import * as sessionService from "@/lib/services/session.service";
 import * as messageService from "@/lib/services/message.service";
 import * as programService from "@/lib/services/program.service";
@@ -94,6 +95,7 @@ export default async function DashboardPage() {
           clientProgress={insights.clientProgress}
           coachingRequests={coachingRequests}
         />
+        <PushPrompt />
       </PageShell>
     );
   }
@@ -192,6 +194,7 @@ export default async function DashboardPage() {
         showInbox={showInbox}
         coaching={coaching}
       />
+      <PushPrompt />
     </PageShell>
   );
 }
