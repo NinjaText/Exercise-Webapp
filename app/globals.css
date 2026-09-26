@@ -648,8 +648,10 @@
    Safe-area insets are 0 on desktop and mobile web; they only take effect
    inside the native shell where the status bar overlays the web view. */
 :root {
-  --safe-top: env(safe-area-inset-top, 0px);
-  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  /* Android (Capacitor SystemBars "css") injects --safe-area-inset-*; iOS and
+     modern Chromium provide env(). Prefer the injected value when present. */
+  --safe-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
+  --safe-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
   --tab-bar-height: 3.5rem;
 }
 

@@ -4,6 +4,7 @@ import { Inter, Lexend } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import { ToastProvider } from "@/components/providers/toast-provider";
 import { NativeProvider } from "@/components/providers/native-provider";
+import { OfflineBanner } from "@/components/layout/offline-banner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ClipboardProvider } from "@/lib/clipboard-context";
 import "./globals.css";
@@ -54,6 +55,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           className={`${inter.variable} ${lexend.variable} font-sans antialiased`}
         >
           <NativeProvider>
+            <OfflineBanner />
             <TooltipProvider>
               <ClipboardProvider>
                 {children}

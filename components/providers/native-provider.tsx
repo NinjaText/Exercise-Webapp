@@ -1,11 +1,13 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Capacitor } from "@capacitor/core";
 import { resolveNativeInfo, WEB_INFO, type NativeInfo } from "@/lib/native/platform";
+import { registerNativeLifecycle } from "@/lib/native/lifecycle";
 
 export interface NativeContextValue extends NativeInfo {
-  /** Browser connectivity. Plan 2 replaces the source with @capacitor/network on native. */
+  /** Connectivity: @capacitor/network inside the native shell, browser online/offline events elsewhere. */
   isOnline: boolean;
 }
 
@@ -52,6 +54,7 @@ function applyDocumentFlags(info: NativeInfo) {
 }
 
 export function NativeProvider({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
   // Server render and first client render are always "web" so hydration matches.
   const [info, setInfo] = useState<NativeInfo>(WEB_INFO);
   const [isOnline, setIsOnline] = useState(true);
@@ -79,6 +82,48 @@ export function NativeProvider({ children }: { children: React.ReactNode }) {
       window.removeEventListener("offline", goOffline);
     };
   }, []);
+
+  useEffect(() => {
+    // Only the real shell: the ?native= dev override fakes detection in a
+    // desktop browser, where calling native plugins would be meaningless.
+    if (!Capacitor.isNativePlatform()) return;
+    let cleanup: (() => void) | undefined;
+    let cancelled = false;
+    (async () => {
+      const [{ App }, { Network }, { SplashScreen }, { StatusBar, Style }, { Browser }] = await Promise.all([
+        import("@capacitor/app"),
+        import("@capacitor/network"),
+        import("@capacitor/splash-screen"),
+        import("@capacitor/status-bar"),
+        import("@capacitor/browser"),
+      ]);
+      const dispose = await registerNativeLifecycle({
+        app: App,
+        network: Network,
+        splash: SplashScreen,
+        statusBar: { setStyle: () => StatusBar.setStyle({ style: Style.Light }) },
+        browser: Browser,
+        doc: {
+          addEventListener: (type, fn, capture) =>
+            document.addEventListener(type, fn as EventListener, capture),
+          removeEventListener: (type, fn, capture) =>
+            document.removeEventListener(type, fn as EventListener, capture),
+        },
+        origin: window.location.origin,
+        now: () => Date.now(),
+        historyBack: () => window.history.back(),
+        onOnlineChange: setIsOnline,
+        onAppVersion: (appVersion) => setInfo((prev) => ({ ...prev, appVersion })),
+        onResumeAfterLongPause: () => router.refresh(),
+      });
+      if (cancelled) dispose();
+      else cleanup = dispose;
+    })();
+    return () => {
+      cancelled = true;
+      cleanup?.();
+    };
+  }, [router]);
 
   return <NativeContext.Provider value={{ ...info, isOnline }}>{children}</NativeContext.Provider>;
 }

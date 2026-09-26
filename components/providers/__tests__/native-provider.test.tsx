@@ -1,5 +1,10 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
+
+// NativeProvider's resume-refresh effect calls useRouter(); the app router
+// context isn't mounted under renderToStaticMarkup, so it's mocked here.
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: () => {} }) }));
+
 import { NativeProvider, useNative } from "../native-provider";
 
 function Probe() {
