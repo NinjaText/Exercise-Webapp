@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -499,34 +499,36 @@ function LibraryProgramRow({
         <UpdatedAt date={program.updatedAt} />
       </TableCell>
       <TableCell className="text-right">
-        <div className="flex items-center justify-end gap-1">
-          <button
+        <div className="flex items-center justify-end gap-1 pointer-coarse:gap-4">
+          <Button
             type="button"
+            variant="ghost"
+            size="icon-sm"
             disabled={togglingFavoriteId === program.id}
             onClick={() => onToggleFavorite(program.id, !program.isFavorite)}
             title={program.isFavorite ? "Remove from favorites" : "Add to favorites"}
             aria-label={program.isFavorite ? "Remove from favorites" : "Add to favorites"}
             className={cn(
-              "inline-flex size-8 items-center justify-center rounded-md transition-opacity hover:bg-muted disabled:opacity-60",
+              "inline-flex size-8 pointer-coarse:size-11 items-center justify-center rounded-md transition-opacity hover:bg-muted disabled:opacity-60",
               program.isFavorite
-                ? "text-warning opacity-100"
-                : "text-muted-foreground pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 pointer-fine:focus-visible:opacity-100 pointer-fine:disabled:opacity-60"
+                ? "text-warning opacity-100 hover:text-warning"
+                : "text-muted-foreground hover:text-muted-foreground pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 pointer-fine:focus-visible:opacity-100 pointer-fine:disabled:opacity-60"
             )}
           >
-            <Star className={cn("h-4 w-4", program.isFavorite && "fill-current")} />
-          </button>
+            <Star className={cn("size-4", program.isFavorite && "fill-current")} />
+          </Button>
           <Link
             href={detailHref}
-            className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground pointer-fine:opacity-0 transition-opacity hover:bg-muted hover:text-foreground pointer-fine:group-hover:opacity-100 pointer-fine:focus-visible:opacity-100"
+            className="inline-flex size-8 pointer-coarse:size-11 items-center justify-center rounded-md text-muted-foreground pointer-fine:opacity-0 transition-opacity hover:bg-muted hover:text-foreground pointer-fine:group-hover:opacity-100 pointer-fine:focus-visible:opacity-100"
             title={matchedWorkoutId ? "View workout" : "View program"}
             aria-label={matchedWorkoutId ? "View workout" : "View program"}
           >
-            <Eye className="h-4 w-4" />
+            <Eye className="size-4" />
           </Link>
           <DropdownMenu>
             <DropdownMenuTrigger
               aria-label="Program actions"
-              className="flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground outline-none transition-opacity hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring"
+              className="flex size-8 pointer-coarse:size-11 shrink-0 items-center justify-center rounded-md text-muted-foreground outline-none transition-opacity hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring"
             >
               <MoreVertical className="h-4 w-4" />
             </DropdownMenuTrigger>
@@ -740,7 +742,7 @@ function AssignedProgramRow({
         <div className="flex items-center justify-end gap-1">
           <Link
             href={`/programs/${program.id}`}
-            className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground pointer-fine:opacity-0 transition-opacity hover:bg-muted hover:text-foreground pointer-fine:group-hover:opacity-100 pointer-fine:focus-visible:opacity-100"
+            className="inline-flex size-8 pointer-coarse:size-11 items-center justify-center rounded-md text-muted-foreground pointer-fine:opacity-0 transition-opacity hover:bg-muted hover:text-foreground pointer-fine:group-hover:opacity-100 pointer-fine:focus-visible:opacity-100"
             title="View program"
             aria-label="View program"
           >
@@ -749,7 +751,7 @@ function AssignedProgramRow({
           <DropdownMenu>
             <DropdownMenuTrigger
               aria-label="Program actions"
-              className="flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground outline-none transition-opacity hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring"
+              className="flex size-8 pointer-coarse:size-11 shrink-0 items-center justify-center rounded-md text-muted-foreground outline-none transition-opacity hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring"
             >
               <MoreVertical className="h-4 w-4" />
             </DropdownMenuTrigger>

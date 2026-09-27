@@ -168,7 +168,7 @@ export function AiInsightsList() {
                     Next: <span className="font-normal">{insight.action}</span>
                   </p>
                 </div>
-                <div className="mt-3 flex flex-wrap gap-2 pl-6.5">
+                <div className="mt-3 flex flex-wrap gap-2 pointer-coarse:gap-3 pl-6.5">
                   {actionKeys.map((actionKey: InsightActionKey) => {
                     const config = INSIGHT_ACTION_CONFIG[actionKey];
 

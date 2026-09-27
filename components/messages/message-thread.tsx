@@ -620,12 +620,13 @@ function MessageBubble({
       {(canEdit || canDelete) && !editing && (
         <>
           <DropdownMenu>
-            {/* base-ui triggers do not support asChild — the icon is passed as children. */}
+            {/* base-ui triggers take a `render` element instead of asChild. */}
             <DropdownMenuTrigger
-              className="mt-1 inline-flex h-6 w-6 shrink-0 items-center justify-center self-start rounded-md text-muted-foreground pointer-fine:opacity-0 outline-none transition-opacity hover:bg-muted hover:text-foreground pointer-fine:focus-visible:opacity-100 pointer-fine:group-hover:opacity-100"
+              render={<Button type="button" variant="ghost" size="icon-xs" />}
+              className="mt-1 self-start rounded-md text-muted-foreground pointer-fine:opacity-0 transition-opacity hover:text-foreground pointer-fine:focus-visible:opacity-100 pointer-fine:group-hover:opacity-100"
               aria-label="Message actions"
             >
-              <MoreVertical className="h-3.5 w-3.5" />
+              <MoreVertical className="size-3.5" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align={isOwn ? "start" : "end"}>
               {canEdit && (

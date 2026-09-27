@@ -35,8 +35,9 @@ export interface PageHeaderProps {
   overflow?: PageHeaderAction[];
   /**
    * Menu items rendered above `overflow` in the "More" menu, for items that
-   * need client behaviour (e.g. opening a dialog) or their own classes
-   * (e.g. `sm:hidden` phone-only copies of header buttons).
+   * need client behaviour (e.g. opening a dialog) or phone-only copies of
+   * header buttons (wrap those in `<PhoneOnly>` so they're absent, not just
+   * hidden, on larger screens and can't take keyboard focus there).
    */
   overflowLead?: React.ReactNode;
   /** Status badges and short facts shown under the title/description, above the tabs. */

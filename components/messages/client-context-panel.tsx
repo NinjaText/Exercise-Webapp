@@ -83,7 +83,7 @@ export function ClientContextPanel({ client, data }: ClientContextPanelProps) {
 
       <section className="p-4">
         <h3 className={sectionTitle}>Quick Actions</h3>
-        <div className="-mx-2 flex flex-col gap-0.5">
+        <div className="-mx-2 flex flex-col gap-0.5 pointer-coarse:gap-3">
           <Button variant="ghost" size="sm" className="w-full justify-start" asChild>
             <Link href={`/clients/${client.id}`}>
               <MessageSquare /> Client Profile

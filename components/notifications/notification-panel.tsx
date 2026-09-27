@@ -13,6 +13,7 @@ import {
   MessageSquare,
   CheckCheck,
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
@@ -108,15 +109,17 @@ export function NotificationPanel({
           Notifications
         </h3>
         {unreadCount > 0 && (
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="sm"
             onClick={handleMarkAllRead}
             disabled={isPending}
-            className="inline-flex h-7 items-center gap-1.5 rounded-md px-2 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
+            className="gap-1.5 rounded-md px-2 text-xs font-normal text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
           >
-            <CheckCheck className="h-3.5 w-3.5" />
+            <CheckCheck className="size-3.5" />
             Mark all read
-          </button>
+          </Button>
         )}
       </div>
 

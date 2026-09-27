@@ -525,7 +525,7 @@ function VideoMultiSelectGrid({
         <p className="text-xs text-muted-foreground">
           <span className="font-medium text-foreground">{selectedIds.size}</span> of {videos.length} selected
         </p>
-        <div className="flex gap-1">
+        <div className="flex gap-1 pointer-coarse:gap-2">
           <Button type="button" variant="ghost" size="sm" className="h-6 px-2 text-[11px]" onClick={onSelectAll}>Select all</Button>
           <Button type="button" variant="ghost" size="sm" className="h-6 px-2 text-[11px]" onClick={onDeselectAll}>Deselect all</Button>
         </div>
@@ -902,7 +902,7 @@ export function ExercisePickerDialog({
               ) : (
                 <DialogTitle>Add Exercise</DialogTitle>
               )}
-              <div className="flex items-center gap-1.5 shrink-0">
+              <div className="flex items-center gap-1.5 pointer-coarse:gap-4 shrink-0">
                 {view === "list" && organizationOrganizationId && (
                   <Button type="button" variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => setView("create")}>
                     <Plus className="h-3.5 w-3.5" />

@@ -219,7 +219,7 @@ function EventComponent({ event }: { event: SessionEvent }) {
               onMouseDown={(e) => e.stopPropagation()}
               onClick={(e) => e.stopPropagation()}
             >
-              <MoreHorizontal className="h-3 w-3" />
+              <MoreHorizontal className="size-3" />
             </DropdownMenuTrigger>
             <DropdownMenuContent
               align="end"

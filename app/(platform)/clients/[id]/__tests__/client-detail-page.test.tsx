@@ -36,6 +36,8 @@ vi.mock("@/components/clients/client-adherence-summary", () => ({ ClientAdherenc
 vi.mock("@/components/clients/clinical-profile-card", () => ({ ClinicalProfileCard: () => null }));
 vi.mock("@/components/clients/client-profile-dialog", () => ({ ClientProfileEditButton: () => null }));
 vi.mock("@/components/messages/message-thread", () => ({ MessageThread: () => null }));
+const phone = vi.hoisted(() => ({ isPhone: true }));
+vi.mock("@/hooks/use-is-phone", () => ({ useIsPhone: () => phone.isPhone }));
 // Menu items need an open Base UI menu; render them as plain elements so
 // their classes and targets can be inspected.
 vi.mock("@/components/ui/dropdown-menu", () => ({
@@ -90,9 +92,19 @@ describe("client detail header on phones", () => {
     expect(progress).toMatch(/class="[^"]*\bhidden sm:inline-flex\b/);
   });
 
-  it("puts phone-only Message and Progress items in the overflow menu", async () => {
+  it("puts phone-only Message and Progress items in the overflow menu on phones", async () => {
+    phone.isPhone = true;
     const lead = slot(await render(), "overflow-lead");
-    expect(lead).toMatch(/<div data-menu-item="true" class="sm:hidden" data-href="\/messages\/c1">[\s\S]*?Message<\/div>/);
-    expect(lead).toMatch(/<div data-menu-item="true" class="sm:hidden">[\s\S]*?Progress<\/div>/);
+    expect(lead).toMatch(/<div data-menu-item="true" data-href="\/messages\/c1">[\s\S]*?Message<\/div>/);
+    expect(lead).toMatch(/<div data-menu-item="true">[\s\S]*?Progress<\/div>/);
+  });
+
+  it("leaves the phone-only overflow items out of the DOM above sm (no hidden focus stops)", async () => {
+    phone.isPhone = false;
+    try {
+      expect(slot(await render(), "overflow-lead")).toBe("");
+    } finally {
+      phone.isPhone = true;
+    }
   });
 });

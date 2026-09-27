@@ -369,7 +369,7 @@ function SortableExercise({
           <div
             {...attributes}
             {...listeners}
-            className={`cursor-move p-1 -ml-1 ${sessionStatus === "COMPLETED" ? "opacity-0 cursor-default" : "touch-none hover:bg-muted text-muted-foreground/40 rounded pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 transition-opacity"}`}
+            className={`cursor-move p-1 pointer-coarse:p-2.5 -ml-1 ${sessionStatus === "COMPLETED" ? "opacity-0 cursor-default" : "touch-none hover:bg-muted text-muted-foreground/40 rounded pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 pointer-fine:focus-visible:opacity-100 transition-opacity"}`}
           >
             <GripVertical className="h-4 w-4" />
           </div>
@@ -399,7 +399,7 @@ function SortableExercise({
           </div>
         </div>
 
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 pointer-coarse:gap-5">
           <Button
             variant="ghost"
             size="icon-sm"
@@ -425,7 +425,7 @@ function SortableExercise({
   <DropdownMenu>
     <DropdownMenuTrigger
       aria-label="Exercise actions"
-      className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground outline-none transition-opacity hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100 motion-reduce:transition-none lg:pointer-fine:opacity-0"
+      className="inline-flex size-8 pointer-coarse:size-11 items-center justify-center rounded-md text-muted-foreground outline-none transition-opacity hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100 motion-reduce:transition-none lg:pointer-fine:opacity-0"
     >
       <MoreVertical className="h-3.5 w-3.5" />
     </DropdownMenuTrigger>
@@ -598,7 +598,7 @@ function SortableExercise({
                     onClick={() => onDeleteSet(blockIndex, exerciseIndex, setIndex)}  
                     disabled={isCompleted}
                   >
-                    <X className="h-3 w-3" />
+                    <X className="size-3" />
                   </Button>
                 </div>
               </div>
@@ -1340,13 +1340,14 @@ export function WorkoutEditorPanel({
                   )}
                 </div>
               </div>
-              <div className="flex shrink-0 items-center gap-1">
+              <div className="flex shrink-0 items-center gap-1 pointer-coarse:gap-2">
                 {session && (
                   <Popover open={duplicatePopoverOpen} onOpenChange={setDuplicatePopoverOpen}>
                     <PopoverTrigger
+                      render={<Button type="button" variant="ghost" size="icon" />}
                       title="Duplicate workout to another date"
                       aria-label="Duplicate workout to another date"
-                      className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none"
+                      className="inline-flex size-8 pointer-coarse:size-11 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none"
                     >
                       <Copy className="h-4 w-4" />
                     </PopoverTrigger>

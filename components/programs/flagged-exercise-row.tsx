@@ -89,7 +89,7 @@ export function FlaggedExerciseRow({
         )}
       </div>
       {!resolved && (
-        <div className="flex shrink-0 gap-1.5">
+        <div className="flex shrink-0 gap-1.5 pointer-coarse:gap-2">
           {hasSuggestion && (
             <Button size="sm" variant="outline" className="h-7 gap-1 text-xs" onClick={onConfirm}>
               <Check className="h-3 w-3" /> Confirm

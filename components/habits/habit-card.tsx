@@ -3,6 +3,7 @@
 import { useTransition } from "react";
 import { cn } from "@/lib/utils";
 import { Check, Loader2, Trash2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { logHabitAction, deleteHabitAction } from "@/actions/habit-actions";
 import { HabitWeekGrid } from "./habit-week-grid";
@@ -125,14 +126,13 @@ export function HabitCard({ habit, onToggle, showDelete = false }: HabitCardProp
         {/* Delete button (conditionally shown) */}
         {showDelete && (
           <AlertDialog>
-            {/* base-ui AlertDialogTrigger does not support asChild — render the
-                button as children so the primitive wraps it with the open handler. */}
+            {/* base-ui AlertDialogTrigger takes a `render` element instead of asChild. */}
             <AlertDialogTrigger
-              className="flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 outline-none transition-opacity group-hover:opacity-100 hover:bg-surface-muted hover:text-destructive focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none [@media(hover:none)]:opacity-100"
+              className="flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground pointer-coarse:size-11 opacity-0 outline-none transition-opacity group-hover:opacity-100 hover:bg-surface-muted hover:text-destructive focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none [@media(hover:none)]:opacity-100"
               aria-label="Remove habit"
               disabled={isPending}
             >
-              <Trash2 className="h-4 w-4" />
+              <Trash2 className="size-4" />
             </AlertDialogTrigger>
             <AlertDialogContent>
               <AlertDialogHeader>

@@ -171,10 +171,11 @@ export function EditMealGroupDialog({ clientId, date, mealType, logs }: EditMeal
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger
+        render={<Button type="button" variant="ghost" size="icon-xs" />}
         aria-label={`Edit ${MEAL_LABELS[mealType] ?? mealType}`}
-        className="rounded-md p-1 text-muted-foreground hover:text-foreground"
+        className="text-muted-foreground hover:text-foreground"
       >
-        <Pencil className="h-3.5 w-3.5" />
+        <Pencil className="size-3.5" />
       </DialogTrigger>
 
       <DialogContent className="sm:max-w-md max-h-[85vh] overflow-y-auto">

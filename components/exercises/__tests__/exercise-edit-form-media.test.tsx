@@ -65,4 +65,10 @@ describe("ExerciseEditForm media touch targets", () => {
       expect.arrayContaining(["relative", "pointer-coarse:after:absolute", "pointer-coarse:after:-inset-1.5"])
     );
   });
+
+  it("keeps the clear/remove icons at their original 14px (size-3.5 beats icon-xs's size-3 default)", () => {
+    const html = renderToStaticMarkup(<ExerciseEditForm exercise={exercise} />);
+    expect(html).toMatch(/<svg[^>]*class="[^"]*lucide-x[^"]*size-3\.5/);
+    expect(html).toMatch(/<svg[^>]*class="[^"]*lucide-trash[^"]*size-3\.5/);
+  });
 });

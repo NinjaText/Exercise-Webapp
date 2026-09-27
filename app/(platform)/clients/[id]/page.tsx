@@ -44,6 +44,7 @@ import { AssignedProgramsList } from "@/components/clients/assigned-programs-lis
 import { ClientAdherenceSummary } from "@/components/clients/client-adherence-summary";
 import { MessageThread } from "@/components/messages/message-thread";
 import { getDisplayName } from "@/lib/utils/display-name";
+import { PhoneOnly } from "@/components/shared/phone-only";
 
 /** Tabs that `?tab=` may select. Anything else falls back to the Calendar default. */
 const CLIENT_DETAIL_TABS = ["calendar", "programs", "messages"] as const;
@@ -159,15 +160,15 @@ export default async function ClientDetailPage({ params, searchParams }: Props) 
               </>
             }
             overflowLead={
-              <>
+              <PhoneOnly>
                 {canMessage && (
-                  <DropdownMenuItem className="sm:hidden" render={<Link href={`/messages/${client.id}`} />}>
+                  <DropdownMenuItem render={<Link href={`/messages/${client.id}`} />}>
                     <MessageSquare className="size-4" />
                     Message
                   </DropdownMenuItem>
                 )}
-                <ClientProgressMenuItem className="sm:hidden" />
-              </>
+                <ClientProgressMenuItem />
+              </PhoneOnly>
             }
             overflow={[
               { label: "Create program", href: `/programs/new?clientId=${id}`, icon: Pencil },

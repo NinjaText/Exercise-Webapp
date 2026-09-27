@@ -423,7 +423,7 @@ export function ExerciseEditForm({ exercise }: Props) {
                   aria-label="Clear image"
                   className="absolute right-2 top-2 rounded-full bg-surface p-1 shadow-sm ring-1 ring-border"
                 >
-                  <X className="h-3.5 w-3.5 text-muted-foreground" />
+                  <X className="size-3.5 text-muted-foreground" />
                 </Button>
               </div>
             )}
@@ -475,7 +475,7 @@ export function ExerciseEditForm({ exercise }: Props) {
                         aria-label="Remove media"
                         className="rounded text-white hover:bg-danger/80 hover:text-white"
                       >
-                        <Trash2 className="h-3.5 w-3.5" />
+                        <Trash2 className="size-3.5" />
                       </Button>
                     </div>
                   </div>

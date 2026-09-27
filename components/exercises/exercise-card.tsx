@@ -154,7 +154,7 @@ export function ExerciseCard({
         )}
 
         {isTrainer && (
-          <div className="mt-3 flex gap-1.5">
+          <div className="mt-3 flex gap-1.5 pointer-coarse:gap-2">
             <Button
               variant="outline"
               size="sm"
