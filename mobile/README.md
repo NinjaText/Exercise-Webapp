@@ -225,3 +225,33 @@ Configuration that lives in Vercel (not in this repo) — not secret, but set it
 Changing any of these in Vercel (`MOBILE_MIN_VERSION_*`, `NEXT_PUBLIC_*_STORE_URL`, `APPLE_TEAM_ID`, `ANDROID_SHA256_CERT_FINGERPRINTS`) takes effect only after a **redeploy** — saving the variable alone changes nothing for running deployments (and `NEXT_PUBLIC_*` values are baked in at build time).
 
 Keep all of these out of git entirely — do not add them to this repo even temporarily.
+
+## 15. Trainer phone QA (390 px)
+
+Run this on an iPhone-sized device (or a 390 × 844 touch emulation) signed in as a trainer. Nothing
+may scroll the whole page sideways on any screen.
+
+**Tier 1 — should feel built for the phone**
+- Dashboard: cards stack in one column; "Generate program" and "Add client" wrap under the title.
+- Clients: a card list (not a table); tapping a card opens the client; the ⋯ menu opens without opening the client.
+- Client detail: only "Assign program" and ⋯ in the header; "Message" and "Progress" are in the ⋯ menu.
+- Client calendar tab: day view only; events can't be dragged; tapping an event opens it; the event ⋯ menu is tappable.
+- Client progress: tabs read "Photos / Metrics / Notes" and scroll if needed.
+- Session review (from adherence history): each set is a small card, not a wide table.
+- Inbox: open a thread, record and play a voice note, and edit/delete your own message (the ⋯ is visible without hover).
+- Check-in review: read answers, add notes, mark reviewed.
+- Quick assign: assign a program to a client and pick a start date.
+- Header: the search icon opens search; the bell opens notifications as a sheet from the bottom.
+
+**Tier 2 — readable, light edits**
+- Programs list and detail; the Schedule tab is a day-by-day list and tapping a session opens it.
+- Exercise library: Edit / Add to organization are visible on cards without hover; bulk-select bar fits on screen.
+- Nutrition review, analytics, settings (profile, notifications, billing, organization, audit log).
+
+**Tier 3 — notice, no broken UI**
+- Program builder (edit / new), AI generator, program upload, bulk exercise import: the "This tool is built
+  for a larger screen" card shows; editing a program also shows its read-only outline.
+
+**Touch sizing**
+- In a laptop browser, turn on touch-device emulation and confirm buttons grow only there; with a mouse the
+  layout matches production.
