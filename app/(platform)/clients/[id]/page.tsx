@@ -22,7 +22,12 @@ import {
   type ClinicalProfile,
 } from "@/components/clients/clinical-profile-card";
 import { ClientProfileEditButton } from "@/components/clients/client-profile-dialog";
-import { ClientProgressTrigger } from "@/components/clients/client-progress-trigger";
+import {
+  ClientProgressMenuItem,
+  ClientProgressProvider,
+  ClientProgressTrigger,
+} from "@/components/clients/client-progress-trigger";
+import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import {
   BarChart3,
   Activity,
@@ -118,47 +123,62 @@ export default async function ClientDetailPage({ params, searchParams }: Props) 
   return (
     <PageShell>
       <Tabs defaultValue={initialTab} className="gap-6">
-        <PageHeader
-          breadcrumb={[{ label: "Clients", href: "/clients" }, { label: displayName }]}
-          title={displayName}
-          description={
-            [showEmail ? client.email : null, client.dateOfBirth ? `Born ${client.dateOfBirth}` : null]
-              .filter(Boolean)
-              .join(" · ") || undefined
-          }
-          primaryAction={
-            <AssignProgramButton
-              client={{
-                id: client.id,
-                firstName: client.firstName,
-                lastName: client.lastName,
-                email: client.email,
-                imageUrl: client.imageUrl,
-              }}
-            />
-          }
-          secondaryActions={
-            <>
-              {canMessage && (
-                <Button variant="outline" asChild>
-                  <Link href={`/messages/${client.id}`}>
+        <ClientProgressProvider clientId={id} clientName={displayName}>
+          <PageHeader
+            breadcrumb={[{ label: "Clients", href: "/clients" }, { label: displayName }]}
+            title={displayName}
+            description={
+              [showEmail ? client.email : null, client.dateOfBirth ? `Born ${client.dateOfBirth}` : null]
+                .filter(Boolean)
+                .join(" · ") || undefined
+            }
+            primaryAction={
+              <AssignProgramButton
+                client={{
+                  id: client.id,
+                  firstName: client.firstName,
+                  lastName: client.lastName,
+                  email: client.email,
+                  imageUrl: client.imageUrl,
+                }}
+              />
+            }
+            // Below sm, Message and Progress move into the overflow menu so the
+            // header keeps one row: Assign program + More.
+            secondaryActions={
+              <>
+                {canMessage && (
+                  <Button variant="outline" className="hidden sm:inline-flex" asChild>
+                    <Link href={`/messages/${client.id}`}>
+                      <MessageSquare className="size-4" />
+                      Message
+                    </Link>
+                  </Button>
+                )}
+                <ClientProgressTrigger className="hidden sm:inline-flex" />
+              </>
+            }
+            overflowLead={
+              <>
+                {canMessage && (
+                  <DropdownMenuItem className="sm:hidden" render={<Link href={`/messages/${client.id}`} />}>
                     <MessageSquare className="size-4" />
                     Message
-                  </Link>
-                </Button>
-              )}
-              <ClientProgressTrigger clientId={id} clientName={displayName} />
-            </>
-          }
-          overflow={[
-            { label: "Create program", href: `/programs/new?clientId=${id}`, icon: Pencil },
-            { label: "Generate with AI", href: `/programs/generate?clientId=${id}`, icon: Sparkles },
-            { label: "Upload a program", href: `/programs/upload?clientId=${id}`, icon: Upload },
-            { label: "Sessions", href: `/clients/${id}/adherence`, icon: Activity },
-            { label: "Outcomes", href: `/clients/${id}/outcomes`, icon: BarChart3 },
-            { label: "Photos & notes", href: `/clients/${id}/progress`, icon: Camera },
-          ]}
-        />
+                  </DropdownMenuItem>
+                )}
+                <ClientProgressMenuItem className="sm:hidden" />
+              </>
+            }
+            overflow={[
+              { label: "Create program", href: `/programs/new?clientId=${id}`, icon: Pencil },
+              { label: "Generate with AI", href: `/programs/generate?clientId=${id}`, icon: Sparkles },
+              { label: "Upload a program", href: `/programs/upload?clientId=${id}`, icon: Upload },
+              { label: "Sessions", href: `/clients/${id}/adherence`, icon: Activity },
+              { label: "Outcomes", href: `/clients/${id}/outcomes`, icon: BarChart3 },
+              { label: "Photos & notes", href: `/clients/${id}/progress`, icon: Camera },
+            ]}
+          />
+        </ClientProgressProvider>
 
         {coachingPanel && <ClientCoachingPanel coaching={coachingPanel} />}
 

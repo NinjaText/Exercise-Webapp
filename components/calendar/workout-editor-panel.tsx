@@ -369,7 +369,7 @@ function SortableExercise({
           <div
             {...attributes}
             {...listeners}
-            className={`cursor-move p-1 -ml-1 ${sessionStatus === "COMPLETED" ? "opacity-0 cursor-default" : "hover:bg-muted text-muted-foreground/40 rounded opacity-0 group-hover:opacity-100 transition-opacity"}`}
+            className={`cursor-move p-1 -ml-1 ${sessionStatus === "COMPLETED" ? "opacity-0 cursor-default" : "touch-none hover:bg-muted text-muted-foreground/40 rounded pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 transition-opacity"}`}
           >
             <GripVertical className="h-4 w-4" />
           </div>

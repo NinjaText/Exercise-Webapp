@@ -63,9 +63,19 @@ export default async function ClientProgressPage({ params }: Props) {
           ]}
           tabs={
             <TabsList variant="line">
-              <TabsTrigger value="photos">Progress photos ({photos.length})</TabsTrigger>
-              <TabsTrigger value="metrics">Body metrics ({metricTypes.length})</TabsTrigger>
-              <TabsTrigger value="notes">Clinical notes — SOAP ({notes.length})</TabsTrigger>
+              {/* Short labels on phones so the three tabs fit without scrolling. */}
+              <TabsTrigger value="photos">
+                <span className="sm:hidden">Photos ({photos.length})</span>
+                <span className="hidden sm:inline">Progress photos ({photos.length})</span>
+              </TabsTrigger>
+              <TabsTrigger value="metrics">
+                <span className="sm:hidden">Metrics ({metricTypes.length})</span>
+                <span className="hidden sm:inline">Body metrics ({metricTypes.length})</span>
+              </TabsTrigger>
+              <TabsTrigger value="notes">
+                <span className="sm:hidden">Notes ({notes.length})</span>
+                <span className="hidden sm:inline">Clinical notes — SOAP ({notes.length})</span>
+              </TabsTrigger>
             </TabsList>
           }
         />

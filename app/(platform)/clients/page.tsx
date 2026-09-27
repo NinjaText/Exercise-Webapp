@@ -12,6 +12,7 @@ import { AddClientDialog } from "@/components/clients/add-client-dialog";
 import { ClientSearch } from "@/components/clients/client-search";
 import { ClientArchivedToggle } from "@/components/clients/client-archived-toggle";
 import { ClientActionsMenu } from "@/components/clients/client-actions-menu";
+import { ClientCardList } from "@/components/clients/client-card-list";
 import { PageHeader } from "@/components/shared/page-header";
 import { PageShell } from "@/components/shared/page-shell";
 import { PageToolbar } from "@/components/shared/page-toolbar";
@@ -112,6 +113,21 @@ export default async function ClientsPage({ searchParams }: Props) {
       })
     : scopedClients;
 
+  const emptyState = (
+    <EmptyState
+      size="compact"
+      icon={Users}
+      title={q ? "No clients match your search" : showArchived ? "No inactive clients" : "No clients yet"}
+      description={
+        q
+          ? `No results for "${q}". Try a different name or email.`
+          : showArchived
+          ? "Clients marked inactive will show up here."
+          : 'Click "Invite Client" above to send an invitation. The client will receive an email to join your organization.'
+      }
+    />
+  );
+
   const pendingCount = invitations.filter((i) => i.status === "pending").length;
 
   return (
@@ -144,26 +160,18 @@ export default async function ClientsPage({ searchParams }: Props) {
             </Suspense>
           </PageToolbar>
 
-          <DataList
-            columns={buildClientColumns(coaching)}
-            data={clients}
-            keyExtractor={(c) => c.id}
-            rowHref={(c) => `/clients/${c.id}`}
-            emptyState={
-              <EmptyState
-                size="compact"
-                icon={Users}
-                title={q ? "No clients match your search" : showArchived ? "No inactive clients" : "No clients yet"}
-                description={
-                  q
-                    ? `No results for "${q}". Try a different name or email.`
-                    : showArchived
-                    ? "Clients marked inactive will show up here."
-                    : 'Click "Invite Client" above to send an invitation. The client will receive an email to join your organization.'
-                }
-              />
-            }
-          />
+          <div className="sm:hidden">
+            <ClientCardList clients={clients} coaching={coaching} emptyState={emptyState} />
+          </div>
+          <div className="hidden sm:block">
+            <DataList
+              columns={buildClientColumns(coaching)}
+              data={clients}
+              keyExtractor={(c) => c.id}
+              rowHref={(c) => `/clients/${c.id}`}
+              emptyState={emptyState}
+            />
+          </div>
         </TabsContent>
 
         <TabsContent value="invitations">

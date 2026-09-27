@@ -68,23 +68,26 @@ export function AssignedProgramsList({ programs }: { programs: AssignedProgram[]
         {programs.map((prog) => (
           <div
             key={prog.id}
-            className="flex items-center justify-between gap-3 rounded-lg border border-border p-3 transition-colors hover:bg-surface-muted motion-reduce:transition-none"
+            data-slot="assigned-program-row"
+            className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 rounded-lg border border-border p-3 transition-colors hover:bg-surface-muted motion-reduce:transition-none"
           >
             <Link
               href={`/programs/${prog.id}`}
-              className="min-w-0 flex-1 rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="min-w-0 flex-1 basis-48 rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <p className="truncate text-label text-foreground">{prog.name}</p>
               <p className="text-caption tabular-nums">
                 {prog._count.workouts} workouts
               </p>
             </Link>
-            <SchedulingPill kind={getProgramSchedulingType(prog)} />
-            <StatusBadge status={prog.status} />
+            <div data-slot="assigned-program-badges" className="flex shrink-0 items-center gap-2">
+              <SchedulingPill kind={getProgramSchedulingType(prog)} />
+              <StatusBadge status={prog.status} />
+            </div>
             <Button
               variant="ghost"
-              size="icon"
-              className="size-8 shrink-0 text-muted-foreground hover:text-destructive"
+              size="icon-sm"
+              className="shrink-0 text-muted-foreground hover:text-destructive"
               aria-label={`Delete ${prog.name}`}
               onClick={() => setPendingDelete({ id: prog.id, name: prog.name })}
             >

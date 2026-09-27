@@ -49,6 +49,8 @@ import { AiGenerateProgramDialog } from "@/components/calendar/ai-generate-progr
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useClipboard } from "@/lib/clipboard-context";
+import { useIsPhoneViewport } from "@/hooks/use-is-phone";
+import { isCalendarDraggable } from "@/lib/utils/calendar-drag";
 
 // ---------------------------------------------------------------------------
 // Context
@@ -206,7 +208,14 @@ function EventComponent({ event }: { event: SessionEvent }) {
           </div>
           <DropdownMenu>
             <DropdownMenuTrigger
-              className="shrink-0 flex h-5 w-5 items-center justify-center rounded opacity-60 hover:opacity-100 hover:bg-muted transition-opacity"
+              render={
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
+                  aria-label="Workout actions"
+                  className="opacity-60 hover:opacity-100"
+                />
+              }
               onMouseDown={(e) => e.stopPropagation()}
               onClick={(e) => e.stopPropagation()}
             >
@@ -305,14 +314,14 @@ function CustomToolbar({
           type="button"
           onClick={() => onNavigate("PREV")}
           aria-label="Previous"
-          className="flex size-8 items-center justify-center border-r border-border text-muted-foreground transition-colors hover:bg-surface-muted hover:text-foreground outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring motion-reduce:transition-none"
+          className="flex size-8 items-center justify-center pointer-coarse:size-11 border-r border-border text-muted-foreground transition-colors hover:bg-surface-muted hover:text-foreground outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring motion-reduce:transition-none"
         >
-          <ChevronLeft className="h-3.5 w-3.5" />
-        </button>
+          <ChevronLeft className="size-3.5" />
+        </Button>
         <button
           type="button"
           onClick={() => onNavigate("TODAY")}
-          className="h-8 px-3 text-label text-foreground transition-colors hover:bg-surface-muted outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring motion-reduce:transition-none"
+          className="h-8 px-3 pointer-coarse:h-11 text-label text-foreground transition-colors hover:bg-surface-muted outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring motion-reduce:transition-none"
         >
           Today
         </button>
@@ -320,10 +329,10 @@ function CustomToolbar({
           type="button"
           onClick={() => onNavigate("NEXT")}
           aria-label="Next"
-          className="flex size-8 items-center justify-center border-l border-border text-muted-foreground transition-colors hover:bg-surface-muted hover:text-foreground outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring motion-reduce:transition-none"
+          className="flex size-8 items-center justify-center pointer-coarse:size-11 border-l border-border text-muted-foreground transition-colors hover:bg-surface-muted hover:text-foreground outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring motion-reduce:transition-none"
         >
-          <ChevronRight className="h-3.5 w-3.5" />
-        </button>
+          <ChevronRight className="size-3.5" />
+        </Button>
       </div>
 
       {/* Title */}
@@ -385,6 +394,7 @@ export function ClientCalendar({
   const [date, setDate] = useState(new Date());
   const [panelState, setPanelState] = useState<PanelState>({ mode: "closed" });
   const [aiDialogDate, setAiDialogDate] = useState<Date | null>(null);
+  const isPhone = useIsPhoneViewport();
 
   // Month/Week grids are unreadable at phone widths — default to Day view there.
   // Runs once on mount so it doesn't fight a view the user picks afterward.
@@ -496,8 +506,16 @@ export function ClientCalendar({
           onSelectEvent={handleSelectEvent}
           onEventDrop={handleEventDrop as never}
           selectable
+          // Sessions are whole days, so there's nothing to resize.
           resizable={false}
-          draggableAccessor={(event: SessionEvent) => event.resource.workout.program.trainerId === trainerId}
+          // Only sessions in this trainer's own programs move, and never on a
+          // phone: there, tapping the event opens its editor instead.
+          draggableAccessor={(event: SessionEvent) =>
+            isCalendarDraggable({
+              readOnly: event.resource.workout.program.trainerId !== trainerId,
+              isPhone,
+            })
+          }
           popup
           style={{ height: view === Views.MONTH ? 640 : "auto" }}
           components={{

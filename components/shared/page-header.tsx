@@ -33,6 +33,12 @@ export interface PageHeaderProps {
   secondaryActions?: React.ReactNode;
   /** Everything else, in a "More" menu. */
   overflow?: PageHeaderAction[];
+  /**
+   * Menu items rendered above `overflow` in the "More" menu, for items that
+   * need client behaviour (e.g. opening a dialog) or their own classes
+   * (e.g. `sm:hidden` phone-only copies of header buttons).
+   */
+  overflowLead?: React.ReactNode;
   /** Status badges and short facts shown under the title/description, above the tabs. */
   meta?: React.ReactNode;
   /** A <Tabs> element; its <TabsList variant="line"> renders flush under the header. */
@@ -50,13 +56,15 @@ export function PageHeader({
   primaryAction,
   secondaryActions,
   overflow,
+  overflowLead,
   meta,
   tabs,
   action,
   className,
 }: PageHeaderProps) {
   const primary = primaryAction ?? action;
-  const hasActions = Boolean(primary || secondaryActions || (overflow && overflow.length > 0));
+  const hasOverflow = Boolean(overflowLead || (overflow && overflow.length > 0));
+  const hasActions = Boolean(primary || secondaryActions || hasOverflow);
   const crumbs: Crumb[] = breadcrumb ?? [{ label: title }];
 
   return (
@@ -85,7 +93,7 @@ export function PageHeader({
           <div data-slot="page-header-actions" className="flex shrink-0 flex-wrap items-center gap-2">
             {secondaryActions}
             {primary}
-            {overflow && overflow.length > 0 && (
+            {hasOverflow && (
               <DropdownMenu>
                 <DropdownMenuTrigger
                   render={
@@ -100,7 +108,8 @@ export function PageHeader({
                   <MoreHorizontal className="size-4" />
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  {overflow.map((item) =>
+                  {overflowLead}
+                  {overflow?.map((item) =>
                     item.href ? (
                       <DropdownMenuItem
                         key={item.label}

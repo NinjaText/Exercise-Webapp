@@ -55,6 +55,16 @@ describe("PageHeader", () => {
     expect(html).toContain('data-slot="page-header-overflow"');
   });
 
+  it("renders an overflow trigger when only overflowLead items are given", () => {
+    const html = renderToStaticMarkup(<PageHeader title="Client" overflowLead={<span>LEAD</span>} />);
+    expect(html).toContain('data-slot="page-header-overflow"');
+  });
+
+  it("renders no overflow trigger without overflow items", () => {
+    const html = renderToStaticMarkup(<PageHeader title="Client" overflow={[]} />);
+    expect(html).not.toContain('data-slot="page-header-overflow"');
+  });
+
   it("renders the tabs slot under the header", () => {
     const html = renderToStaticMarkup(<PageHeader title="Programs" tabs={<div>TABS</div>} />);
     expect(html).toContain('data-slot="page-header-tabs"');

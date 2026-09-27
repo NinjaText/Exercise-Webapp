@@ -12,6 +12,11 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import { SectionCard } from "@/components/shared/section-card";
 import { StatCard } from "@/components/shared/stat-card";
 import { ClientNoteReply } from "@/components/sessions/client-note-reply";
+import {
+  SessionReviewSets,
+  buildSetReviewRows,
+  isCouldntComplete,
+} from "@/components/sessions/session-review-sets";
 
 // ---------- Types derived from the Prisma query ----------
 
@@ -20,7 +25,6 @@ type SessionWithRelations = NonNullable<
 >;
 type Block = SessionWithRelations["workout"]["blocks"][number];
 type BlockExercise = Block["exercises"][number];
-type ExerciseSet = BlockExercise["sets"][number];
 type ExerciseLog = SessionWithRelations["exerciseLogs"][number];
 type SetLog = ExerciseLog["setLogs"][number];
 
@@ -38,10 +42,6 @@ function getSetCount(block: Block, exercise: BlockExercise): number {
   return isCircuitBlock(block.type)
     ? Math.max(1, block.rounds ?? 1)
     : exercise.sets.length;
-}
-
-function isCouldntComplete(log: SetLog): boolean {
-  return log.actualReps === 0 && log.actualDuration == null;
 }
 
 function getExerciseCompletion(
@@ -208,7 +208,14 @@ export default async function SessionReviewPage({ params }: Props) {
                       clientFirstName={session.client.firstName}
                     />
                   )}
-                  <SetTable block={block} exercise={exercise} setCount={setCount} setLogs={setLogs} />
+                  <SessionReviewSets
+                    rows={buildSetReviewRows({
+                      isCircuit: isCircuitBlock(block.type),
+                      setCount,
+                      exerciseSets: exercise.sets,
+                      setLogs,
+                    })}
+                  />
                 </Card>
               );
             })}
@@ -225,127 +232,4 @@ function CompletionBadge({ completion }: { completion: "all" | "partial" | "none
   if (completion === "all") return <StatusBadge status="all" role="success" label="All done" />;
   if (completion === "partial") return <StatusBadge status="partial" role="warning" label="Partial" />;
   return <StatusBadge status="none" role="neutral" label="Not started" />;
-}
-
-function SetTable({
-  block,
-  exercise,
-  setCount,
-  setLogs,
-}: {
-  block: Block;
-  exercise: BlockExercise;
-  setCount: number;
-  setLogs: SetLog[];
-}) {
-  const isCircuit = isCircuitBlock(block.type);
-  const indexLabel = isCircuit ? "Round" : "Set";
-
-  // Map setLogs by setIndex for O(1) lookup. setIndex is 0-based.
-  const logByIndex = new Map<number, SetLog>();
-  for (const log of setLogs) logByIndex.set(log.setIndex, log);
-
-  // Build rows for indices 0..setCount-1
-  const rows = Array.from({ length: setCount }, (_, i) => {
-    const exerciseSet: ExerciseSet | undefined = exercise.sets[i];
-    const log = logByIndex.get(i);
-    return { index: i, exerciseSet, log };
-  });
-
-  return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-body">
-        <thead className="bg-surface-muted text-caption font-medium">
-          <tr>
-            <th className="h-9 px-5 text-left font-medium">#</th>
-            <th className="h-9 px-3 text-left font-medium">Target</th>
-            <th className="h-9 px-3 text-left font-medium">Actual</th>
-            <th className="h-9 px-3 text-left font-medium">Weight</th>
-            <th className="h-9 px-5 text-left font-medium">Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map(({ index, exerciseSet, log }) => (
-            <SetRow
-              key={index}
-              indexLabel={indexLabel}
-              displayIndex={index + 1}
-              exerciseSet={exerciseSet}
-              log={log}
-            />
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function SetRow({
-  indexLabel,
-  displayIndex,
-  exerciseSet,
-  log,
-}: {
-  indexLabel: string;
-  displayIndex: number;
-  exerciseSet: ExerciseSet | undefined;
-  log: SetLog | undefined;
-}) {
-  // ---- Target column ----
-  const targetText = exerciseSet
-    ? exerciseSet.targetReps != null
-      ? `${exerciseSet.targetReps} reps`
-      : exerciseSet.targetDuration != null
-      ? `${exerciseSet.targetDuration}s`
-      : "—"
-    : "—";
-
-  // ---- Actual column ----
-  let actualText = "—";
-  if (log) {
-    if (log.actualReps != null && log.actualReps > 0) {
-      actualText = String(log.actualReps);
-    } else if (log.actualDuration != null) {
-      actualText = `${log.actualDuration}s`;
-    } else if (log.actualReps === 0) {
-      actualText = "0";
-    }
-  }
-
-  // ---- Weight column ----
-  const weightText =
-    log && log.actualWeight != null ? `${log.actualWeight} lbs` : "—";
-
-  // ---- Status badge ----
-  let statusBadge: React.ReactNode;
-  let noteText: string | null = null;
-  if (!log) {
-    statusBadge = <StatusBadge status="not-logged" role="neutral" size="sm" label="Not logged" />;
-  } else if (isCouldntComplete(log)) {
-    statusBadge = (
-      <StatusBadge status="couldnt-complete" role="warning" size="sm" label="Couldn't complete" />
-    );
-    if (log.notes) noteText = log.notes;
-  } else {
-    statusBadge = <StatusBadge status="done" role="success" size="sm" label="Done" />;
-  }
-
-  return (
-    <tr className="border-t border-border">
-      <td className="px-5 py-2.5 font-medium text-foreground tabular-nums">
-        {indexLabel} {displayIndex}
-      </td>
-      <td className="px-3 py-2.5 text-muted-foreground tabular-nums">{targetText}</td>
-      <td className="px-3 py-2.5 text-foreground tabular-nums">{actualText}</td>
-      <td className="px-3 py-2.5 text-muted-foreground tabular-nums">{weightText}</td>
-      <td className="px-5 py-2.5">
-        <div className="flex flex-col gap-1">
-          {statusBadge}
-          {noteText && (
-            <span className="text-caption">{noteText}</span>
-          )}
-        </div>
-      </td>
-    </tr>
-  );
 }
