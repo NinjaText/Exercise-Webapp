@@ -85,8 +85,7 @@ export function BrandPreview({ hex, displayName, incomplete = false }: BrandPrev
         {/* Demo only: inert so its buttons and link are not focusable or announced. */}
         <div inert className="flex min-h-56">
           <div
-            className="flex w-40 shrink-0 flex-col gap-3 bg-sidebar p-3"
-            style={{ background: "linear-gradient(180deg, var(--sidebar), var(--sidebar-gradient-end))" }}
+            className="flex w-40 shrink-0 flex-col gap-3 bg-sidebar-gradient p-3"
           >
             <p className="truncate px-2 text-sm font-bold tracking-tight text-sidebar-foreground">
               {displayName}

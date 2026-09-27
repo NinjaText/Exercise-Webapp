@@ -35,8 +35,7 @@ export default async function ClientOnboardingPage() {
     <div className="flex min-h-screen">
       <BrandStyle branding={branding} />
       <div
-        className="hidden w-1/2 flex-col justify-between bg-sidebar p-12 lg:flex"
-        style={{ background: "linear-gradient(180deg, var(--sidebar), var(--sidebar-gradient-end))" }}
+        className="hidden w-1/2 flex-col justify-between bg-sidebar-gradient p-12 lg:flex"
       >
         <div className="flex items-center gap-2.5">
           <OrgIdentity branding={brandingVm} surface="dark" />

@@ -80,7 +80,7 @@ describe("ClientOnboardingPage", () => {
     expect(html).toContain('id="org-brand"');
     // The panel follows the brand via the sidebar gradient tokens, not a
     // hard-coded hex gradient.
-    expect(html).toContain("linear-gradient(180deg, var(--sidebar), var(--sidebar-gradient-end))");
+    expect(html).toContain("bg-sidebar-gradient");
     expect(html).not.toContain("#0f172a");
   });
 

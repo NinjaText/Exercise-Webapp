@@ -70,10 +70,7 @@ export function Sidebar({
 
   return (
     <aside
-      className={cn("w-64 flex-col bg-sidebar", mobileMode ? "flex" : "hidden lg:flex")}
-      style={{
-        background: "linear-gradient(180deg, var(--sidebar), var(--sidebar-gradient-end))",
-      }}
+      className={cn("w-64 flex-col bg-sidebar-gradient", mobileMode ? "flex" : "hidden lg:flex")}
     >
       {/* Logo */}
       <div className="flex h-16 items-center gap-3 border-b border-sidebar-border/60 px-5">
