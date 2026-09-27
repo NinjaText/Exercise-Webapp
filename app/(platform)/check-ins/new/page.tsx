@@ -306,14 +306,14 @@ export default function NewCheckInTemplatePage() {
             <Card key={q.id} size="sm" className="gap-0 py-0">
               <CardContent className="flex flex-col gap-4 p-4">
                 {/* Row: order controls + type badge + delete */}
-                <div className="flex items-center gap-2">
-                  <div className="flex flex-col">
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex flex-col pointer-coarse:gap-1">
                     <button
                       type="button"
                       onClick={() => moveQuestion(idx, "up")}
                       disabled={idx === 0}
                       aria-label="Move question up"
-                      className="inline-flex size-8 items-center justify-center rounded text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-30"
+                      className="inline-flex size-8 items-center justify-center rounded text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-30 pointer-coarse:size-11"
                     >
                       <ChevronUp className="h-3.5 w-3.5" />
                     </button>
@@ -322,7 +322,7 @@ export default function NewCheckInTemplatePage() {
                       onClick={() => moveQuestion(idx, "down")}
                       disabled={idx === questions.length - 1}
                       aria-label="Move question down"
-                      className="inline-flex size-8 items-center justify-center rounded text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-30"
+                      className="inline-flex size-8 items-center justify-center rounded text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-30 pointer-coarse:size-11"
                     >
                       <ChevronDown className="h-3.5 w-3.5" />
                     </button>

@@ -177,7 +177,7 @@ export function AddHabitDialog({
                     onClick={() => setIcon(emoji)}
                     disabled={isPending}
                     className={cn(
-                      "flex h-10 w-10 items-center justify-center rounded-lg text-xl transition-all",
+                      "flex h-10 w-10 items-center justify-center rounded-lg text-xl transition-all pointer-coarse:size-11",
                       icon === emoji
                         ? "ring-2 ring-primary bg-primary/10"
                         : "ring-1 ring-border/50 hover:ring-border"

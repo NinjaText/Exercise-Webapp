@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
 import { Fragment, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -82,15 +83,17 @@ function DeleteLogButton({ logId }: { logId: string }) {
   }
 
   return (
-    <button
+    <Button
       type="button"
+      variant="ghost"
+      size="icon-xs"
       onClick={handleDelete}
       disabled={isPending}
       aria-label="Delete item"
-      className="rounded-md p-1 text-muted-foreground hover:text-destructive"
+      className="text-muted-foreground hover:text-destructive"
     >
-      {isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
-    </button>
+      {isPending ? <Loader2 className="size-3.5 animate-spin" /> : <Trash2 className="size-3.5" />}
+    </Button>
   );
 }
 
@@ -305,23 +308,23 @@ export function MealsTable({ clientId, logs, comments, canDelete, canEdit, empty
                                 {formatGrams(log.fatG)}
                               </TableCell>
                               <TableCell className="text-right">
-                                <div className="flex items-center justify-end gap-0.5">
-                                  <button
+                                {/* On touch, 28px buttons + a 16px gap keep their 44px hit areas apart. */}
+                                <div className="flex items-center justify-end gap-0.5 pointer-coarse:gap-4">
+                                  <Button
                                     type="button"
+                                    variant="ghost"
+                                    size="icon-xs"
                                     onClick={() => setExpandedLogId(isExpanded ? null : log.id)}
                                     aria-label="Toggle feedback"
-                                    className={cn(
-                                      "relative rounded-md p-1 hover:bg-muted",
-                                      logComments.length > 0 ? "text-primary" : "text-muted-foreground"
-                                    )}
+                                    className={cn(logComments.length > 0 ? "text-primary" : "text-muted-foreground")}
                                   >
-                                    <MessageCircle className="h-3.5 w-3.5" />
+                                    <MessageCircle className="size-3.5" />
                                     {logComments.length > 0 && (
                                       <span className="absolute -right-0.5 -top-0.5 flex h-3 w-3 items-center justify-center rounded-full bg-primary text-[8px] font-bold text-primary-foreground">
                                         {logComments.length}
                                       </span>
                                     )}
-                                  </button>
+                                  </Button>
                                   {canDelete && <DeleteLogButton logId={log.id} />}
                                 </div>
                               </TableCell>

@@ -415,13 +415,16 @@ export function ExerciseEditForm({ exercise }: Props) {
                     }}
                   />
                 </div>
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
+                  size="icon-sm"
                   onClick={() => setImageUrl("")}
+                  aria-label="Clear image"
                   className="absolute right-2 top-2 rounded-full bg-surface p-1 shadow-sm ring-1 ring-border"
                 >
                   <X className="h-3.5 w-3.5 text-muted-foreground" />
-                </button>
+                </Button>
               </div>
             )}
 
@@ -456,8 +459,10 @@ export function ExerciseEditForm({ exercise }: Props) {
                     )}
                     <div className="absolute inset-x-0 bottom-0 flex items-center justify-between bg-black/50 px-2 py-1">
                       <span className="text-xs text-white capitalize">{item.mediaType}</span>
-                      <button
+                      <Button
                         type="button"
+                        variant="ghost"
+                        size="icon-sm"
                         onClick={async () => {
                           const result = await deleteExerciseMediaAction(exercise.id, item.id);
                           if (result.success) {
@@ -467,10 +472,11 @@ export function ExerciseEditForm({ exercise }: Props) {
                             toast.error(result.error);
                           }
                         }}
-                        className="rounded p-0.5 text-white hover:bg-danger/80"
+                        aria-label="Remove media"
+                        className="rounded text-white hover:bg-danger/80 hover:text-white"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
-                      </button>
+                      </Button>
                     </div>
                   </div>
                 ))}
