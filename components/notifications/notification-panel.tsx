@@ -14,6 +14,7 @@ import {
   CheckCheck,
 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
 import {
   markNotificationReadAction,
@@ -21,6 +22,7 @@ import {
 } from "@/actions/notification-actions";
 import type { Notification } from "@prisma/client";
 import { cn } from "@/lib/utils";
+import { useIsPhoneViewport } from "@/hooks/use-is-phone";
 
 interface NotificationPanelProps {
   initialNotifications: Notification[];
@@ -55,6 +57,8 @@ export function NotificationPanel({
     useState<Notification[]>(initialNotifications);
   const [unreadCount, setUnreadCount] = useState(initialUnreadCount);
   const [open, setOpen] = useState(false);
+  // Phones get a full-width bottom sheet; wider screens keep the popover.
+  const isPhone = useIsPhoneViewport();
 
   function handleMarkOneRead(notification: Notification) {
     if (!notification.isRead) {
@@ -83,6 +87,89 @@ export function NotificationPanel({
     });
   }
 
+  const triggerContent = (
+    <>
+      <Bell className="h-4.5 w-4.5 text-muted-foreground" />
+      {unreadCount > 0 && (
+        <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-semibold text-white">
+          {unreadCount > 99 ? "99+" : unreadCount}
+        </span>
+      )}
+    </>
+  );
+
+  // One list for both containers. On phones it fills the sheet and scrolls
+  // inside it; in the popover it keeps its fixed max height.
+  const panel = (
+    <>
+      {/* Panel header */}
+      <div className="flex items-center justify-between px-4 py-3">
+        <h3 className="text-heading text-foreground">
+          Notifications
+        </h3>
+        {unreadCount > 0 && (
+          <button
+            type="button"
+            onClick={handleMarkAllRead}
+            disabled={isPending}
+            className="inline-flex h-7 items-center gap-1.5 rounded-md px-2 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
+          >
+            <CheckCheck className="h-3.5 w-3.5" />
+            Mark all read
+          </button>
+        )}
+      </div>
+
+      <Separator />
+
+      {/* Notification list — plain overflow scroll, not the ScrollArea
+          primitive: its Viewport relies on height:100% resolving against
+          an ancestor sized only by max-height, which browsers don't treat
+          as a definite reference, so content silently overflowed past the
+          popover instead of scrolling inside it. */}
+      <div className={cn("overflow-x-hidden overflow-y-auto", isPhone ? "min-h-0 flex-1" : "max-h-105")}>
+        {notifications.length === 0 ? (
+          <EmptyState />
+        ) : (
+          <ul className="p-1">
+            {notifications.map((notification, index) => (
+              <li key={notification.id}>
+                <NotificationItem
+                  notification={notification}
+                  onClick={() => handleMarkOneRead(notification)}
+                />
+                {index < notifications.length - 1 && (
+                  <Separator className="mx-3" />
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </>
+  );
+
+  if (isPhone) {
+    return (
+      <Sheet open={open} onOpenChange={setOpen}>
+        <SheetTrigger
+          className="relative inline-flex h-11 w-11 items-center lg:h-9 lg:w-9 justify-center rounded-md text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          aria-label="Open notifications"
+        >
+          {triggerContent}
+        </SheetTrigger>
+        <SheetContent
+          side="bottom"
+          className="flex max-h-[85dvh] flex-col gap-0 overflow-hidden rounded-t-2xl p-0 pb-[calc(1rem_+_var(--safe-bottom))]"
+          showCloseButton={false}
+        >
+          <SheetTitle className="sr-only">Notifications</SheetTitle>
+          {panel}
+        </SheetContent>
+      </Sheet>
+    );
+  }
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       {/* PopoverTrigger from @base-ui/react renders a native button — no asChild needed */}
@@ -90,12 +177,7 @@ export function NotificationPanel({
         className="relative inline-flex h-11 w-11 items-center lg:h-9 lg:w-9 justify-center rounded-md text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         aria-label="Open notifications"
       >
-        <Bell className="h-4.5 w-4.5 text-muted-foreground" />
-        {unreadCount > 0 && (
-          <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-semibold text-white">
-            {unreadCount > 99 ? "99+" : unreadCount}
-          </span>
-        )}
+        {triggerContent}
       </PopoverTrigger>
 
       <PopoverContent
@@ -103,50 +185,7 @@ export function NotificationPanel({
         sideOffset={8}
         className="w-80 rounded-xl border border-border bg-card p-0 shadow-md"
       >
-        {/* Panel header */}
-        <div className="flex items-center justify-between px-4 py-3">
-          <h3 className="text-heading text-foreground">
-            Notifications
-          </h3>
-          {unreadCount > 0 && (
-            <button
-              type="button"
-              onClick={handleMarkAllRead}
-              disabled={isPending}
-              className="inline-flex h-7 items-center gap-1.5 rounded-md px-2 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
-            >
-              <CheckCheck className="h-3.5 w-3.5" />
-              Mark all read
-            </button>
-          )}
-        </div>
-
-        <Separator />
-
-        {/* Notification list — plain overflow scroll, not the ScrollArea
-            primitive: its Viewport relies on height:100% resolving against
-            an ancestor sized only by max-height, which browsers don't treat
-            as a definite reference, so content silently overflowed past the
-            popover instead of scrolling inside it. */}
-        <div className="max-h-105 overflow-x-hidden overflow-y-auto">
-          {notifications.length === 0 ? (
-            <EmptyState />
-          ) : (
-            <ul className="p-1">
-              {notifications.map((notification, index) => (
-                <li key={notification.id}>
-                  <NotificationItem
-                    notification={notification}
-                    onClick={() => handleMarkOneRead(notification)}
-                  />
-                  {index < notifications.length - 1 && (
-                    <Separator className="mx-3" />
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
+        {panel}
       </PopoverContent>
     </Popover>
   );

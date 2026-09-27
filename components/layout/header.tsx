@@ -68,7 +68,17 @@ export function Header({
           )}
         </div>
 
-        {/* Search */}
+        {/* Search: an icon on phones (the palette's shortcuts need a keyboard),
+            the wide trigger from sm up. Both open the same palette. */}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="text-muted-foreground sm:hidden"
+          aria-label="Search"
+          onClick={() => openSearch(true)}
+        >
+          <Search className="size-4.5" aria-hidden />
+        </Button>
         <Button
           variant="outline"
           size="sm"
