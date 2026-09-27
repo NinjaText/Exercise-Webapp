@@ -49,6 +49,10 @@ import {
   moveWorkoutAction,
 } from "@/actions/workout-editor-actions";
 import { ExercisePickerDialog } from "@/components/programs/exercise-picker-dialog";
+import { useIsPhoneViewport } from "@/hooks/use-is-phone";
+import { isCalendarDraggable } from "@/lib/utils/calendar-drag";
+import { groupSessionsByWeek } from "@/lib/utils/schedule-weeks";
+import { ScheduleAgendaDays, ScheduleWeekNav, agendaDayKey } from "./schedule-agenda";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 import "react-big-calendar/lib/addons/dragAndDrop/styles.css";
 import {
@@ -1035,6 +1039,8 @@ export function ProgramScheduleView({
   readOnly = false,
 }: Props) {
   const router = useRouter();
+  const isPhone = useIsPhoneViewport();
+  const draggable = isCalendarDraggable({ readOnly, isPhone });
 
   // Memoize derived workout/session arrays so dependent useMemos stay stable
   const workouts = useMemo(
@@ -1152,6 +1158,31 @@ export function ProgramScheduleView({
       };
     });
   }, [hasSessions, sessions, workouts, refMonday, workoutPositionOverrides, sessionDateOverrides]);
+
+  // ── Phone agenda (below sm, in place of the calendar) ────────────────────
+  // Session mode pages through the calendar weeks the sessions fall in;
+  // structural mode through the program's weeks, anchored like the calendar.
+  const sessionWeeks = useMemo(() => groupSessionsByWeek(sessions, new Date()), [sessions]);
+  const agendaWeekStarts = useMemo(
+    () =>
+      hasSessions
+        ? sessionWeeks.weekStartDates
+        : Array.from({ length: totalProgramWeeks }, (_, i) => addDays(refMonday, i * 7)),
+    [hasSessions, sessionWeeks, totalProgramWeeks, refMonday]
+  );
+  const [agendaWeekIndex, setAgendaWeekIndex] = useState(() =>
+    hasSessions ? sessionWeeks.defaultWeekIndex : 0
+  );
+  const agendaWeek = Math.max(0, Math.min(agendaWeekIndex, agendaWeekStarts.length - 1));
+  const agendaDays = Array.from({ length: 7 }, (_, i) => addDays(agendaWeekStarts[agendaWeek], i));
+  const agendaEntries = useMemo(() => {
+    const byDay = new Map<string, ScheduleEvent[]>();
+    for (const event of [...events].sort((a, b) => a.start.getTime() - b.start.getTime())) {
+      const key = agendaDayKey(event.start);
+      byDay.set(key, [...(byDay.get(key) ?? []), event]);
+    }
+    return byDay;
+  }, [events]);
 
   // ── Handlers ─────────────────────────────────────────────────────────────
 
@@ -1483,9 +1514,12 @@ export function ProgramScheduleView({
           <span>
             <strong>Program structure view</strong> — workouts are shown at
             their scheduled day positions starting this week.{" "}
-            {readOnly
-              ? "Assign this program to a client to place sessions on real calendar dates."
-              : "Drag workouts to move them to a different day or week. Assign this program to a client to place sessions on real calendar dates."}
+            {!readOnly && (
+              <span className="hidden sm:inline">
+                Drag workouts to move them to a different day or week.{" "}
+              </span>
+            )}
+            Assign this program to a client to place sessions on real calendar dates.
           </span>
         </div>
       )}
@@ -1505,17 +1539,33 @@ export function ProgramScheduleView({
               </div>
             ))}
           {!readOnly && (
-            <span className="ml-auto text-caption">
+            <span className="ml-auto hidden text-caption sm:inline">
               Drag sessions to reschedule
             </span>
           )}
         </div>
       )}
 
+      {/* Phones: day-by-day agenda; tapping a workout opens the same dialog as the calendar */}
+      <div className="space-y-4 sm:hidden">
+        <ScheduleWeekNav
+          weekIndex={agendaWeek}
+          weekCount={agendaWeekStarts.length}
+          weekStart={agendaWeekStarts[agendaWeek]}
+          onPrevious={() => setAgendaWeekIndex(Math.max(0, agendaWeek - 1))}
+          onNext={() => setAgendaWeekIndex(Math.min(agendaWeekStarts.length - 1, agendaWeek + 1))}
+        />
+        <ScheduleAgendaDays
+          days={agendaDays}
+          entriesByDay={agendaEntries}
+          onSelect={handleSelectEvent}
+        />
+      </div>
+
       {/* Calendar — `schedule-day-only` strips react-big-calendar's hour grid
           (see app/globals.css). Program workouts are day-scoped, never
           clock-scoped, so Week and Day show day columns only. */}
-      <div className="overflow-x-auto rounded-xl bg-card p-4 shadow-xs ring-1 ring-border sm:p-5">
+      <div className="hidden overflow-x-auto rounded-xl bg-card p-4 shadow-xs ring-1 ring-border sm:block sm:p-5">
         <div
           className={cn(
             "schedule-day-only",
@@ -1530,8 +1580,8 @@ export function ProgramScheduleView({
           onView={setView}
           onNavigate={setCalDate}
           onSelectEvent={(event: ScheduleEvent) => handleSelectEvent(event)}
-          onEventDrop={readOnly ? undefined : (handleEventDrop as never)}
-          draggableAccessor={() => !readOnly}
+          onEventDrop={draggable ? (handleEventDrop as never) : undefined}
+          draggableAccessor={() => draggable}
           resizable={false}
           popup
           style={{ height: view === Views.MONTH ? 580 : "auto" }}

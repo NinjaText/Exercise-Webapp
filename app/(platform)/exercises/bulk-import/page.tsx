@@ -3,6 +3,7 @@ import { BulkImportForm } from "@/components/exercises/bulk-import-form";
 import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/shared/page-header";
 import { PageShell } from "@/components/shared/page-shell";
+import { DesktopOnlyNotice } from "@/components/shared/desktop-only-notice";
 
 export default async function BulkImportPage() {
   const user = await getCurrentUser();
@@ -17,7 +18,10 @@ export default async function BulkImportPage() {
         title="Bulk Import Exercises"
         description="Upload multiple exercise videos at once, then use AI to generate metadata for each one."
       />
-      <BulkImportForm />
+      <DesktopOnlyNotice />
+      <div className="hidden sm:block">
+        <BulkImportForm />
+      </div>
     </PageShell>
   );
 }

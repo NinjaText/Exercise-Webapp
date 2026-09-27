@@ -703,7 +703,7 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
                   {circuits.map((circuit, index) => (
                     <div
                       key={circuit.id}
-                      className="flex items-center gap-2 rounded-lg border border-border bg-surface-muted p-3"
+                      className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-surface-muted p-3 sm:flex-nowrap"
                     >
                       <div className="flex flex-col shrink-0">
                         <button
@@ -751,69 +751,72 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
                         ))}
                       </select>
 
-                      <div className="flex items-center gap-1 shrink-0">
-                        <Input
-                          type="number"
-                          min={1}
-                          max={12}
-                          value={circuit.exerciseCount}
-                          onChange={(e) =>
-                            updateCircuit(circuit.id, {
-                              exerciseCount: Math.max(1, Math.min(12, Number(e.target.value))),
-                            })
-                          }
-                          aria-label={`Circuit ${index + 1} exercise count`}
-                          className="h-8 w-14 text-center text-body"
-                        />
-                        <span className="whitespace-nowrap text-caption">ex.</span>
-                      </div>
+                      {/* Counts + delete: their own line below sm, inline from sm up */}
+                      <div className="flex basis-full flex-wrap items-center gap-2 sm:basis-auto sm:shrink-0 sm:flex-nowrap">
+                        <div className="flex items-center gap-1 shrink-0">
+                          <Input
+                            type="number"
+                            min={1}
+                            max={12}
+                            value={circuit.exerciseCount}
+                            onChange={(e) =>
+                              updateCircuit(circuit.id, {
+                                exerciseCount: Math.max(1, Math.min(12, Number(e.target.value))),
+                              })
+                            }
+                            aria-label={`Circuit ${index + 1} exercise count`}
+                            className="h-8 w-14 text-center text-body"
+                          />
+                          <span className="whitespace-nowrap text-caption">ex.</span>
+                        </div>
 
-                      <div className="flex items-center gap-1 shrink-0">
-                        <Input
-                          type="number"
-                          min={1}
-                          max={8}
-                          value={circuit.rounds}
-                          onChange={(e) =>
-                            updateCircuit(circuit.id, {
-                              rounds: Math.max(1, Math.min(8, Number(e.target.value))),
-                            })
-                          }
-                          aria-label={`Circuit ${index + 1} sets`}
-                          className="h-8 w-14 text-center text-body disabled:opacity-50"
-                        />
-                        <span className="whitespace-nowrap text-caption">sets</span>
-                      </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <Input
+                            type="number"
+                            min={1}
+                            max={8}
+                            value={circuit.rounds}
+                            onChange={(e) =>
+                              updateCircuit(circuit.id, {
+                                rounds: Math.max(1, Math.min(8, Number(e.target.value))),
+                              })
+                            }
+                            aria-label={`Circuit ${index + 1} sets`}
+                            className="h-8 w-14 text-center text-body disabled:opacity-50"
+                          />
+                          <span className="whitespace-nowrap text-caption">sets</span>
+                        </div>
 
-                      <div className="flex items-center gap-1 shrink-0">
-                        <Input
-                          type="number"
-                          min={0}
-                          max={300}
-                          value={circuit.restBetweenRounds ?? ""}
-                          placeholder="—"
-                          onChange={(e) =>
-                            updateCircuit(circuit.id, {
-                              restBetweenRounds: e.target.value === "" ? null : Math.max(0, Math.min(300, Number(e.target.value))),
-                            })
-                          }
-                          disabled={circuit.rounds <= 1}
-                          aria-label={`Circuit ${index + 1} rest between sets (seconds)`}
-                          className="h-8 w-14 text-center text-body disabled:opacity-50"
-                        />
-                        <span className="whitespace-nowrap text-caption">s rest</span>
-                      </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <Input
+                            type="number"
+                            min={0}
+                            max={300}
+                            value={circuit.restBetweenRounds ?? ""}
+                            placeholder="—"
+                            onChange={(e) =>
+                              updateCircuit(circuit.id, {
+                                restBetweenRounds: e.target.value === "" ? null : Math.max(0, Math.min(300, Number(e.target.value))),
+                              })
+                            }
+                            disabled={circuit.rounds <= 1}
+                            aria-label={`Circuit ${index + 1} rest between sets (seconds)`}
+                            className="h-8 w-14 text-center text-body disabled:opacity-50"
+                          />
+                          <span className="whitespace-nowrap text-caption">s rest</span>
+                        </div>
 
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="size-8 shrink-0 text-muted-foreground hover:text-destructive"
-                        onClick={() => removeCircuit(circuit.id)}
-                        aria-label={`Remove circuit ${index + 1}`}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="ml-auto size-8 shrink-0 text-muted-foreground hover:text-destructive sm:ml-0"
+                          onClick={() => removeCircuit(circuit.id)}
+                          aria-label={`Remove circuit ${index + 1}`}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
                   ))}
                 </div>

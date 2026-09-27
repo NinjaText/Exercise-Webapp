@@ -932,7 +932,7 @@ export function ExerciseRowCard({ row, index, onUpdate, onRemove, onGenerate, on
         ) : (
           <Video className="h-4 w-4 shrink-0 text-muted-foreground" />
         )}
-        <p className="flex-1 truncate text-sm text-muted-foreground">{row.videoFileName || row.videoUrl}</p>
+        <p className="min-w-0 flex-1 truncate text-sm text-muted-foreground">{row.videoFileName || row.videoUrl}</p>
         {isReady && <CheckCircle2 className="h-4 w-4 shrink-0 text-success" />}
         {row.isAssessment && (
           <StatusBadge status="ASSESSMENT" label="Assessment" role="info" dot={false} size="sm" />

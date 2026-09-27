@@ -8,6 +8,9 @@ import { getOrganizationProfile } from "@/actions/organization-actions";
 import { ProgramEditor } from "@/components/programs/program-editor";
 import { PageHeader } from "@/components/shared/page-header";
 import { PageShell } from "@/components/shared/page-shell";
+import { DesktopOnlyNotice } from "@/components/shared/desktop-only-notice";
+import { ProgramStructureReadonly } from "@/components/programs/program-structure-readonly";
+import { getProgramSchedulingType } from "@/lib/utils/program-scheduling";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -45,13 +48,24 @@ export default async function EditProgramPage({ params }: Props) {
         title="Edit Program"
         description={`Modify “${program.name}”`}
       />
-      <ProgramEditor
-        program={program as unknown as Record<string, unknown>}
-        exercises={rankedExercises}
-        organizationOrganizationId={organizationOrgId}
-        exerciseSourcePreference={organizationProfile?.exerciseSourcePreference}
-        collections={collections}
-      />
+      <DesktopOnlyNotice />
+      {program.workouts.length > 0 && (
+        <div className="sm:hidden">
+          <ProgramStructureReadonly
+            workouts={program.workouts as unknown as Record<string, unknown>[]}
+            isResource={getProgramSchedulingType(program) === "ON_DEMAND"}
+          />
+        </div>
+      )}
+      <div className="hidden sm:block">
+        <ProgramEditor
+          program={program as unknown as Record<string, unknown>}
+          exercises={rankedExercises}
+          organizationOrganizationId={organizationOrgId}
+          exerciseSourcePreference={organizationProfile?.exerciseSourcePreference}
+          collections={collections}
+        />
+      </div>
     </PageShell>
   );
 }

@@ -6,6 +6,7 @@ import { getOrganizationProfile } from "@/actions/organization-actions";
 import { ProgramEditor } from "@/components/programs/program-editor";
 import { PageHeader } from "@/components/shared/page-header";
 import { PageShell } from "@/components/shared/page-shell";
+import { DesktopOnlyNotice } from "@/components/shared/desktop-only-notice";
 
 export default async function NewProgramPage({
   searchParams,
@@ -34,13 +35,16 @@ export default async function NewProgramPage({
         title="Create Program"
         description="Build a new training program from scratch or start from a template."
       />
-      <ProgramEditor
-        exercises={rankedExercises}
-        organizationOrganizationId={organizationOrgId}
-        exerciseSourcePreference={organizationProfile?.exerciseSourcePreference}
-        collections={collections}
-        assignClientId={clientId}
-      />
+      <DesktopOnlyNotice />
+      <div className="hidden sm:block">
+        <ProgramEditor
+          exercises={rankedExercises}
+          organizationOrganizationId={organizationOrgId}
+          exerciseSourcePreference={organizationProfile?.exerciseSourcePreference}
+          collections={collections}
+          assignClientId={clientId}
+        />
+      </div>
     </PageShell>
   );
 }

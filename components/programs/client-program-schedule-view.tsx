@@ -3,11 +3,12 @@
 import { useMemo, useState } from "react";
 import { addDays, format, isToday } from "date-fns";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { ChevronLeft, ChevronRight, Clock, Info, Moon } from "lucide-react";
+import { Clock, Info, Moon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toLocalCalendarDate } from "@/lib/utils/calendar-date";
 import { groupSessionsByWeek } from "@/lib/utils/schedule-weeks";
 import { ROLE_CLASSES, statusRole } from "@/lib/ui/status";
+import { ScheduleAgendaDays, ScheduleWeekNav, agendaDayKey } from "./schedule-agenda";
 import {
   castSession,
   STATUS_CONFIG,
@@ -45,101 +46,29 @@ export function ClientProgramScheduleView({ rawSessions }: Props) {
 
   const sessionsByDay = new Map<string, SessionData>();
   for (const session of currentWeek) {
-    sessionsByDay.set(format(toLocalCalendarDate(session.scheduledDate), "yyyy-MM-dd"), session);
+    sessionsByDay.set(agendaDayKey(toLocalCalendarDate(session.scheduledDate)), session);
   }
+  const agendaEntries = new Map<string, SessionData[]>(
+    Array.from(sessionsByDay, ([key, session]) => [key, [session]])
+  );
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between rounded-xl bg-card px-3 py-2 shadow-xs ring-1 ring-border">
-        <button
-          onClick={() => setWeekIndex((i) => Math.max(0, i - 1))}
-          disabled={clampedIndex === 0}
-          aria-label="Previous week"
-          className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-background hover:text-foreground disabled:opacity-30 disabled:pointer-events-none"
-        >
-          <ChevronLeft className="h-4 w-4" />
-        </button>
-        <div className="text-center">
-          <h2 className="text-label text-foreground sm:text-heading">
-            Week {clampedIndex + 1} of {weeks.length}
-          </h2>
-          <p className="text-caption">
-            {format(weekStart, "MMM d")} – {format(addDays(weekStart, 6), "MMM d")}
-          </p>
-        </div>
-        <button
-          onClick={() => setWeekIndex((i) => Math.min(weeks.length - 1, i + 1))}
-          disabled={clampedIndex === weeks.length - 1}
-          aria-label="Next week"
-          className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-background hover:text-foreground disabled:opacity-30 disabled:pointer-events-none"
-        >
-          <ChevronRight className="h-4 w-4" />
-        </button>
-      </div>
+      <ScheduleWeekNav
+        weekIndex={clampedIndex}
+        weekCount={weeks.length}
+        weekStart={weekStart}
+        onPrevious={() => setWeekIndex((i) => Math.max(0, i - 1))}
+        onNext={() => setWeekIndex((i) => Math.min(weeks.length - 1, i + 1))}
+      />
 
       {/* Mobile: vertical day-by-day agenda list */}
-      <div className="flex flex-col gap-2 sm:hidden">
-        {days.map((day) => {
-          const key = format(day, "yyyy-MM-dd");
-          const session = sessionsByDay.get(key);
-          const statusCfg = session ? STATUS_CONFIG[session.status] ?? STATUS_CONFIG.SCHEDULED : null;
-          const dotClass = session ? ROLE_CLASSES[statusRole(session.status)].dot : null;
-          const exerciseCount = session
-            ? session.workout.blocks.reduce((sum, b) => sum + b.exercises.length, 0)
-            : 0;
-          const today = isToday(day);
-
-          return (
-            <div
-              key={key}
-              className={cn(
-                "flex items-stretch gap-3 rounded-lg border bg-card p-2.5",
-                today ? "border-primary/50 ring-1 ring-primary/30" : "border-border"
-              )}
-            >
-              <div className="flex w-12 shrink-0 flex-col items-center justify-center rounded-md bg-muted/40 py-1.5">
-                <span className={cn("text-[10px] font-semibold uppercase tracking-wide", today ? "text-primary" : "text-muted-foreground")}>
-                  {format(day, "EEE")}
-                </span>
-                <span className={cn("text-base font-bold", today ? "text-primary" : "text-foreground")}>
-                  {format(day, "d")}
-                </span>
-              </div>
-
-              {session ? (
-                <button
-                  onClick={() => setSelectedSession(session)}
-                  className="flex flex-1 items-center gap-2 rounded-md border border-border bg-muted/30 p-2 text-left transition-colors hover:border-foreground/30 hover:bg-muted/50"
-                >
-                  <span className={cn("h-2 w-2 shrink-0 rounded-full", dotClass)} />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold leading-snug text-foreground">
-                      {session.workout.name}
-                    </p>
-                    <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
-                      {session.workout.estimatedMinutes && (
-                        <span className="flex items-center gap-1">
-                          <Clock className="h-2.5 w-2.5" />
-                          ~{session.workout.estimatedMinutes} min
-                        </span>
-                      )}
-                      <span>
-                        {exerciseCount} exercise{exerciseCount !== 1 ? "s" : ""}
-                      </span>
-                      <span className="font-medium">{statusCfg!.label}</span>
-                    </div>
-                  </div>
-                </button>
-              ) : (
-                <div className="flex flex-1 items-center justify-center gap-1.5 rounded-md border border-dashed border-border text-muted-foreground">
-                  <Moon className="h-3.5 w-3.5" />
-                  <span className="text-xs">Rest day</span>
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
+      <ScheduleAgendaDays
+        days={days}
+        entriesByDay={agendaEntries}
+        onSelect={setSelectedSession}
+        className="sm:hidden"
+      />
 
       {/* Desktop/tablet: 7-column week grid */}
       <div className="hidden overflow-x-auto pb-1 sm:block">

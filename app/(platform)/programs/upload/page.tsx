@@ -7,6 +7,7 @@ import { getOrganizationProfile } from "@/actions/organization-actions";
 import { ProgramBriefUpload } from "@/components/programs/program-brief-upload";
 import { PageHeader } from "@/components/shared/page-header";
 import { PageShell } from "@/components/shared/page-shell";
+import { DesktopOnlyNotice } from "@/components/shared/desktop-only-notice";
 
 export const metadata = {
   title: "Upload Program Brief",
@@ -51,13 +52,16 @@ export default async function ProgramBriefUploadPage({
         title="Upload Program Brief"
         description="Upload a structured brief and let AI generate a full program for review."
       />
-      <ProgramBriefUpload
-        clients={clients}
-        exercises={exercises}
-        organizationOrganizationId={organizationOrgId}
-        exerciseSourcePreference={organizationProfile?.exerciseSourcePreference}
-        initialClientId={clientId}
-      />
+      <DesktopOnlyNotice />
+      <div className="hidden sm:block">
+        <ProgramBriefUpload
+          clients={clients}
+          exercises={exercises}
+          organizationOrganizationId={organizationOrgId}
+          exerciseSourcePreference={organizationProfile?.exerciseSourcePreference}
+          initialClientId={clientId}
+        />
+      </div>
     </PageShell>
   );
 }

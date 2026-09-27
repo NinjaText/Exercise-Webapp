@@ -5,6 +5,7 @@ import { GenerateProgramForm } from "@/components/programs/generate-program-form
 import type { ClientSummary } from "@/components/programs/client-details-panel";
 import { PageHeader } from "@/components/shared/page-header";
 import { PageShell } from "@/components/shared/page-shell";
+import { DesktopOnlyNotice } from "@/components/shared/desktop-only-notice";
 
 export const maxDuration = 120; // parallel per-week LLM calls can take up to ~30s; 120s gives headroom for larger programs
 
@@ -97,10 +98,13 @@ export default async function GenerateProgramPage({
         title="Generate Program"
         description="Use AI to create a personalised program for a client."
       />
+      <DesktopOnlyNotice />
 
       {/* The shell gives room for the two-column layout; the form still
           self-centers narrower (max-w-2xl) when no client panel is shown. */}
-      <GenerateProgramForm clients={clients} initialClientId={clientId} />
+      <div className="hidden sm:block">
+        <GenerateProgramForm clients={clients} initialClientId={clientId} />
+      </div>
     </PageShell>
   );
 }
