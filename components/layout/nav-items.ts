@@ -11,6 +11,7 @@ import {
   Inbox,
   LayoutDashboard,
   Library,
+  Palette,
   Settings,
   Shield,
   TrendingUp,
@@ -60,6 +61,7 @@ export const TRAINER_ACCOUNT_NAV: NavItem[] = [
   { href: "/settings", label: "Settings", icon: Settings, tier: 2 },
   { href: "/settings/notifications", label: "Notifications", icon: Bell, tier: 2 },
   { href: "/settings/clinic", label: "Organization", icon: Building2, tier: 3 },
+  { href: "/settings/branding", label: "Branding", icon: Palette, tier: 3 },
   { href: "/settings/audit-log", label: "Audit Log", icon: History, tier: 3 },
 ];
 

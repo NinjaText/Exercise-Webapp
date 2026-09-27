@@ -42,6 +42,8 @@ interface HEPDocumentProps {
   organizationName?: string;
   organizationTagline?: string;
   organizationLogoBuffer?: Buffer | null;
+  /** Text-safe brand hex for the organization name; omitted → product colour. */
+  accentHex?: string | null;
   exercisesByDay: Map<number, PlanExerciseData[]>;
   imageMap: Map<string, Buffer>;
   placeholderBuffer: Buffer;
@@ -57,6 +59,7 @@ export function HEPDocument({
   organizationName,
   organizationTagline,
   organizationLogoBuffer,
+  accentHex,
   exercisesByDay,
   imageMap,
   placeholderBuffer,
@@ -72,6 +75,7 @@ export function HEPDocument({
           organizationName={organizationName}
           tagline={organizationTagline}
           logoBuffer={organizationLogoBuffer}
+          accentHex={accentHex}
           pageNumber={1}
         />
         <PdfPlanInfo

@@ -3,6 +3,7 @@ import * as React from 'react'
 import { render } from '@react-email/render'
 import { NewMessageEmail } from '@/lib/email/templates/new-message'
 import { PaymentFailedEmail } from '@/lib/email/templates/payment-failed'
+import { SessionReminderEmail } from '@/lib/email/templates/session-reminder'
 
 /**
  * Guards the render path PRODUCTION actually uses.
@@ -48,5 +49,25 @@ describe('the @react-email/render path used by resend.emails.send', () => {
     expect(html).toContain('Mike Chen')
     expect(html).toContain('$49.00')
     expect(html).not.toContain('Unsubscribe')
+  })
+  it('renders an org-branded client template: logo, accent and name, no product brand', async () => {
+    const logoUrl = 'https://assets.test/branding/org_1/logo-on-light-abcd1234.png'
+    const html = await render(
+      React.createElement(SessionReminderEmail, {
+        clientName: 'Sarah Lee',
+        sessionDate: 'Monday, March 3, 2026',
+        sessionTime: '9:00 AM',
+        workoutName: 'Lower Body A',
+        sessionLink: 'https://app.test/sessions',
+        unsubscribeUrl: 'https://app.test/api/notifications/unsubscribe?token=abc&category=sessions',
+        brand: { organizationName: 'Summit PT', accent: '#0f766e', logoUrl },
+      })
+    )
+
+    expect(html).toContain(`src="${logoUrl}"`)
+    expect(html).toContain('alt="Summit PT"')
+    expect(html).toContain('#0f766e')
+    expect(html).not.toContain('INMOTUS RX')
+    expect(html).toContain('Unsubscribe')
   })
 })

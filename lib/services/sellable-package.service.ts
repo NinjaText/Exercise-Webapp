@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { prisma } from "@/lib/prisma";
 import { slugify } from "@/lib/utils/slug";
 import type { CoachPackage } from "@prisma/client";
@@ -38,18 +39,34 @@ export async function createSellablePackage(args: {
   });
 }
 
-export async function getSellablePackageBySlug(
+/**
+ * `React.cache()`-wrapped so the sales page's `generateMetadata` and page
+ * body (which both need this same lookup) share one DB read per request.
+ * Outside an RSC render (e.g. the checkout route handler) `cache()` is a
+ * transparent passthrough — no request-scoped memoization, but the same
+ * correct result.
+ */
+export const getSellablePackageBySlug = cache(async function getSellablePackageBySlug(
   slug: string
-): Promise<(CoachPackage & { upsell: CoachPackage | null }) | null> {
+): Promise<
+  | (CoachPackage & {
+      upsell: CoachPackage | null;
+      /** Only the seller's org id — for branding lookup. Nothing else about
+       * the trainer (name, email, ids) is exposed to this public page. */
+      trainer: { clerkOrgId: string | null };
+    })
+  | null
+> {
   const pkg = await prisma.coachPackage.findFirst({
     where: { slug, isActive: true },
+    include: { trainer: { select: { clerkOrgId: true } } },
   });
   if (!pkg) return null;
   const upsell = pkg.upsellPackageId
     ? await prisma.coachPackage.findUnique({ where: { id: pkg.upsellPackageId } })
     : null;
   return { ...pkg, upsell };
-}
+});
 
 export async function getSellablePackageByProgramTemplateId(
   programTemplateId: string,

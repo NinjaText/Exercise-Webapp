@@ -1,5 +1,6 @@
 import * as React from "react";
 import { EmailLayout } from "./layout";
+import type { EmailBrandProps } from "@/lib/email/branding";
 
 interface SessionReminderEmailProps {
   clientName: string;
@@ -9,6 +10,8 @@ interface SessionReminderEmailProps {
   sessionLink: string;
   organizationName?: string;
   unsubscribeUrl?: string;
+  /** Org branding — set only when a client receives this (see lib/email/branding.ts). */
+  brand?: EmailBrandProps;
 }
 
 /**
@@ -16,6 +19,7 @@ interface SessionReminderEmailProps {
  * Rendered server-side by Resend and sent as HTML email.
  */
 export function SessionReminderEmail({
+  brand,
   clientName,
   sessionDate,
   sessionTime,
@@ -27,8 +31,9 @@ export function SessionReminderEmail({
   return (
     <EmailLayout
       title="Session Reminder"
-      organizationName={organizationName}
-      accent="#2563eb"
+      organizationName={brand?.organizationName ?? organizationName}
+      accent={brand?.accent ?? "#2563eb"}
+      logoUrl={brand?.logoUrl}
       greeting={`Hi ${clientName},`}
       intro="This is a friendly reminder that you have a workout session scheduled for tomorrow."
       details={[

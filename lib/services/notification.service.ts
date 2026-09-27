@@ -3,6 +3,11 @@ import type { Prisma } from "@prisma/client";
 import { NOTIFICATION_TYPES, type NotificationType } from "@/lib/notifications/types";
 import * as React from "react";
 import { sendEmail } from "@/lib/email/send";
+import {
+  getClientEmailBranding,
+  templateBrand,
+  type EmailBranding,
+} from "@/lib/email/branding";
 import { appBaseUrl } from "@/lib/utils/app-url";
 import { NOTIFICATION_REGISTRY } from "@/lib/notifications/registry";
 import {
@@ -168,8 +173,24 @@ export async function notifyUser(input: NotifyUserInput): Promise<void> {
       recipientName = recipientName ?? `${user.firstName} ${user.lastName}`.trim();
     }
 
-    // 6. Render and send.
-    const data: Record<string, unknown> = { ...input.email, recipientName, unsubscribeUrl };
+    // 6. Org branding — only for mail a CLIENT receives (spec §7). Billing
+    //    and trainer-recipient mail stays product-branded. A failed lookup
+    //    must never block the email, so it degrades to "unbranded".
+    let branding: EmailBranding | null = null;
+    if (entry.clientFacing && !entry.transactional) {
+      branding = await getClientEmailBranding(input.userId).catch((err) => {
+        console.error(`[notify] branding lookup failed for user ${input.userId}:`, err);
+        return null;
+      });
+    }
+
+    // 7. Render and send.
+    const data: Record<string, unknown> = {
+      ...input.email,
+      recipientName,
+      unsubscribeUrl,
+      ...(branding ? { brand: templateBrand(branding) } : {}),
+    };
     await sendEmail({
       to,
       subject: entry.subject(data),
@@ -177,6 +198,8 @@ export async function notifyUser(input: NotifyUserInput): Promise<void> {
       // Undefined for transactional types, which carry no unsubscribe link —
       // so billing mail correctly ships without the one-click headers.
       unsubscribeUrl,
+      // An unbranded org (enabled: false) sends exactly as before branding.
+      ...(branding?.enabled ? { fromName: branding.fromName, replyTo: branding.replyTo } : {}),
     });
   } catch (err) {
     console.error(`[notify] ${step} failed for ${input.type} / user ${input.userId}:`, err);

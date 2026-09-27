@@ -18,10 +18,16 @@ export async function completeTrainerOnboarding(data: {
   if (!clerkUser) return { success: false as const, error: "User not found" };
 
   try {
+    const organizationName = data.organizationName.trim();
     const client = await clerkClient();
     const org = await client.organizations.createOrganization({
-      name: data.organizationName,
+      name: organizationName,
       createdBy: userId,
+    });
+
+    // The DB Organization row is the canonical org profile.
+    await prisma.organization.create({
+      data: { clerkOrgId: org.id, name: organizationName },
     });
 
     const user = await prisma.user.upsert({

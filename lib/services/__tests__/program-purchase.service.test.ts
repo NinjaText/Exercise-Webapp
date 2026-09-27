@@ -1,5 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
+// `getPurchaseBySessionId` is `React.cache()`-wrapped (dedupes the success
+// page's generateMetadata + page-body lookups); make it a passthrough here
+// so each test call reaches the mocked prisma call, same as branding.service.test.ts.
+vi.mock('react', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('react')>()),
+  cache: <T,>(fn: T) => fn,
+}))
+
 const clerkMocks = vi.hoisted(() => ({
   getUserList: vi.fn(async () => ({ data: [] })),
   createUser: vi.fn(async () => ({ id: 'clerk_new', firstName: 'Pat', lastName: 'Buyer', imageUrl: '' })),
@@ -33,7 +41,7 @@ vi.mock('@clerk/nextjs/server', () => ({
 import { prisma } from '@/lib/prisma'
 import { duplicateProgram, assignProgram } from '@/lib/services/program.service'
 import { sendProgramWelcomeEmail } from '@/lib/email/send-program-welcome'
-import { fulfillProgramPurchase, retryStuckProgramPurchases } from '../program-purchase.service'
+import { fulfillProgramPurchase, retryStuckProgramPurchases, getPurchaseBySessionId } from '../program-purchase.service'
 
 const session = {
   id: 'cs_test_1', email: 'buyer@example.com',
@@ -91,7 +99,7 @@ describe('fulfillProgramPurchase', () => {
       expect.objectContaining({ data: expect.objectContaining({ status: 'COMPLETED' }) })
     )
     expect(sendProgramWelcomeEmail).toHaveBeenCalledWith(
-      expect.objectContaining({ to: 'buyer@example.com', isNewAccount: true })
+      expect.objectContaining({ to: 'buyer@example.com', isNewAccount: true, clerkOrgId: 'org_jane' })
     )
   })
 
@@ -194,5 +202,26 @@ describe('retryStuckProgramPurchases', () => {
     expect(prisma.programPurchase.update).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ status: 'COMPLETED' }) })
     )
+  })
+})
+
+describe('getPurchaseBySessionId', () => {
+  it('looks up the purchase by its Stripe checkout session id', async () => {
+    vi.mocked(prisma.programPurchase.findUnique).mockResolvedValue({
+      id: 'pp1', stripeCheckoutSessionId: 'cs_test_1', orgId: 'org_jane',
+    } as unknown as Awaited<ReturnType<typeof prisma.programPurchase.findUnique>>)
+
+    const result = await getPurchaseBySessionId('cs_test_1')
+
+    expect(prisma.programPurchase.findUnique).toHaveBeenCalledWith({
+      where: { stripeCheckoutSessionId: 'cs_test_1' },
+    })
+    expect(result?.orgId).toBe('org_jane')
+  })
+
+  it('returns null when no purchase matches the session id', async () => {
+    vi.mocked(prisma.programPurchase.findUnique).mockResolvedValue(null)
+
+    expect(await getPurchaseBySessionId('cs_missing')).toBeNull()
   })
 })

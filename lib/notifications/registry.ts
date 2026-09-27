@@ -43,12 +43,20 @@ export interface RegistryEntry {
   subject: (data: Record<string, unknown>) => string;
   /** Minutes. `null` means no cap. */
   cooldownMinutes: number | null;
+  /**
+   * The recipient can be a CLIENT, so the email carries their coach's org
+   * brand (spec §7). The dispatcher still checks the recipient's actual role,
+   * so types that go either way (messages, voice memos) stay product-branded
+   * when a trainer receives them. Never true for billing mail.
+   */
+  clientFacing: boolean;
 }
 
 export const NOTIFICATION_REGISTRY: Record<NotificationType, RegistryEntry> = {
   // ── Sessions ──────────────────────────────────────────────────────────────
   [NOTIFICATION_TYPES.SESSION_REMINDER]: {
     category: "sessions",
+    clientFacing: true,
     transactional: false,
     template: tpl(SessionReminderEmail),
     // `app/api/reminders/route.ts` already dedupes per session via
@@ -58,6 +66,7 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, RegistryEntry> = {
   },
   [NOTIFICATION_TYPES.SESSION_COMPLETED]: {
     category: "sessions",
+    clientFacing: false,
     transactional: false,
     template: tpl(SessionCompletedEmail),
     cooldownMinutes: null,
@@ -65,6 +74,7 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, RegistryEntry> = {
   },
   [NOTIFICATION_TYPES.MISSED_SESSION]: {
     category: "sessions",
+    clientFacing: false,
     transactional: false,
     template: tpl(MissedSessionEmail),
     cooldownMinutes: 1440,
@@ -72,6 +82,7 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, RegistryEntry> = {
   },
   [NOTIFICATION_TYPES.EXERCISE_NOTE]: {
     category: "sessions",
+    clientFacing: false,
     transactional: false,
     template: tpl(ExerciseNoteEmail),
     cooldownMinutes: 60,
@@ -81,6 +92,7 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, RegistryEntry> = {
   // ── Messages & check-ins ──────────────────────────────────────────────────
   [NOTIFICATION_TYPES.NEW_MESSAGE]: {
     category: "messages",
+    clientFacing: true,
     transactional: false,
     template: tpl(NewMessageEmail),
     cooldownMinutes: 60,
@@ -88,6 +100,7 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, RegistryEntry> = {
   },
   [NOTIFICATION_TYPES.CHECK_IN_DUE]: {
     category: "messages",
+    clientFacing: true,
     transactional: false,
     template: tpl(CheckInAssignedEmail),
     cooldownMinutes: null,
@@ -95,6 +108,7 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, RegistryEntry> = {
   },
   [NOTIFICATION_TYPES.NEW_RESPONSE]: {
     category: "messages",
+    clientFacing: false,
     transactional: false,
     template: tpl(CheckInResponseEmail),
     cooldownMinutes: 60,
@@ -102,6 +116,7 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, RegistryEntry> = {
   },
   [NOTIFICATION_TYPES.VOICE_MEMO]: {
     category: "messages",
+    clientFacing: true,
     transactional: false,
     template: tpl(VoiceMemoAddedEmail),
     cooldownMinutes: 60,
@@ -113,6 +128,7 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, RegistryEntry> = {
   },
   [NOTIFICATION_TYPES.FEEDBACK_RESPONSE]: {
     category: "messages",
+    clientFacing: true,
     transactional: false,
     template: tpl(FeedbackResponseEmail),
     cooldownMinutes: null,
@@ -122,6 +138,7 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, RegistryEntry> = {
   // ── Nutrition ─────────────────────────────────────────────────────────────
   [NOTIFICATION_TYPES.NUTRITION_COMMENT]: {
     category: "nutrition",
+    clientFacing: true,
     transactional: false,
     template: tpl(NutritionCommentEmail),
     cooldownMinutes: 60,
@@ -129,6 +146,7 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, RegistryEntry> = {
   },
   [NOTIFICATION_TYPES.NUTRITION_REPLY]: {
     category: "nutrition",
+    clientFacing: false,
     transactional: false,
     template: tpl(NutritionCommentEmail),
     cooldownMinutes: 60,
@@ -136,6 +154,7 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, RegistryEntry> = {
   },
   [NOTIFICATION_TYPES.NUTRITION_NUDGE_MEALS]: {
     category: "nutrition",
+    clientFacing: true,
     transactional: false,
     template: tpl(NutritionNudgeEmail),
     cooldownMinutes: 1440,
@@ -143,6 +162,7 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, RegistryEntry> = {
   },
   [NOTIFICATION_TYPES.NUTRITION_NUDGE_PROTEIN]: {
     category: "nutrition",
+    clientFacing: true,
     transactional: false,
     template: tpl(NutritionNudgeEmail),
     cooldownMinutes: 1440,
@@ -150,6 +170,7 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, RegistryEntry> = {
   },
   [NOTIFICATION_TYPES.NUTRITION_NUDGE_WATER]: {
     category: "nutrition",
+    clientFacing: true,
     transactional: false,
     template: tpl(NutritionNudgeEmail),
     cooldownMinutes: 1440,
@@ -159,6 +180,7 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, RegistryEntry> = {
   // ── Billing (transactional — ignores preferences, no unsubscribe link) ────
   [NOTIFICATION_TYPES.PAYMENT_FAILED]: {
     category: "billing",
+    clientFacing: false,
     transactional: true,
     template: tpl(PaymentFailedEmail),
     cooldownMinutes: null,
@@ -166,6 +188,7 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, RegistryEntry> = {
   },
   [NOTIFICATION_TYPES.SUBSCRIPTION_CANCELED]: {
     category: "billing",
+    clientFacing: false,
     transactional: true,
     template: tpl(SubscriptionCanceledEmail),
     cooldownMinutes: null,
@@ -173,6 +196,7 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, RegistryEntry> = {
   },
   [NOTIFICATION_TYPES.REFUND_PROCESSED]: {
     category: "billing",
+    clientFacing: false,
     transactional: true,
     template: tpl(RefundProcessedEmail),
     cooldownMinutes: null,

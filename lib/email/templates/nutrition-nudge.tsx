@@ -1,5 +1,6 @@
 import * as React from "react";
 import { EmailLayout } from "./layout";
+import type { EmailBrandProps } from "@/lib/email/branding";
 
 interface NutritionNudgeEmailProps {
   recipientName: string;
@@ -7,9 +8,12 @@ interface NutritionNudgeEmailProps {
   detail: string;
   nutritionLink: string;
   unsubscribeUrl?: string;
+  /** Org branding — set only when a client receives this (see lib/email/branding.ts). */
+  brand?: EmailBrandProps;
 }
 
 export function NutritionNudgeEmail({
+  brand,
   recipientName,
   headline,
   detail,
@@ -19,7 +23,9 @@ export function NutritionNudgeEmail({
   return (
     <EmailLayout
       title={headline}
-      accent="#2563eb"
+      organizationName={brand?.organizationName}
+      accent={brand?.accent ?? "#2563eb"}
+      logoUrl={brand?.logoUrl}
       greeting={`Hi ${recipientName},`}
       intro={detail}
       cta={{ label: "Open Nutrition", href: nutritionLink }}

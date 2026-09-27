@@ -1,4 +1,9 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
+
+// The tracker imports Server Actions whose module graph now reaches
+// `lib/email/branding` (server-only). Next swaps those for references in a
+// real build; under Vitest the marker must be stubbed.
+vi.mock("server-only", () => ({}));
 import { renderToStaticMarkup } from "react-dom/server";
 import { WorkoutModeWrapper } from "../workout-mode-wrapper";
 

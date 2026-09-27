@@ -24,6 +24,7 @@
     "db:backfill-schedule-variance": "npx tsx lib/db/scripts/backfill-schedule-variance.ts",
     "db:backfill-message-is-internal": "npx tsx lib/db/scripts/backfill-message-is-internal.ts",
     "db:backfill-program-scheduling-type": "npx tsx lib/db/scripts/backfill-program-scheduling-type.ts",
+    "db:migrate-org-profiles": "npx tsx lib/db/scripts/migrate-org-profiles-to-db.ts",
     "tag-exercises": "npx ts-node --compiler-options '{\"module\":\"CommonJS\"}' lib/db/seed/tag-exercises-ai.ts",
     "postinstall": "prisma generate"
   },
@@ -48,6 +49,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
+    "culori": "^4.0.2",
     "date-fns": "^4.1.0",
     "framer-motion": "^12.38.0",
     "lucide-react": "^0.577.0",
@@ -67,6 +69,7 @@
     "recharts": "^3.8.0",
     "resend": "^6.9.3",
     "shadcn": "^4.0.7",
+    "sharp": "0.34.5",
     "sonner": "^2.0.7",
     "stripe": "^22.2.2",
     "svix": "^1.88.0",
@@ -78,6 +81,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@types/culori": "^4.0.1",
     "@types/node": "^20",
     "@types/papaparse": "^5.5.2",
     "@types/react": "^19",

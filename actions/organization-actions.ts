@@ -1,20 +1,48 @@
 "use server";
 
 import { auth, clerkClient } from "@clerk/nextjs/server";
+import type { Organization } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { logAudit, diffFields, deriveActorType, AUDIT_ACTIONS } from "@/lib/services/audit-log.service";
-import { EXERCISE_SOURCE_PREFERENCES, type ExerciseSourcePreference } from "@/lib/utils/exercise-picker";
+import { expireBranding } from "@/lib/services/branding.service";
+import {
+  getOrganization,
+  getOrganizationOrNull,
+  normalizePreference,
+  upsertOrganizationProfile,
+} from "@/lib/services/organization.service";
+import type { ExerciseSourcePreference } from "@/lib/utils/exercise-picker";
 
 export interface OrganizationMetadata {
   organizationName: string;
   tagline?: string;
-  logoUrl?: string;
   phone?: string;
   email?: string;
   website?: string;
   address?: string;
   exerciseSourcePreference?: ExerciseSourcePreference;
+}
+
+/**
+ * Audit-diff keys over the action-level shape (kept stable so past entries stay
+ * comparable). Logos are edited under Branding and audited as BRANDING_UPDATED.
+ */
+const AUDIT_DIFF_KEYS = [
+  "organizationName", "tagline", "phone", "email", "website", "address", "exerciseSourcePreference",
+];
+
+/** Maps the DB row to the action-level shape; unset optional fields become "". */
+function toMetadata(org: Organization): OrganizationMetadata {
+  return {
+    organizationName: org.name,
+    tagline: org.tagline ?? "",
+    phone: org.phone ?? "",
+    email: org.email ?? "",
+    website: org.website ?? "",
+    address: org.address ?? "",
+    exerciseSourcePreference: normalizePreference(org.exerciseSourcePreference),
+  };
 }
 
 export async function getOrganizationProfile(): Promise<OrganizationMetadata | null> {
@@ -24,26 +52,7 @@ export async function getOrganizationProfile(): Promise<OrganizationMetadata | n
   const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
   if (!dbUser?.clerkOrgId) return null;
 
-  const client = await clerkClient();
-  const org = await client.organizations.getOrganization({ organizationId: dbUser.clerkOrgId });
-
-  const meta = (org.publicMetadata ?? {}) as Record<string, string>;
-  const exerciseSourcePreference: ExerciseSourcePreference = EXERCISE_SOURCE_PREFERENCES.includes(
-    meta.exerciseSourcePreference as ExerciseSourcePreference
-  )
-    ? (meta.exerciseSourcePreference as ExerciseSourcePreference)
-    : "BOTH";
-
-  return {
-    organizationName: org.name,
-    tagline: meta.tagline ?? "",
-    logoUrl: meta.logoUrl ?? "",
-    phone: meta.phone ?? "",
-    email: meta.email ?? "",
-    website: meta.website ?? "",
-    address: meta.address ?? "",
-    exerciseSourcePreference,
-  };
+  return toMetadata(await getOrganization(dbUser.clerkOrgId));
 }
 
 export async function saveOrganizationProfile(input: OrganizationMetadata) {
@@ -59,52 +68,43 @@ export async function saveOrganizationProfile(input: OrganizationMetadata) {
     return { success: false as const, error: "Organization name is required" };
   }
 
+  const clerkOrgId = dbUser.clerkOrgId;
+
   try {
-    // Fetching the "before" snapshot is a network call to Clerk's API used only to
-    // enrich the audit log's diff. It must never turn a successful save into a
-    // reported failure, so a failure here degrades to "no diff data" rather than
-    // aborting the update or the success response below.
-    const before = await getOrganizationProfile().catch((err) => {
+    // The "before" snapshot only enriches the audit diff; a failure here degrades
+    // to "no diff data" rather than aborting the save.
+    const beforeRow = await getOrganizationOrNull(clerkOrgId).catch((err) => {
       console.error("Failed to fetch organization profile for audit diff:", err);
       return null;
     });
 
-    const client = await clerkClient();
-    const normalizedAfter: OrganizationMetadata = {
-      organizationName: input.organizationName.trim(),
+    // Unset optional fields are sent as "" (cleared), matching the previous
+    // full-replace semantics of the settings form.
+    const afterRow = await upsertOrganizationProfile(clerkOrgId, {
+      name: input.organizationName.trim(),
       tagline: input.tagline ?? "",
-      logoUrl: input.logoUrl ?? "",
       phone: input.phone ?? "",
       email: input.email ?? "",
       website: input.website ?? "",
       address: input.address ?? "",
-      exerciseSourcePreference: EXERCISE_SOURCE_PREFERENCES.includes(
-        input.exerciseSourcePreference as ExerciseSourcePreference
-      )
-        ? (input.exerciseSourcePreference as ExerciseSourcePreference)
-        : "BOTH",
-    };
-
-    await client.organizations.updateOrganization(dbUser.clerkOrgId, {
-      name: normalizedAfter.organizationName,
-      publicMetadata: {
-        tagline: normalizedAfter.tagline,
-        logoUrl: normalizedAfter.logoUrl,
-        phone: normalizedAfter.phone,
-        email: normalizedAfter.email,
-        website: normalizedAfter.website,
-        address: normalizedAfter.address,
-        exerciseSourcePreference: normalizedAfter.exerciseSourcePreference,
-      },
+      exerciseSourcePreference: normalizePreference(input.exerciseSourcePreference),
     });
 
-    // Compare against the same normalized shape used for "before" (getOrganizationProfile
-    // fills unset fields with "") so unset optional fields don't register as spurious diffs.
-    const diff = before
+    // The DB is canonical; Clerk's org name is kept in sync best-effort only.
+    try {
+      const client = await clerkClient();
+      await client.organizations.updateOrganization(clerkOrgId, { name: afterRow.name });
+    } catch (err) {
+      console.error("Failed to sync organization name to Clerk:", err);
+    }
+
+    // Both sides go through toMetadata so unset fields compare as "" and don't
+    // register as spurious diffs.
+    const diff = beforeRow
       ? diffFields(
-          before as unknown as Record<string, unknown>,
-          normalizedAfter as unknown as Record<string, unknown>,
-          ["organizationName", "tagline", "logoUrl", "phone", "email", "website", "address", "exerciseSourcePreference"]
+          toMetadata(beforeRow) as unknown as Record<string, unknown>,
+          toMetadata(afterRow) as unknown as Record<string, unknown>,
+          AUDIT_DIFF_KEYS
         )
       : undefined;
 
@@ -114,12 +114,14 @@ export async function saveOrganizationProfile(input: OrganizationMetadata) {
       actorName: `${dbUser.firstName} ${dbUser.lastName}`,
       action: AUDIT_ACTIONS.CLINIC_SETTINGS_UPDATED,
       targetType: "Organization",
-      targetId: dbUser.clerkOrgId,
-      orgId: dbUser.clerkOrgId,
+      targetId: clerkOrgId,
+      orgId: clerkOrgId,
       metadata: diff,
     });
 
-    revalidatePath("/settings/organization");
+    // The org name feeds the branded display name, so the cached branding is stale.
+    expireBranding(clerkOrgId);
+    revalidatePath("/settings/clinic");
     return { success: true as const };
   } catch (err) {
     console.error("Failed to save organization profile:", err);

@@ -43,6 +43,8 @@ interface PdfHeaderProps {
   organizationName?: string;
   tagline?: string;
   logoBuffer?: Buffer | null;
+  /** Text-safe brand hex for the organization name; omitted → product colour. */
+  accentHex?: string | null;
   pageNumber: number;
 }
 
@@ -50,6 +52,7 @@ export function PdfHeader({
   organizationName,
   tagline,
   logoBuffer,
+  accentHex,
   pageNumber,
 }: PdfHeaderProps) {
   return (
@@ -62,7 +65,17 @@ export function PdfHeader({
           />
         )}
         <View style={styles.organizationInfo}>
-          {organizationName && <Text style={styles.organizationName}>{organizationName}</Text>}
+          {organizationName && (
+            <Text
+              style={
+                accentHex
+                  ? [styles.organizationName, { color: accentHex }]
+                  : styles.organizationName
+              }
+            >
+              {organizationName}
+            </Text>
+          )}
           {tagline && <Text style={styles.tagline}>{tagline}</Text>}
         </View>
       </View>

@@ -1,5 +1,6 @@
 import * as React from "react";
 import { EmailLayout } from "./layout";
+import type { EmailBrandProps } from "@/lib/email/branding";
 
 interface NutritionCommentEmailProps {
   recipientName: string;
@@ -8,9 +9,12 @@ interface NutritionCommentEmailProps {
   nutritionLink: string;
   isReply: boolean;
   unsubscribeUrl?: string;
+  /** Org branding — set only when a client receives this (see lib/email/branding.ts). */
+  brand?: EmailBrandProps;
 }
 
 export function NutritionCommentEmail({
+  brand,
   recipientName,
   authorName,
   commentPreview,
@@ -21,7 +25,9 @@ export function NutritionCommentEmail({
   return (
     <EmailLayout
       title={isReply ? "Nutrition reply" : "Nutrition feedback"}
-      accent="#2563eb"
+      organizationName={brand?.organizationName}
+      accent={brand?.accent ?? "#2563eb"}
+      logoUrl={brand?.logoUrl}
       greeting={`Hi ${recipientName},`}
       intro={
         isReply

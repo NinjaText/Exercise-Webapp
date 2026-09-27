@@ -3,10 +3,14 @@ import { SignUp } from "@clerk/nextjs";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { ClientOnboardingForm } from "@/components/onboarding/client-onboarding-form";
-import { Activity } from "lucide-react";
+import { BrandStyle } from "@/components/branding/brand-style";
+import { OrgIdentity } from "@/components/branding/org-identity";
+import { getOrgBranding } from "@/lib/services/branding.service";
+import { toViewModel } from "@/lib/branding/types";
+import { resolveClientOnboardingOrgId } from "@/lib/branding/client-onboarding";
 
 export default async function ClientOnboardingPage() {
-  const { userId } = await auth();
+  const { userId, orgId } = await auth();
 
   // Unauthenticated: render Clerk's SignUp so it can consume the __clerk_ticket
   // from the invitation URL and complete account creation inline.
@@ -21,34 +25,37 @@ export default async function ClientOnboardingPage() {
   const user = await prisma.user.findUnique({ where: { clerkId: userId } });
   if (user?.onboarded) redirect("/dashboard");
 
+  const branding = await getOrgBranding(resolveClientOnboardingOrgId(user, orgId ?? null));
+  const brandingVm = toViewModel(branding);
+  const personalizeCopy = branding.enabled
+    ? `Complete your profile so ${branding.displayName} can personalize your exercise program.`
+    : "Complete your profile so your trainer can personalize your exercise program.";
+
   return (
     <div className="flex min-h-screen">
-      <div className="hidden w-1/2 flex-col justify-between bg-gradient-to-br from-[#0f172a] via-[#1e3a5f] to-[#0c4a6e] p-12 lg:flex">
+      <BrandStyle branding={branding} />
+      <div
+        className="hidden w-1/2 flex-col justify-between bg-sidebar-gradient p-12 lg:flex"
+      >
         <div className="flex items-center gap-2.5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
-            <Activity className="h-5 w-5 text-primary-foreground" />
-          </div>
-          <span className="text-xl font-bold text-sidebar-foreground">INMOTUS RX</span>
+          <OrgIdentity branding={brandingVm} surface="dark" />
         </div>
         <div>
           <h1 className="text-4xl font-extrabold tracking-tight text-sidebar-foreground">
             Welcome to your rehabilitation program.
           </h1>
           <p className="mt-4 max-w-md text-lg text-sidebar-foreground/70">
-            Complete your profile so your trainer can personalize your exercise program.
+            {personalizeCopy}
           </p>
         </div>
         <p className="text-sm text-sidebar-foreground/40">
-          &copy; {new Date().getFullYear()} INMOTUS RX. All rights reserved.
+          &copy; {new Date().getFullYear()} {branding.displayName}. All rights reserved.
         </p>
       </div>
 
       <div className="flex flex-1 flex-col items-center justify-center bg-[oklch(0.97_0.005_247)] p-6 sm:p-12">
         <div className="flex items-center gap-2.5 mb-8 lg:hidden">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
-            <Activity className="h-5 w-5 text-primary-foreground" />
-          </div>
-          <span className="text-xl font-bold">INMOTUS RX</span>
+          <OrgIdentity branding={brandingVm} surface="light" />
         </div>
         <div className="w-full max-w-lg">
           <ClientOnboardingForm />

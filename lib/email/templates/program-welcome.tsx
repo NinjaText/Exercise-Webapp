@@ -1,14 +1,18 @@
 import * as React from "react";
 import { EmailLayout, Paragraph } from "./layout";
+import type { EmailBrandProps } from "@/lib/email/branding";
 
 interface ProgramWelcomeEmailProps {
   firstName?: string;
   programName: string;
   loginUrl: string;
   isNewAccount: boolean;
+  /** Org branding — set only when a client receives this (see lib/email/branding.ts). */
+  brand?: EmailBrandProps;
 }
 
 export function ProgramWelcomeEmail({
+  brand,
   firstName,
   programName,
   loginUrl,
@@ -17,7 +21,9 @@ export function ProgramWelcomeEmail({
   return (
     <EmailLayout
       title="Welcome"
-      accent="#2563eb"
+      organizationName={brand?.organizationName}
+      accent={brand?.accent ?? "#2563eb"}
+      logoUrl={brand?.logoUrl}
       greeting={firstName ? `Welcome, ${firstName}!` : "Welcome!"}
       intro={
         <>

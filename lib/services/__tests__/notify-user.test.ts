@@ -14,6 +14,9 @@ vi.mock('@/lib/prisma', () => ({
 }))
 
 vi.mock('@/lib/email/send', () => ({ sendEmail: vi.fn() }))
+// Branding has its own suite (notify-user-branding.test.ts); the mocked
+// registry below marks no type clientFacing, so this is never reached.
+vi.mock('@/lib/email/branding', () => ({ getClientEmailBranding: vi.fn(), templateBrand: vi.fn() }))
 
 vi.mock('@/lib/notifications/registry', () => ({
   NOTIFICATION_REGISTRY: {

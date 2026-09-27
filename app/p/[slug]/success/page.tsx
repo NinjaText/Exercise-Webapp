@@ -1,10 +1,32 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { clerkClient } from "@clerk/nextjs/server";
-import { prisma } from "@/lib/prisma";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { BrandStyle } from "@/components/branding/brand-style";
+import { OrgIdentity } from "@/components/branding/org-identity";
+import { getOrgBranding } from "@/lib/services/branding.service";
+import { toViewModel } from "@/lib/branding/types";
+import { brandIconsMetadata } from "@/lib/branding/metadata";
+import { getPurchaseBySessionId } from "@/lib/services/program-purchase.service";
 import { ClaimAccount } from "./claim-account";
 import { PendingStatus } from "./pending-status";
+
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams: Promise<{ session_id?: string }>;
+}): Promise<Metadata> {
+  const { session_id } = await searchParams;
+  const purchase = session_id ? await getPurchaseBySessionId(session_id) : null;
+  const branding = await getOrgBranding(purchase?.orgId ?? null);
+  return {
+    // `absolute`: no app/p layout, so a plain string would get the root
+    // "%s | INMOTUS RX" template appended after the org name.
+    title: { absolute: `Payment successful | ${branding.displayName}` },
+    ...brandIconsMetadata(branding),
+  };
+}
 
 export default async function SuccessPage({
   searchParams,
@@ -17,13 +39,13 @@ export default async function SuccessPage({
   let claimed = false;
   let ticket: string | null = null;
   let buyerEmail: string | null = null;
+  let orgId: string | null = null;
 
   if (session_id) {
-    const purchase = await prisma.programPurchase.findUnique({
-      where: { stripeCheckoutSessionId: session_id },
-    });
+    const purchase = await getPurchaseBySessionId(session_id);
     if (purchase) {
       purchaseFound = true;
+      orgId = purchase.orgId;
       if (purchase.status === "COMPLETED" && purchase.buyerClerkId) {
         if (purchase.accountClaimedAt) {
           claimed = true;
@@ -56,9 +78,16 @@ export default async function SuccessPage({
 
   const isPending = purchaseFound && !claimed && !ticket;
 
+  const branding = await getOrgBranding(orgId);
+  const brandingVm = toViewModel(branding);
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-muted to-info-soft px-4 py-12">
+      <BrandStyle branding={branding} />
       <div className="w-full max-w-md">
+        <div className="mb-6 flex items-center justify-center gap-2.5">
+          <OrgIdentity branding={brandingVm} surface="light" />
+        </div>
         <div className="mb-8 text-center">
           <h1 className="text-2xl font-bold text-foreground">Payment successful 🎉</h1>
           <p className="mt-1 text-muted-foreground">

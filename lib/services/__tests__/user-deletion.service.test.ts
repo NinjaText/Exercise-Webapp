@@ -33,7 +33,6 @@ vi.mock("@/lib/prisma", () => ({
     progressPhoto: { deleteMany: vi.fn() },
     habitLog: { deleteMany: vi.fn() },
     clinicalNote: { deleteMany: vi.fn() },
-    coachBranding: { deleteMany: vi.fn() },
     trainerSubscription: { deleteMany: vi.fn() },
     pendingProgramAssignment: { deleteMany: vi.fn() },
     dismissedInsight: { deleteMany: vi.fn() },

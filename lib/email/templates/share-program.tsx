@@ -1,5 +1,6 @@
 import * as React from 'react'
 import { EmailLayout } from './layout'
+import type { EmailBrandProps } from '@/lib/email/branding'
 
 interface ShareProgramEmailProps {
   programName: string
@@ -7,9 +8,12 @@ interface ShareProgramEmailProps {
   senderName: string
   pdfLink: string
   organizationName?: string
+  /** Org branding — set only when a client receives this (see lib/email/branding.ts). */
+  brand?: EmailBrandProps
 }
 
 export function ShareProgramEmail({
+  brand,
   programName,
   clientName,
   senderName,
@@ -19,8 +23,9 @@ export function ShareProgramEmail({
   return (
     <EmailLayout
       title="Your Exercise Plan"
-      organizationName={organizationName}
-      accent="#2563eb"
+      organizationName={brand?.organizationName ?? organizationName}
+      accent={brand?.accent ?? "#2563eb"}
+      logoUrl={brand?.logoUrl}
       greeting={clientName ? `Hi ${clientName},` : 'Hello,'}
       intro={`${senderName} has shared your exercise plan with you.`}
       details={[

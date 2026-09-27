@@ -9,6 +9,7 @@ vi.mock('@/lib/prisma', () => ({
   },
 }))
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
+vi.mock('@/lib/email/branding', () => ({ getEmailBranding: vi.fn(), templateBrand: vi.fn() }))
 vi.mock('@/lib/services/ai.service', () => ({ generateProgram: vi.fn() }))
 vi.mock('@/lib/services/program-categorization.service', () => ({
   categorizeGeneratedProgram: vi.fn().mockResolvedValue({

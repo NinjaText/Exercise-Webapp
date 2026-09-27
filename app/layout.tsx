@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { PRODUCT_ICONS } from "@/lib/branding/metadata";
 import { Inter, Lexend } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import { ToastProvider } from "@/components/providers/toast-provider";
@@ -22,6 +23,9 @@ const lexend = Lexend({
 
 export const metadata: Metadata = {
   title: { default: "INMOTUS RX", template: "%s | INMOTUS RX" },
+  // Config (not app/favicon.ico file convention) so a branded org's nested
+  // `icons` replaces it instead of Next injecting the product icon first.
+  icons: PRODUCT_ICONS,
   description:
     "Personalized AI-powered home exercise programs for trainers and clients. Generate, assign, and track exercise programs in minutes.",
 };

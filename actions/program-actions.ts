@@ -25,6 +25,7 @@ import {
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { sendEmail } from "@/lib/email/send";
+import { getEmailBranding, templateBrand } from "@/lib/email/branding";
 import { appBaseUrl } from "@/lib/utils/app-url";
 import { ShareProgramEmail } from "@/lib/email/templates/share-program";
 import { parseShareRecipients } from "./program-share-helpers";
@@ -987,6 +988,10 @@ export async function shareProgramViaEmailAction(
 
   const recipients = parseShareRecipients(toEmail, ccRaw);
 
+  // The plan goes to the trainer's client (and their care team), so it carries
+  // the trainer's org brand. Never throws; falls back to product defaults.
+  const branding = await getEmailBranding(dbUser.clerkOrgId);
+
   const ok = await sendEmail({
     to: recipients,
     subject: `Your exercise plan: ${program.name}`,
@@ -995,7 +1000,10 @@ export async function shareProgramViaEmailAction(
       clientName,
       senderName,
       pdfLink,
+      brand: templateBrand(branding),
     }),
+    // Unbranded → no display name / Reply-To: sent exactly as before branding.
+    ...(branding.enabled ? { fromName: branding.fromName, replyTo: branding.replyTo } : {}),
   });
 
   if (!ok) return { success: false, error: "Failed to send email" };

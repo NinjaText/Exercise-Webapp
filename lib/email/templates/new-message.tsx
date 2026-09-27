@@ -1,5 +1,6 @@
 import * as React from "react";
 import { EmailLayout } from "./layout";
+import type { EmailBrandProps } from "@/lib/email/branding";
 
 interface NewMessageEmailProps {
   recipientName: string;
@@ -8,9 +9,12 @@ interface NewMessageEmailProps {
   preview: string;
   messagesLink: string;
   unsubscribeUrl?: string;
+  /** Org branding — set only when a client receives this (see lib/email/branding.ts). */
+  brand?: EmailBrandProps;
 }
 
 export function NewMessageEmail({
+  brand,
   recipientName,
   senderName,
   sentAt,
@@ -21,7 +25,9 @@ export function NewMessageEmail({
   return (
     <EmailLayout
       title="New message"
-      accent="#2563eb"
+      organizationName={brand?.organizationName}
+      accent={brand?.accent ?? "#2563eb"}
+      logoUrl={brand?.logoUrl}
       greeting={`Hi ${recipientName},`}
       intro={`${senderName} sent you a message.`}
       details={[

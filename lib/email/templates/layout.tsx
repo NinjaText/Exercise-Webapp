@@ -4,8 +4,16 @@ export interface EmailLayoutProps {
   /** Document <title>. Not the subject line — that comes from the registry. */
   title: string;
   organizationName?: string;
-  /** Header bar and CTA button colour. Defaults to brand blue. */
+  /** Header bar and CTA button colour (white text on it). Defaults to brand blue. */
   accent?: string;
+  /**
+   * Org logo (own-bucket PNG, DARK-surface variant — it sits on the accent
+   * bar behind white text) shown in the header bar in place of the name. The
+   * name remains its alt text and the footer line. No explicit `width`
+   * attribute: logo dimensions are not stored, so height 32 + `width:auto`
+   * (capped by max-width) is used instead.
+   */
+  logoUrl?: string;
   /** e.g. "Hi Sarah," */
   greeting: React.ReactNode;
   intro: React.ReactNode;
@@ -32,6 +40,7 @@ export function EmailLayout({
   title,
   organizationName = "INMOTUS RX",
   accent = "#2563eb",
+  logoUrl,
   greeting,
   intro,
   details,
@@ -58,7 +67,18 @@ export function EmailLayout({
                   <tbody>
                     <tr>
                       <td style={{ ...styles.headerBar, backgroundColor: accent }}>
-                        <p style={styles.brandName}>{organizationName}</p>
+                        {logoUrl ? (
+                          // Email HTML: next/image cannot run in a mail client.
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={logoUrl}
+                            alt={organizationName}
+                            height="32"
+                            style={styles.logo}
+                          />
+                        ) : (
+                          <p style={styles.brandName}>{organizationName}</p>
+                        )}
                       </td>
                     </tr>
 
@@ -176,6 +196,19 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 700,
     margin: 0,
     letterSpacing: "0.5px",
+  },
+  logo: {
+    display: "block",
+    height: "32px",
+    width: "auto",
+    maxWidth: "240px",
+    border: 0,
+    outline: "none",
+    textDecoration: "none",
+    // Alt text shows when images are blocked; keep it legible on the accent.
+    color: "#ffffff",
+    fontSize: "18px",
+    fontWeight: 700,
   },
   bodyPad: { padding: "32px" },
   greeting: { color: "#111827", fontSize: "20px", fontWeight: 600, margin: "0 0 12px 0" },

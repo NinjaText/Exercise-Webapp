@@ -3,7 +3,7 @@ import { getOrganizationProfile } from "@/actions/organization-actions";
 import { OrganizationProfileForm } from "@/components/settings/organization-profile-form";
 import { PageHeader } from "@/components/shared/page-header";
 import { PageShell } from "@/components/shared/page-shell";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Palette } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
@@ -22,7 +22,15 @@ export default async function OrganizationSettingsPage() {
         </Button>
         <PageHeader
           title="Organization Profile"
-          description="Customize your organization branding for PDF exports"
+          description="Your organization's profile and contact details"
+          secondaryActions={
+            <Button variant="outline" asChild>
+              <Link href="/settings/branding">
+                <Palette className="mr-1 h-4 w-4" />
+                Branding
+              </Link>
+            </Button>
+          }
           className="pb-0"
         />
       </div>

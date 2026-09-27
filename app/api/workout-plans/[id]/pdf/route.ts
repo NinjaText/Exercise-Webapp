@@ -1,11 +1,15 @@
 import React from "react";
 import { NextRequest, NextResponse } from "next/server";
-import { auth, clerkClient } from "@clerk/nextjs/server";
+import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { readFile } from "fs/promises";
 import { join } from "path";
 import { HEPDocument } from "@/lib/pdf/hep-document";
+import { getOrganizationOrNull } from "@/lib/services/organization.service";
+import { getOrgBranding } from "@/lib/services/branding.service";
+import { resolvePdfBranding } from "@/lib/pdf/pdf-branding";
+import { fetchPdfLogo } from "@/lib/pdf/fetch-pdf-logo";
 import {
   isYouTubeUrl,
   extractYouTubeId,
@@ -63,29 +67,19 @@ export async function GET(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  // Fetch organization profile from Clerk org metadata
+  // Org name/tagline from the Organization row; logo + accent only when the
+  // org has branding enabled (own R2 assets only).
   const creator = await prisma.user.findUnique({
     where: { id: plan.createdById },
     select: { clerkOrgId: true },
   });
+  const clerkOrgId = creator?.clerkOrgId ?? null;
 
-  let organizationProfile: { organizationName?: string; tagline?: string; logoUrl?: string } = {};
-  if (creator?.clerkOrgId) {
-    try {
-      const client = await clerkClient();
-      const org = await client.organizations.getOrganization({
-        organizationId: creator.clerkOrgId,
-      });
-      const meta = (org.publicMetadata ?? {}) as Record<string, string>;
-      organizationProfile = {
-        organizationName: org.name,
-        tagline: meta.tagline || undefined,
-        logoUrl: meta.logoUrl || undefined,
-      };
-    } catch {
-      // Proceed without organization profile
-    }
-  }
+  const [org, branding] = await Promise.all([
+    clerkOrgId ? getOrganizationOrNull(clerkOrgId) : Promise.resolve(null),
+    getOrgBranding(clerkOrgId),
+  ]);
+  const pdfBranding = resolvePdfBranding(org, branding);
 
   // Load placeholder image
   let placeholderBuffer: Buffer;
@@ -101,23 +95,8 @@ export async function GET(
     );
   }
 
-  // Fetch organization logo
-  let organizationLogoBuffer: Buffer | null = null;
-  if (organizationProfile?.logoUrl) {
-    try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 5000);
-      const logoRes = await fetch(organizationProfile.logoUrl, {
-        signal: controller.signal,
-      });
-      clearTimeout(timeout);
-      if (logoRes.ok) {
-        organizationLogoBuffer = Buffer.from(await logoRes.arrayBuffer());
-      }
-    } catch {
-      // Proceed without logo
-    }
-  }
+  // Fetch organization logo (5 s timeout, PNG only; null → no logo)
+  const organizationLogoBuffer = await fetchPdfLogo(pdfBranding.logoUrl);
 
   // Fetch exercise images in parallel
   const imageMap = new Map<string, Buffer>();
@@ -207,9 +186,10 @@ export async function GET(
     createdDate,
     daysPerWeek: plan.daysPerWeek,
     durationMinutes: plan.durationMinutes,
-    organizationName: organizationProfile?.organizationName,
-    organizationTagline: organizationProfile?.tagline ?? undefined,
+    organizationName: pdfBranding.organizationName,
+    organizationTagline: pdfBranding.tagline,
     organizationLogoBuffer,
+    accentHex: pdfBranding.accentHex,
     exercisesByDay,
     imageMap,
     placeholderBuffer,
