@@ -510,14 +510,14 @@ function LibraryProgramRow({
               "inline-flex size-8 items-center justify-center rounded-md transition-opacity hover:bg-muted disabled:opacity-60",
               program.isFavorite
                 ? "text-warning opacity-100"
-                : "text-muted-foreground opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+                : "text-muted-foreground pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 pointer-fine:focus-visible:opacity-100 pointer-fine:disabled:opacity-60"
             )}
           >
             <Star className={cn("h-4 w-4", program.isFavorite && "fill-current")} />
           </button>
           <Link
             href={detailHref}
-            className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity hover:bg-muted hover:text-foreground group-hover:opacity-100 focus-visible:opacity-100"
+            className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground pointer-fine:opacity-0 transition-opacity hover:bg-muted hover:text-foreground pointer-fine:group-hover:opacity-100 pointer-fine:focus-visible:opacity-100"
             title={matchedWorkoutId ? "View workout" : "View program"}
             aria-label={matchedWorkoutId ? "View workout" : "View program"}
           >
@@ -740,7 +740,7 @@ function AssignedProgramRow({
         <div className="flex items-center justify-end gap-1">
           <Link
             href={`/programs/${program.id}`}
-            className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity hover:bg-muted hover:text-foreground group-hover:opacity-100 focus-visible:opacity-100"
+            className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground pointer-fine:opacity-0 transition-opacity hover:bg-muted hover:text-foreground pointer-fine:group-hover:opacity-100 pointer-fine:focus-visible:opacity-100"
             title="View program"
             aria-label="View program"
           >

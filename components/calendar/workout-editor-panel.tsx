@@ -356,7 +356,7 @@ function SortableExercise({
             type="checkbox"
             className={cn(
               "h-4 w-4 shrink-0 rounded border-border cursor-pointer transition-opacity mt-1",
-              isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+              isSelected ? "opacity-100" : "pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 pointer-fine:focus-visible:opacity-100"
             )}
             checked={!!isSelected}
             onChange={(e) => {
@@ -425,7 +425,7 @@ function SortableExercise({
   <DropdownMenu>
     <DropdownMenuTrigger
       aria-label="Exercise actions"
-      className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground outline-none transition-opacity hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100 motion-reduce:transition-none lg:opacity-0"
+      className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground outline-none transition-opacity hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100 motion-reduce:transition-none lg:pointer-fine:opacity-0"
     >
       <MoreVertical className="h-3.5 w-3.5" />
     </DropdownMenuTrigger>
@@ -592,9 +592,9 @@ function SortableExercise({
                 <div className="flex justify-center">
                   <Button
                     variant="ghost"
-                    size="icon"
+                    size="icon-sm"
                     aria-label={`Delete set ${setIndex + 1}`}
-                    className="size-8 text-muted-foreground opacity-0 transition-opacity hover:text-destructive focus-visible:opacity-100 group-hover/set:opacity-100 disabled:opacity-0 motion-reduce:transition-none"                                                                               
+                    className="text-muted-foreground pointer-fine:opacity-0 transition-opacity hover:text-destructive pointer-fine:focus-visible:opacity-100 pointer-fine:group-hover/set:opacity-100 disabled:opacity-0 pointer-fine:disabled:opacity-0 motion-reduce:transition-none"                                                                               
                     onClick={() => onDeleteSet(blockIndex, exerciseIndex, setIndex)}  
                     disabled={isCompleted}
                   >

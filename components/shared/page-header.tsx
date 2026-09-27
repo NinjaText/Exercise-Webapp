@@ -138,7 +138,10 @@ export function PageHeader({
       )}
 
       {tabs && (
-        <div data-slot="page-header-tabs" className="-mb-2 border-b border-border">
+        <div
+          data-slot="page-header-tabs"
+          className="-mb-2 min-w-0 max-w-full border-b border-border max-sm:overflow-x-auto"
+        >
           {tabs}
         </div>
       )}

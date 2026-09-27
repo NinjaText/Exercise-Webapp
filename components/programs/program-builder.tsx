@@ -1074,7 +1074,7 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
                                             selection.blockIdx === bi &&
                                             selection.exerciseIdxs.has(ei)
                                               ? "opacity-100"
-                                              : "opacity-0 group-hover:opacity-100"
+                                              : "pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 pointer-fine:focus-visible:opacity-100"
                                           )}
                                           checked={
                                             selection.level === "exercises" &&

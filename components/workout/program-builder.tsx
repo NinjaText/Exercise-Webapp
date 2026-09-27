@@ -69,7 +69,7 @@ function SortableExercise({ exercise, onRemove }: { exercise: ExerciseItem; onRe
         <div className="text-sm text-muted-foreground">Sets: {exercise.sets || 0}</div>
         <div className="text-sm text-muted-foreground">Reps: {exercise.reps || 0}</div>
       </div>
-      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive opacity-0 group-hover:opacity-100" onClick={onRemove}>
+      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 pointer-fine:focus-visible:opacity-100" onClick={onRemove}>
         <Trash2 size={16} />
       </Button>
     </div>

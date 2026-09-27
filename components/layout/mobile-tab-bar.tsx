@@ -115,31 +115,55 @@ export function MobileTabBar({
           <SheetContent side="bottom" className="rounded-t-2xl pb-[calc(1rem_+_var(--safe-bottom))]">
             <SheetTitle className="px-4 pt-4 text-label text-muted-foreground">More</SheetTitle>
             <ul className="grid grid-cols-3 gap-2 px-4">
-              {moreItems.map((item) => {
-                const Icon = item.icon;
-                return (
-                  <li key={item.href}>
-                    <Link
-                      href={item.href}
-                      onClick={() => setMoreOpen(false)}
-                      aria-current={item.href === active ? "page" : undefined}
-                      className={cn(
-                        "flex min-h-[72px] flex-col items-center justify-center gap-1.5 rounded-xl border px-1 text-center text-xs font-medium outline-none transition-colors motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-ring",
-                        item.href === active
-                          ? "border-primary/40 bg-primary/5 text-primary"
-                          : "border-border bg-surface text-foreground hover:bg-surface-muted"
-                      )}
-                    >
-                      <Icon className="size-5" aria-hidden />
-                      <span>{item.label}</span>
-                    </Link>
-                  </li>
-                );
-              })}
+              {moreItems.map((item) => (
+                <li key={item.href}>
+                  <MoreSheetTile
+                    item={item}
+                    isActive={item.href === active}
+                    onNavigate={() => setMoreOpen(false)}
+                  />
+                </li>
+              ))}
             </ul>
           </SheetContent>
         </Sheet>
       )}
     </>
+  );
+}
+
+interface MoreSheetTileProps {
+  item: NavItem;
+  isActive: boolean;
+  onNavigate: () => void;
+}
+
+/**
+ * One destination in the More sheet. Tier 3 (desktop-only) destinations carry
+ * a "Desktop" badge so trainers know the page is read-only on a phone
+ * (spec §5a). Exported for tests: the closed sheet renders nothing statically.
+ */
+export function MoreSheetTile({ item, isActive, onNavigate }: MoreSheetTileProps) {
+  const Icon = item.icon;
+  return (
+    <Link
+      href={item.href}
+      onClick={onNavigate}
+      aria-current={isActive ? "page" : undefined}
+      className={cn(
+        "flex min-h-[72px] flex-col items-center justify-center gap-1.5 rounded-xl border px-1 text-center text-xs font-medium outline-none transition-colors motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-ring",
+        isActive
+          ? "border-primary/40 bg-primary/5 text-primary"
+          : "border-border bg-surface text-foreground hover:bg-surface-muted"
+      )}
+    >
+      <Icon className="size-5" aria-hidden />
+      <span>{item.label}</span>
+      {item.tier === 3 && (
+        <Badge variant="secondary" className="h-4 px-1.5 text-[10px]">
+          Desktop
+        </Badge>
+      )}
+    </Link>
   );
 }

@@ -622,7 +622,7 @@ function MessageBubble({
           <DropdownMenu>
             {/* base-ui triggers do not support asChild — the icon is passed as children. */}
             <DropdownMenuTrigger
-              className="mt-1 inline-flex h-6 w-6 shrink-0 items-center justify-center self-start rounded-md text-muted-foreground opacity-0 outline-none transition-opacity hover:bg-muted hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100"
+              className="mt-1 inline-flex h-6 w-6 shrink-0 items-center justify-center self-start rounded-md text-muted-foreground pointer-fine:opacity-0 outline-none transition-opacity hover:bg-muted hover:text-foreground pointer-fine:focus-visible:opacity-100 pointer-fine:group-hover:opacity-100"
               aria-label="Message actions"
             >
               <MoreVertical className="h-3.5 w-3.5" />

@@ -94,7 +94,7 @@ export function PhotosTab({ photos, clientId: _clientId }: PhotosTabProps) {
                   )}
 
                   {/* Delete overlay */}
-                  <div className="absolute inset-0 flex items-start justify-end p-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="absolute inset-0 flex items-start justify-end p-2 pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 pointer-fine:focus-within:opacity-100 transition-opacity">
                     <Button
                       size="icon"
                       variant="destructive"
