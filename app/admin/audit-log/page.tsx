@@ -30,6 +30,13 @@ export default async function AdminAuditLogPage({ searchParams }: PageProps) {
     orgId ? `org=${orgId}` : "",
   ].filter(Boolean).join("&");
 
+  // Value→label map so the Select trigger shows the trainer name, not the raw org id.
+  // (A render-function child can't cross the server→client boundary.)
+  const orgItems: Record<string, string> = { ALL: "All organizations" };
+  for (const t of trainersForFilter) {
+    if (t.clerkOrgId) orgItems[t.clerkOrgId] = `${t.firstName} ${t.lastName}`;
+  }
+
   return (
     <PageShell>
       <PageHeader
@@ -51,15 +58,9 @@ export default async function AdminAuditLogPage({ searchParams }: PageProps) {
               ))}
             </SelectContent>
           </Select>
-          <Select name="org" defaultValue={orgId ?? "ALL"}>
+          <Select name="org" defaultValue={orgId ?? "ALL"} items={orgItems}>
             <SelectTrigger className="h-9 w-56">
-              <SelectValue placeholder="All organizations">
-                {(value: string | null) => {
-                  if (!value || value === "ALL") return "All organizations";
-                  const trainer = trainersForFilter.find((t) => t.clerkOrgId === value);
-                  return trainer ? `${trainer.firstName} ${trainer.lastName}` : "All organizations";
-                }}
-              </SelectValue>
+              <SelectValue placeholder="All organizations" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="ALL">All organizations</SelectItem>

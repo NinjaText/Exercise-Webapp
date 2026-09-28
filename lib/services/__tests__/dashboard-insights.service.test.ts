@@ -13,6 +13,7 @@ import {
   getLastCompletedAt,
   buildPriorityAlerts,
   countClientsNeedingAttention,
+  computeClientProgressBreakdown,
   type ClientSessionSummary,
   type ClientSnapshot,
 } from "../dashboard-insights.service";
@@ -445,5 +446,42 @@ describe("countClientsNeedingAttention", () => {
       { clientId: "c", clientName: "C", severity: "medium" as const, kind: "discomfort" as const, message: "", reason: "", href: "" },
     ];
     expect(countClientsNeedingAttention(alerts)).toBe(2);
+  });
+});
+
+describe("computeClientProgressBreakdown", () => {
+  const alert = (clientId: string, severity: "high" | "medium" | "low", reason: string) => ({
+    clientId,
+    clientName: clientId,
+    severity,
+    kind: "inactive" as const,
+    message: `${clientId} message`,
+    reason,
+    href: "",
+  });
+
+  it("buckets each client by worst non-low alert and lists them worst-first", () => {
+    const snapshots = [
+      snapshot({ clientId: "a", clientName: "Zoe" }),
+      snapshot({ clientId: "b", clientName: "Ben", imageUrl: "https://img/b.png" }),
+      snapshot({ clientId: "c", clientName: "Amy" }),
+      snapshot({ clientId: "d", clientName: "Cal" }),
+    ];
+    const alerts = [
+      alert("a", "medium", "discomfort reported"),
+      alert("a", "high", "no activity for 9 days"),
+      alert("b", "low", "all done"),
+      alert("c", "medium", "2 delayed sessions"),
+    ];
+
+    const result = computeClientProgressBreakdown(snapshots, alerts);
+
+    expect(result).toMatchObject({ onTrack: 2, atRisk: 1, offTrack: 1, total: 4 });
+    expect(result.clients).toEqual([
+      { clientId: "a", clientName: "Zoe", imageUrl: null, status: "offTrack", reason: "no activity for 9 days" },
+      { clientId: "c", clientName: "Amy", imageUrl: null, status: "atRisk", reason: "2 delayed sessions" },
+      { clientId: "b", clientName: "Ben", imageUrl: "https://img/b.png", status: "onTrack", reason: null },
+      { clientId: "d", clientName: "Cal", imageUrl: null, status: "onTrack", reason: null },
+    ]);
   });
 });

@@ -75,6 +75,7 @@ export interface ClientActiveProgram {
 export interface ClientSnapshot {
   clientId: string;
   clientName: string;
+  imageUrl?: string | null;
   sessions: ClientSessionSummary[];
   activeProgram: ClientActiveProgram | null;
   recentFeedback: {
@@ -92,11 +93,24 @@ export interface ClientMetrics {
   lastCompletedAt: Date | null;
 }
 
+export type ClientProgressStatus = "onTrack" | "atRisk" | "offTrack";
+
+export interface ClientProgressEntry {
+  clientId: string;
+  clientName: string;
+  imageUrl: string | null;
+  status: ClientProgressStatus;
+  /** Evidence from the client's worst alert; null when On Track. */
+  reason: string | null;
+}
+
 export interface ClientProgressBreakdown {
   onTrack: number;
   atRisk: number;
   offTrack: number;
   total: number;
+  /** Every client, worst status first, then by name. */
+  clients: ClientProgressEntry[];
 }
 
 export interface DashboardInsights {
@@ -371,26 +385,40 @@ export function computeClientProgressBreakdown(
   snapshots: ClientSnapshot[],
   alerts: PriorityAlert[]
 ): ClientProgressBreakdown {
-  const worstSeverityByClient = new Map<string, AlertSeverity>();
+  const worstAlertByClient = new Map<string, PriorityAlert>();
   for (const alert of alerts) {
     if (alert.severity === "low") continue;
-    const current = worstSeverityByClient.get(alert.clientId);
-    if (!current || SEVERITY_RANK[alert.severity] < SEVERITY_RANK[current]) {
-      worstSeverityByClient.set(alert.clientId, alert.severity);
+    const current = worstAlertByClient.get(alert.clientId);
+    if (!current || SEVERITY_RANK[alert.severity] < SEVERITY_RANK[current.severity]) {
+      worstAlertByClient.set(alert.clientId, alert);
     }
   }
 
-  let onTrack = 0;
-  let atRisk = 0;
-  let offTrack = 0;
-  for (const snap of snapshots) {
-    const severity = worstSeverityByClient.get(snap.clientId);
-    if (severity === "high") offTrack += 1;
-    else if (severity === "medium") atRisk += 1;
-    else onTrack += 1;
-  }
+  const clients: ClientProgressEntry[] = snapshots.map((snap) => {
+    const worst = worstAlertByClient.get(snap.clientId);
+    const status: ClientProgressStatus =
+      worst?.severity === "high" ? "offTrack" : worst?.severity === "medium" ? "atRisk" : "onTrack";
+    return {
+      clientId: snap.clientId,
+      clientName: snap.clientName,
+      imageUrl: snap.imageUrl ?? null,
+      status,
+      reason: worst ? worst.reason || worst.message : null,
+    };
+  });
 
-  return { onTrack, atRisk, offTrack, total: snapshots.length };
+  const statusRank: Record<ClientProgressStatus, number> = { offTrack: 0, atRisk: 1, onTrack: 2 };
+  clients.sort(
+    (a, b) => statusRank[a.status] - statusRank[b.status] || a.clientName.localeCompare(b.clientName)
+  );
+
+  return {
+    onTrack: clients.filter((c) => c.status === "onTrack").length,
+    atRisk: clients.filter((c) => c.status === "atRisk").length,
+    offTrack: clients.filter((c) => c.status === "offTrack").length,
+    total: snapshots.length,
+    clients,
+  };
 }
 
 export async function getClientSnapshots(
@@ -486,6 +514,7 @@ export async function getClientSnapshots(
   return clients.map((c) => ({
     clientId: c.id,
     clientName: getDisplayName(c),
+    imageUrl: c.imageUrl ?? null,
     sessions: sessionsByClient.get(c.id) ?? [],
     activeProgram: programByClient.get(c.id) ?? null,
     recentFeedback: feedbackByClient.get(c.id) ?? [],
