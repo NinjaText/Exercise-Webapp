@@ -4,6 +4,7 @@ import { auth, clerkClient, currentUser } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import { stripe } from "@/lib/stripe";
+import { logUserAudit, AUDIT_ACTIONS } from "@/lib/services/audit-log.service";
 
 export async function completeTrainerOnboarding(data: {
   firstName: string;
@@ -77,6 +78,13 @@ export async function completeTrainerOnboarding(data: {
         },
       });
     }
+
+    await logUserAudit(user, () => ({
+      action: AUDIT_ACTIONS.ONBOARDING_COMPLETED,
+      targetType: "Organization",
+      targetId: org.id,
+      targetLabel: organizationName,
+    }));
   } catch (err) {
     console.error("Failed to complete trainer onboarding:", err);
     return { success: false as const, error: "Failed to set up organization. Please try again." };
@@ -155,6 +163,13 @@ export async function completeClientOnboarding(data: {
     update: profileData,
     create: { userId: user.id, ...profileData },
   });
+
+  await logUserAudit(user, () => ({
+    action: AUDIT_ACTIONS.ONBOARDING_COMPLETED,
+    targetType: "User",
+    targetId: user.id,
+    targetLabel: `${user.firstName} ${user.lastName}`,
+  }));
 
   redirect("/dashboard");
 }

@@ -8,6 +8,7 @@ import { getClientIdsForTrainer } from "@/lib/services/client.service";
 import { prisma } from "@/lib/prisma";
 import { notifyUser, NOTIFICATION_TYPES } from "@/lib/services/notification.service";
 import { appBaseUrl } from "@/lib/utils/app-url";
+import { logUserAudit, AUDIT_ACTIONS } from "@/lib/services/audit-log.service";
 import { format } from "date-fns";
 
 // ─── Trainer actions ────────────────────────────────────────────────────────
@@ -72,6 +73,20 @@ export async function assignCheckInAction(
     revalidatePath("/check-ins");
     revalidatePath(`/clients/${clientId}`);
 
+    await logUserAudit(user, async () => {
+      const client = await prisma.user.findUnique({
+        where: { id: clientId },
+        select: { firstName: true, lastName: true },
+      });
+      return {
+        action: AUDIT_ACTIONS.CHECK_IN_ASSIGNED,
+        targetType: "CheckInAssignment",
+        targetId: assignment.id,
+        targetLabel: client ? `${client.firstName} ${client.lastName}` : undefined,
+        metadata: { template: template?.name },
+      };
+    });
+
     const checkInLink = `${appBaseUrl()}/check-ins`;
 
     await notifyUser({
@@ -125,6 +140,11 @@ export async function markReviewedAction(responseId: string) {
       responseId,
       user.id
     );
+    await logUserAudit(user, () => ({
+      action: AUDIT_ACTIONS.CHECK_IN_REVIEWED,
+      targetType: "CheckInResponse",
+      targetId: responseId,
+    }));
     revalidatePath("/check-ins");
     revalidatePath(`/check-ins/${responseId}`);
     return { success: true as const, data: response };
@@ -169,6 +189,12 @@ export async function submitCheckInResponseAction(
       user.id,
       answers
     );
+    await logUserAudit(user, () => ({
+      action: AUDIT_ACTIONS.CHECK_IN_SUBMITTED,
+      targetType: "CheckInResponse",
+      targetId: response.id,
+      targetLabel: assignment?.template.name,
+    }));
     revalidatePath("/check-ins");
 
     if (assignment) {

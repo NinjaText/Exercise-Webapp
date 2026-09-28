@@ -404,7 +404,19 @@ export interface DailySummary {
     waterMl: number | null;
   };
   adherencePct: number | null;
+  /** Distinct meals (mealType groups) — not individual food items. */
   mealsLogged: number;
+  /** Individual NutritionLog rows (food items) across all meals. */
+  itemsLogged: number;
+}
+
+/**
+ * A "meal" is the set of NutritionLog rows sharing a (date, mealType) — the
+ * same grouping updateMealGroup edits — so a breakfast logged as six
+ * ingredients counts as one meal, not six.
+ */
+export function countMeals(logs: { mealType: string }[]): number {
+  return new Set(logs.map((l) => l.mealType)).size;
 }
 
 /**
@@ -462,7 +474,8 @@ export async function getDailySummary(clientId: string, date: Date): Promise<Dai
     consumed,
     remaining,
     adherencePct: computeAdherence(target, consumed),
-    mealsLogged: logs.length,
+    mealsLogged: countMeals(logs),
+    itemsLogged: logs.length,
   };
 }
 

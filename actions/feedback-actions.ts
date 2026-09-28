@@ -9,6 +9,7 @@ import { getClientIdsForTrainer } from "@/lib/services/client.service";
 import type { FeedbackRating } from "@prisma/client";
 import { notifyUser, NOTIFICATION_TYPES } from "@/lib/services/notification.service";
 import { appBaseUrl } from "@/lib/utils/app-url";
+import { logUserAudit, AUDIT_ACTIONS } from "@/lib/services/audit-log.service";
 
 export async function submitFeedbackAction(input: {
   planExerciseId: string;
@@ -29,7 +30,7 @@ export async function submitFeedbackAction(input: {
 
   const pe = await prisma.planExercise.findUnique({
     where: { id: parsed.data.planExerciseId },
-    select: { plan: { select: { clientId: true } } },
+    select: { plan: { select: { clientId: true } }, exercise: { select: { name: true } } },
   });
   if (!pe || pe.plan.clientId !== dbUser.id) {
     return { success: false as const, error: "Forbidden" };
@@ -42,6 +43,14 @@ export async function submitFeedbackAction(input: {
       rating: parsed.data.rating as FeedbackRating,
       comment: parsed.data.comment,
     });
+
+    await logUserAudit(dbUser, () => ({
+      action: AUDIT_ACTIONS.FEEDBACK_SUBMITTED,
+      targetType: "ExerciseFeedback",
+      targetId: feedback.id,
+      targetLabel: pe.exercise.name,
+      metadata: { rating: parsed.data.rating, hasComment: Boolean(parsed.data.comment) },
+    }));
 
     revalidatePath("/workout-plans");
     return { success: true as const, data: feedback };
@@ -110,7 +119,7 @@ export async function respondToFeedbackAction(input: {
 
   const feedback = await prisma.exerciseFeedback.findUnique({
     where: { id: parsed.data.feedbackId },
-    select: { clientId: true },
+    select: { clientId: true, client: { select: { firstName: true, lastName: true } } },
   });
   if (!feedback) {
     return { success: false as const, error: "Feedback not found" };
@@ -122,6 +131,13 @@ export async function respondToFeedbackAction(input: {
 
   try {
     await feedbackService.respondToFeedback(parsed.data.feedbackId, parsed.data.trainerResponse);
+
+    await logUserAudit(dbUser, () => ({
+      action: AUDIT_ACTIONS.FEEDBACK_RESPONDED,
+      targetType: "ExerciseFeedback",
+      targetId: parsed.data.feedbackId,
+      targetLabel: `${feedback.client.firstName} ${feedback.client.lastName}`,
+    }));
 
     const dashboardLink = `${appBaseUrl()}/dashboard`;
     await notifyUser({

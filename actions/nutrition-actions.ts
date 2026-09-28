@@ -15,6 +15,7 @@ import { getR2Client, R2_BUCKET_NAME, R2_PUBLIC_URL } from "@/lib/r2";
 import { pusherServer } from "@/lib/pusher";
 import { notifyUser, NOTIFICATION_TYPES } from "@/lib/services/notification.service";
 import { appBaseUrl } from "@/lib/utils/app-url";
+import { logUserAudit, AUDIT_ACTIONS } from "@/lib/services/audit-log.service";
 import { getClientIdsForTrainer, getTrainerForClient } from "@/lib/services/client.service";
 import * as nutritionService from "@/lib/services/nutrition.service";
 import * as nutritionAiService from "@/lib/services/nutrition-ai.service";
@@ -103,6 +104,12 @@ export async function deleteNutritionLogAction(logId: string): Promise<ActionRes
 
   try {
     await nutritionService.deleteNutritionLog(logId);
+    await logUserAudit(user, () => ({
+      action: AUDIT_ACTIONS.MEAL_DELETED,
+      targetType: "NutritionLog",
+      targetId: logId,
+      targetLabel: log.mealType,
+    }));
     revalidatePath("/nutrition");
     return { success: true, data: undefined };
   } catch (err) {
@@ -386,6 +393,13 @@ export async function createNutritionLogsBulkAction(
         })
       )
     );
+    await logUserAudit(user, () => ({
+      action: AUDIT_ACTIONS.MEAL_LOGGED,
+      targetType: "NutritionLog",
+      targetId: created[0]?.id,
+      targetLabel: mealType,
+      metadata: { items: created.length, date },
+    }));
     revalidatePath("/nutrition");
     return { success: true, data: { ids: created.map((l) => l.id) } };
   } catch (err) {

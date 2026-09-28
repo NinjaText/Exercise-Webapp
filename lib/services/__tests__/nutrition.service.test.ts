@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import {
   computeAdherence,
+  countMeals,
   updateMealGroup,
   parseNutritionDateParam,
   resolveNutritionRange,
@@ -53,6 +54,27 @@ describe('computeAdherence', () => {
     const target = { calories: 2000, proteinG: 100, carbsG: 200, fatG: 50, waterMl: 2000 }
     const consumed = { calories: 2000, proteinG: 100, carbsG: 200, fatG: 50, waterMl: 2000 }
     expect(computeAdherence(target, consumed)).toBe(100)
+  })
+})
+
+describe('countMeals', () => {
+  it('counts a multi-item meal as one meal', () => {
+    const logs = Array.from({ length: 6 }, () => ({ mealType: 'BREAKFAST' }))
+    expect(countMeals(logs)).toBe(1)
+  })
+
+  it('counts each distinct meal type once', () => {
+    const logs = [
+      { mealType: 'BREAKFAST' },
+      { mealType: 'BREAKFAST' },
+      { mealType: 'LUNCH' },
+      { mealType: 'SNACK' },
+    ]
+    expect(countMeals(logs)).toBe(3)
+  })
+
+  it('returns 0 when nothing is logged', () => {
+    expect(countMeals([])).toBe(0)
   })
 })
 

@@ -138,3 +138,33 @@ describe('getAuditLogs', () => {
     expect(result).toEqual({ entries: [{ id: '1' }], total: 1, page: 2, pageSize: 10, totalPages: 1 })
   })
 })
+
+describe('auditQueryFromFilters', () => {
+  it('maps category to its action list and search to an actor/target OR', async () => {
+    const { auditQueryFromFilters } = await import('../audit-log.service')
+    mockFindMany.mockResolvedValue([] as never)
+    mockCount.mockResolvedValue(0)
+
+    const query = auditQueryFromFilters({ category: 'WORKOUTS', q: 'jane', role: 'CLIENT', page: 1 }, 'org_1')
+    await getAuditLogs(query)
+
+    expect(mockFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          orgId: 'org_1',
+          actorType: 'CLIENT',
+          action: { in: ['WORKOUT_STARTED', 'WORKOUT_COMPLETED'] },
+          OR: [
+            { actorName: { contains: 'jane', mode: 'insensitive' } },
+            { targetLabel: { contains: 'jane', mode: 'insensitive' } },
+          ],
+        },
+      })
+    )
+  })
+
+  it('pins the scope org over any org in the URL', async () => {
+    const { auditQueryFromFilters } = await import('../audit-log.service')
+    expect(auditQueryFromFilters({ org: 'org_other', page: 1 }, 'org_mine').orgId).toBe('org_mine')
+  })
+})

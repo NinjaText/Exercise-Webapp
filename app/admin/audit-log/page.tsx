@@ -1,87 +1,81 @@
-import { getAuditLogs } from "@/lib/services/audit-log.service";
-import { getTrainersForOrgFilter } from "@/lib/services/admin.service";
-import { AUDIT_ACTIONS } from "@/lib/services/audit-log.service";
-import { AuditLogTable } from "@/components/audit-log/audit-log-table";
+import { Activity, ShieldAlert, UserRound, Users } from "lucide-react";
+import { prisma } from "@/lib/prisma";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
-import { Button } from "@/components/ui/button";
+  auditQueryFromFilters,
+  getAuditActorTypeCounts,
+  getAuditLogs,
+  getAuditOrgNames,
+  getAuditOverview,
+} from "@/lib/services/audit-log.service";
+import { auditFiltersToQuery, parseAuditFilters } from "@/lib/audit/catalog";
+import { AuditLogTable } from "@/components/audit-log/audit-log-table";
+import { AuditLogFilters } from "@/components/audit-log/audit-log-filters";
+import { StatCard } from "@/components/shared/stat-card";
 import { PageShell } from "@/components/shared/page-shell";
 import { PageHeader } from "@/components/shared/page-header";
-import { PageToolbar } from "@/components/shared/page-toolbar";
+
+const PAGE_SIZE = 25;
 
 interface PageProps {
-  searchParams: Promise<{ action?: string; org?: string; page?: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }
 
 export default async function AdminAuditLogPage({ searchParams }: PageProps) {
-  const params = await searchParams;
-  const action = params.action && params.action !== "ALL" ? params.action : undefined;
-  const orgId = params.org && params.org !== "ALL" ? params.org : undefined;
-  const page = parseInt(params.page ?? "1", 10);
+  const filters = parseAuditFilters(await searchParams);
+  const query = { ...auditQueryFromFilters(filters), pageSize: PAGE_SIZE };
 
-  const [{ entries, total, totalPages }, trainersForFilter] = await Promise.all([
-    getAuditLogs({ action, orgId, page, pageSize: 25 }),
-    getTrainersForOrgFilter(),
+  const [{ entries, total }, roleCounts, overview, orgNames, actor] = await Promise.all([
+    getAuditLogs(query),
+    getAuditActorTypeCounts(query),
+    getAuditOverview(),
+    getAuditOrgNames(),
+    filters.actor
+      ? prisma.user.findUnique({ where: { id: filters.actor }, select: { firstName: true, lastName: true } })
+      : null,
   ]);
 
-  const queryString = [
-    action ? `action=${action}` : "",
-    orgId ? `org=${orgId}` : "",
-  ].filter(Boolean).join("&");
-
-  // Value→label map so the Select trigger shows the trainer name, not the raw org id.
-  // (A render-function child can't cross the server→client boundary.)
-  const orgItems: Record<string, string> = { ALL: "All organizations" };
-  for (const t of trainersForFilter) {
-    if (t.clerkOrgId) orgItems[t.clerkOrgId] = `${t.firstName} ${t.lastName}`;
-  }
+  const queryString = auditFiltersToQuery({ ...filters, page: 1 });
+  const filtered = Boolean(queryString);
 
   return (
     <PageShell>
       <PageHeader
         breadcrumb={[{ label: "Admin", href: "/admin" }, { label: "Audit Log" }]}
         title="Audit Log"
-        description="Platform-wide activity across all clinics."
+        description="Every sign-in, change and client action across all clinics. Click a row for full details."
       />
 
-      <PageToolbar>
-        <form method="GET" className="flex flex-wrap items-center gap-2">
-          <Select name="action" defaultValue={action ?? "ALL"}>
-            <SelectTrigger className="h-9 w-56">
-              <SelectValue placeholder="All actions" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="ALL">All actions</SelectItem>
-              {Object.values(AUDIT_ACTIONS).map((a) => (
-                <SelectItem key={a} value={a}>{a}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select name="org" defaultValue={orgId ?? "ALL"} items={orgItems}>
-            <SelectTrigger className="h-9 w-56">
-              <SelectValue placeholder="All organizations" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="ALL">All organizations</SelectItem>
-              {trainersForFilter.map((t) => (
-                <SelectItem key={t.clerkOrgId!} value={t.clerkOrgId!}>{t.firstName} {t.lastName}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button type="submit" variant="outline" className="h-9">
-            Filter
-          </Button>
-        </form>
-      </PageToolbar>
+      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+        <StatCard size="compact" icon={Activity} label="Events · last 24h" value={overview.events.toLocaleString()} role="info" />
+        <StatCard size="compact" icon={Users} label="Active users · last 24h" value={overview.activeUsers.toLocaleString()} role="brand" />
+        <StatCard size="compact" icon={UserRound} label="Client events · last 24h" value={overview.clientEvents.toLocaleString()} role="success" />
+        <StatCard
+          size="compact"
+          icon={ShieldAlert}
+          label="Deletions & revocations · 24h"
+          value={overview.sensitiveEvents.toLocaleString()}
+          role={overview.sensitiveEvents > 0 ? "danger" : "neutral"}
+        />
+      </div>
+
+      <AuditLogFilters
+        filters={filters}
+        roleCounts={roleCounts}
+        orgNames={orgNames}
+        actorName={actor ? `${actor.firstName} ${actor.lastName}` : undefined}
+        exportHref="/api/audit-log/export"
+        roles={["CLIENT", "TRAINER", "SUPER_ADMIN", "SYSTEM"]}
+      />
 
       <AuditLogTable
         entries={entries}
         total={total}
-        page={page}
-        totalPages={totalPages}
+        page={filters.page}
+        pageSize={PAGE_SIZE}
         basePath="/admin/audit-log"
         queryString={queryString}
+        orgNames={orgNames}
+        filtered={filtered}
       />
     </PageShell>
   );

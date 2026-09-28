@@ -1,18 +1,22 @@
 import { requireRole } from "@/lib/current-user";
-import { getAuditLogs, AUDIT_ACTIONS } from "@/lib/services/audit-log.service";
+import { prisma } from "@/lib/prisma";
+import {
+  auditQueryFromFilters,
+  getAuditActorTypeCounts,
+  getAuditLogs,
+} from "@/lib/services/audit-log.service";
+import { auditFiltersToQuery, parseAuditFilters } from "@/lib/audit/catalog";
 import { AuditLogTable } from "@/components/audit-log/audit-log-table";
+import { AuditLogFilters } from "@/components/audit-log/audit-log-filters";
 import { PageHeader } from "@/components/shared/page-header";
 import { PageShell } from "@/components/shared/page-shell";
-import { PageToolbar } from "@/components/shared/page-toolbar";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Building2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
+
+const PAGE_SIZE = 25;
 
 interface PageProps {
-  searchParams: Promise<{ action?: string; page?: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }
 
 export default async function TrainerAuditLogPage({ searchParams }: PageProps) {
@@ -31,49 +35,46 @@ export default async function TrainerAuditLogPage({ searchParams }: PageProps) {
     );
   }
 
-  const params = await searchParams;
-  const action = params.action && params.action !== "ALL" ? params.action : undefined;
-  const page = parseInt(params.page ?? "1", 10);
+  const filters = parseAuditFilters(await searchParams);
+  // Pinned to the trainer's own clinic — any `org` in the URL is ignored.
+  const query = { ...auditQueryFromFilters(filters, trainer.clerkOrgId), pageSize: PAGE_SIZE };
 
-  const { entries, total, totalPages } = await getAuditLogs({
-    orgId: trainer.clerkOrgId ?? undefined,
-    action,
-    page,
-    pageSize: 25,
-  });
+  const [{ entries, total }, roleCounts, actor] = await Promise.all([
+    getAuditLogs(query),
+    getAuditActorTypeCounts(query),
+    filters.actor
+      ? prisma.user.findFirst({
+          where: { id: filters.actor, clerkOrgId: trainer.clerkOrgId },
+          select: { firstName: true, lastName: true },
+        })
+      : null,
+  ]);
 
-  const queryString = action ? `action=${action}` : "";
+  const queryString = auditFiltersToQuery({ ...filters, org: undefined, page: 1 });
 
   return (
     <PageShell>
-      <PageHeader title="Audit Log" description="Activity across your clinic." />
+      <PageHeader
+        title="Audit Log"
+        description="Activity across your clinic — your team and your clients. Click a row for full details."
+      />
 
-      <PageToolbar>
-        <form method="GET" className="flex flex-wrap items-center gap-2">
-          <Select name="action" defaultValue={action ?? "ALL"}>
-            <SelectTrigger className="h-9 w-56">
-              <SelectValue placeholder="All actions" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="ALL">All actions</SelectItem>
-              {Object.values(AUDIT_ACTIONS).map((a) => (
-                <SelectItem key={a} value={a}>{a}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button type="submit" variant="outline" className="h-9">
-            Filter
-          </Button>
-        </form>
-      </PageToolbar>
+      <AuditLogFilters
+        filters={{ ...filters, org: undefined }}
+        roleCounts={roleCounts}
+        actorName={actor ? `${actor.firstName} ${actor.lastName}` : undefined}
+        exportHref="/api/audit-log/export"
+        roles={["CLIENT", "TRAINER", "SUPER_ADMIN"]}
+      />
 
       <AuditLogTable
         entries={entries}
         total={total}
-        page={page}
-        totalPages={totalPages}
+        page={filters.page}
+        pageSize={PAGE_SIZE}
         basePath="/settings/audit-log"
         queryString={queryString}
+        filtered={Boolean(queryString)}
       />
     </PageShell>
   );
