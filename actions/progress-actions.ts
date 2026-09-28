@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/current-user";
 import * as progressService from "@/lib/services/progress.service";
 import { getClientIdsForTrainer } from "@/lib/services/client.service";
+import { logUserAudit, AUDIT_ACTIONS } from "@/lib/services/audit-log.service";
 
 // ---------------------------------------------------------------------------
 // Progress Photo Actions (client only)
@@ -26,6 +27,12 @@ export async function addProgressPhotoAction(
       angle,
       notes
     );
+    await logUserAudit(user, () => ({
+      action: AUDIT_ACTIONS.PROGRESS_PHOTO_ADDED,
+      targetType: "ProgressPhoto",
+      targetId: photo.id,
+      targetLabel: angle,
+    }));
     revalidatePath(`/clients/${user.id}/progress`);
     return { success: true as const, data: photo };
   } catch (error) {
@@ -42,6 +49,11 @@ export async function deleteProgressPhotoAction(photoId: string) {
 
   try {
     await progressService.deleteProgressPhoto(photoId, user.id);
+    await logUserAudit(user, () => ({
+      action: AUDIT_ACTIONS.PROGRESS_PHOTO_DELETED,
+      targetType: "ProgressPhoto",
+      targetId: photoId,
+    }));
     revalidatePath(`/clients/${user.id}/progress`);
     return { success: true as const };
   } catch (error) {
@@ -82,6 +94,13 @@ export async function addBodyMetricAction(
       unit,
       notes
     );
+    await logUserAudit(user, () => ({
+      action: AUDIT_ACTIONS.BODY_METRIC_RECORDED,
+      targetType: "BodyMetric",
+      targetId: metric.id,
+      targetLabel: metricType,
+      metadata: { value, unit, clientId },
+    }));
     revalidatePath(`/clients/${clientId}/progress`);
     return { success: true as const, data: metric };
   } catch (error) {

@@ -5,7 +5,8 @@ import Link from "next/link";
 import { format } from "date-fns";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Card, CardContent } from "@/components/ui/card";
-import { ArrowDown, ArrowUp, Check, X } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { ArrowDown, ArrowLeft, ArrowUp, Check, ExternalLink, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PainTrendChart } from "./pain-trend-chart";
 import type { ClientProgressReport } from "@/lib/services/client-progress.service";
@@ -98,6 +99,8 @@ export function ClientProgressOverviewDialog({
   report,
   range,
   onRangeChange,
+  onBack,
+  showProfileLink = false,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -106,6 +109,10 @@ export function ClientProgressOverviewDialog({
   report: ClientProgressReport | null;
   range: { from: Date; to: Date };
   onRangeChange: (range: { from: Date; to: Date }) => void;
+  /** When set, shows a "back" control — used when opened from a client picker. */
+  onBack?: () => void;
+  /** Links to the client's profile; off when already on that page. */
+  showProfileLink?: boolean;
 }) {
   const [weeks, setWeeks] = useState(4);
 
@@ -113,17 +120,38 @@ export function ClientProgressOverviewDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-5xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
+          {onBack && (
+            <button
+              type="button"
+              onClick={onBack}
+              className="-ml-1 mb-1 inline-flex w-fit items-center gap-1 rounded-md px-1 py-0.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+            >
+              <ArrowLeft className="size-4" aria-hidden />
+              All clients
+            </button>
+          )}
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div>
+            <div className="min-w-0">
               <DialogTitle className="text-xl font-bold">Client Progress Overview</DialogTitle>
-              <p className="text-sm text-muted-foreground">{clientName}</p>
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                <p className="truncate text-sm text-muted-foreground">{clientName}</p>
+                {showProfileLink && (
+                  <Link
+                    href={`/clients/${clientId}`}
+                    className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                  >
+                    View profile
+                    <ExternalLink className="size-3" aria-hidden />
+                  </Link>
+                )}
+              </div>
             </div>
             <RangePicker range={range} onChange={onRangeChange} />
           </div>
         </DialogHeader>
 
         {!report ? (
-          <p className="py-16 text-center text-sm text-muted-foreground">Loading…</p>
+          <ReportSkeleton />
         ) : (
           <div className="space-y-4">
             <div className="grid gap-4 lg:grid-cols-2">
@@ -145,6 +173,22 @@ export function ClientProgressOverviewDialog({
         )}
       </DialogContent>
     </Dialog>
+  );
+}
+
+function ReportSkeleton() {
+  return (
+    <div className="space-y-4" aria-busy="true" aria-label="Loading progress report">
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Skeleton className="h-44 rounded-xl" />
+        <Skeleton className="h-44 rounded-xl" />
+      </div>
+      <Skeleton className="h-64 rounded-xl" />
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Skeleton className="h-48 rounded-xl" />
+        <Skeleton className="h-48 rounded-xl" />
+      </div>
+    </div>
   );
 }
 

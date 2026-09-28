@@ -151,7 +151,7 @@ Protein: ${Math.round(summary.consumed.proteinG)}g consumed${summary.target.prot
 Carbs: ${Math.round(summary.consumed.carbsG)}g consumed${summary.target.carbsG ? ` / ${summary.target.carbsG}g target` : " (no target set)"}
 Fat: ${Math.round(summary.consumed.fatG)}g consumed${summary.target.fatG ? ` / ${summary.target.fatG}g target` : " (no target set)"}
 Water: ${Math.round(summary.consumed.waterMl)}ml consumed${summary.target.waterMl ? ` / ${summary.target.waterMl}ml target` : " (no target set)"}
-Meals logged: ${summary.mealsLogged}
+Meals logged: ${summary.mealsLogged} (${summary.itemsLogged} food items in total — multiple items in one meal are a single meal)
 Adherence: ${summary.adherencePct !== null ? `${summary.adherencePct}%` : "not enough data"}
 
 Write a short, honest, encouraging summary of how the day went.`,

@@ -7,6 +7,7 @@ import { notifyUser, NOTIFICATION_TYPES } from "@/lib/services/notification.serv
 import { appBaseUrl } from "@/lib/utils/app-url";
 import { computeScheduleVariance } from "@/lib/services/session.service";
 import { getProgramSchedulingType } from "@/lib/services/program.service";
+import { logUserAudit, AUDIT_ACTIONS } from "@/lib/services/audit-log.service";
 
 async function notifyTrainerOnCompletion(
   sessionId: string,
@@ -123,8 +124,15 @@ export async function startSessionV2Action(sessionId: string) {
   try {
     const session = await prisma.workoutSessionV2.update({
       where: { id: sessionId, clientId: dbUser.id },
-      data: { status: "IN_PROGRESS", startedAt: new Date() }
+      data: { status: "IN_PROGRESS", startedAt: new Date() },
+      include: { workout: { select: { name: true } } },
     });
+    await logUserAudit(dbUser, () => ({
+      action: AUDIT_ACTIONS.WORKOUT_STARTED,
+      targetType: "WorkoutSession",
+      targetId: session.id,
+      targetLabel: session.workout.name,
+    }));
     revalidatePath("/dashboard");
     revalidatePath("/sessions/" + sessionId);
     return { success: true, data: session };
@@ -163,6 +171,7 @@ export async function startOnDemandWorkoutAction(workoutId: string) {
       where: { id: workoutId },
       select: {
         id: true,
+        name: true,
         program: { select: { clientId: true, schedulingType: true } },
       },
     });
@@ -187,6 +196,15 @@ export async function startOnDemandWorkoutAction(workoutId: string) {
       orderBy: { scheduledDate: "desc" },
     });
 
+    const logStarted = (id: string) =>
+      logUserAudit(dbUser, () => ({
+        action: AUDIT_ACTIONS.WORKOUT_STARTED,
+        targetType: "WorkoutSession",
+        targetId: id,
+        targetLabel: workout.name,
+        metadata: { onDemand: true },
+      }));
+
     if (openSession) {
       const session =
         openSession.status === "IN_PROGRESS"
@@ -195,6 +213,8 @@ export async function startOnDemandWorkoutAction(workoutId: string) {
               where: { id: openSession.id },
               data: { status: "IN_PROGRESS", startedAt: new Date() },
             });
+      // Resuming a run that's already in progress isn't a new start.
+      if (openSession.status !== "IN_PROGRESS") await logStarted(session.id);
       revalidatePath("/dashboard");
       revalidatePath("/sessions/" + session.id);
       return { success: true as const, data: session };
@@ -210,6 +230,7 @@ export async function startOnDemandWorkoutAction(workoutId: string) {
         status: "IN_PROGRESS",
       },
     });
+    await logStarted(session.id);
 
     revalidatePath("/dashboard");
     revalidatePath("/sessions/" + session.id);
@@ -395,7 +416,7 @@ export async function completeSessionV2Action(
 
     const session = await prisma.workoutSessionV2.findUnique({
       where: { id: sessionId, clientId: dbUser.id },
-      select: { scheduledDate: true },
+      select: { scheduledDate: true, startedAt: true, workout: { select: { name: true } } },
     });
     if (!session) return { success: false, error: "Session not found" };
 
@@ -406,6 +427,20 @@ export async function completeSessionV2Action(
       where: { id: sessionId, clientId: dbUser.id },
       data: { status: "COMPLETED", completedAt, overallRPE, overallNotes, scheduleVariance },
     });
+
+    await logUserAudit(dbUser, () => ({
+      action: AUDIT_ACTIONS.WORKOUT_COMPLETED,
+      targetType: "WorkoutSession",
+      targetId: sessionId,
+      targetLabel: session.workout.name,
+      metadata: {
+        ...(overallRPE != null && { rpe: overallRPE }),
+        ...(session.startedAt && {
+          durationMinutes: Math.round((completedAt.getTime() - session.startedAt.getTime()) / 60000),
+        }),
+        scheduleVariance,
+      },
+    }));
 
     // Fire trainer notifications — non-blocking, failures must not break completion
     try {
