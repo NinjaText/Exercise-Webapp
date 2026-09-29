@@ -20,6 +20,8 @@ interface MobileTabBarProps {
   /** Unread chat messages plus unread workout voice notes — one combined badge. */
   unreadMessageCount: number;
   isAdmin?: boolean;
+  /** Hrefs the org's capabilities hide (club orgs). */
+  hiddenHrefs?: string[];
 }
 
 const tabClass =
@@ -30,12 +32,17 @@ const tabClass =
  * on both mobile web and the native shell. The header's menu button keeps
  * secondary navigation (Settings, Organization, Billing, Admin).
  */
-export function MobileTabBar({ role, unreadMessageCount, isAdmin = false }: MobileTabBarProps) {
+export function MobileTabBar({
+  role,
+  unreadMessageCount,
+  isAdmin = false,
+  hiddenHrefs = [],
+}: MobileTabBarProps) {
   const pathname = usePathname() ?? "/";
   const [moreOpen, setMoreOpen] = useState(false);
 
-  const { tabs, more } = getTabLayout(role);
-  const moreItems: NavItem[] = getMoreItems(role, isAdmin);
+  const { tabs, more } = getTabLayout(role, hiddenHrefs);
+  const moreItems: NavItem[] = getMoreItems(role, isAdmin, hiddenHrefs);
   const hasMore = more.length > 0;
 
   const active = findActiveHref(pathname, [...tabs, ...moreItems].map((i) => i.href));

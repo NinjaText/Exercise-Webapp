@@ -67,8 +67,14 @@ export const ADMIN_NAV: NavItem = { href: "/admin", label: "Super Admin", icon: 
 const TRAINER_TAB_HREFS = ["/dashboard", "/clients", "/programs", "/messages"];
 const CLIENT_TAB_HREFS = ["/dashboard", "/programs", "/calendar", "/nutrition", "/messages"];
 
-export function getPrimaryNav(role: Role): NavItem[] {
-  return role === "TRAINER" ? TRAINER_NAV : CLIENT_NAV;
+/**
+ * `hidden` holds hrefs the org's capabilities switch off (see
+ * lib/org-capabilities.ts → hiddenNavHrefs). Empty for trainer orgs, so the
+ * default call is exactly today's nav.
+ */
+export function getPrimaryNav(role: Role, hidden: string[] = []): NavItem[] {
+  const nav = role === "TRAINER" ? TRAINER_NAV : CLIENT_NAV;
+  return hidden.length ? nav.filter((item) => !hidden.includes(item.href)) : nav;
 }
 
 export function getAccountNav(role: Role): NavItem[] {
@@ -82,8 +88,8 @@ export interface TabLayout {
   more: NavItem[];
 }
 
-export function getTabLayout(role: Role): TabLayout {
-  const nav = getPrimaryNav(role);
+export function getTabLayout(role: Role, hidden: string[] = []): TabLayout {
+  const nav = getPrimaryNav(role, hidden);
   const tabHrefs = role === "TRAINER" ? TRAINER_TAB_HREFS : CLIENT_TAB_HREFS;
   const tabs = tabHrefs
     .map((href) => nav.find((item) => item.href === href))
@@ -99,8 +105,8 @@ export function getTabLayout(role: Role): TabLayout {
  * renders an empty string under `renderToStaticMarkup`, so the tab bar's own
  * tests cannot see inside it.
  */
-export function getMoreItems(role: Role, isAdmin: boolean): NavItem[] {
-  const { more } = getTabLayout(role);
+export function getMoreItems(role: Role, isAdmin: boolean, hidden: string[] = []): NavItem[] {
+  const { more } = getTabLayout(role, hidden);
   return [...more, ...getAccountNav(role), ...(isAdmin ? [ADMIN_NAV] : [])];
 }
 

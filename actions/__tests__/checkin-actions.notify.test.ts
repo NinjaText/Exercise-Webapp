@@ -14,6 +14,7 @@ vi.mock('@/lib/services/checkin.service', () => ({
 }))
 vi.mock('@/lib/services/client.service', () => ({ getClientIdsForTrainer: vi.fn() }))
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
+vi.mock('@/lib/org-capabilities.server', () => ({ getCapabilitiesForUser: vi.fn() }))
 vi.mock('@/lib/prisma', () => ({
   prisma: {
     checkInTemplate: { findUnique: vi.fn() },
@@ -26,6 +27,8 @@ import { requireRole, getCurrentUser } from '@/lib/current-user'
 import * as checkinService from '@/lib/services/checkin.service'
 import { getClientIdsForTrainer } from '@/lib/services/client.service'
 import { prisma } from '@/lib/prisma'
+import { getCapabilitiesForUser } from '@/lib/org-capabilities.server'
+import { getOrgCapabilities } from '@/lib/org-capabilities'
 import { assignCheckInAction, submitCheckInResponseAction } from '../checkin-actions'
 
 const mockRequireRole = vi.mocked(requireRole)
@@ -47,6 +50,7 @@ beforeEach(() => {
   // each test below.
   vi.resetAllMocks()
   vi.mocked(notifyUser).mockResolvedValue(undefined)
+  vi.mocked(getCapabilitiesForUser).mockResolvedValue(getOrgCapabilities(null))
 })
 
 describe('assignCheckInAction', () => {
@@ -101,6 +105,19 @@ describe('submitCheckInResponseAction', () => {
     expect(arg.type).toBe('NEW_RESPONSE')
     expect(arg.userId).toBe('trainer1')
     expect(arg.email).toMatchObject({ clientName: 'Sarah Lee' })
+  })
+
+  it('does not notify anyone for a club member (no coach)', async () => {
+    vi.mocked(getCapabilitiesForUser).mockResolvedValue(getOrgCapabilities({ type: 'CLUB' }))
+    mockGetCurrentUser.mockResolvedValue({ id: 'client1', role: 'CLIENT', firstName: 'S', lastName: 'L', clerkOrgId: 'org_club' } as never)
+    mockSubmitResponse.mockResolvedValue({ id: 'resp1', submittedAt: new Date('2026-09-22T12:00:00.000Z') } as never)
+    mockAssignmentFindUnique.mockResolvedValue({ trainerId: 'trainer1', template: { name: 'Weekly' } } as never)
+
+    const result = await submitCheckInResponseAction('a1', { sleep: 'good' })
+
+    expect(result.success).toBe(true)
+    expect(getCapabilitiesForUser).toHaveBeenCalledWith(expect.objectContaining({ id: 'client1' }))
+    expect(notifyUser).not.toHaveBeenCalled()
   })
 
   it('does not notify when the submission failed', async () => {

@@ -11,6 +11,12 @@ const req = (path: string, method = "GET") =>
   new NextRequest(new URL(path, "http://localhost:3000"), { method });
 
 describe("PUBLIC_ROUTES", () => {
+  it("makes club join pages public without opening lookalikes", () => {
+    expect(isPublicRoute(req("/join/pine-valley"))).toBe(true);
+    expect(isPublicRoute(req("/join/pine-valley/complete"))).toBe(true);
+    expect(isPublicRoute(req("/joined"))).toBe(false);
+  });
+
   it("keeps the brand asset upload route protected", () => {
     expect(isPublicRoute(req("/api/branding/assets", "POST"))).toBe(false);
     expect(isPublicRoute(req("/api/branding/assets/"))).toBe(false);

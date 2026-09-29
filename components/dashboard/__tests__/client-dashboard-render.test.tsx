@@ -185,4 +185,28 @@ describe("ClientDashboard static render", () => {
     expect(countPrimaryButtons(html)).toBe(0);
     expect((html.match(/data-slot="section-card"/g) ?? []).length).toBe(4);
   });
+
+  it("hides the Inbox card and trainer banner when messaging is off (club members)", () => {
+    const html = renderToStaticMarkup(
+      <ClientDashboard
+        {...baseProps}
+        showInbox={false}
+        unreadTrainerMessage={{
+          trainerId: "t1", trainerName: "Coach", preview: "hi", sentAt: new Date(), unreadCount: 1,
+        }}
+      />
+    );
+
+    expect(html).not.toContain("Inbox");
+    expect(html).not.toContain("/messages");
+    // Resources get the full width instead of sharing a row with nothing.
+    expect(html).not.toContain("lg:grid-cols-2");
+    expect(html).toContain("Morning Mobility");
+  });
+
+  it("keeps the Inbox by default (trainer-org clients unchanged)", () => {
+    const html = renderToStaticMarkup(<ClientDashboard {...baseProps} />);
+    expect(html).toContain("Inbox");
+    expect(html).toContain('href="/messages"');
+  });
 });

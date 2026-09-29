@@ -14,6 +14,7 @@ import { prisma } from "@/lib/prisma";
 import { getR2Client, R2_BUCKET_NAME, R2_PUBLIC_URL } from "@/lib/r2";
 import { pusherServer } from "@/lib/pusher";
 import { notifyUser, NOTIFICATION_TYPES } from "@/lib/services/notification.service";
+import { getCapabilitiesForUser } from "@/lib/org-capabilities.server";
 import { appBaseUrl } from "@/lib/utils/app-url";
 import { logUserAudit, AUDIT_ACTIONS } from "@/lib/services/audit-log.service";
 import { getClientIdsForTrainer, getTrainerForClient } from "@/lib/services/client.service";
@@ -296,7 +297,9 @@ export async function createNutritionCommentAction(
           .catch((e) => console.error("[pusher] nutrition-comment-added:", e));
       }
     } else {
-      const trainer = await getTrainerForClient(clientId);
+      // Club members have no coach to reply to (see OrgCapabilities.coachNotifications).
+      const { coachNotifications } = await getCapabilitiesForUser(user);
+      const trainer = coachNotifications ? await getTrainerForClient(clientId) : null;
       if (trainer) {
         await notifyUser({
           userId: trainer.id,

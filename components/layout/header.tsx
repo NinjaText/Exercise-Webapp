@@ -20,6 +20,8 @@ interface HeaderProps {
   initialNotifications: Notification[];
   /** Client-safe branding subset (never tokens/CSS). */
   branding: BrandingViewModel;
+  /** Hrefs the org's capabilities hide (club orgs). */
+  hiddenHrefs?: string[];
 }
 
 export function Header({
@@ -28,6 +30,7 @@ export function Header({
   unreadNotificationCount,
   initialNotifications,
   branding,
+  hiddenHrefs = [],
 }: HeaderProps) {
   const pathname = usePathname();
   const { crumbs } = useBreadcrumb();
@@ -55,6 +58,7 @@ export function Header({
             userEmail={user.email}
             userImageUrl={user.imageUrl}
             mobileMode
+            hiddenHrefs={hiddenHrefs}
             branding={branding}
           />
         </SheetContent>

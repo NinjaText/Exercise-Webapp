@@ -17,8 +17,15 @@ import { threadChannel, inboxChannel } from "@/lib/pusher-channels";
 import { notifyUser, NOTIFICATION_TYPES } from "@/lib/services/notification.service";
 import { appBaseUrl } from "@/lib/utils/app-url";
 import { format } from "date-fns";
+import { getCapabilitiesForUser } from "@/lib/org-capabilities.server";
+import { MESSAGING_UNAVAILABLE } from "@/lib/org-capabilities";
 
 const MESSAGE_PREVIEW_MAX_LENGTH = 200;
+
+/** Club orgs have no inbox; enforce it here, not just by hiding the route. */
+async function messagingDisabled(user: { clerkOrgId: string | null }): Promise<boolean> {
+  return !(await getCapabilitiesForUser(user)).messaging;
+}
 
 function messagePreview(content: string): string {
   return content.length > MESSAGE_PREVIEW_MAX_LENGTH
@@ -112,6 +119,7 @@ export async function sendMessageAction(input: {
 
   const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
   if (!dbUser) return { success: false as const, error: "User not found" };
+  if (await messagingDisabled(dbUser)) return { success: false as const, error: MESSAGING_UNAVAILABLE };
 
   const parsed = sendMessageSchema.safeParse(input);
   if (!parsed.success) {
@@ -226,6 +234,7 @@ export async function replyToClientNoteAction(
 
   const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
   if (!dbUser) return { success: false as const, error: "User not found" };
+  if (await messagingDisabled(dbUser)) return { success: false as const, error: MESSAGING_UNAVAILABLE };
 
   const parsed = replyToClientNoteSchema.safeParse({ sessionId, blockExerciseId, content });
   if (!parsed.success) {
@@ -336,6 +345,7 @@ export async function sendBroadcastMessageAction(input: {
 
   const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
   if (!dbUser) return { success: false as const, error: "User not found" };
+  if (await messagingDisabled(dbUser)) return { success: false as const, error: MESSAGING_UNAVAILABLE };
   if (dbUser.role !== "TRAINER") {
     return { success: false as const, error: "Only trainers can broadcast messages" };
   }

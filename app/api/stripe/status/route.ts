@@ -9,6 +9,12 @@ export async function GET() {
   const user = await prisma.user.findUnique({ where: { clerkId: userId } });
   if (!user) return new NextResponse("User not found", { status: 404 });
 
+  // Club members poll this after checkout too; same `{ subscription: { status } }` shape.
+  if (user.role === "CLIENT") {
+    const subscription = await prisma.memberSubscription.findUnique({ where: { userId: user.id } });
+    return NextResponse.json({ subscription });
+  }
+
   const subscription = await prisma.trainerSubscription.findUnique({
     where: { trainerId: user.id },
   });

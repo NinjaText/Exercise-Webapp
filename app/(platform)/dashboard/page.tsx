@@ -1,4 +1,5 @@
 ﻿import { getCurrentUser } from "@/lib/current-user";
+import { getCapabilitiesForUser } from "@/lib/org-capabilities.server";
 import { prisma } from "@/lib/prisma";
 import { PageShell } from "@/components/shared/page-shell";
 import { TrainerDashboard } from "@/components/dashboard/trainer-dashboard";
@@ -91,8 +92,9 @@ export default async function DashboardPage() {
     );
   }
 
-  // Client dashboard
+  // Client dashboard. Club members have no inbox (messaging capability off).
   const calendarWindow = sessionService.getClientCalendarWindow(now);
+  const { messaging: showInbox } = await getCapabilitiesForUser(user);
 
   const [
     calendarSessions,
@@ -109,7 +111,7 @@ export default async function DashboardPage() {
     prisma.sessionExerciseLog.count({
       where: { session: { clientId: user.id }, status: "COMPLETED" },
     }),
-    messageService.getInboxThreads(user.id),
+    showInbox ? messageService.getInboxThreads(user.id) : Promise.resolve([]),
     programService.getProgramsForClient(user.id),
   ]);
 
@@ -178,6 +180,7 @@ export default async function DashboardPage() {
         unreadTrainerMessage={unreadTrainerMessage}
         resources={resources}
         inboxThreads={inboxThreads}
+        showInbox={showInbox}
       />
     </PageShell>
   );

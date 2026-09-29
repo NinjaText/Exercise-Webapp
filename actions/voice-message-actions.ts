@@ -6,10 +6,17 @@ import { randomUUID } from "crypto"
 import { PutObjectCommand, DeleteObjectCommand, CopyObjectCommand } from "@aws-sdk/client-s3"
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
 import { prisma } from "@/lib/prisma"
+import { getCapabilitiesForUser } from "@/lib/org-capabilities.server"
+import { MESSAGING_UNAVAILABLE } from "@/lib/org-capabilities"
 import { getR2Client, R2_BUCKET_NAME, R2_PUBLIC_URL } from "@/lib/r2"
 import * as messageService from "@/lib/services/message.service"
 import { broadcastNewMessage } from "./message-actions"
 import { presignVoiceMessageSchema, confirmVoiceMessageSchema } from "@/lib/validators/voice-message"
+
+/** Voice notes live inside messaging; club orgs have none. */
+async function messagingDisabled(user: { clerkOrgId: string | null }): Promise<boolean> {
+  return !(await getCapabilitiesForUser(user)).messaging
+}
 
 async function getAuthedUser() {
   const { userId: clerkId } = await auth()
@@ -27,6 +34,7 @@ export async function generateVoiceMessageUploadUrl(
 
     const user = await getAuthedUser()
     if (!user) return { success: false, error: "Unauthorized" }
+    if (await messagingDisabled(user)) return { success: false, error: MESSAGING_UNAVAILABLE }
 
     const pendingKey = `voice-messages/pending/${randomUUID()}.${fileExtension}`
     const command = new PutObjectCommand({
@@ -54,6 +62,7 @@ export async function confirmVoiceMessage(
 
     const user = await getAuthedUser()
     if (!user) return { success: false, error: "Unauthorized" }
+    if (await messagingDisabled(user)) return { success: false, error: MESSAGING_UNAVAILABLE }
 
     const ext = pendingKey.split(".").pop()!
     const permanentKey = `voice-messages/${user.id}_${recipientId}/${randomUUID()}.${ext}`

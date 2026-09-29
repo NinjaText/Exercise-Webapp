@@ -13,6 +13,9 @@ export const PUBLIC_ROUTES = [
   "/api/webhooks(.*)",
   "/api/stripe/webhook",
   "/p/(.*)",
+  // Club join pages: the code form and Clerk sign-up render before any
+  // session exists. /join/<slug>/complete checks auth itself.
+  "/join/(.*)",
   "/api/checkout/program",
   "/privacy",
   "/terms",

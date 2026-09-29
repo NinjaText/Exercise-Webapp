@@ -8,11 +8,11 @@ import { appBaseUrl } from "@/lib/utils/app-url";
 import { computeScheduleVariance } from "@/lib/services/session.service";
 import { getProgramSchedulingType } from "@/lib/services/program.service";
 import { logUserAudit, AUDIT_ACTIONS } from "@/lib/services/audit-log.service";
+import { getCapabilitiesForUser } from "@/lib/org-capabilities.server";
 
-async function notifyTrainerOnCompletion(
-  sessionId: string,
-  client: { id: string; firstName: string; lastName: string }
-) {
+type NotifyingClient = { id: string; firstName: string; lastName: string };
+
+async function notifyTrainerOnCompletion(sessionId: string, client: NotifyingClient) {
   const session = await prisma.workoutSessionV2.findUnique({
     where: { id: sessionId },
     include: {
@@ -62,10 +62,7 @@ async function notifyTrainerOnCompletion(
 
 // Notifies the trainer once, at Finish Workout, if the client left a note on
 // any exercise — avoids firing a notification per debounced keystroke.
-async function notifyTrainerOfClientNotes(
-  sessionId: string,
-  client: { id: string; firstName: string; lastName: string }
-) {
+async function notifyTrainerOfClientNotes(sessionId: string, client: NotifyingClient) {
   const session = await prisma.workoutSessionV2.findUnique({
     where: { id: sessionId },
     include: {
@@ -442,25 +439,30 @@ export async function completeSessionV2Action(
       },
     }));
 
-    // Fire trainer notifications — non-blocking, failures must not break completion
+    // Fire trainer notifications — non-blocking, failures must not break completion.
+    // Club programs belong to the platform staff account: nobody to notify.
     try {
-      await notifyTrainerOnCompletion(sessionId, {
-        id: dbUser.id,
-        firstName: dbUser.firstName,
-        lastName: dbUser.lastName,
-      });
-    } catch (notifyErr) {
-      console.error("Completion notification failed (non-fatal):", notifyErr);
-    }
+      const caps = await getCapabilitiesForUser(dbUser);
+      if (caps.coachNotifications) {
+        const client: NotifyingClient = {
+          id: dbUser.id,
+          firstName: dbUser.firstName,
+          lastName: dbUser.lastName,
+        };
+        try {
+          await notifyTrainerOnCompletion(sessionId, client);
+        } catch (notifyErr) {
+          console.error("Completion notification failed (non-fatal):", notifyErr);
+        }
 
-    try {
-      await notifyTrainerOfClientNotes(sessionId, {
-        id: dbUser.id,
-        firstName: dbUser.firstName,
-        lastName: dbUser.lastName,
-      });
-    } catch (notifyErr) {
-      console.error("Exercise note notification failed (non-fatal):", notifyErr);
+        try {
+          await notifyTrainerOfClientNotes(sessionId, client);
+        } catch (notifyErr) {
+          console.error("Exercise note notification failed (non-fatal):", notifyErr);
+        }
+      }
+    } catch (capsErr) {
+      console.error("Coach notification lookup failed (non-fatal):", capsErr);
     }
 
     revalidatePath("/dashboard");

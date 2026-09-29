@@ -38,6 +38,14 @@ vi.mock('@/lib/services/stripe-billing.service', () => ({
   syncSubscriptionFromStripe: vi.fn(),
   activateSubscriptionFromCheckout: vi.fn(),
 }))
+// These tests cover the trainer paths; no event here belongs to a club member.
+vi.mock('@/lib/services/member-billing.service', () => ({
+  MEMBER_PURCHASE_TYPE: 'member_subscription',
+  activateMemberFromCheckout: vi.fn(),
+  syncMemberSubscriptionFromStripe: vi.fn().mockResolvedValue(0),
+  markMemberCanceled: vi.fn().mockResolvedValue(0),
+  markMemberPastDue: vi.fn().mockResolvedValue(0),
+}))
 vi.mock('@/lib/services/program-purchase.service', () => ({ fulfillProgramPurchase: vi.fn() }))
 
 import { prisma } from '@/lib/prisma'

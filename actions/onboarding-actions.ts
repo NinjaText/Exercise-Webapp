@@ -141,7 +141,10 @@ export async function completeClientOnboarding(data: {
       lastName: data.lastName,
       phone: data.phone ?? null,
       dateOfBirth: data.dateOfBirth ?? null,
-      clerkOrgId: orgId ?? null,
+      // Keep the stored org when the session has no active org — club members
+      // and webhook-created clients already have the right clerkOrgId, and
+      // nulling it would detach them from their org and its billing.
+      ...(orgId ? { clerkOrgId: orgId } : {}),
       onboarded: true,
     },
     create: {

@@ -13,6 +13,7 @@ import {
   ArrowLeft,
   Globe,
   ScrollText,
+  Flag,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -24,6 +25,7 @@ const adminLinks = [
   { href: "/admin/exercises",        label: "Exercises",       icon: Dumbbell },
   { href: "/admin/programs",         label: "All Programs",    icon: Library },
   { href: "/admin/global-programs",  label: "Global Programs", icon: Globe },
+  { href: "/admin/clubs",            label: "Clubs",           icon: Flag },
   { href: "/admin/audit-log",        label: "Audit Log",       icon: ScrollText },
 ];
 

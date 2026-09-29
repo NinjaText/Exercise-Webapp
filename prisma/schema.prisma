@@ -75,6 +75,11 @@ enum SubStatus {
   UNPAID
 }
 
+enum OrgType {
+  TRAINER
+  CLUB
+}
+
 enum BlockType {
   NORMAL
   WARMUP
@@ -164,6 +169,7 @@ model User {
   clinicalNotesAsClient     ClinicalNote[]          @relation("ClinicalNotesClient")
   clinicalNotesAsTrainer    ClinicalNote[]          @relation("ClinicalNotesTrainer")
   trainerSubscription       TrainerSubscription?    @relation("TrainerSubscription")
+  memberSubscription        MemberSubscription?     @relation("MemberSubscription")
   exerciseUsages            ExerciseUsage[]
   exerciseFavorites         ExerciseFavorite[]
   collections               Collection[]
@@ -208,6 +214,23 @@ model Organization {
   address                  String?
   exerciseSourcePreference ExerciseSourcePreference @default(BOTH)
 
+  // ── Org type & club config ───────────────────────────────────────────────
+  /// null → TRAINER. Optional with no @default on purpose: existing documents
+  /// lack the key. Read via getOrgType() in lib/org-capabilities.ts.
+  type              OrgType?
+  /// Club-only. Public join path segment: /join/<joinSlug>. Not @unique: an
+  /// optional unique field on Mongo collides on null/missing (every trainer
+  /// org), so uniqueness is app-enforced (createClub/updateClub); indexed below.
+  joinSlug          String?
+  /// Club-only. Access code members type on the join page (stored upper-case).
+  joinCode          String?
+  /// Club-only. Free-trial length for newly joined members.
+  trialDays         Int?
+  /// Club-only. Recurring Stripe price members subscribe to.
+  stripePriceId     String?
+  /// Club-only. Ordered Global Program ids; members get them one after another.
+  starterProgramIds String[] @default([]) @db.ObjectId
+
   // ── Branding ─────────────────────────────────────────────────────────────
   /// Master switch. false → every surface uses the product defaults, even if
   /// the fields below are set. Lets a trainer preview/prepare without exposing.
@@ -230,6 +253,8 @@ model Organization {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([joinSlug])
 }
 
 model ClientProfile {
@@ -1103,4 +1128,42 @@ model DismissedInsight {
 
   @@unique([trainerId, clientId, kind])
   @@index([trainerId, dismissedAt])
+}
+
+/// Per-member subscription for CLUB orgs. Mirrors TrainerSubscription; the
+/// Stripe ids stay null until the member first subscribes (no-card trial).
+model MemberSubscription {
+  id                   String    @id @default(auto()) @map("_id") @db.ObjectId
+  userId               String    @unique @db.ObjectId
+  user                 User      @relation("MemberSubscription", fields: [userId], references: [id])
+  clerkOrgId           String
+  status               SubStatus @default(TRIALING)
+  trialEndsAt          DateTime
+  /// Not @unique: optional unique fields on Mongo collide on null (every trial
+  /// member), so uniqueness is app-enforced; indexed below for webhook lookups.
+  stripeCustomerId     String?
+  stripeSubscriptionId String?
+  currentPeriodEnd     DateTime?
+  cancelAtPeriodEnd    Boolean   @default(false)
+  /// Trial reminder keys already sent: "d3" | "d1" | "d0".
+  remindersSent        String[]  @default([])
+  /// PENDING | ASSIGNING | ASSIGNED | FAILED — state of the current starter assignment.
+  starterStatus        String    @default("PENDING")
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  @@index([clerkOrgId, status])
+  @@index([status, trialEndsAt])
+  @@index([stripeCustomerId])
+  @@index([starterStatus])
+}
+
+/// One failed access-code attempt on /join. Counted in a sliding window for
+/// rate limiting; key = "<ip>:<joinSlug>".
+model JoinCodeAttempt {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  key       String
+  createdAt DateTime @default(now())
+
+  @@index([key, createdAt])
 }

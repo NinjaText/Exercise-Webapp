@@ -10,6 +10,8 @@ import {
 } from "@aws-sdk/client-s3"
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
 import { prisma } from "@/lib/prisma"
+import { getCapabilitiesForUser } from "@/lib/org-capabilities.server"
+import { MESSAGING_UNAVAILABLE } from "@/lib/org-capabilities"
 import { getR2Client, R2_BUCKET_NAME, R2_PUBLIC_URL } from "@/lib/r2"
 import { pusherServer } from "@/lib/pusher"
 import { presignSchema, confirmSchema } from "@/lib/validators/voice-memo"
@@ -28,6 +30,11 @@ export type VoiceMemoData = {
   createdAt: Date
 }
 
+/** Voice notes live inside messaging; club orgs have none. */
+async function messagingDisabled(user: { clerkOrgId: string | null }): Promise<boolean> {
+  return !(await getCapabilitiesForUser(user)).messaging
+}
+
 async function getAuthedUser() {
   const { userId: clerkId } = await auth()
   if (!clerkId) return null
@@ -44,6 +51,7 @@ export async function generateVoiceMemoPresignedUrl(
 
     const user = await getAuthedUser()
     if (!user) return { success: false, error: "Unauthorized" }
+    if (await messagingDisabled(user)) return { success: false, error: MESSAGING_UNAVAILABLE }
 
     const workout = await prisma.workout.findUnique({
       where: { id: workoutId },
@@ -89,6 +97,7 @@ export async function confirmVoiceMemoUpload(
 
     const user = await getAuthedUser()
     if (!user) return { success: false, error: "Unauthorized" }
+    if (await messagingDisabled(user)) return { success: false, error: MESSAGING_UNAVAILABLE }
 
     const workout = await prisma.workout.findUnique({
       where: { id: workoutId },

@@ -19,14 +19,19 @@ vi.mock('@clerk/nextjs/server', () => ({
 }))
 vi.mock('@/lib/prisma', () => ({
   prisma: {
-    user: { deleteMany: vi.fn(), updateMany: vi.fn(), upsert: vi.fn(), findUnique: vi.fn() },
+    user: { deleteMany: vi.fn(), updateMany: vi.fn(), upsert: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn() },
     auditLog: { create: vi.fn() },
-    organization: { updateMany: vi.fn() },
+    organization: { updateMany: vi.fn(), findUnique: vi.fn() },
   },
 }))
 vi.mock('@/lib/services/user-deletion.service', () => ({
   deleteUserData: vi.fn(),
   findDeletionBlockers: vi.fn(),
+}))
+
+vi.mock('@/lib/services/club-member.service', () => ({ ensureMemberSubscription: vi.fn() }))
+vi.mock('@/lib/services/pending-program-assignment.service', () => ({
+  applyPendingAssignmentsForNewClient: vi.fn(),
 }))
 
 vi.mock('next/cache', () => ({ revalidateTag: vi.fn() }))
@@ -39,6 +44,8 @@ process.env.CLERK_WEBHOOK_SECRET = 'test_secret'
 import { prisma } from '@/lib/prisma'
 import { deleteUserData, findDeletionBlockers } from '@/lib/services/user-deletion.service'
 import { revalidateTag } from 'next/cache'
+import { clerkClient } from '@clerk/nextjs/server'
+import { ensureMemberSubscription } from '@/lib/services/club-member.service'
 import { POST } from '../route'
 
 const mockFindUnique = vi.mocked(prisma.user.findUnique)
@@ -227,5 +234,50 @@ describe('user.updated webhook event', () => {
       where: { clerkId: 'clerk_1' },
       data: { imageUrl: 'https://img.clerk.com/a.png', email: 'new@example.com' },
     })
+  })
+})
+
+describe('organizationMembership.created webhook event (club backup path)', () => {
+  const membershipEvent = {
+    type: 'organizationMembership.created',
+    data: {
+      organization: { id: 'org_club' },
+      public_user_data: { user_id: 'clerk_1' },
+    },
+  }
+
+  beforeEach(() => {
+    vi.mocked(clerkClient).mockResolvedValue({
+      users: {
+        getUser: vi.fn().mockResolvedValue({
+          emailAddresses: [{ id: 'e1', emailAddress: 'm@example.com' }],
+          primaryEmailAddressId: 'e1',
+          firstName: 'M',
+          lastName: 'Ember',
+          imageUrl: '',
+        }),
+      },
+      organizations: { getOrganizationInvitationList: vi.fn().mockResolvedValue({ data: [] }) },
+    } as never)
+    vi.mocked(prisma.user.upsert).mockResolvedValue({ id: 'u1', role: 'CLIENT' } as never)
+    vi.mocked(prisma.user.findFirst).mockResolvedValue(null as never)
+  })
+
+  it('ensures a member subscription for a club org', async () => {
+    const org = { clerkOrgId: 'org_club', type: 'CLUB' }
+    vi.mocked(prisma.organization.findUnique).mockResolvedValue(org as never)
+
+    const res = await POST(makeRequest(membershipEvent))
+
+    expect(res.status).toBe(200)
+    expect(ensureMemberSubscription).toHaveBeenCalledWith('u1', org)
+  })
+
+  it('does not touch subscriptions for a non-club org', async () => {
+    vi.mocked(prisma.organization.findUnique).mockResolvedValue({ clerkOrgId: 'org_club', type: null } as never)
+
+    await POST(makeRequest(membershipEvent))
+
+    expect(ensureMemberSubscription).not.toHaveBeenCalled()
   })
 })

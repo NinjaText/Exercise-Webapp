@@ -3,6 +3,10 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { PricingCards } from "@/components/billing/pricing-cards";
 import { differenceInDays } from "date-fns";
+import { getOrgForUser } from "@/lib/org-capabilities.server";
+import { getOrgCapabilities } from "@/lib/org-capabilities";
+import { ensureMemberSubscription } from "@/lib/services/club-member.service";
+import { MemberBillingView } from "./member-billing-view";
 
 export default async function BillingPage({
   searchParams,
@@ -13,7 +17,21 @@ export default async function BillingPage({
   if (!userId) redirect("/sign-in");
 
   const user = await prisma.user.findUnique({ where: { clerkId: userId } });
-  if (!user || user.role !== "TRAINER") redirect("/dashboard");
+  if (!user) redirect("/dashboard");
+  if (user.role === "CLIENT") {
+    const org = await getOrgForUser(user);
+    if (!org || getOrgCapabilities(org).billing !== "member") redirect("/dashboard");
+    let memberSub = await prisma.memberSubscription.findUnique({ where: { userId: user.id } });
+    if (!memberSub) {
+      // No row (e.g. enrollment crashed before the trial was created): create
+      // it now so the member can subscribe and shows up for admins.
+      await ensureMemberSubscription(user.id, org);
+      memberSub = await prisma.memberSubscription.findUnique({ where: { userId: user.id } });
+    }
+    const { reason: memberReason } = await searchParams;
+    return <MemberBillingView org={org} sub={memberSub} reason={memberReason ?? null} />;
+  }
+  if (user.role !== "TRAINER") redirect("/dashboard");
 
   const sub = await prisma.trainerSubscription.findUnique({
     where: { trainerId: user.id },

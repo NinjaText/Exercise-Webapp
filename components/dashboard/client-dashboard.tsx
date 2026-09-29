@@ -70,6 +70,8 @@ interface ClientDashboardProps {
   unreadTrainerMessage: TrainerMessagePreview | null;
   resources: QuickResourceItem[];
   inboxThreads: Awaited<ReturnType<typeof getInboxThreads>>;
+  /** False for orgs without messaging (clubs): no Inbox card, no trainer banner. */
+  showInbox?: boolean;
 }
 
 /**
@@ -88,6 +90,7 @@ export function ClientDashboard({
   unreadTrainerMessage,
   resources,
   inboxThreads,
+  showInbox = true,
 }: ClientDashboardProps) {
   const today = new Date();
   const todayWorkout =
@@ -105,6 +108,7 @@ export function ClientDashboard({
   // With no Resources the card renders nothing, so the two-column split would
   // strand the Inbox at half width — drop to a single column instead.
   const hasResources = resources.length > 0;
+  const pairResourcesWithInbox = hasResources && showInbox;
 
   return (
     <div className="space-y-6">
@@ -114,7 +118,7 @@ export function ClientDashboard({
         breadcrumb={[{ label: "Dashboard" }]}
       />
 
-      <TrainerMessageBanner message={unreadTrainerMessage} />
+      {showInbox && <TrainerMessageBanner message={unreadTrainerMessage} />}
 
       {/* Lifetime totals — paired on phones, one row from tablet up */}
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
@@ -208,9 +212,9 @@ export function ClientDashboard({
       {/* What the client can pull on their own, next to what's waiting for them.
           Both cards take `h-full` so the column stretch gives them a matching
           height whichever one has more rows. */}
-      <div className={cn("grid gap-4", hasResources && "lg:grid-cols-2")}>
+      <div className={cn("grid gap-4", pairResourcesWithInbox && "lg:grid-cols-2")}>
         <QuickResourcesList resources={resources} className="h-full" />
-        <DashboardInboxCard threads={inboxThreads} className="h-full" />
+        {showInbox && <DashboardInboxCard threads={inboxThreads} className="h-full" />}
       </div>
 
       {/* Primary at-a-glance schedule — the month view lives at /calendar */}

@@ -1,5 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
+vi.mock('@/lib/org-capabilities.server', async () => {
+  const { getOrgCapabilities } = await vi.importActual<typeof import('@/lib/org-capabilities')>('@/lib/org-capabilities')
+  return { getCapabilitiesForUser: vi.fn(async () => getOrgCapabilities(null)) }
+})
 vi.mock('@clerk/nextjs/server', () => ({ auth: vi.fn() }))
 vi.mock('@/lib/prisma', () => ({
   prisma: {
@@ -43,6 +47,8 @@ import {
   markVoiceMemoRead,
   getWorkoutVoiceMemos,
 } from '../voice-memo-actions'
+import { getCapabilitiesForUser } from '@/lib/org-capabilities.server'
+import { getOrgCapabilities } from '@/lib/org-capabilities'
 
 const mockAuth = vi.mocked(auth)
 const mockUserFind = vi.mocked(prisma.user.findUnique)
@@ -234,5 +240,21 @@ describe('getWorkoutVoiceMemos', () => {
     const result = await getWorkoutVoiceMemos(WORKOUT_ID)
     expect(result.success).toBe(true)
     expect(result.data).toEqual({ trainer: null, client: null })
+  })
+})
+
+describe('messaging capability (club orgs)', () => {
+  const blocked = { success: false, error: "Messaging isn't available for your account." }
+
+  it('refuses to presign or confirm a voice note for a club member', async () => {
+    vi.mocked(getCapabilitiesForUser).mockResolvedValue(getOrgCapabilities({ type: 'CLUB' }))
+    mockAuth.mockResolvedValue({ userId: CLERK_ID } as never)
+    mockUserFind.mockResolvedValue({ ...dbClient, clerkOrgId: 'org_club' } as never)
+
+    expect(await generateVoiceMemoPresignedUrl(WORKOUT_ID, 'webm')).toEqual(blocked)
+    expect(await confirmVoiceMemoUpload(WORKOUT_ID, 'voice-memos/pending/123e4567-e89b-12d3-a456-426614174000.webm', 10)).toEqual(blocked)
+    expect(mockGetSignedUrl).not.toHaveBeenCalled()
+    expect(mockMemoCreate).not.toHaveBeenCalled()
+    vi.mocked(getCapabilitiesForUser).mockResolvedValue(getOrgCapabilities(null))
   })
 })

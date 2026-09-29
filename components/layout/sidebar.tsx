@@ -22,6 +22,8 @@ interface SidebarProps {
   userImageUrl?: string | null;
   mobileMode?: boolean;
   isAdmin?: boolean;
+  /** Hrefs the org's capabilities hide (club orgs). */
+  hiddenHrefs?: string[];
   /** Client-safe branding subset (never tokens/CSS). */
   branding: BrandingViewModel;
 }
@@ -33,10 +35,11 @@ export function Sidebar({
   userEmail,
   mobileMode = false,
   isAdmin = false,
+  hiddenHrefs = [],
   branding,
 }: SidebarProps) {
   const pathname = usePathname();
-  const links = getPrimaryNav(role);
+  const links = getPrimaryNav(role, hiddenHrefs);
 
   // Collect every href rendered in this sidebar so we can find the best match.
   const allHrefs = [...links.map((l) => l.href), ...getAccountNav(role).map((l) => l.href)];

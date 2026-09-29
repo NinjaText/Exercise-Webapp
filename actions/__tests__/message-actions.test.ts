@@ -1,5 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
+vi.mock('@/lib/org-capabilities.server', async () => {
+  const { getOrgCapabilities } = await vi.importActual<typeof import('@/lib/org-capabilities')>('@/lib/org-capabilities')
+  return { getCapabilitiesForUser: vi.fn(async () => getOrgCapabilities(null)) }
+})
 vi.mock('@/lib/services/message.service', () => ({
   sendMessage: vi.fn(),
   markRead: vi.fn(),

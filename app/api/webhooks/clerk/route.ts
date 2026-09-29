@@ -7,6 +7,8 @@ import { NextResponse } from "next/server";
 import { revalidateTag } from "next/cache";
 import { brandingTag } from "@/lib/services/branding.service";
 import { logAudit, deriveActorType, AUDIT_ACTIONS } from "@/lib/services/audit-log.service";
+import { getOrgCapabilities } from "@/lib/org-capabilities";
+import { ensureMemberSubscription } from "@/lib/services/club-member.service";
 import { applyPendingAssignmentsForNewClient } from "@/lib/services/pending-program-assignment.service";
 import { deleteUserData, findDeletionBlockers } from "@/lib/services/user-deletion.service";
 import type { InviteClientMetadata } from "@/actions/invite-client-action";
@@ -177,6 +179,18 @@ export async function POST(req: Request) {
       // Best-effort: a failure here must not fail the webhook, or Clerk will
       // retry and re-run the account creation above.
       if (upserted.role === "CLIENT") {
+        // Club orgs: make sure the member has a trial even if they reached the
+        // org some way other than /join/[slug]/complete. Idempotent — never
+        // resets an existing trial. Best-effort like the block below.
+        try {
+          const org = await prisma.organization.findUnique({ where: { clerkOrgId: orgId } });
+          if (org && getOrgCapabilities(org).billing === "member") {
+            await ensureMemberSubscription(upserted.id, org);
+          }
+        } catch (error) {
+          console.error("Failed to ensure member subscription:", error);
+        }
+
         try {
           const trainer = await prisma.user.findFirst({
             where: { clerkOrgId: orgId, role: "TRAINER" },

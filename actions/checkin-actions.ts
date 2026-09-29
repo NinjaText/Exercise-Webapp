@@ -7,6 +7,7 @@ import type { CreateTemplateInput } from "@/lib/services/checkin.service";
 import { getClientIdsForTrainer } from "@/lib/services/client.service";
 import { prisma } from "@/lib/prisma";
 import { notifyUser, NOTIFICATION_TYPES } from "@/lib/services/notification.service";
+import { getCapabilitiesForUser } from "@/lib/org-capabilities.server";
 import { appBaseUrl } from "@/lib/utils/app-url";
 import { logUserAudit, AUDIT_ACTIONS } from "@/lib/services/audit-log.service";
 import { format } from "date-fns";
@@ -183,6 +184,8 @@ export async function submitCheckInResponseAction(
       where: { id: assignmentId },
       select: { trainerId: true, template: { select: { name: true } } },
     });
+    // Club members have no coach to notify (see OrgCapabilities.coachNotifications).
+    const { coachNotifications } = await getCapabilitiesForUser(user);
 
     const response = await checkinService.submitCheckInResponse(
       assignmentId,
@@ -197,7 +200,7 @@ export async function submitCheckInResponseAction(
     }));
     revalidatePath("/check-ins");
 
-    if (assignment) {
+    if (assignment && coachNotifications) {
       const responseLink = `${appBaseUrl()}/check-ins/${response.id}`;
       await notifyUser({
         userId: assignment.trainerId,

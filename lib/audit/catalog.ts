@@ -74,6 +74,10 @@ export const AUDIT_ACTION_CATALOG = {
   CLINIC_SETTINGS_UPDATED: { label: "Updated clinic settings", category: "ORGANIZATION", tone: "info" },
   BRANDING_UPDATED: { label: "Updated branding", category: "ORGANIZATION", tone: "info" },
   BRANDING_RESET: { label: "Reset branding to defaults", category: "ORGANIZATION", tone: "warning" },
+  CLUB_CREATED: { label: "Created club", category: "ORGANIZATION", tone: "success" },
+  CLUB_UPDATED: { label: "Updated club", category: "ORGANIZATION", tone: "info" },
+  ORG_TYPE_CHANGED: { label: "Changed org type", category: "ORGANIZATION", tone: "warning" },
+  MEMBER_TRIAL_EXTENDED: { label: "Extended member trial", category: "USERS", tone: "info" },
 } as const satisfies Record<string, AuditActionMeta>;
 
 export type AuditAction = keyof typeof AUDIT_ACTION_CATALOG;

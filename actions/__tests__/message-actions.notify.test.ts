@@ -1,5 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
+vi.mock('@/lib/org-capabilities.server', async () => {
+  const { getOrgCapabilities } = await vi.importActual<typeof import('@/lib/org-capabilities')>('@/lib/org-capabilities')
+  return { getCapabilitiesForUser: vi.fn(async () => getOrgCapabilities(null)) }
+})
 vi.mock('@clerk/nextjs/server', () => ({ auth: vi.fn(async () => ({ userId: 'clerk_t1' })) }))
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 vi.mock('@/lib/services/notification.service', () => ({
@@ -27,6 +31,8 @@ import { notifyUser } from '@/lib/services/notification.service'
 import { prisma } from '@/lib/prisma'
 import * as messageService from '@/lib/services/message.service'
 import { getClientIdsForTrainer } from '@/lib/services/client.service'
+import { getCapabilitiesForUser } from '@/lib/org-capabilities.server'
+import { getOrgCapabilities } from '@/lib/org-capabilities'
 import { sendMessageAction, replyToClientNoteAction, sendBroadcastMessageAction } from '../message-actions'
 
 const mockUserFind = vi.mocked(prisma.user.findUnique)
@@ -139,5 +145,35 @@ describe('sendBroadcastMessageAction', () => {
 
     expect(notifyUser).toHaveBeenCalledTimes(2)
     expect(res.success).toBe(true)
+  })
+})
+
+describe('messaging capability (club orgs)', () => {
+  const blocked = { success: false, error: "Messaging isn't available for your account." }
+
+  beforeEach(() => {
+    vi.mocked(getCapabilitiesForUser).mockResolvedValue(getOrgCapabilities({ type: 'CLUB' }))
+    mockGetClientIds.mockResolvedValue(['c1'])
+  })
+
+  it('refuses sendMessageAction for a club member without sending or notifying', async () => {
+    mockUserFind.mockResolvedValue({ id: 'c9', firstName: 'Club', lastName: 'Member', role: 'CLIENT', clerkOrgId: 'org_club' } as never)
+    expect(await sendMessageAction({ recipientId: 'staff', content: 'hello?' })).toEqual(blocked)
+    expect(getCapabilitiesForUser).toHaveBeenCalledWith(expect.objectContaining({ id: 'c9', clerkOrgId: 'org_club' }))
+    expect(mockSendMessage).not.toHaveBeenCalled()
+    expect(notifyUser).not.toHaveBeenCalled()
+  })
+
+  it('refuses reply and broadcast too', async () => {
+    expect(await replyToClientNoteAction('s1', 'be1', 'hi')).toEqual(blocked)
+    expect(await sendBroadcastMessageAction({ content: 'hi', sendToAll: true })).toEqual(blocked)
+    expect(mockSendMessage).not.toHaveBeenCalled()
+  })
+
+  it('trainer orgs are unaffected (regression)', async () => {
+    vi.mocked(getCapabilitiesForUser).mockResolvedValue(getOrgCapabilities(null))
+    const result = await sendMessageAction({ recipientId: 'c1', content: 'still works' })
+    expect(result.success).toBe(true)
+    expect(notifyUser).toHaveBeenCalledTimes(1)
   })
 })
