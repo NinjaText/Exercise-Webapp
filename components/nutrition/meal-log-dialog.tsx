@@ -2,15 +2,17 @@
 
 import { useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
-import { Plus, Loader2, Camera, X, Sparkles } from "lucide-react";
+import { Plus, Loader2, Camera, X, Sparkles, RefreshCw } from "lucide-react";
 import {
   analyzeMealPhotoAction,
+  reestimateMealPhotoItemAction,
   estimateMealMacrosBatchAction,
   createNutritionLogsBulkAction,
 } from "@/actions/nutrition-actions";
 import { useMealPhotoUpload } from "@/hooks/use-meal-photo-upload";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Dialog,
@@ -21,7 +23,13 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { FoodItemRowList, emptyFoodItemDraft, type FoodItemDraft } from "./food-item-row-list";
+import {
+  FoodItemRowList,
+  emptyFoodItemDraft,
+  foodEstimateKey,
+  type FoodItemDraft,
+  type EditableFoodField,
+} from "./food-item-row-list";
 
 const MEAL_TYPES = [
   { value: "BREAKFAST", label: "Breakfast" },
@@ -174,7 +182,7 @@ function ManualMealForm({
   const busy = isPending || isUploadingPhoto || isEstimating;
   const validItems = items.filter((i) => i.description.trim().length > 0);
 
-  function updateItem(index: number, field: keyof FoodItemDraft, value: string) {
+  function updateItem(index: number, field: EditableFoodField, value: string) {
     setItems((prev) => {
       const next = [...prev];
       next[index] = { ...next[index], [field]: value };
@@ -384,8 +392,38 @@ function AiPhotoMealForm({
   const [isSaving, startSaving] = useTransition();
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [drafts, setDrafts] = useState<FoodItemDraft[] | null>(null);
+  const [note, setNote] = useState("");
+  const [reestimatingIndex, setReestimatingIndex] = useState<number | null>(null);
 
-  const busy = isAnalyzing || isSaving;
+  const busy = isAnalyzing || isSaving || reestimatingIndex !== null;
+
+  async function runAnalysis(url: string, analysisNote?: string) {
+    setIsAnalyzing(true);
+    try {
+      const result = await analyzeMealPhotoAction({ photoUrl: url, note: analysisNote });
+      if (!result.success) {
+        toast.error(result.error ?? "Failed to analyze photo");
+        return;
+      }
+
+      setDrafts(
+        result.data.foods.map((f) => {
+          const draft: FoodItemDraft = {
+            description: f.name,
+            quantity: f.quantity,
+            calories: String(f.calories),
+            proteinG: String(f.proteinG),
+            carbsG: String(f.carbsG),
+            fatG: String(f.fatG),
+            components: f.components,
+          };
+          return { ...draft, estimatedFor: foodEstimateKey(draft) };
+        })
+      );
+    } finally {
+      setIsAnalyzing(false);
+    }
+  }
 
   async function handlePhotoSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -393,6 +431,7 @@ function AiPhotoMealForm({
 
     setIsAnalyzing(true);
     setDrafts(null);
+    setNote("");
     try {
       const uploadedUrl = await upload(file);
       if (!uploadedUrl) {
@@ -400,29 +439,55 @@ function AiPhotoMealForm({
         return;
       }
       setPhotoUrl(uploadedUrl);
-
-      const result = await analyzeMealPhotoAction({ photoUrl: uploadedUrl });
-      if (!result.success) {
-        toast.error(result.error ?? "Failed to analyze photo");
-        return;
-      }
-
-      setDrafts(
-        result.data.foods.map((f) => ({
-          description: f.name,
-          quantity: f.quantity,
-          calories: String(f.calories),
-          proteinG: String(f.proteinG),
-          carbsG: String(f.carbsG),
-          fatG: String(f.fatG),
-        }))
-      );
+      await runAnalysis(uploadedUrl);
     } finally {
       setIsAnalyzing(false);
     }
   }
 
-  function updateDraft(index: number, field: keyof FoodItemDraft, value: string) {
+  function handleReanalyze() {
+    if (!photoUrl) return;
+    void runAnalysis(photoUrl, note.trim() || undefined);
+  }
+
+  async function handleReestimate(index: number) {
+    const item = drafts?.[index];
+    if (!photoUrl || !item || item.description.trim().length === 0) return;
+
+    setReestimatingIndex(index);
+    try {
+      const result = await reestimateMealPhotoItemAction({
+        photoUrl,
+        name: item.description.trim(),
+        quantity: item.quantity.trim() || undefined,
+        components: item.components,
+      });
+      if (!result.success) {
+        toast.error(result.error ?? "Failed to re-estimate item");
+        return;
+      }
+
+      const { estimate } = result.data;
+      setDrafts((prev) => {
+        if (!prev) return prev;
+        const next = [...prev];
+        // Key off the values that were sent, so edits made while the request ran still show as unestimated.
+        next[index] = {
+          ...next[index],
+          calories: String(estimate.calories),
+          proteinG: String(estimate.proteinG),
+          carbsG: String(estimate.carbsG),
+          fatG: String(estimate.fatG),
+          estimatedFor: foodEstimateKey(item),
+        };
+        return next;
+      });
+    } finally {
+      setReestimatingIndex(null);
+    }
+  }
+
+  function updateDraft(index: number, field: EditableFoodField, value: string) {
     setDrafts((prev) => {
       if (!prev) return prev;
       const next = [...prev];
@@ -500,15 +565,47 @@ function AiPhotoMealForm({
             // eslint-disable-next-line @next/next/no-img-element
             <img src={photoUrl} alt="Meal" className="h-20 w-20 rounded-lg object-cover" />
           )}
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">
+              <Sparkles className="h-3 w-3" />
+              AI estimate
+            </span>
+            <span className="text-[11px] text-muted-foreground">Based on the photo only, so check it</span>
+          </div>
           <p className="text-xs text-muted-foreground">
-            Review and edit the detected items before saving.
+            Each item&apos;s numbers are added to your day, so dishes like sandwiches are logged once with
+            their ingredients included. Ate less than what&apos;s shown? Change the serving (e.g. &quot;1
+            slice&quot;) and tap Re-estimate, or edit the numbers directly.
           </p>
           <FoodItemRowList
             items={drafts}
             onChange={(i, field, value) => updateDraft(i, field, value)}
             onRemove={removeDraft}
             disabled={busy}
+            onReestimate={handleReestimate}
+            reestimatingIndex={reestimatingIndex}
           />
+          <div className="space-y-1.5 rounded-lg p-3 ring-1 ring-border/50">
+            <Label htmlFor="meal-photo-note" className="text-xs text-muted-foreground">
+              Something wrong with the whole result? Add a note and re-analyze
+            </Label>
+            <div className="flex items-center gap-2">
+              <Input
+                id="meal-photo-note"
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                disabled={busy}
+                maxLength={300}
+                placeholder="e.g. I only ate 2 slices, it's a thin crust"
+                className="h-8 flex-1 text-xs"
+              />
+              <Button type="button" variant="outline" size="sm" onClick={handleReanalyze} disabled={busy}>
+                {isAnalyzing ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="mr-1.5 h-3.5 w-3.5" />}
+                Re-analyze
+              </Button>
+            </div>
+            <p className="text-[11px] text-muted-foreground">Re-analyzing replaces the items above.</p>
+          </div>
         </div>
       )}
 

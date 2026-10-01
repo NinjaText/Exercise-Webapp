@@ -10,18 +10,46 @@ function dayStart(d: Date): Date {
   return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
 }
 
+/** Allowed gap between a model's calories and the 4/4/9 kcal implied by its own macros. */
+const CALORIE_MACRO_TOLERANCE = 0.1;
+
+/**
+ * Models generate calories and macros independently, so they can contradict
+ * each other (e.g. 2400 kcal next to macros worth 2680 kcal). When the gap is
+ * beyond tolerance, calories are recomputed from the macros (protein/carbs
+ * 4 kcal/g, fat 9 kcal/g) so the logged numbers are always self-consistent.
+ */
+export function reconcileCalories<T extends { calories: number; proteinG: number; carbsG: number; fatG: number }>(
+  estimate: T
+): T {
+  const macroCalories = estimate.proteinG * 4 + estimate.carbsG * 4 + estimate.fatG * 9;
+  if (macroCalories <= 0) return estimate;
+  if (Math.abs(estimate.calories - macroCalories) / macroCalories <= CALORIE_MACRO_TOLERANCE) return estimate;
+  return { ...estimate, calories: Math.round(macroCalories) };
+}
+
 // ─── Meal Photo Analysis ─────────────────────────────────────────────────────
 
 const mealPhotoSchema = z.object({
   foods: z
     .array(
       z.object({
-        name: z.string().describe("Food item name, e.g. 'Grilled chicken breast'"),
-        quantity: z.string().describe("Estimated serving size, e.g. '6 oz' or '1 cup'"),
-        calories: z.number().int().min(0).describe("Estimated calories for this item"),
-        proteinG: z.number().min(0).describe("Estimated grams of protein"),
-        carbsG: z.number().min(0).describe("Estimated grams of carbohydrates"),
-        fatG: z.number().min(0).describe("Estimated grams of fat"),
+        name: z.string().describe("Food item name, e.g. 'Turkey club sandwich' or 'French fries'"),
+        quantity: z
+          .string()
+          .describe(
+            "The amount these numbers are for, stating any size you assumed, e.g. '1 sandwich', '6 oz', '1 cup' or '1 whole 12\" medium pizza (8 slices)'"
+          ),
+        calories: z.number().int().min(0).describe("Estimated calories for this whole item, including all of its components"),
+        proteinG: z.number().min(0).describe("Estimated grams of protein for this whole item"),
+        carbsG: z.number().min(0).describe("Estimated grams of carbohydrates for this whole item"),
+        fatG: z.number().min(0).describe("Estimated grams of fat for this whole item"),
+        components: z
+          .array(z.string())
+          .max(12)
+          .describe(
+            "For a combined dish (sandwich, burger, wrap, salad, bowl, pizza, etc.), the visible ingredients it is made of, e.g. ['whole wheat bread', 'turkey', 'cheddar', 'lettuce']. These are descriptive only — their nutrition is already included in this item's totals. Empty array for single foods."
+          ),
       })
     )
     .min(1)
@@ -30,13 +58,64 @@ const mealPhotoSchema = z.object({
 
 export type MealPhotoFoodDraft = z.infer<typeof mealPhotoSchema>["foods"][number];
 
+const ESTIMATION_GUIDELINES = `How to estimate:
+- Base the numbers on typical published nutrition data for that food (standard recipes, common restaurant/brand values), not a guess from scratch.
+- Judge size from visual cues (plate, utensils, hands, packaging). With no clear cues, assume the most common size (e.g. a medium 12" pizza, a standard sandwich) — never the largest.
+- Calories must agree with the macros: protein and carbs are 4 kcal/g, fat is 9 kcal/g.
+- These are draft values a person will review and correct before saving, so be realistic rather than inflated.`;
+
+const MEAL_PHOTO_PROMPT = `Identify the foods in this meal photo and estimate the serving size and the calories, protein, carbs, and fat for each.
+
+Rules for splitting the meal into items:
+- A combined dish (sandwich, burger, wrap, burrito, salad, bowl, pizza, etc.) is ONE item. Its calories and macros must cover the whole dish, and its ingredients go in that item's "components" list.
+- NEVER also list a dish's ingredients as separate items — every item's macros are added together, so doing so counts that food twice.
+- Foods that are separate on the plate or served alongside (e.g. a side of fries, a piece of fruit, a drink) are their own items.
+- For food made to be shared or sliced (a whole pizza, cake, pie), state the assumed size and slice count in "quantity", e.g. '1 whole 12" medium pizza (8 slices)'.
+
+${ESTIMATION_GUIDELINES}`;
+
+function normalizeFoodName(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
+}
+
+/**
+ * Safety net for the prompt rule above: drops any standalone single-food item
+ * whose name matches a component of a combined dish in the same result (e.g.
+ * "Cheddar cheese" returned alongside a sandwich listing "cheddar cheese"),
+ * since the dish's totals already include it. Matching is deliberately
+ * strict — exact name, or the component names that food as a whole word —
+ * so genuine sides like "Cheese sauce" next to a burger with "cheese" survive.
+ */
+export function removeDuplicatedComponents(foods: MealPhotoFoodDraft[]): MealPhotoFoodDraft[] {
+  const componentNames = foods.flatMap((f) => f.components.map(normalizeFoodName)).filter(Boolean);
+  if (componentNames.length === 0) return foods;
+
+  const kept = foods.filter((food) => {
+    if (food.components.length > 0) return true;
+    const name = normalizeFoodName(food.name);
+    if (!name) return true;
+    // Normalized names are space-separated words, so padding gives a whole-word match.
+    return !componentNames.some((c) => c === name || ` ${c} `.includes(` ${name} `));
+  });
+
+  // Never hand back an empty draft list — fall back to the raw result.
+  return kept.length > 0 ? kept : foods;
+}
+
 /**
  * Analyzes a meal photo with a vision-capable model and returns a draft list
- * of detected foods with estimated portions/macros. The caller (client) is
- * expected to review and edit these before saving as NutritionLog entries —
- * this function never writes to the database itself.
+ * of detected foods with estimated portions/macros. Combined dishes come back
+ * as a single item (with their ingredients in `components`) so a meal's total
+ * is the plain sum of its items. `note` is the user's free-text correction
+ * when re-analyzing (e.g. "I only ate 2 slices"). The caller (client) is expected to review
+ * and edit these before saving as NutritionLog entries — this function never
+ * writes to the database itself.
  */
-export async function analyzeMealPhoto(photoUrl: string): Promise<MealPhotoFoodDraft[]> {
+export async function analyzeMealPhoto(photoUrl: string, note?: string): Promise<MealPhotoFoodDraft[]> {
+  const text = note
+    ? `${MEAL_PHOTO_PROMPT}\n\nThe person who ate this meal added a note — follow it, especially about how much they actually ate:\n"${note}"`
+    : MEAL_PHOTO_PROMPT;
+
   const { object } = await generateObject({
     model: openai("gpt-4o"),
     schema: mealPhotoSchema,
@@ -44,17 +123,14 @@ export async function analyzeMealPhoto(photoUrl: string): Promise<MealPhotoFoodD
       {
         role: "user",
         content: [
-          {
-            type: "text",
-            text: "Identify each distinct food item in this meal photo. For each, estimate a realistic serving size and its calories, protein, carbs, and fat. Be a reasonable, conservative estimator — these are draft values a person will review and correct before saving.",
-          },
+          { type: "text", text },
           { type: "image", image: photoUrl },
         ],
       },
     ],
   });
 
-  return object.foods;
+  return removeDuplicatedComponents(object.foods).map(reconcileCalories);
 }
 
 // ─── Text-Based Macro Estimation ─────────────────────────────────────────────
@@ -100,14 +176,53 @@ export async function estimateMealMacrosBatch(
   const { object } = await generateObject({
     model: openai("gpt-4o-mini"),
     schema: mealMacroBatchSchema,
-    prompt: `Estimate the nutritional content of each of these food items, logged together as one meal:\n\n${itemLines}\n\nBe a reasonable, conservative estimator based on typical preparation and portion sizes — these are draft values a person will review and can correct before saving. Return exactly ${items.length} estimate(s), in the same order as the input list.`,
+    prompt: `Estimate the nutritional content of each of these food items, logged together as one meal:\n\n${itemLines}\n\n${ESTIMATION_GUIDELINES}\n\nReturn exactly ${items.length} estimate(s), in the same order as the input list.`,
   });
 
   if (object.items.length !== items.length) {
     throw new Error(`Expected ${items.length} macro estimates but received ${object.items.length}`);
   }
 
-  return object.items;
+  return object.items.map(reconcileCalories);
+}
+
+/**
+ * Re-estimates one photo-detected item after the user corrected what it is
+ * or how much they ate (e.g. "Whole pizza" → "1 slice"). Sends the photo
+ * along with the correction so the model keeps the visual context (toppings,
+ * crust, preparation) while sizing the numbers to exactly the stated amount.
+ * Never writes to the database.
+ */
+export async function reestimateMealPhotoItem(
+  photoUrl: string,
+  item: { name: string; quantity?: string; components?: string[] }
+): Promise<MealMacroEstimate> {
+  const details = [
+    `Food: ${item.name}`,
+    item.quantity ? `Amount actually eaten: ${item.quantity}` : null,
+    item.components && item.components.length > 0 ? `Ingredients: ${item.components.join(", ")}` : null,
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  const { object } = await generateObject({
+    model: openai("gpt-4o"),
+    schema: mealMacroEstimateSchema,
+    messages: [
+      {
+        role: "user",
+        content: [
+          {
+            type: "text",
+            text: `This photo shows food someone ate. They corrected the details below — trust them over what the photo suggests, and estimate the nutrition for exactly the amount stated (not the whole dish in the photo unless that is what they say they ate). Use the photo only for what kind of food it is and how it was prepared.\n\n${details}\n\n${ESTIMATION_GUIDELINES}`,
+          },
+          { type: "image", image: photoUrl },
+        ],
+      },
+    ],
+  });
+
+  return reconcileCalories(object);
 }
 
 // ─── Daily Summary ───────────────────────────────────────────────────────────
