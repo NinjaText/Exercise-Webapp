@@ -6,7 +6,7 @@ import { useClerk } from "@clerk/nextjs";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { SettingsPanel } from "@/components/settings/settings-section";
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -89,22 +89,27 @@ export function DeleteAccountSection({ role }: DeleteAccountSectionProps) {
   };
 
   return (
-    <Card className="border-destructive/40">
-      <CardHeader>
-        <CardTitle className="text-destructive">Delete account</CardTitle>
-        <CardDescription>
-          Permanently removes your profile, health and fitness records, messages, and
-          notification devices. This cannot be undone.
-          {role === "TRAINER" && (
-            <> If you are your organization&apos;s only active trainer, deactivate or
-            reassign its active clients first.</>
-          )}
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
+    <SettingsPanel
+      title="Danger zone"
+      tone="danger"
+      description="Irreversible actions for your account."
+      footerHint="This cannot be undone."
+      footer={
         <Button variant="destructive" onClick={() => setOpen(true)}>
           Delete my account
         </Button>
+      }
+    >
+      <div className="flex flex-col gap-1">
+        <p className="text-sm font-medium">Delete account</p>
+        <p className="text-sm text-muted-foreground">
+          Permanently removes your profile, health and fitness records, messages, and notification devices.
+          {role === "TRAINER" && (
+            <> If you are your organization&apos;s only active trainer, deactivate or reassign its active clients
+            first.</>
+          )}
+        </p>
+      </div>
 
         <AlertDialog open={open} onOpenChange={(next) => { setOpen(next); if (!next) { setConfirmation(""); setBlockers([]); } }}>
           <AlertDialogContent>
@@ -152,7 +157,6 @@ export function DeleteAccountSection({ role }: DeleteAccountSectionProps) {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
-      </CardContent>
-    </Card>
+    </SettingsPanel>
   );
 }

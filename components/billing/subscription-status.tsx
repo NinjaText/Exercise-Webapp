@@ -1,25 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import { toast } from "sonner";
+import { ExternalLink, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { SectionCard } from "@/components/shared/section-card";
-import { StatusBadge } from "@/components/shared/status-badge";
-import { TIER_CONFIG, type PlanTier } from "@/lib/stripe-config";
-import { format } from "date-fns";
 
-interface SubscriptionStatusProps {
-  plan: string;
-  status: string;
-  currentPeriodEnd: Date | null;
-  cancelAtPeriodEnd: boolean;
-}
-
-export function SubscriptionStatus({
-  plan,
-  status,
-  currentPeriodEnd,
-  cancelAtPeriodEnd,
-}: SubscriptionStatusProps) {
+/** Opens the Stripe customer portal, where plan, payment method and invoices are managed. */
+export function ManageSubscriptionButton({ label = "Manage subscription" }: { label?: string }) {
   const [loading, setLoading] = useState(false);
 
   async function handleManage() {
@@ -27,39 +14,18 @@ export function SubscriptionStatus({
     try {
       const res = await fetch("/api/stripe/portal", { method: "POST" });
       if (!res.ok) throw new Error("Portal request failed");
-      const data = await res.json() as { url: string };
+      const data = (await res.json()) as { url: string };
       window.location.href = data.url;
     } catch {
       setLoading(false);
+      toast.error("We couldn't open the billing portal. Please try again.");
     }
   }
 
-  const tierLabel =
-    TIER_CONFIG[plan as PlanTier]?.label ?? plan;
-
   return (
-    <SectionCard title="Current plan">
-      <div className="space-y-4">
-        <div className="flex items-center gap-2">
-          <span className="font-medium">{tierLabel}</span>
-          <StatusBadge status={status} size="sm" />
-        </div>
-        {currentPeriodEnd && (
-          <p className="text-sm text-muted-foreground">
-            Next billing date:{" "}
-            {format(new Date(currentPeriodEnd), "MMMM d, yyyy")}
-          </p>
-        )}
-        {cancelAtPeriodEnd && (
-          <p className="text-sm text-warning-foreground">
-            Your subscription will cancel at the end of the current billing
-            period.
-          </p>
-        )}
-        <Button onClick={handleManage} disabled={loading} variant="outline">
-          {loading ? "Redirecting…" : "Manage Subscription"}
-        </Button>
-      </div>
-    </SectionCard>
+    <Button onClick={handleManage} disabled={loading} variant="outline">
+      {loading ? <Loader2 className="mr-2 size-4 animate-spin" /> : <ExternalLink className="mr-2 size-4" />}
+      {loading ? "Opening…" : label}
+    </Button>
   );
 }

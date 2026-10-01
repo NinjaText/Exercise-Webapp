@@ -4,9 +4,10 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { FormSection, FormField } from "@/components/shared/form-section";
+import { FormField } from "@/components/shared/form-section";
+import { SettingsPanel, SettingsPanels, SettingsRow } from "@/components/settings/settings-section";
+import { SettingsSaveBar } from "@/components/settings/settings-save-bar";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { ColorField } from "@/components/settings/color-field";
 import { BrandPreview } from "@/components/settings/brand-preview";
@@ -82,6 +83,8 @@ export function BrandingForm({
   const [saving, setSaving] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  // Bumped on discard so ColorField drops a half-typed (invalid) draft too.
+  const [colorFieldKey, setColorFieldKey] = useState(0);
 
   const dirty = !isSame(values, saved);
   const pending = saving || resetting;
@@ -123,6 +126,13 @@ export function BrandingForm({
     }
   }
 
+  function handleDiscard() {
+    setValues(saved);
+    setErrors({});
+    setColorTextValid(true);
+    setColorFieldKey((k) => k + 1);
+  }
+
   async function handleReset() {
     setConfirmOpen(false);
     setResetting(true);
@@ -142,112 +152,125 @@ export function BrandingForm({
   }
 
   return (
-    <div className="flex flex-col gap-8">
-      <FormSection
-        title="Custom branding"
-        description="When this is off, your settings are kept but clients see the standard look. The preview below always shows your settings."
-      >
-        <div className="flex items-center justify-between gap-4">
-          <Label htmlFor="brandingEnabled" className="text-sm font-medium">
-            Use custom branding for my organization
-          </Label>
-          <Switch
-            id="brandingEnabled"
-            checked={values.brandingEnabled}
-            onCheckedChange={(checked) => update("brandingEnabled", checked)}
-          />
-        </div>
-      </FormSection>
-
-      <FormSection title="Identity">
-        <FormField
-          label="Display name"
-          htmlFor="brandDisplayName"
-          hint="Shown in the app, on PDFs and in emails. Leave blank to use your organization name."
-          error={errors.brandDisplayName}
+    <>
+      <SettingsPanels>
+        <SettingsPanel
+          title="Custom branding"
+          description="When this is off your settings are kept, but clients see the standard look. The preview always shows your settings."
         >
-          <Input
-            id="brandDisplayName"
-            value={values.brandDisplayName}
-            onChange={(e) => update("brandDisplayName", e.target.value)}
-            placeholder={initial.orgName}
-            maxLength={60}
-            aria-invalid={errors.brandDisplayName ? true : undefined}
-          />
-        </FormField>
-      </FormSection>
+          <SettingsRow
+            label="Use custom branding"
+            description="Apply your name, logos and color across the app, PDFs and client emails."
+            htmlFor="brandingEnabled"
+          >
+            <Switch
+              id="brandingEnabled"
+              checked={values.brandingEnabled}
+              onCheckedChange={(checked) => update("brandingEnabled", checked)}
+            />
+          </SettingsRow>
+        </SettingsPanel>
 
-      <FormSection
-        title="Logos"
-        description="All optional. Without a dark logo, the sidebar shows your light logo on a light plate; without either, your display name is shown. Without a mark, your initial on your brand color is used."
-      >
-        <LogoUploader
-          kind="logo-on-light"
-          label="Logo on light background"
-          hint="Used on PDFs, on your sales page and on client onboarding. PNG, JPEG or WebP, up to 2 MB, at least 64 px tall."
-          surface="light"
-          currentUrl={initial.assets.logoOnLightUrl}
-          currentIsOwn={ownAssets["logo-on-light"]}
-        />
-        <LogoUploader
-          kind="logo-on-dark"
-          label="Logo on dark background"
-          hint="Used at the top of the sidebar, which is always dark, and in the header of emails your clients receive. PNG, JPEG or WebP, up to 2 MB, at least 64 px tall."
-          surface="dark"
-          currentUrl={initial.assets.logoOnDarkUrl}
-          currentIsOwn={ownAssets["logo-on-dark"]}
-        />
-        <LogoUploader
-          kind="mark"
-          label="Square mark"
-          hint="Shown next to your name when no logo is set, and as your browser tab icon. PNG, JPEG or WebP, up to 2 MB, at least 128 × 128 px."
-          surface="dark"
-          currentUrl={initial.assets.markUrl}
-          currentIsOwn={ownAssets.mark}
-        />
-      </FormSection>
+        <SettingsPanel title="Identity" description="The name clients see in place of the app's name.">
+          <FormField
+            label="Display name"
+            htmlFor="brandDisplayName"
+            hint="Shown in the app, on PDFs and in emails. Leave blank to use your organization name."
+            error={errors.brandDisplayName}
+          >
+            <Input
+              id="brandDisplayName"
+              value={values.brandDisplayName}
+              onChange={(e) => update("brandDisplayName", e.target.value)}
+              placeholder={initial.orgName}
+              maxLength={60}
+              aria-invalid={errors.brandDisplayName ? true : undefined}
+            />
+          </FormField>
+        </SettingsPanel>
 
-      <FormSection
-        title="Color"
-        description="Used for buttons, links, highlights and the sidebar. Leave blank to keep the default color."
-      >
-        <FormField label="Brand color" htmlFor="brandPrimaryColor">
-          <ColorField
-            id="brandPrimaryColor"
-            value={values.brandPrimaryColor}
-            onChange={(hex) => update("brandPrimaryColor", hex)}
-            onValidityChange={setColorTextValid}
-            // While the text isn't a color yet, `values` still holds the previous
-            // one: don't warn about a color the user is typing over.
-            error={colorTextValid ? (guardrailError ?? errors.brandPrimaryColor) : undefined}
-          />
-        </FormField>
-      </FormSection>
-
-      <FormSection title="Preview">
-        <BrandPreview
-          hex={values.brandPrimaryColor}
-          displayName={previewName}
-          incomplete={!colorTextValid}
-        />
-      </FormSection>
-
-      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-6">
-        <Button
-          type="button"
-          variant="outline"
-          className="text-destructive hover:text-destructive"
-          onClick={() => setConfirmOpen(true)}
-          disabled={pending}
+        <SettingsPanel
+          title="Logos"
+          description={
+            <>
+              All optional, and saved as soon as you upload them. Without a dark logo, the sidebar shows your light
+              logo on a light plate; without either, your display name is shown.
+            </>
+          }
         >
-          {resetting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          Reset to defaults
-        </Button>
-        <Button type="button" onClick={handleSave} disabled={!dirty || !colorTextValid || !colorUsable || pending}>
-          {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          Save changes
-        </Button>
-      </div>
+          <LogoUploader
+            kind="logo-on-light"
+            label="Logo on light background"
+            hint="Used on PDFs, on your sales page and on client onboarding. PNG, JPEG or WebP, up to 2 MB, at least 64 px tall."
+            surface="light"
+            currentUrl={initial.assets.logoOnLightUrl}
+            currentIsOwn={ownAssets["logo-on-light"]}
+          />
+          <LogoUploader
+            kind="logo-on-dark"
+            label="Logo on dark background"
+            hint="Used at the top of the sidebar, which is always dark, and in the header of client emails. PNG, JPEG or WebP, up to 2 MB, at least 64 px tall."
+            surface="dark"
+            currentUrl={initial.assets.logoOnDarkUrl}
+            currentIsOwn={ownAssets["logo-on-dark"]}
+          />
+          <LogoUploader
+            kind="mark"
+            label="Square mark"
+            hint="Shown next to your name when no logo is set, and as your browser tab icon. PNG, JPEG or WebP, up to 2 MB, at least 128 × 128 px."
+            surface="dark"
+            currentUrl={initial.assets.markUrl}
+            currentIsOwn={ownAssets.mark}
+          />
+        </SettingsPanel>
+
+        <SettingsPanel
+          title="Brand color"
+          description="Used for buttons, links, highlights and the sidebar. Leave blank to keep the default color."
+        >
+          <FormField label="Brand color" htmlFor="brandPrimaryColor">
+            <ColorField
+              key={colorFieldKey}
+              id="brandPrimaryColor"
+              value={values.brandPrimaryColor}
+              onChange={(hex) => update("brandPrimaryColor", hex)}
+              onValidityChange={setColorTextValid}
+              // While the text isn't a color yet, `values` still holds the previous
+              // one: don't warn about a color the user is typing over.
+              error={colorTextValid ? (guardrailError ?? errors.brandPrimaryColor) : undefined}
+            />
+          </FormField>
+          <div className="flex flex-col gap-2">
+            <p className="text-sm font-medium">Preview</p>
+            <BrandPreview hex={values.brandPrimaryColor} displayName={previewName} incomplete={!colorTextValid} />
+          </div>
+        </SettingsPanel>
+
+        <SettingsPanel
+          title="Reset branding"
+          tone="danger"
+          description="Turns custom branding off and clears your color, display name and logos."
+          footerHint="This can't be undone."
+          footer={
+            <Button type="button" variant="destructive" onClick={() => setConfirmOpen(true)} disabled={pending}>
+              {resetting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Reset to defaults
+            </Button>
+          }
+        >
+          <p className="text-sm text-muted-foreground">
+            Clients will see the standard look again. Your organization profile is not affected.
+          </p>
+        </SettingsPanel>
+      </SettingsPanels>
+
+      <SettingsSaveBar
+        dirty={dirty}
+        saving={saving}
+        onDiscard={handleDiscard}
+        onSave={handleSave}
+        canSave={colorTextValid && colorUsable && !resetting}
+      />
 
       <ConfirmDialog
         open={confirmOpen}
@@ -258,6 +281,6 @@ export function BrandingForm({
         variant="destructive"
         onConfirm={handleReset}
       />
-    </div>
+    </>
   );
 }

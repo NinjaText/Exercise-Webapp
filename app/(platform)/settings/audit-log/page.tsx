@@ -8,8 +8,6 @@ import {
 import { auditFiltersToQuery, parseAuditFilters } from "@/lib/audit/catalog";
 import { AuditLogTable } from "@/components/audit-log/audit-log-table";
 import { AuditLogFilters } from "@/components/audit-log/audit-log-filters";
-import { PageHeader } from "@/components/shared/page-header";
-import { PageShell } from "@/components/shared/page-shell";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Building2 } from "lucide-react";
 
@@ -24,14 +22,13 @@ export default async function TrainerAuditLogPage({ searchParams }: PageProps) {
 
   if (!trainer.clerkOrgId) {
     return (
-      <PageShell>
-        <PageHeader title="Audit Log" description="Activity across your clinic." />
+      <div>
         <EmptyState
           icon={Building2}
           title="No organization set up"
           description="Set up your organization to see activity here."
         />
-      </PageShell>
+      </div>
     );
   }
 
@@ -53,11 +50,10 @@ export default async function TrainerAuditLogPage({ searchParams }: PageProps) {
   const queryString = auditFiltersToQuery({ ...filters, org: undefined, page: 1 });
 
   return (
-    <PageShell>
-      <PageHeader
-        title="Audit Log"
-        description="Activity across your clinic — your team and your clients. Click a row for full details."
-      />
+    <div className="flex flex-col gap-4">
+      <p className="text-sm text-muted-foreground">
+        Everything your team and your clients have done, newest first. Click a row for full details.
+      </p>
 
       <AuditLogFilters
         filters={{ ...filters, org: undefined }}
@@ -76,6 +72,6 @@ export default async function TrainerAuditLogPage({ searchParams }: PageProps) {
         queryString={queryString}
         filtered={Boolean(queryString)}
       />
-    </PageShell>
+    </div>
   );
 }

@@ -1,17 +1,12 @@
 import type { LucideIcon } from "lucide-react";
 import {
   Apple,
-  Bell,
-  Building2,
   CalendarDays,
   ClipboardList,
-  CreditCard,
   Dumbbell,
-  History,
   Inbox,
   LayoutDashboard,
   Library,
-  Palette,
   Settings,
   Shield,
   TrendingUp,
@@ -56,18 +51,15 @@ export const CLIENT_NAV: NavItem[] = [
   { href: "/messages", label: "Inbox", icon: Inbox, tier: 1 },
 ];
 
+// Settings sections (account, notifications, organization, branding,
+// billing, audit log) are tabs on the settings page — see
+// components/settings/settings-tabs.ts — so the nav only links the page.
 export const TRAINER_ACCOUNT_NAV: NavItem[] = [
-  { href: "/settings/billing", label: "Billing", icon: CreditCard, tier: 3 },
   { href: "/settings", label: "Settings", icon: Settings, tier: 2 },
-  { href: "/settings/notifications", label: "Notifications", icon: Bell, tier: 2 },
-  { href: "/settings/clinic", label: "Organization", icon: Building2, tier: 3 },
-  { href: "/settings/branding", label: "Branding", icon: Palette, tier: 3 },
-  { href: "/settings/audit-log", label: "Audit Log", icon: History, tier: 3 },
 ];
 
 export const CLIENT_ACCOUNT_NAV: NavItem[] = [
   { href: "/settings", label: "Settings", icon: Settings, tier: 2 },
-  { href: "/settings/notifications", label: "Notifications", icon: Bell, tier: 2 },
 ];
 
 export const ADMIN_NAV: NavItem = { href: "/admin", label: "Super Admin", icon: Shield, tier: 3 };

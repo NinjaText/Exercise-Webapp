@@ -113,8 +113,12 @@ export async function POST(req: Request) {
   }
 
   if (evt.type === "user.updated") {
-    const { id, image_url, email_addresses } = evt.data;
-    const primaryEmail = email_addresses?.[0]?.email_address;
+    const { id, image_url, email_addresses, primary_email_address_id } = evt.data;
+    // The primary address, not the first one listed: a user who adds a second
+    // email and makes it primary must not keep (or lose) the wrong one here.
+    const primaryEmail =
+      email_addresses?.find((e) => e.id === primary_email_address_id)?.email_address ??
+      email_addresses?.[0]?.email_address;
     await prisma.user.updateMany({
       where: { clerkId: id },
       data: {

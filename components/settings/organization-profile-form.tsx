@@ -2,51 +2,79 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { FormSection, FormField } from "@/components/shared/form-section";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { FormField } from "@/components/shared/form-section";
+import { SettingsPanel, SettingsPanels } from "@/components/settings/settings-section";
+import { SettingsSaveBar } from "@/components/settings/settings-save-bar";
 import { saveOrganizationProfile, type OrganizationMetadata } from "@/actions/organization-actions";
 import { type ExerciseSourcePreference } from "@/lib/utils/exercise-picker";
-import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
 
 interface OrganizationProfileFormProps {
   initialData?: OrganizationMetadata;
 }
 
+type Values = {
+  organizationName: string;
+  tagline: string;
+  phone: string;
+  email: string;
+  website: string;
+  address: string;
+  exerciseSourcePreference: ExerciseSourcePreference;
+};
+
+const LIBRARY_OPTIONS: { value: ExerciseSourcePreference; label: string; description: string }[] = [
+  { value: "BOTH", label: "Universal + organization", description: "The full universal library alongside your own exercises." },
+  { value: "UNIVERSAL", label: "Universal only", description: "Only the shared library that comes with the app." },
+  { value: "ORGANIZATION", label: "Organization only", description: "Only exercises your team has added." },
+];
+
+function toValues(data?: OrganizationMetadata): Values {
+  return {
+    organizationName: data?.organizationName ?? "",
+    tagline: data?.tagline ?? "",
+    phone: data?.phone ?? "",
+    email: data?.email ?? "",
+    website: data?.website ?? "",
+    address: data?.address ?? "",
+    exerciseSourcePreference: data?.exerciseSourcePreference ?? "BOTH",
+  };
+}
+
 export function OrganizationProfileForm({ initialData }: OrganizationProfileFormProps) {
   const router = useRouter();
-  const [loading, setLoading] = useState(false);
-  const [exerciseSourcePreference, setExerciseSourcePreference] = useState<ExerciseSourcePreference>(
-    initialData?.exerciseSourcePreference ?? "BOTH"
-  );
+  const [saved, setSaved] = useState<Values>(() => toValues(initialData));
+  const [values, setValues] = useState<Values>(saved);
+  const [saving, setSaving] = useState(false);
+
+  const dirty = (Object.keys(values) as (keyof Values)[]).some((k) => values[k] !== saved[k]);
+  const set = <K extends keyof Values>(key: K, value: Values[K]) => setValues((v) => ({ ...v, [key]: value }));
+  const text = (key: Exclude<keyof Values, "exerciseSourcePreference">) => ({
+    id: key,
+    name: key,
+    value: values[key],
+    onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => set(key, e.target.value),
+  });
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setLoading(true);
-
-    const formData = new FormData(e.currentTarget);
+    setSaving(true);
     const result = await saveOrganizationProfile({
-      organizationName: formData.get("organizationName") as string,
-      tagline: (formData.get("tagline") as string) || undefined,
-      phone: (formData.get("phone") as string) || undefined,
-      email: (formData.get("email") as string) || undefined,
-      website: (formData.get("website") as string) || undefined,
-      address: (formData.get("address") as string) || undefined,
-      exerciseSourcePreference,
+      organizationName: values.organizationName.trim(),
+      tagline: values.tagline.trim() || undefined,
+      phone: values.phone.trim() || undefined,
+      email: values.email.trim() || undefined,
+      website: values.website.trim() || undefined,
+      address: values.address.trim() || undefined,
+      exerciseSourcePreference: values.exerciseSourcePreference,
     });
-
-    setLoading(false);
+    setSaving(false);
 
     if (result.success) {
+      setSaved(values);
       toast.success("Organization profile saved");
       router.refresh();
     } else {
@@ -55,109 +83,67 @@ export function OrganizationProfileForm({ initialData }: OrganizationProfileForm
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-8">
-      <FormSection title="Organization details">
-        <FormField label="Organization Name" htmlFor="organizationName" required>
-          <Input
-            id="organizationName"
-            name="organizationName"
-            required
-            defaultValue={initialData?.organizationName ?? ""}
-            placeholder="e.g., Summit Physical Therapy"
-          />
-        </FormField>
-
-        <FormField label="Tagline" htmlFor="tagline">
-          <Input
-            id="tagline"
-            name="tagline"
-            defaultValue={initialData?.tagline ?? ""}
-            placeholder="e.g., Evidence-based rehabilitation"
-          />
-        </FormField>
-      </FormSection>
-
-      <FormSection title="Contact">
-        <div className="grid gap-4 sm:grid-cols-2">
-          <FormField label="Phone" htmlFor="phone">
-            <Input
-              id="phone"
-              name="phone"
-              defaultValue={initialData?.phone ?? ""}
-              placeholder="(555) 123-4567"
-            />
-          </FormField>
-          <FormField label="Contact Email" htmlFor="email">
-            <Input
-              id="email"
-              name="email"
-              type="email"
-              defaultValue={initialData?.email ?? ""}
-              placeholder="organization@example.com"
-            />
-          </FormField>
-        </div>
-
-        <FormField label="Website" htmlFor="website">
-          <Input
-            id="website"
-            name="website"
-            type="url"
-            defaultValue={initialData?.website ?? ""}
-            placeholder="https://www.example.com"
-          />
-        </FormField>
-
-        <FormField label="Address" htmlFor="address">
-          <Textarea
-            id="address"
-            name="address"
-            rows={2}
-            defaultValue={initialData?.address ?? ""}
-            placeholder="123 Main St, Suite 100, City, State ZIP"
-          />
-        </FormField>
-      </FormSection>
-
-      <FormSection title="Program exercise library">
-        <FormField
-          label="Program Exercise Library"
-          htmlFor="exerciseSourcePreference"
-          hint="Controls which exercises trainers see by default when building a program."
+    <form onSubmit={handleSubmit}>
+      <SettingsPanels>
+        <SettingsPanel
+          title="Organization details"
+          description="How your organization appears to your team and clients."
         >
-          <Select
-            value={exerciseSourcePreference}
-            onValueChange={(v) => setExerciseSourcePreference((v as ExerciseSourcePreference) ?? "BOTH")}
-          >
-            <SelectTrigger id="exerciseSourcePreference">
-              <SelectValue>
-                {(value: ExerciseSourcePreference) => {
-                  switch (value) {
-                    case "UNIVERSAL":
-                      return "Universal exercises only";
-                    case "ORGANIZATION":
-                      return "My Organization exercises only";
-                    default:
-                      return "Universal + My Organization";
-                  }
-                }}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="BOTH">Universal + My Organization</SelectItem>
-              <SelectItem value="UNIVERSAL">Universal exercises only</SelectItem>
-              <SelectItem value="ORGANIZATION">My Organization exercises only</SelectItem>
-            </SelectContent>
-          </Select>
-        </FormField>
-      </FormSection>
+          <FormField label="Organization name" htmlFor="organizationName" required>
+            <Input {...text("organizationName")} required placeholder="e.g., Summit Physical Therapy" />
+          </FormField>
+          <FormField label="Tagline" htmlFor="tagline" hint="A short line shown under your name on your sales page.">
+            <Input {...text("tagline")} placeholder="e.g., Evidence-based rehabilitation" />
+          </FormField>
+        </SettingsPanel>
 
-      <div className="flex justify-end border-t border-border pt-6">
-        <Button type="submit" disabled={loading}>
-          {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          Save Profile
-        </Button>
-      </div>
+        <SettingsPanel
+          title="Contact information"
+          description="Shown to clients on PDFs and emails so they know how to reach you."
+        >
+          <div className="grid gap-6 sm:grid-cols-2">
+            <FormField label="Phone" htmlFor="phone">
+              <Input {...text("phone")} type="tel" placeholder="(555) 123-4567" />
+            </FormField>
+            <FormField label="Contact email" htmlFor="email">
+              <Input {...text("email")} type="email" placeholder="hello@example.com" />
+            </FormField>
+          </div>
+          <FormField label="Website" htmlFor="website">
+            <Input {...text("website")} type="url" placeholder="https://www.example.com" />
+          </FormField>
+          <FormField label="Address" htmlFor="address">
+            <Textarea {...text("address")} rows={2} placeholder="123 Main St, Suite 100, City, State ZIP" />
+          </FormField>
+        </SettingsPanel>
+
+        <SettingsPanel
+          title="Exercise library"
+          description="Which exercises trainers see by default when building a program. They can still search everything they have access to."
+        >
+          <RadioGroup
+            value={values.exerciseSourcePreference}
+            onValueChange={(v) => set("exerciseSourcePreference", (v as ExerciseSourcePreference) ?? "BOTH")}
+            aria-label="Exercise library"
+            className="gap-3"
+          >
+            {LIBRARY_OPTIONS.map((option) => (
+              <label
+                key={option.value}
+                className="flex cursor-pointer items-start gap-3 rounded-lg p-4 ring-1 ring-border transition-colors hover:bg-muted/40 has-[[data-checked]]:bg-primary/5 has-[[data-checked]]:ring-2 has-[[data-checked]]:ring-primary"
+              >
+                <RadioGroupItem value={option.value} className="mt-0.5" />
+                <span className="flex flex-col gap-0.5">
+                  <span className="text-sm font-medium">{option.label}</span>
+                  <span className="text-sm text-muted-foreground">{option.description}</span>
+                </span>
+              </label>
+            ))}
+          </RadioGroup>
+        </SettingsPanel>
+      </SettingsPanels>
+
+      <SettingsSaveBar dirty={dirty} saving={saving} onDiscard={() => setValues(saved)} />
     </form>
   );
 }
