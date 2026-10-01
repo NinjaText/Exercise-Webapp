@@ -74,6 +74,8 @@ describe('NOTIFICATION_REGISTRY', () => {
         NOTIFICATION_TYPES.NUTRITION_NUDGE_MEALS,
         NOTIFICATION_TYPES.NUTRITION_NUDGE_PROTEIN,
         NOTIFICATION_TYPES.NUTRITION_NUDGE_WATER,
+        NOTIFICATION_TYPES.COACHING_ACCEPTED,
+        NOTIFICATION_TYPES.COACHING_DECLINED,
       ].sort()
     )
   })
@@ -83,5 +85,24 @@ describe('NOTIFICATION_REGISTRY', () => {
       const entry = NOTIFICATION_REGISTRY[type]
       if (entry.transactional) expect(entry.clientFacing, `${type}`).toBe(false)
     }
+  })
+
+  it('emails every coaching type under the messages preference, with no cooldown', () => {
+    for (const type of [
+      NOTIFICATION_TYPES.COACHING_REQUESTED,
+      NOTIFICATION_TYPES.COACHING_ACCEPTED,
+      NOTIFICATION_TYPES.COACHING_DECLINED,
+    ]) {
+      const entry = NOTIFICATION_REGISTRY[type]
+      expect(entry.category, type).toBe('messages')
+      expect(entry.transactional, type).toBe(false)
+      expect(entry.template, type).not.toBeNull()
+      expect(entry.cooldownMinutes, type).toBeNull()
+    }
+    // Trainer-recipient mail stays product-branded.
+    expect(NOTIFICATION_REGISTRY[NOTIFICATION_TYPES.COACHING_REQUESTED].clientFacing).toBe(false)
+    expect(NOTIFICATION_REGISTRY[NOTIFICATION_TYPES.COACHING_REQUESTED].subject({ memberName: 'Sam Lee' })).toBe(
+      'Sam Lee requested coaching'
+    )
   })
 })

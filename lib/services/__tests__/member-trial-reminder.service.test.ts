@@ -28,7 +28,9 @@ describe("sendDueTrialReminders", () => {
     vi.mocked(prisma.memberSubscription.findMany).mockResolvedValue([] as any);
     await sendDueTrialReminders(now);
     const where = vi.mocked(prisma.memberSubscription.findMany).mock.calls[0][0]!.where as any;
-    expect(where).toMatchObject({ status: "TRIALING", stripeSubscriptionId: null });
+    expect(where).toMatchObject({ status: "TRIALING", OR: [{ stripeSubscriptionId: null }, { stripeSubscriptionId: { isSet: false } }] });
+    // A plain `stripeSubscriptionId: null` would miss rows that never had the field written.
+    expect(where).not.toHaveProperty("stripeSubscriptionId");
   });
 
   it("sends the due reminder and records it", async () => {

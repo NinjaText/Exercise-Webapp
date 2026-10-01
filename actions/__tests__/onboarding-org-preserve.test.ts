@@ -7,7 +7,7 @@ vi.mock("@clerk/nextjs/server", () => ({
 }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
-    user: { upsert: vi.fn() },
+    user: { upsert: vi.fn(), findUnique: vi.fn() },
     clientProfile: { upsert: vi.fn() },
   },
 }));
@@ -17,6 +17,11 @@ vi.mock("@/lib/services/audit-log.service", () => ({
 }));
 vi.mock("@/lib/stripe", () => ({ stripe: {} }));
 vi.mock("next/navigation", () => ({ redirect: vi.fn() }));
+vi.mock("@/lib/org-capabilities.server", () => ({ getCapabilitiesForUser: vi.fn() }));
+vi.mock("@/lib/services/club-trainer.service", () => ({
+  hasClubTrainerInvite: vi.fn(async () => false),
+  resolveClubTrainerInvite: vi.fn(async () => null),
+}));
 
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
@@ -29,6 +34,8 @@ beforeEach(() => {
     imageUrl: "",
   } as any);
   vi.mocked(prisma.user.upsert).mockResolvedValue({ id: "u1" } as any);
+  // Existing row: these tests cover the update branch.
+  vi.mocked(prisma.user.findUnique).mockResolvedValue({ id: "u1" } as any);
 });
 
 describe("completeClientOnboarding org preservation", () => {

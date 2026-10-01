@@ -8,6 +8,7 @@ import { OrgIdentity } from "@/components/branding/org-identity";
 import { getOrgBranding } from "@/lib/services/branding.service";
 import { toViewModel } from "@/lib/branding/types";
 import { resolveClientOnboardingOrgId } from "@/lib/branding/client-onboarding";
+import { resolveClubTrainerInvite } from "@/lib/services/club-trainer.service";
 
 export default async function ClientOnboardingPage() {
   const { userId, orgId } = await auth();
@@ -24,6 +25,9 @@ export default async function ClientOnboardingPage() {
 
   const user = await prisma.user.findUnique({ where: { clerkId: userId } });
   if (user?.onboarded) redirect("/dashboard");
+  // No row yet and this is an invited club trainer: never the client form
+  // (completeClientOnboarding would create a CLIENT).
+  if (!user && (await resolveClubTrainerInvite(userId))) redirect("/onboarding/club-trainer");
 
   const branding = await getOrgBranding(resolveClientOnboardingOrgId(user, orgId ?? null));
   const brandingVm = toViewModel(branding);

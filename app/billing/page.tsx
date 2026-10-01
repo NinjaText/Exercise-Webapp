@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { PricingCards } from "@/components/billing/pricing-cards";
 import { differenceInDays } from "date-fns";
-import { getOrgForUser } from "@/lib/org-capabilities.server";
+import { getCapabilitiesForUser, getOrgForUser } from "@/lib/org-capabilities.server";
 import { getOrgCapabilities } from "@/lib/org-capabilities";
 import { ensureMemberSubscription } from "@/lib/services/club-member.service";
 import { MemberBillingView } from "./member-billing-view";
@@ -29,9 +29,11 @@ export default async function BillingPage({
       memberSub = await prisma.memberSubscription.findUnique({ where: { userId: user.id } });
     }
     const { reason: memberReason } = await searchParams;
-    return <MemberBillingView org={org} sub={memberSub} reason={memberReason ?? null} />;
+    return <MemberBillingView org={org} sub={memberSub} reason={memberReason ?? null} userId={user.id} />;
   }
   if (user.role !== "TRAINER") redirect("/dashboard");
+  // Club trainers never pay (trainerBilling off).
+  if (!(await getCapabilitiesForUser(user)).trainerBilling) redirect("/dashboard");
 
   const sub = await prisma.trainerSubscription.findUnique({
     where: { trainerId: user.id },

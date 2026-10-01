@@ -1,5 +1,6 @@
 "use server";
 
+import { activeUserOnly } from "@/lib/auth/active-user";
 import { auth } from "@clerk/nextjs/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
@@ -13,7 +14,7 @@ import {
 async function getTrainerUser() {
   const { userId } = await auth();
   if (!userId) return null;
-  const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
+  const dbUser = activeUserOnly(await prisma.user.findUnique({ where: { clerkId: userId } }));
   if (!dbUser || dbUser.role !== "TRAINER") return null;
   return dbUser;
 }

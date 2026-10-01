@@ -3,9 +3,10 @@ import { NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
 import { prisma } from "@/lib/prisma";
 import { getOrgCapabilities } from "@/lib/org-capabilities";
-import { MEMBER_PURCHASE_TYPE } from "@/lib/services/member-billing.service";
+import { MEMBER_PURCHASE_TYPE, ensureMemberStripeCustomer } from "@/lib/services/member-billing.service";
 import { appBaseUrl } from "@/lib/utils/app-url";
 import { hasScheduledSubscription } from "@/lib/billing/access";
+import { activeUserOnly } from "@/lib/auth/active-user";
 
 const TRIAL_END_MIN_LEAD_MS = 48 * 60 * 60 * 1000;
 
@@ -13,7 +14,8 @@ export async function POST() {
   const { userId } = await auth();
   if (!userId) return new NextResponse("Unauthorized", { status: 401 });
 
-  const user = await prisma.user.findUnique({ where: { clerkId: userId } });
+  // A deactivated member can't use the app, so they can't start paying for it.
+  const user = activeUserOnly(await prisma.user.findUnique({ where: { clerkId: userId } }));
   if (!user || user.role !== "CLIENT" || !user.clerkOrgId) return new NextResponse("Forbidden", { status: 403 });
 
   const org = await prisma.organization.findUnique({ where: { clerkOrgId: user.clerkOrgId } });
@@ -34,19 +36,7 @@ export async function POST() {
   }
 
   // Reuse the customer on resubscribe so billing history stays in one place.
-  let customerId = sub.stripeCustomerId;
-  if (!customerId) {
-    const customer = await stripe.customers.create(
-      {
-        email: user.email,
-        name: `${user.firstName} ${user.lastName}`.trim() || undefined,
-        metadata: { userId: user.id, clerkOrgId: org.clerkOrgId },
-      },
-      { idempotencyKey: `member-customer-${user.id}` }
-    );
-    customerId = customer.id;
-    await prisma.memberSubscription.update({ where: { userId: user.id }, data: { stripeCustomerId: customerId } });
-  }
+  const customerId = await ensureMemberStripeCustomer(user, sub, org);
 
   // Subscribing early keeps the rest of the free trial: Stripe bills at its end.
   // Stripe requires trial_end ≥ 48h out, so a trial about to end bills now.

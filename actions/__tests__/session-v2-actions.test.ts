@@ -29,7 +29,7 @@ import { auth } from '@clerk/nextjs/server'
 import { prisma } from '@/lib/prisma'
 import { notifyUser } from '@/lib/services/notification.service'
 import { getCapabilitiesForUser } from '@/lib/org-capabilities.server'
-import { getOrgCapabilities } from '@/lib/org-capabilities'
+import { getOrgCapabilities, getUserCapabilities } from '@/lib/org-capabilities'
 import { completeSessionV2Action, updateSetLogV2Action, markExerciseDoneAction, updateExerciseActualSetsAction } from '../session-v2-actions'
 
 const mockAuth = vi.mocked(auth)
@@ -167,6 +167,16 @@ describe('completeSessionV2Action coach notifications', () => {
     expect(notifyUser).not.toHaveBeenCalled()
     // Only the completion read — the notify helpers never load the session.
     expect(mockSessionFind).toHaveBeenCalledTimes(1)
+  })
+
+  it('notifies the club trainer for a coached club member', async () => {
+    arrange('CLUB')
+    vi.mocked(getCapabilitiesForUser).mockResolvedValue(
+      getUserCapabilities({ orgType: 'CLUB', role: 'CLIENT', coachingActive: true })
+    )
+    const result = await completeSessionV2Action('session_1')
+    expect(result.success).toBe(true)
+    expect(notifyUser).toHaveBeenCalledWith(expect.objectContaining({ userId: 'trainer_1', type: 'SESSION_COMPLETED' }))
   })
 
   it('completes the session even if the capability lookup fails', async () => {

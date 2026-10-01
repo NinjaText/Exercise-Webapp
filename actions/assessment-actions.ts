@@ -1,5 +1,6 @@
 "use server";
 
+import { activeUserOnly } from "@/lib/auth/active-user";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
@@ -17,7 +18,7 @@ export async function createAssessmentAction(input: {
   const { userId } = await auth();
   if (!userId) return { success: false as const, error: "Unauthorized" };
 
-  const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
+  const dbUser = activeUserOnly(await prisma.user.findUnique({ where: { clerkId: userId } }));
   if (!dbUser) return { success: false as const, error: "User not found" };
 
   // Clients always record for themselves; trainers must supply a clientId

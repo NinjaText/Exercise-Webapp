@@ -9,10 +9,14 @@ import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 export const JOIN_COOKIE = "club_join";
 export const JOIN_TOKEN_TTL_MS = 30 * 60 * 1000;
 
-function secret(): string {
-  const s = process.env.CLUB_JOIN_SECRET;
-  if (!s || s.length < 32) throw new Error("CLUB_JOIN_SECRET must be set (≥32 chars)");
-  return s;
+/**
+ * Signing key for the join cookie, derived from the Clerk secret so there is
+ * no extra env var. The label scopes it to this one purpose.
+ */
+function secret(): Buffer {
+  const base = process.env.CLERK_SECRET_KEY;
+  if (!base || base.length < 20) throw new Error("CLERK_SECRET_KEY must be set to sign club join tokens");
+  return createHmac("sha256", base).update("club-join-token:v1").digest();
 }
 
 function mac(payload: string): string {

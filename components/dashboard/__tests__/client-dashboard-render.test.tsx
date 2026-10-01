@@ -1,4 +1,6 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
+vi.mock("@/actions/coaching-actions", () => ({ requestCoachingAction: vi.fn(), withdrawCoachingRequestAction: vi.fn() }));
 import { renderToStaticMarkup } from "react-dom/server";
 import { addDays } from "date-fns";
 import { ClientDashboard } from "../client-dashboard";
@@ -208,5 +210,19 @@ describe("ClientDashboard static render", () => {
     const html = renderToStaticMarkup(<ClientDashboard {...baseProps} />);
     expect(html).toContain("Inbox");
     expect(html).toContain('href="/messages"');
+  });
+});
+
+describe("ClientDashboard coaching card", () => {
+  it("renders nothing coaching-related without a view-model", () => {
+    expect(renderToStaticMarkup(<ClientDashboard {...baseProps} />)).not.toContain("Coaching");
+    expect(renderToStaticMarkup(<ClientDashboard {...baseProps} coaching={null} />)).not.toContain("Coaching");
+  });
+
+  it("renders the card when coaching is offered", () => {
+    const html = renderToStaticMarkup(
+      <ClientDashboard {...baseProps} coaching={{ status: null, priceLabel: "$49.00 / month" }} />
+    );
+    expect(html).toContain("Request coaching");
   });
 });

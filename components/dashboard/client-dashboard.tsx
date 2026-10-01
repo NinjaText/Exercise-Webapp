@@ -30,6 +30,8 @@ import { TrainerMessageBanner, type TrainerMessagePreview } from "./trainer-mess
 import { WeekStrip } from "./week-strip";
 import { QuickResourcesList, type QuickResourceItem } from "./quick-resources-list";
 import { DashboardInboxCard } from "@/components/dashboard/dashboard-inbox-card";
+import { CoachingCard } from "@/components/dashboard/coaching-card";
+import type { CoachingViewModel } from "@/lib/clubs/coaching-view";
 import type { getInboxThreads } from "@/lib/services/message.service";
 
 // Re-exported from lib/utils/workout-format so the existing callers (and the
@@ -72,6 +74,8 @@ interface ClientDashboardProps {
   inboxThreads: Awaited<ReturnType<typeof getInboxThreads>>;
   /** False for orgs without messaging (clubs): no Inbox card, no trainer banner. */
   showInbox?: boolean;
+  /** Club members only, and only when the club offers coaching; null/absent renders no card. */
+  coaching?: CoachingViewModel | null;
 }
 
 /**
@@ -91,6 +95,7 @@ export function ClientDashboard({
   resources,
   inboxThreads,
   showInbox = true,
+  coaching = null,
 }: ClientDashboardProps) {
   const today = new Date();
   const todayWorkout =
@@ -119,6 +124,8 @@ export function ClientDashboard({
       />
 
       {showInbox && <TrainerMessageBanner message={unreadTrainerMessage} />}
+
+      {coaching && <CoachingCard coaching={coaching} />}
 
       {/* Lifetime totals — paired on phones, one row from tablet up */}
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">

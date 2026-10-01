@@ -16,8 +16,8 @@ import { getCurrentBranding, getOrgBranding } from "@/lib/services/branding.serv
 import { toViewModel } from "@/lib/branding/types";
 import { brandIconsMetadata, brandViewport } from "@/lib/branding/metadata";
 import { evaluateAccess, evaluateMemberAccess, memberTrialBannerDays } from "@/lib/billing/access";
-import { getOrgCapabilities, hiddenNavHrefs } from "@/lib/org-capabilities";
-import { getOrgForUser } from "@/lib/org-capabilities.server";
+import { hiddenNavHrefs } from "@/lib/org-capabilities";
+import { getCapabilitiesForUser } from "@/lib/org-capabilities.server";
 
 // Both deduped with the layout's own read via React.cache in branding.service.
 export async function generateMetadata(): Promise<Metadata> {
@@ -47,16 +47,21 @@ export default async function PlatformLayout({ children }: { children: React.Rea
     if (orgId) redirect("/onboarding/client");
     redirect("/onboarding");
   }
+  // Deactivated accounts (e.g. a removed club trainer) never reach the billing gate.
+  if (user.isActive === false) redirect("/account-deactivated");
   if (!user.onboarded) {
     if (user.role === "CLIENT") redirect("/onboarding/client");
+    // A TRAINER in a member-billed org is an invited club trainer: never the
+    // trainer-org signup (which would create a second org and a trial).
+    if ((await getCapabilitiesForUser(user)).billing === "member") redirect("/onboarding/club-trainer");
     redirect("/onboarding");
   }
 
   // Billing gate. Who pays depends on the org: trainers in trainer orgs,
-  // each member in club orgs. Platform staff (a TRAINER inside a member-billed
-  // org) is never gated.
-  const org = await getOrgForUser(user);
-  const caps = getOrgCapabilities(org);
+  // each member in club orgs. The club trainer (a TRAINER inside a
+  // member-billed org) is never gated. Per-user caps: `billing` depends only on the org, the
+  // feature flags also on role and (club members) coaching status.
+  const caps = await getCapabilitiesForUser(user);
   const now = new Date();
   let memberTrialDays: number | null = null;
 

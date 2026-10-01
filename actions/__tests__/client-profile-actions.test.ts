@@ -3,6 +3,9 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 vi.mock("@/lib/current-user", () => ({ requireRole: vi.fn() }));
 vi.mock("@/lib/services/client.service", () => ({ getClientIdsForTrainer: vi.fn() }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+// client-actions also archives clients (club coaching cascade); not exercised here.
+vi.mock("@/lib/org-capabilities.server", () => ({ getCapabilitiesForUser: vi.fn() }));
+vi.mock("@/lib/services/coaching.service", () => ({ cancelCoachingForEndedMembership: vi.fn() }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     user: { update: vi.fn() },

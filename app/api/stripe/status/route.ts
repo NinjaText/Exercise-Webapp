@@ -12,7 +12,12 @@ export async function GET() {
   // Club members poll this after checkout too; same `{ subscription: { status } }` shape.
   if (user.role === "CLIENT") {
     const subscription = await prisma.memberSubscription.findUnique({ where: { userId: user.id } });
-    return NextResponse.json({ subscription });
+    // Coaching is polled for after its own checkout (?coaching=1); membership-only callers ignore it.
+    const coaching = await prisma.memberCoaching.findUnique({
+      where: { userId: user.id },
+      select: { status: true },
+    });
+    return NextResponse.json({ subscription, coaching });
   }
 
   const subscription = await prisma.trainerSubscription.findUnique({

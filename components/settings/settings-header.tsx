@@ -12,9 +12,9 @@ import { getSettingsTabs } from "@/components/settings/settings-tabs";
  * stays put while the tab content below it changes; it's a client component
  * because the active tab (and breadcrumb) follow the pathname.
  */
-export function SettingsHeader({ role }: { role: Role }) {
+export function SettingsHeader({ role, hiddenHrefs = [] }: { role: Role; hiddenHrefs?: string[] }) {
   const pathname = usePathname();
-  const tabs = getSettingsTabs(role);
+  const tabs = getSettingsTabs(role, hiddenHrefs);
   const activeHref = findActiveHref(pathname, tabs.map((t) => t.href));
   const active = tabs.find((t) => t.href === activeHref);
 

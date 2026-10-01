@@ -7,16 +7,32 @@ import { OrgIdentity } from "@/components/branding/org-identity";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { hasScheduledSubscription, trialDaysLeft } from "@/lib/billing/access";
 import { formatStripeAmount } from "@/lib/utils/money";
+import { getCoachingViewModel } from "@/lib/clubs/coaching-view";
+import { memberCoachingLinkLabel } from "@/lib/clubs/coaching-state";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
 import { MemberBillingButtons } from "./member-billing-buttons";
 
+const COACHING_COPY: Record<string, string> = {
+  NONE: "Add one-on-one coaching from your club coach.",
+  REQUESTED: "Your coaching request is awaiting your coach.",
+  ACCEPTED: "Your coach accepted. Start coaching to begin.",
+  ACTIVE: "Coaching is active.",
+  PAST_DUE: "Coaching is paused. Update your payment to resume.",
+  DECLINED: "Your last coaching request wasn't accepted.",
+  CANCELED: "Coaching has ended.",
+};
+
 export async function MemberBillingView({
-  org, sub, reason,
-}: { org: Organization; sub: MemberSubscription | null; reason: string | null }) {
+  org, sub, reason, userId,
+}: { org: Organization; sub: MemberSubscription | null; reason: string | null; userId: string }) {
   const branding = await getOrgBranding(org.clerkOrgId);
   const price = org.stripePriceId ? await stripe.prices.retrieve(org.stripePriceId).catch(() => null) : null;
   const priceLabel = price?.unit_amount != null
     ? `${formatStripeAmount(price.unit_amount, price.currency)} / ${price.recurring?.interval ?? "month"}`
     : null;
+  const coaching = await getCoachingViewModel({ id: userId, role: "CLIENT", clerkOrgId: org.clerkOrgId });
+  const coachingLink = coaching ? memberCoachingLinkLabel(coaching.status) : null;
   const daysLeft = trialDaysLeft(sub, new Date());
   const isActive = sub?.status === "ACTIVE" || sub?.status === "PAST_DUE";
   // Subscribed during the trial: Stripe starts billing when it ends.
@@ -56,6 +72,27 @@ export async function MemberBillingView({
           />
         </CardContent>
       </Card>
+      {coaching && (
+        <Card className="w-full max-w-sm">
+          <CardHeader>
+            <CardTitle>Coaching</CardTitle>
+            <CardDescription>{COACHING_COPY[coaching.status ?? "NONE"]}</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {coaching.priceLabel && <p className="text-2xl font-semibold text-foreground">{coaching.priceLabel}</p>}
+            <MemberBillingButtons
+              canSubscribe={false}
+              canManage={coaching.status === "ACTIVE" || coaching.status === "PAST_DUE"}
+              missingPrice={false}
+            />
+            {coachingLink && (
+              <Button asChild variant="outline" className="w-full">
+                <Link href="/dashboard">{coachingLink}</Link>
+              </Button>
+            )}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

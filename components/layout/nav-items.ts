@@ -77,8 +77,9 @@ export function getPrimaryNav(role: Role, hidden: string[] = []): NavItem[] {
   return hidden.length ? nav.filter((item) => !hidden.includes(item.href)) : nav;
 }
 
-export function getAccountNav(role: Role): NavItem[] {
-  return role === "TRAINER" ? TRAINER_ACCOUNT_NAV : CLIENT_ACCOUNT_NAV;
+export function getAccountNav(role: Role, hidden: string[] = []): NavItem[] {
+  const nav = role === "TRAINER" ? TRAINER_ACCOUNT_NAV : CLIENT_ACCOUNT_NAV;
+  return hidden.length ? nav.filter((item) => !hidden.includes(item.href)) : nav;
 }
 
 export interface TabLayout {
@@ -107,7 +108,7 @@ export function getTabLayout(role: Role, hidden: string[] = []): TabLayout {
  */
 export function getMoreItems(role: Role, isAdmin: boolean, hidden: string[] = []): NavItem[] {
   const { more } = getTabLayout(role, hidden);
-  return [...more, ...getAccountNav(role), ...(isAdmin ? [ADMIN_NAV] : [])];
+  return [...more, ...getAccountNav(role, hidden), ...(isAdmin ? [ADMIN_NAV] : [])];
 }
 
 /**

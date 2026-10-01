@@ -23,6 +23,8 @@ import type {
   ClientProgressBreakdown,
   PriorityAlert,
 } from "@/lib/services/dashboard-insights.service";
+import { CoachingRequestsCard } from "@/components/dashboard/coaching-requests-card";
+import type { CoachingRequestItem } from "@/lib/clubs/trainer-coaching";
 import type { getInboxThreads } from "@/lib/services/message.service";
 
 /** The `?focus=` values the hero tiles use to drive same-page behaviour. */
@@ -46,6 +48,7 @@ export interface TrainerDashboardClientProps {
   clientMetrics: Record<string, ClientMetrics>;
   recentMessages: Awaited<ReturnType<typeof getInboxThreads>>;
   clientProgress: ClientProgressBreakdown;
+  coachingRequests?: CoachingRequestItem[] | null;
 }
 
 /**
@@ -86,6 +89,7 @@ export function TrainerDashboardClient({
   clientMetrics,
   recentMessages,
   clientProgress,
+  coachingRequests = null,
 }: TrainerDashboardClientProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -171,6 +175,8 @@ export function TrainerDashboardClient({
           href={unreadMessages > 0 ? "/messages?filter=unread" : "/messages"}
         />
       </div>
+
+      {coachingRequests && <CoachingRequestsCard requests={coachingRequests} />}
 
       {/* Today's Priorities + This Week's Workouts – side by side, and always
           the same height as each other regardless of how much either has to

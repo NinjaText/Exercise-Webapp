@@ -1,5 +1,6 @@
 "use server";
 
+import { activeUserOnly } from "@/lib/auth/active-user";
 import { auth } from "@clerk/nextjs/server";
 import { z } from "zod";
 import { randomUUID } from "crypto";
@@ -51,7 +52,7 @@ type ActionResult<T = void> =
 async function getAuthedUser() {
   const { userId: clerkId } = await auth();
   if (!clerkId) return null;
-  return prisma.user.findUnique({ where: { clerkId } });
+  return activeUserOnly(await prisma.user.findUnique({ where: { clerkId } }));
 }
 
 async function canTrainerAccessClient(trainerId: string, clientId: string): Promise<boolean> {

@@ -13,13 +13,14 @@ vi.mock("@/lib/prisma", () => ({
     trainerSubscription: { findUnique: vi.fn() },
   },
 }));
-vi.mock("@/lib/org-capabilities.server", () => ({ getOrgForUser: vi.fn() }));
+vi.mock("@/lib/org-capabilities.server", () => ({ getOrgForUser: vi.fn(), getCapabilitiesForUser: vi.fn() }));
 vi.mock("@/lib/services/club-member.service", () => ({ ensureMemberSubscription: vi.fn() }));
 vi.mock("@/components/billing/pricing-cards", () => ({ PricingCards: () => null }));
 vi.mock("../member-billing-view", () => ({ MemberBillingView: () => null }));
 
 import { prisma } from "@/lib/prisma";
-import { getOrgForUser } from "@/lib/org-capabilities.server";
+import { getOrgForUser, getCapabilitiesForUser } from "@/lib/org-capabilities.server";
+import { getUserCapabilities } from "@/lib/org-capabilities";
 import { ensureMemberSubscription } from "@/lib/services/club-member.service";
 import BillingPage from "../page";
 
@@ -59,5 +60,30 @@ describe("/billing member branch", () => {
     vi.mocked(getOrgForUser).mockResolvedValue({ clerkOrgId: "org_t", type: null } as any);
     await expect(BillingPage(props)).rejects.toThrow("REDIRECT:/dashboard");
     expect(ensureMemberSubscription).not.toHaveBeenCalled();
+  });
+});
+
+describe("/billing trainer branch", () => {
+  const trainer = { id: "t1", role: "TRAINER", clerkOrgId: "org_t" };
+
+  beforeEach(() => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(trainer as any);
+    vi.mocked(prisma.trainerSubscription.findUnique).mockResolvedValue(null);
+  });
+
+  it("renders plans for a trainer-org trainer (unchanged)", async () => {
+    vi.mocked(getCapabilitiesForUser).mockResolvedValue(
+      getUserCapabilities({ orgType: "TRAINER", role: "TRAINER", coachingActive: false })
+    );
+    await expect(BillingPage(props)).resolves.toBeTruthy();
+    expect(getCapabilitiesForUser).toHaveBeenCalledWith(trainer);
+  });
+
+  it("sends a club trainer (never pays) to the dashboard", async () => {
+    vi.mocked(getCapabilitiesForUser).mockResolvedValue(
+      getUserCapabilities({ orgType: "CLUB", role: "TRAINER", coachingActive: false })
+    );
+    await expect(BillingPage(props)).rejects.toThrow("REDIRECT:/dashboard");
+    expect(prisma.trainerSubscription.findUnique).not.toHaveBeenCalled();
   });
 });

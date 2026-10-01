@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 vi.mock('@/lib/org-capabilities.server', async () => {
   const { getOrgCapabilities } = await vi.importActual<typeof import('@/lib/org-capabilities')>('@/lib/org-capabilities')
-  return { getCapabilitiesForUser: vi.fn(async () => getOrgCapabilities(null)) }
+  return { getCapabilitiesForUser: vi.fn(async () => getOrgCapabilities(null)), canCoachInteract: vi.fn(async () => true), filterCoachableClientIds: vi.fn(async (_t: unknown, ids: string[]) => ids) }
 })
 vi.mock('@/lib/services/message.service', () => ({
   sendMessage: vi.fn(),
@@ -65,6 +65,13 @@ describe('sendMessageAction', () => {
     const result = await sendMessageAction({ recipientId: 'recipient_id', content: 'Hello' })
     expect(result.success).toBe(true)
     expect(mockSendMessage).toHaveBeenCalledOnce()
+  })
+
+  it('refuses a removed club trainer (inactive, no org) even though canCoachInteract would allow the pair', async () => {
+    mockFindUnique.mockResolvedValue({ id: 'sender_id', role: 'TRAINER', clerkOrgId: null, isActive: false } as any)
+    const result = await sendMessageAction({ recipientId: 'coached_member', content: 'Hello' })
+    expect(result).toEqual({ success: false, error: 'User not found' })
+    expect(mockSendMessage).not.toHaveBeenCalled()
   })
 
   it('fires a new-message event on the thread channel', async () => {

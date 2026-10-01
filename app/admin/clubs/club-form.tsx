@@ -14,21 +14,47 @@ export type ClubFormValues = {
   joinSlug: string;
   joinCode: string;
   trialDays: number;
-  stripePriceId: string;
+  /** USD per month, e.g. "14.99". We create the Stripe price. */
+  membershipAmount: string;
+  /** USD per month; empty = coaching not offered (unless `priceNotes.coaching` is set, then empty = keep). */
+  coachingAmount: string;
   starterProgramIds: string[];
+  /** Create only; the edit form never sends it. */
+  trainerEmail: string;
 };
+
+/**
+ * Edit only: set for a price the form couldn't pre-fill (Stripe unreadable,
+ * or not a USD monthly price). That field starts empty, and empty then means
+ * "keep the current price", never "remove".
+ */
+export type ClubPriceNotes = { membership?: string; coaching?: string };
 
 type Props = {
   globalPrograms: { id: string; name: string }[];
-} & ({ mode: "create" } | { mode: "edit"; clerkOrgId: string; initial: ClubFormValues });
+} & (
+  | { mode: "create" }
+  | { mode: "edit"; clerkOrgId: string; initial: ClubFormValues; priceNotes?: ClubPriceNotes }
+);
+
+/** What the actions receive: the form values plus keep flags. */
+export function clubFormPayload(values: ClubFormValues, notes: ClubPriceNotes) {
+  return {
+    ...values,
+    keepMembershipPrice: Boolean(notes.membership) && !values.membershipAmount.trim(),
+    keepCoachingPrice: Boolean(notes.coaching) && !values.coachingAmount.trim(),
+  };
+}
 
 const EMPTY: ClubFormValues = {
   name: "",
   joinSlug: "",
   joinCode: "",
   trialDays: 14,
-  stripePriceId: "",
+  membershipAmount: "",
+  coachingAmount: "",
   starterProgramIds: [],
+  trainerEmail: "",
 };
 
 export function ClubForm(props: Props) {
@@ -36,6 +62,7 @@ export function ClubForm(props: Props) {
   const [pending, startTransition] = useTransition();
   const [values, setValues] = useState<ClubFormValues>(props.mode === "edit" ? props.initial : EMPTY);
   const { globalPrograms } = props;
+  const notes: ClubPriceNotes = props.mode === "edit" ? (props.priceNotes ?? {}) : {};
 
   const set = <K extends keyof ClubFormValues>(key: K, v: ClubFormValues[K]) =>
     setValues((prev) => ({ ...prev, [key]: v }));
@@ -54,10 +81,11 @@ export function ClubForm(props: Props) {
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     startTransition(async () => {
+      const payload = clubFormPayload(values, notes);
       const res =
         props.mode === "edit"
-          ? await updateClubAction(props.clerkOrgId, values)
-          : await createClubAction(values);
+          ? await updateClubAction(props.clerkOrgId, payload)
+          : await createClubAction(payload);
       if (!res.ok) {
         toast.error(res.error);
         return;
@@ -95,9 +123,48 @@ export function ClubForm(props: Props) {
             onChange={(e) => set("trialDays", Number(e.target.value))}
           />
         </FormField>
-        <FormField label="Stripe price id" htmlFor="club-price" hint="Active recurring price, starts with price_." required>
-          <Input id="club-price" value={values.stripePriceId} onChange={(e) => set("stripePriceId", e.target.value)} />
+        <FormField
+          label="Membership price ($/month)"
+          htmlFor="club-membership-amount"
+          hint={notes.membership ?? "USD, charged monthly after the trial. $1 to $10,000."}
+          required={!notes.membership}
+        >
+          <Input
+            id="club-membership-amount"
+            inputMode="decimal"
+            placeholder="14.99"
+            value={values.membershipAmount}
+            onChange={(e) => set("membershipAmount", e.target.value)}
+          />
         </FormField>
+        <FormField
+          label="Coaching price ($/month)"
+          htmlFor="club-coaching-amount"
+          hint={notes.coaching ?? "Optional paid coaching add-on, USD monthly. Leave empty to not offer coaching."}
+        >
+          <Input
+            id="club-coaching-amount"
+            inputMode="decimal"
+            placeholder="30"
+            value={values.coachingAmount}
+            onChange={(e) => set("coachingAmount", e.target.value)}
+          />
+        </FormField>
+        {props.mode === "create" && (
+          <FormField
+            label="Club trainer email"
+            htmlFor="club-trainer-email"
+            hint="We'll invite them to run the club. It needs a dedicated account: the email can't already be in use."
+            required
+          >
+            <Input
+              id="club-trainer-email"
+              type="email"
+              value={values.trainerEmail}
+              onChange={(e) => set("trainerEmail", e.target.value)}
+            />
+          </FormField>
+        )}
       </FormSection>
 
       <FormSection

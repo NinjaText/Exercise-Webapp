@@ -42,7 +42,7 @@ export function Sidebar({
   const links = getPrimaryNav(role, hiddenHrefs);
 
   // Collect every href rendered in this sidebar so we can find the best match.
-  const allHrefs = [...links.map((l) => l.href), ...getAccountNav(role).map((l) => l.href)];
+  const allHrefs = [...links.map((l) => l.href), ...getAccountNav(role, hiddenHrefs).map((l) => l.href)];
   const bestMatch = findActiveHref(pathname, allHrefs);
 
   const navItem = (href: string, label: string, Icon: React.ElementType, badge?: React.ReactNode) => {

@@ -1,5 +1,6 @@
 import * as React from "react";
 import { prisma } from "@/lib/prisma";
+import { nullOrUnset } from "@/lib/db/mongo-null";
 import { sendEmail } from "@/lib/email/send";
 import { getEmailBranding } from "@/lib/email/branding";
 import { appBaseUrl } from "@/lib/utils/app-url";
@@ -23,7 +24,7 @@ export async function sendDueTrialReminders(now = new Date()) {
     where: {
       status: "TRIALING",
       // Already subscribed during the trial: nothing to remind them about.
-      stripeSubscriptionId: null,
+      ...nullOrUnset("stripeSubscriptionId"),
       trialEndsAt: {
         lte: new Date(now.getTime() + 72 * 3600_000),
         gte: new Date(now.getTime() - 7 * 24 * 3600_000),

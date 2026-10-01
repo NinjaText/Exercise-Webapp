@@ -15,11 +15,15 @@ vi.mock("@/lib/prisma", () => ({
 vi.mock("@/lib/stripe", () => ({
   stripe: { subscriptions: { cancel: vi.fn() } },
 }));
+vi.mock("@/lib/services/member-billing.service", () => ({
+  cancelMemberBillingForDeletion: vi.fn(),
+}));
 
 import { getCurrentUser } from "@/lib/current-user";
 import { prisma } from "@/lib/prisma";
 import { stripe } from "@/lib/stripe";
 import { findDeletionBlockers, deleteUserData } from "@/lib/services/user-deletion.service";
+import { cancelMemberBillingForDeletion } from "@/lib/services/member-billing.service";
 import { deleteOwnAccountAction } from "../account-actions";
 
 const mockGetCurrentUser = vi.mocked(getCurrentUser);
@@ -27,6 +31,7 @@ const mockFindBlockers = vi.mocked(findDeletionBlockers);
 const mockDeleteUserData = vi.mocked(deleteUserData);
 const mockFindSubscription = vi.mocked(prisma.trainerSubscription.findUnique);
 const mockCancelSubscription = vi.mocked(stripe.subscriptions.cancel);
+const mockCancelMemberBilling = vi.mocked(cancelMemberBillingForDeletion);
 
 const trainer = { id: "u_trainer", clerkId: "clerk_t", role: "TRAINER" };
 const client = { id: "u_client", clerkId: "clerk_c", role: "CLIENT" };
@@ -38,6 +43,7 @@ beforeEach(() => {
   deleteUser.mockResolvedValue({});
   mockFindSubscription.mockResolvedValue({ stripeSubscriptionId: "sub_1" } as never);
   mockCancelSubscription.mockResolvedValue({} as never);
+  mockCancelMemberBilling.mockReset().mockResolvedValue(undefined);
 });
 
 describe("deleteOwnAccountAction", () => {
@@ -139,5 +145,41 @@ describe("deleteOwnAccountAction", () => {
     await deleteOwnAccountAction({ confirmation: "DELETE" });
     expect(mockFindSubscription).not.toHaveBeenCalled();
     expect(mockCancelSubscription).not.toHaveBeenCalled();
+  });
+
+  // Club member (phase 2 final review): membership + coaching subscriptions
+  // live on MemberSubscription/MemberCoaching, which deleteUserData removes.
+  it("cancels a client's club billing before deleting their data", async () => {
+    mockGetCurrentUser.mockResolvedValue(client as never);
+
+    const result = await deleteOwnAccountAction({ confirmation: "DELETE" });
+
+    expect(result).toEqual({ success: true });
+    expect(mockCancelMemberBilling).toHaveBeenCalledWith("u_client");
+    expect(mockCancelMemberBilling.mock.invocationCallOrder[0]).toBeLessThan(
+      mockDeleteUserData.mock.invocationCallOrder[0]
+    );
+  });
+
+  it("aborts a client's delete with nothing removed when club billing can't be cancelled", async () => {
+    mockGetCurrentUser.mockResolvedValue(client as never);
+    mockCancelMemberBilling.mockRejectedValue(new Error("stripe down"));
+
+    const result = await deleteOwnAccountAction({ confirmation: "DELETE" });
+
+    expect(result).toEqual({
+      success: false,
+      error:
+        "We couldn't cancel your subscription with our payment provider, so nothing was deleted. Please try again or contact support.",
+    });
+    expect(mockDeleteUserData).not.toHaveBeenCalled();
+    expect(deleteUser).not.toHaveBeenCalled();
+  });
+
+  it("does not run club-member billing cancellation for a trainer (regression)", async () => {
+    mockGetCurrentUser.mockResolvedValue(trainer as never);
+    await deleteOwnAccountAction({ confirmation: "DELETE" });
+    expect(mockCancelMemberBilling).not.toHaveBeenCalled();
+    expect(mockCancelSubscription).toHaveBeenCalledWith("sub_1");
   });
 });

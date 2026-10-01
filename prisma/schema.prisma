@@ -170,6 +170,7 @@ model User {
   clinicalNotesAsTrainer    ClinicalNote[]          @relation("ClinicalNotesTrainer")
   trainerSubscription       TrainerSubscription?    @relation("TrainerSubscription")
   memberSubscription        MemberSubscription?     @relation("MemberSubscription")
+  memberCoaching            MemberCoaching?         @relation("MemberCoaching")
   exerciseUsages            ExerciseUsage[]
   exerciseFavorites         ExerciseFavorite[]
   collections               Collection[]
@@ -217,19 +218,21 @@ model Organization {
   // ── Org type & club config ───────────────────────────────────────────────
   /// null → TRAINER. Optional with no @default on purpose: existing documents
   /// lack the key. Read via getOrgType() in lib/org-capabilities.ts.
-  type              OrgType?
+  type                  OrgType?
   /// Club-only. Public join path segment: /join/<joinSlug>. Not @unique: an
   /// optional unique field on Mongo collides on null/missing (every trainer
   /// org), so uniqueness is app-enforced (createClub/updateClub); indexed below.
-  joinSlug          String?
+  joinSlug              String?
   /// Club-only. Access code members type on the join page (stored upper-case).
-  joinCode          String?
+  joinCode              String?
   /// Club-only. Free-trial length for newly joined members.
-  trialDays         Int?
+  trialDays             Int?
   /// Club-only. Recurring Stripe price members subscribe to.
-  stripePriceId     String?
+  stripePriceId         String?
   /// Club-only. Ordered Global Program ids; members get them one after another.
-  starterProgramIds String[] @default([]) @db.ObjectId
+  starterProgramIds     String[] @default([]) @db.ObjectId
+  /// Club-only. Recurring Stripe price for the coaching add-on; null → coaching not offered.
+  coachingStripePriceId String?
 
   // ── Branding ─────────────────────────────────────────────────────────────
   /// Master switch. false → every surface uses the product defaults, even if
@@ -1156,6 +1159,38 @@ model MemberSubscription {
   @@index([status, trialEndsAt])
   @@index([stripeCustomerId])
   @@index([starterStatus])
+}
+
+enum CoachingStatus {
+  REQUESTED // member asked; waiting on trainer
+  ACCEPTED // trainer accepted; waiting on member payment
+  ACTIVE // paid; coaching features on
+  PAST_DUE // payment failed; features paused
+  DECLINED // trainer declined (member may re-request)
+  CANCELED // ended (member may re-request)
+}
+
+/// One row per club member; reused across request cycles. stripeSubscriptionId
+/// is intentionally not @unique: optional unique fields on Mongo collide on null.
+model MemberCoaching {
+  id                   String         @id @default(auto()) @map("_id") @db.ObjectId
+  userId               String         @unique @db.ObjectId
+  user                 User           @relation("MemberCoaching", fields: [userId], references: [id])
+  clerkOrgId           String
+  status               CoachingStatus
+  requestNote          String?
+  responseNote         String?
+  requestedAt          DateTime
+  respondedAt          DateTime?
+  respondedById        String?        @db.ObjectId
+  stripeSubscriptionId String?
+  currentPeriodEnd     DateTime?
+  cancelAtPeriodEnd    Boolean        @default(false)
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+
+  @@index([clerkOrgId, status])
+  @@index([stripeSubscriptionId])
 }
 
 /// One failed access-code attempt on /join. Counted in a sliding window for

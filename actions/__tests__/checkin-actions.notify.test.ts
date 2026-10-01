@@ -14,7 +14,7 @@ vi.mock('@/lib/services/checkin.service', () => ({
 }))
 vi.mock('@/lib/services/client.service', () => ({ getClientIdsForTrainer: vi.fn() }))
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
-vi.mock('@/lib/org-capabilities.server', () => ({ getCapabilitiesForUser: vi.fn() }))
+vi.mock('@/lib/org-capabilities.server', () => ({ getCapabilitiesForUser: vi.fn(), canCoachInteract: vi.fn(async () => true), filterCoachableClientIds: vi.fn(async (_t: unknown, ids: string[]) => ids) }))
 vi.mock('@/lib/prisma', () => ({
   prisma: {
     checkInTemplate: { findUnique: vi.fn() },
@@ -28,7 +28,7 @@ import * as checkinService from '@/lib/services/checkin.service'
 import { getClientIdsForTrainer } from '@/lib/services/client.service'
 import { prisma } from '@/lib/prisma'
 import { getCapabilitiesForUser } from '@/lib/org-capabilities.server'
-import { getOrgCapabilities } from '@/lib/org-capabilities'
+import { getOrgCapabilities, getUserCapabilities } from '@/lib/org-capabilities'
 import { assignCheckInAction, submitCheckInResponseAction } from '../checkin-actions'
 
 const mockRequireRole = vi.mocked(requireRole)
@@ -118,6 +118,20 @@ describe('submitCheckInResponseAction', () => {
     expect(result.success).toBe(true)
     expect(getCapabilitiesForUser).toHaveBeenCalledWith(expect.objectContaining({ id: 'client1' }))
     expect(notifyUser).not.toHaveBeenCalled()
+  })
+
+  it('notifies the club trainer for a coached club member', async () => {
+    vi.mocked(getCapabilitiesForUser).mockResolvedValue(
+      getUserCapabilities({ orgType: 'CLUB', role: 'CLIENT', coachingActive: true })
+    )
+    mockGetCurrentUser.mockResolvedValue({ id: 'client1', role: 'CLIENT', firstName: 'S', lastName: 'L', clerkOrgId: 'org_club' } as never)
+    mockSubmitResponse.mockResolvedValue({ id: 'resp1', submittedAt: new Date('2026-09-22T12:00:00.000Z') } as never)
+    mockAssignmentFindUnique.mockResolvedValue({ trainerId: 'trainer1', template: { name: 'Weekly' } } as never)
+
+    await submitCheckInResponseAction('a1', { sleep: 'good' })
+
+    expect(vi.mocked(notifyUser).mock.calls[0][0].userId).toBe('trainer1')
+    vi.mocked(getCapabilitiesForUser).mockResolvedValue(getOrgCapabilities(null))
   })
 
   it('does not notify when the submission failed', async () => {

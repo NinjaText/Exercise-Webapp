@@ -1,5 +1,6 @@
 import { TrainerDashboardClient } from "@/components/dashboard/trainer-dashboard-client";
 import type { ClientMetrics, ClientProgressBreakdown, PriorityAlert } from "@/lib/services/dashboard-insights.service";
+import type { CoachingRequestItem } from "@/lib/clubs/trainer-coaching";
 import type { getInboxThreads } from "@/lib/services/message.service";
 
 interface TrainerDashboardProps {
@@ -23,6 +24,8 @@ interface TrainerDashboardProps {
   clientMetrics?: Record<string, ClientMetrics>;
   recentMessages?: Awaited<ReturnType<typeof getInboxThreads>>;
   clientProgress: ClientProgressBreakdown;
+  /** Pending coaching requests; null for trainer-org trainers (no card). */
+  coachingRequests?: CoachingRequestItem[] | null;
 }
 
 function getGreeting(): string {
@@ -49,6 +52,7 @@ export function TrainerDashboard({
   clientMetrics = {},
   recentMessages = [],
   clientProgress,
+  coachingRequests = null,
 }: TrainerDashboardProps) {
   return (
     <TrainerDashboardClient
@@ -62,6 +66,7 @@ export function TrainerDashboard({
       clientMetrics={clientMetrics}
       recentMessages={recentMessages}
       clientProgress={clientProgress}
+      coachingRequests={coachingRequests}
     />
   );
 }

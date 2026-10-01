@@ -1,27 +1,38 @@
 "use server"
 
+import { activeUserOnly } from "@/lib/auth/active-user"
 import { auth } from "@clerk/nextjs/server"
 import { revalidatePath } from "next/cache"
 import { randomUUID } from "crypto"
 import { PutObjectCommand, DeleteObjectCommand, CopyObjectCommand } from "@aws-sdk/client-s3"
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
 import { prisma } from "@/lib/prisma"
-import { getCapabilitiesForUser } from "@/lib/org-capabilities.server"
+import { canCoachInteract, getCapabilitiesForUser } from "@/lib/org-capabilities.server"
 import { MESSAGING_UNAVAILABLE } from "@/lib/org-capabilities"
 import { getR2Client, R2_BUCKET_NAME, R2_PUBLIC_URL } from "@/lib/r2"
 import * as messageService from "@/lib/services/message.service"
 import { broadcastNewMessage } from "./message-actions"
 import { presignVoiceMessageSchema, confirmVoiceMessageSchema } from "@/lib/validators/voice-message"
 
-/** Voice notes live inside messaging; club orgs have none. */
-async function messagingDisabled(user: { clerkOrgId: string | null }): Promise<boolean> {
-  return !(await getCapabilitiesForUser(user)).messaging
+type SendingUser = { id: string; role: "TRAINER" | "CLIENT"; clerkOrgId: string | null }
+
+/**
+ * Voice notes live inside messaging: the sender needs it, and the pair rule
+ * applies to trainers (their client recipient needs it too) and to club
+ * (member-billed) clients (only their own club's trainer). Trainer-org
+ * clients keep today's rules.
+ */
+async function messagingDisabled(user: SendingUser, recipientId: string): Promise<boolean> {
+  const caps = await getCapabilitiesForUser(user)
+  if (!caps.messaging) return true
+  if (user.role !== "TRAINER" && caps.billing !== "member") return false
+  return !(await canCoachInteract(user, recipientId))
 }
 
 async function getAuthedUser() {
   const { userId: clerkId } = await auth()
   if (!clerkId) return null
-  return prisma.user.findUnique({ where: { clerkId } })
+  return activeUserOnly(await prisma.user.findUnique({ where: { clerkId } }))
 }
 
 export async function generateVoiceMessageUploadUrl(
@@ -34,7 +45,7 @@ export async function generateVoiceMessageUploadUrl(
 
     const user = await getAuthedUser()
     if (!user) return { success: false, error: "Unauthorized" }
-    if (await messagingDisabled(user)) return { success: false, error: MESSAGING_UNAVAILABLE }
+    if (await messagingDisabled(user, recipientId)) return { success: false, error: MESSAGING_UNAVAILABLE }
 
     const pendingKey = `voice-messages/pending/${randomUUID()}.${fileExtension}`
     const command = new PutObjectCommand({
@@ -62,7 +73,7 @@ export async function confirmVoiceMessage(
 
     const user = await getAuthedUser()
     if (!user) return { success: false, error: "Unauthorized" }
-    if (await messagingDisabled(user)) return { success: false, error: MESSAGING_UNAVAILABLE }
+    if (await messagingDisabled(user, recipientId)) return { success: false, error: MESSAGING_UNAVAILABLE }
 
     const ext = pendingKey.split(".").pop()!
     const permanentKey = `voice-messages/${user.id}_${recipientId}/${randomUUID()}.${ext}`

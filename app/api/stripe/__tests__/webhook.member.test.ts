@@ -33,6 +33,13 @@ vi.mock('@/lib/services/stripe-billing.service', () => ({
   activateSubscriptionFromCheckout: vi.fn(),
 }))
 vi.mock('@/lib/services/program-purchase.service', () => ({ fulfillProgramPurchase: vi.fn() }))
+// Coaching routing has its own suite (webhook.coaching.test.ts); none of these events is coaching.
+vi.mock('@/lib/services/coaching.service', () => ({
+  COACHING_PURCHASE_TYPE: 'member_coaching',
+  activateCoachingFromCheckout: vi.fn(),
+  syncCoachingFromStripe: vi.fn().mockResolvedValue(false),
+  markCoachingPastDue: vi.fn().mockResolvedValue(false),
+}))
 vi.mock('@/lib/services/member-billing.service', () => ({
   MEMBER_PURCHASE_TYPE: 'member_subscription',
   activateMemberFromCheckout: vi.fn(),

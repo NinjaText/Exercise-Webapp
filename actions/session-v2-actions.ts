@@ -1,5 +1,6 @@
 ﻿"use server";
 
+import { activeUserOnly } from "@/lib/auth/active-user";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
@@ -115,7 +116,7 @@ export async function startSessionV2Action(sessionId: string) {
   const { userId } = await auth();
   if (!userId) return { success: false, error: "Unauthorized" };
   
-  const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
+  const dbUser = activeUserOnly(await prisma.user.findUnique({ where: { clerkId: userId } }));
   if (!dbUser) return { success: false, error: "User not found" };
 
   try {
@@ -161,7 +162,7 @@ export async function startOnDemandWorkoutAction(workoutId: string) {
   if (!userId) return { success: false as const, error: "Unauthorized" };
 
   try {
-    const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
+    const dbUser = activeUserOnly(await prisma.user.findUnique({ where: { clerkId: userId } }));
     if (!dbUser) return { success: false as const, error: "User not found" };
 
     const workout = await prisma.workout.findUnique({
@@ -255,7 +256,7 @@ export async function updateSetLogV2Action(
   if (!userId) return { success: false, error: "Unauthorized" };
 
   try {
-    const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
+    const dbUser = activeUserOnly(await prisma.user.findUnique({ where: { clerkId: userId } }));
     if (!dbUser) return { success: false, error: "User not found" };
 
     const session = await prisma.workoutSessionV2.findUnique({
@@ -326,7 +327,7 @@ export async function updateExerciseActualSetsAction(
   if (!userId) return { success: false, error: "Unauthorized" };
 
   try {
-    const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
+    const dbUser = activeUserOnly(await prisma.user.findUnique({ where: { clerkId: userId } }));
     if (!dbUser) return { success: false, error: "User not found" };
 
     const session = await prisma.workoutSessionV2.findUnique({
@@ -366,7 +367,7 @@ export async function updateExerciseClientNoteAction(
   if (!userId) return { success: false, error: "Unauthorized" };
 
   try {
-    const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
+    const dbUser = activeUserOnly(await prisma.user.findUnique({ where: { clerkId: userId } }));
     if (!dbUser) return { success: false, error: "User not found" };
 
     const session = await prisma.workoutSessionV2.findUnique({
@@ -408,7 +409,7 @@ export async function completeSessionV2Action(
   if (!userId) return { success: false, error: "Unauthorized" };
 
   try {
-    const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
+    const dbUser = activeUserOnly(await prisma.user.findUnique({ where: { clerkId: userId } }));
     if (!dbUser) return { success: false, error: "User not found" };
 
     const session = await prisma.workoutSessionV2.findUnique({
@@ -440,7 +441,7 @@ export async function completeSessionV2Action(
     }));
 
     // Fire trainer notifications — non-blocking, failures must not break completion.
-    // Club programs belong to the platform staff account: nobody to notify.
+    // Uncoached club members have no coach to notify (coachNotifications off).
     try {
       const caps = await getCapabilitiesForUser(dbUser);
       if (caps.coachNotifications) {
@@ -484,7 +485,7 @@ export async function markExerciseDoneAction(
   if (!userId) return { success: false as const, error: "Unauthorized" };
 
   try {
-    const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
+    const dbUser = activeUserOnly(await prisma.user.findUnique({ where: { clerkId: userId } }));
     if (!dbUser) return { success: false as const, error: "User not found" };
 
     const session = await prisma.workoutSessionV2.findUnique({

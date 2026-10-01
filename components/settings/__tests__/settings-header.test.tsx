@@ -29,6 +29,14 @@ describe("getSettingsTabs", () => {
   });
 });
 
+describe("getSettingsTabs hidden", () => {
+  it("drops the Billing tab when billing is hidden (club trainer)", () => {
+    const hrefs = getSettingsTabs("TRAINER", ["/settings/billing"]).map((t) => t.href);
+    expect(hrefs).not.toContain("/settings/billing");
+    expect(hrefs).toContain("/settings/branding");
+  });
+});
+
 describe("SettingsHeader", () => {
   it("renders a tab link for each of the trainer's sections", () => {
     const html = renderToStaticMarkup(<SettingsHeader role="TRAINER" />);

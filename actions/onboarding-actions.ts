@@ -5,6 +5,8 @@ import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import { stripe } from "@/lib/stripe";
 import { logUserAudit, AUDIT_ACTIONS } from "@/lib/services/audit-log.service";
+import { getCapabilitiesForUser } from "@/lib/org-capabilities.server";
+import { hasClubTrainerInvite, resolveClubTrainerInvite } from "@/lib/services/club-trainer.service";
 
 export async function completeTrainerOnboarding(data: {
   firstName: string;
@@ -17,6 +19,13 @@ export async function completeTrainerOnboarding(data: {
 
   const clerkUser = await currentUser();
   if (!clerkUser) return { success: false as const, error: "User not found" };
+
+  // Club trainers and club members belong to a member-billed org: this action
+  // must never turn them into a trainer-org trainer with a new org and trial.
+  const existing = await prisma.user.findUnique({ where: { clerkId: userId } });
+  if (existing && (await getCapabilitiesForUser(existing)).billing === "member") {
+    return { success: false as const, error: "This account already belongs to a club." };
+  }
 
   try {
     const organizationName = data.organizationName.trim();
@@ -115,6 +124,18 @@ export async function completeClientOnboarding(data: {
 
   const clerkUser = await currentUser();
   if (!clerkUser) return { success: false as const, error: "User not found" };
+
+  // Never create a CLIENT row for an invited club trainer (their onboarding is
+  // /onboarding/club-trainer). Existing rows are untouched by this check.
+  const existing = await prisma.user.findUnique({ where: { clerkId: userId }, select: { id: true } });
+  if (!existing) {
+    const invitedTrainer = orgId
+      ? await hasClubTrainerInvite(userId, orgId)
+      : Boolean(await resolveClubTrainerInvite(userId));
+    if (invitedTrainer) {
+      return { success: false as const, error: "This account was invited as the club trainer." };
+    }
+  }
 
   const profileData = {
     limitations: data.limitations ?? null,

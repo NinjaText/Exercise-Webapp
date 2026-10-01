@@ -6,19 +6,26 @@ vi.mock("next/headers", () => ({
   headers: vi.fn(async () => new Map([["x-forwarded-for", "1.2.3.4, 10.0.0.1"]])),
 }));
 vi.mock("@/lib/services/club.service", () => ({ getClubBySlug: vi.fn() }));
+vi.mock("@/lib/services/club-trainer.service", () => ({
+  getClubTrainer: vi.fn(),
+  CLUB_NOT_OPEN_MESSAGE: "This club isn't open yet. Please check back soon.",
+}));
 vi.mock("@/lib/services/join-attempt.service", () => ({
   isJoinRateLimited: vi.fn(async () => false),
   recordFailedJoinAttempt: vi.fn(),
 }));
 
 import { getClubBySlug } from "@/lib/services/club.service";
+import { getClubTrainer } from "@/lib/services/club-trainer.service";
 import { isJoinRateLimited, recordFailedJoinAttempt } from "@/lib/services/join-attempt.service";
 import { verifyJoinCodeAction } from "../club-join-actions";
 
-beforeAll(() => { process.env.CLUB_JOIN_SECRET = "test-secret-test-secret-test-secret-xx"; });
+beforeAll(() => { process.env.CLERK_SECRET_KEY = "test-clerk-secret-key-minimum-20-chars"; });
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(getClubBySlug).mockResolvedValue({ clerkOrgId: "org_club", joinCode: "PINE24" } as any);
+  vi.mocked(getClubTrainer).mockResolvedValue({ id: "t1" } as any);
+  vi.mocked(isJoinRateLimited).mockResolvedValue(false);
 });
 
 const GENERIC = "That code didn't work. Check with your club and try again.";
@@ -48,5 +55,19 @@ describe("verifyJoinCodeAction", () => {
     const res = await verifyJoinCodeAction("pine", "PINE24");
     expect(res.ok).toBe(false);
     expect(cookieStore.set).not.toHaveBeenCalled();
+  });
+  it("refuses the right code while the club has no trainer", async () => {
+    vi.mocked(getClubTrainer).mockResolvedValue(null);
+    expect(await verifyJoinCodeAction("pine", "PINE24")).toEqual({
+      ok: false,
+      error: "This club isn't open yet. Please check back soon.",
+    });
+    expect(getClubTrainer).toHaveBeenCalledWith("org_club");
+    expect(cookieStore.set).not.toHaveBeenCalled();
+    expect(recordFailedJoinAttempt).not.toHaveBeenCalled();
+  });
+  it("does not reveal a closed club to a wrong code", async () => {
+    vi.mocked(getClubTrainer).mockResolvedValue(null);
+    expect(await verifyJoinCodeAction("pine", "nope")).toEqual({ ok: false, error: GENERIC });
   });
 });

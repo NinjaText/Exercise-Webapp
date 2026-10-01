@@ -87,6 +87,18 @@ export const DIFFICULTY_ROLE: Record<string, StatusRole> = {
   ADVANCED: "danger",
 };
 
+/**
+ * Coaching add-on status -> trainer-facing badge. Kept separate from
+ * ROLE_BY_STATUS because ACTIVE / PAST_DUE / ACCEPTED already mean other
+ * things there (plans, subscriptions, invitations).
+ */
+export const COACHING_BADGE: Record<string, { label: string; role: StatusRole }> = {
+  REQUESTED: { label: "Coaching requested", role: "warning" },
+  ACCEPTED: { label: "Awaiting payment", role: "info" },
+  ACTIVE: { label: "Coaching", role: "success" },
+  PAST_DUE: { label: "Coaching paused", role: "danger" },
+};
+
 /** "onTrack" | "on track" | "on-track" -> "ON_TRACK" */
 export function normalizeStatus(status: string): string {
   return status

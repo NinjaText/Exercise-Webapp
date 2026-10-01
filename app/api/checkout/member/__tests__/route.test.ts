@@ -14,6 +14,8 @@ vi.mock("@/lib/stripe", () => ({
     checkout: { sessions: { create: vi.fn() } },
   },
 }));
+// member-billing's membership-ended cascade imports it; not exercised here.
+vi.mock("@/lib/services/coaching.service", () => ({ cancelCoachingForEndedMembership: vi.fn() }));
 
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
@@ -37,6 +39,12 @@ beforeEach(() => {
 });
 
 describe("POST /api/checkout/member", () => {
+  it("403 for a deactivated member (activeUserOnly)", async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({ ...user, isActive: false } as any);
+    expect((await POST()).status).toBe(403);
+    expect(stripe.checkout.sessions.create).not.toHaveBeenCalled();
+  });
+
   it("403 for a client in a trainer org", async () => {
     vi.mocked(prisma.organization.findUnique).mockResolvedValue({ clerkOrgId: "org_1", type: null } as any);
     expect((await POST()).status).toBe(403);

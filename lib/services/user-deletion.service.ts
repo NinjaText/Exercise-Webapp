@@ -133,7 +133,8 @@ export async function findDeletionBlockers(
  * the retry with less left to clean up.
  *
  * Callers MUST run `findDeletionBlockers` first and abort if it returns
- * anything. This function deletes leaf rows before it can discover a
+ * anything, and MUST stop Stripe billing first (`cancelTrainerBilling` /
+ * `cancelMemberBillingForDeletion`) — this removes the rows holding the ids. This function deletes leaf rows before it can discover a
  * restrict violation on the user row, so calling it on a blocked user
  * destroys health data and then fails.
  */
@@ -179,6 +180,11 @@ export async function deleteUserData(userId: string): Promise<void> {
   await prisma.habitDefinition.deleteMany({ where: { clientId: userId } });
   await prisma.clinicalNote.deleteMany({ where: { OR: [{ clientId: userId }, { trainerId: userId }] } });
   await prisma.trainerSubscription.deleteMany({ where: { trainerId: userId } });
+  // Club member billing rows: the member's own data, never a blocker. Their
+  // Stripe subscriptions must already be cancelled by the caller
+  // (`cancelMemberBillingForDeletion`) — these rows hold the only ids.
+  await prisma.memberCoaching.deleteMany({ where: { userId } });
+  await prisma.memberSubscription.deleteMany({ where: { userId } });
   await prisma.pendingProgramAssignment.deleteMany({ where: { trainerId: userId } });
   await prisma.dismissedInsight.deleteMany({ where: { trainerId: userId } });
   await prisma.assessment.deleteMany({ where: { clientId: userId } });

@@ -24,11 +24,15 @@ vi.mock('@/lib/services/user-deletion.service', () => ({
   findDeletionBlockers: vi.fn(),
   deleteUserData: vi.fn(),
 }))
+vi.mock('@/lib/services/member-billing.service', () => ({
+  cancelMemberBillingForDeletion: vi.fn(),
+}))
 
 import { requireSuperAdmin } from '@/lib/current-user'
 import { prisma } from '@/lib/prisma'
 import { logAudit } from '@/lib/services/audit-log.service'
 import { findDeletionBlockers, deleteUserData } from '@/lib/services/user-deletion.service'
+import { cancelMemberBillingForDeletion } from '@/lib/services/member-billing.service'
 import { archiveUserAction, restoreUserAction, deleteUserAction } from '../admin-actions'
 
 const mockRequireSuperAdmin = vi.mocked(requireSuperAdmin)
@@ -104,6 +108,26 @@ describe('restoreUserAction', () => {
 })
 
 describe('deleteUserAction', () => {
+  it('cancels club member billing before deleting any data', async () => {
+    const result = await deleteUserAction('user_1')
+    expect(result.success).toBe(true)
+    expect(cancelMemberBillingForDeletion).toHaveBeenCalledWith('user_1')
+    expect(vi.mocked(cancelMemberBillingForDeletion).mock.invocationCallOrder[0]).toBeLessThan(
+      mockDeleteUserData.mock.invocationCallOrder[0]
+    )
+  })
+
+  it('aborts with nothing deleted when Stripe cancellation fails', async () => {
+    vi.mocked(cancelMemberBillingForDeletion).mockRejectedValueOnce(new Error('stripe down'))
+    const result = await deleteUserAction('user_1')
+    expect(result).toEqual({
+      success: false,
+      error: "Cannot delete: we couldn't cancel this member's billing with Stripe, so nothing was deleted. Try again.",
+    })
+    expect(mockDeleteUserData).not.toHaveBeenCalled()
+    expect(mockLogAudit).not.toHaveBeenCalled()
+  })
+
   it('hard deletes the user and returns success', async () => {
     const result = await deleteUserAction('user_1')
     expect(mockDeleteUserData).toHaveBeenCalledWith('user_1')

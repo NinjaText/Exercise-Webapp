@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 
-export default function BillingSuccessPage() {
+function BillingSuccess() {
   const router = useRouter();
+  const isCoaching = useSearchParams().get("coaching") === "1";
   const attempts = useRef(0);
 
   useEffect(() => {
@@ -12,9 +14,14 @@ export default function BillingSuccessPage() {
       attempts.current += 1;
       try {
         const res = await fetch("/api/stripe/status");
-        const data = await res.json() as { subscription?: { status: string } };
+        const data = await res.json() as {
+          subscription?: { status: string };
+          coaching?: { status: string } | null;
+        };
         if (
-          data.subscription?.status === "ACTIVE" ||
+          (isCoaching
+            ? data.coaching?.status === "ACTIVE"
+            : data.subscription?.status === "ACTIVE") ||
           attempts.current >= 10
         ) {
           clearInterval(poll);
@@ -29,7 +36,7 @@ export default function BillingSuccessPage() {
     }, 1000);
 
     return () => clearInterval(poll);
-  }, [router]);
+  }, [router, isCoaching]);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-[oklch(0.97_0.005_247)] px-4">
@@ -49,11 +56,23 @@ export default function BillingSuccessPage() {
             />
           </svg>
         </div>
-        <h1 className="text-2xl font-bold text-foreground">You&apos;re all set!</h1>
+        <h1 className="text-2xl font-bold text-foreground">
+          {isCoaching ? "Coaching is starting" : "You\u2019re all set!"}
+        </h1>
         <p className="text-muted-foreground">
-          Your subscription is now active. Redirecting to dashboard…
+          {isCoaching
+            ? "Your coaching is being set up. Redirecting to dashboard…"
+            : "Your subscription is now active. Redirecting to dashboard…"}
         </p>
       </div>
     </div>
+  );
+}
+
+export default function BillingSuccessPage() {
+  return (
+    <Suspense fallback={null}>
+      <BillingSuccess />
+    </Suspense>
   );
 }

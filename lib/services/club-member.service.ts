@@ -2,7 +2,7 @@ import { clerkClient } from "@clerk/nextjs/server";
 import type { Organization, User } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { duplicateProgram, assignProgram } from "@/lib/services/program.service";
-import { getPlatformStaffUser } from "@/lib/services/club.service";
+import { getClubTrainer } from "@/lib/services/club-trainer.service";
 import { getOrgType } from "@/lib/org-capabilities";
 import { nextStarterTemplateId, OPEN_SESSION_STATUSES } from "@/lib/clubs/starter-progression";
 
@@ -90,6 +90,10 @@ export async function ensureMemberSubscription(userId: string, club: Organizatio
         clerkOrgId: club.clerkOrgId,
         status: "TRIALING",
         trialEndsAt: new Date(now.getTime() + trialDays * DAY_MS),
+        // Explicit nulls, not omitted: Mongo `{ field: null }` filters miss unwritten fields.
+        stripeCustomerId: null,
+        stripeSubscriptionId: null,
+        currentPeriodEnd: null,
       },
     });
   } catch (err) {
@@ -159,8 +163,14 @@ export async function assignNextStarterProgram(userId: string): Promise<StarterO
       return "done";
     }
 
-    const staff = await getPlatformStaffUser();
-    const copy = await duplicateProgram(next, staff.id, false);
+    // Copies belong to the club trainer (D6). No trainer (not accepted yet, or
+    // being replaced): release the claim so the sweep retries later.
+    const trainer = await getClubTrainer(club.clerkOrgId);
+    if (!trainer) {
+      await prisma.memberSubscription.update({ where: { userId }, data: { starterStatus: "PENDING" } });
+      return "skipped";
+    }
+    const copy = await duplicateProgram(next, trainer.id, false);
     try {
       await assignProgram(copy.id, userId, new Date());
     } catch (err) {

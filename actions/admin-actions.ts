@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { logAudit, deriveActorType, AUDIT_ACTIONS } from "@/lib/services/audit-log.service";
 import { findDeletionBlockers, deleteUserData } from "@/lib/services/user-deletion.service";
+import { cancelMemberBillingForDeletion } from "@/lib/services/member-billing.service";
 
 async function logUserAction(
   action: string,
@@ -75,6 +76,19 @@ export async function deleteUserAction(userId: string) {
     const blockers = await findDeletionBlockers(userId, { includeActiveClients: false });
     if (blockers.length > 0) {
       return { success: false as const, error: `Cannot delete: ${blockers[0].message}` };
+    }
+
+    // Club members: stop membership + coaching billing first — the rows
+    // `deleteUserData` removes hold the only subscription ids. A Stripe
+    // failure aborts with nothing deleted. No-op for everyone else.
+    try {
+      await cancelMemberBillingForDeletion(userId);
+    } catch (error) {
+      console.error("[admin-delete] stripe cancellation failed for", userId, error);
+      return {
+        success: false as const,
+        error: "Cannot delete: we couldn't cancel this member's billing with Stripe, so nothing was deleted. Try again.",
+      };
     }
 
     await deleteUserData(userId);

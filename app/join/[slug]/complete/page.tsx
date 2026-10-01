@@ -3,9 +3,11 @@ import { after } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { cookies } from "next/headers";
 import { getClubBySlug } from "@/lib/services/club.service";
+import { getClubTrainer } from "@/lib/services/club-trainer.service";
 import { enrollClubMember, assignNextStarterProgram } from "@/lib/services/club-member.service";
 import { JOIN_COOKIE, verifyJoinToken } from "@/lib/clubs/join-token";
 import { ActivateOrg } from "./activate-org";
+import { ClubNotOpen } from "../club-not-open";
 
 export default async function JoinCompletePage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
@@ -15,9 +17,17 @@ export default async function JoinCompletePage({ params }: { params: Promise<{ s
   const { userId } = await auth();
   if (!userId) redirect(`/join/${slug}`);
 
-  // verifyJoinToken throws when CLUB_JOIN_SECRET is missing: fail closed (500).
+  // verifyJoinToken throws when CLERK_SECRET_KEY is missing: fail closed (500).
   const token = (await cookies()).get(JOIN_COOKIE)?.value;
   if (!verifyJoinToken(token, club.clerkOrgId)) redirect(`/join/${slug}`);
+
+  if (!(await getClubTrainer(club.clerkOrgId))) {
+    return (
+      <div className="flex min-h-screen items-center justify-center px-4">
+        <ClubNotOpen />
+      </div>
+    );
+  }
 
   const result = await enrollClubMember({ clerkUserId: userId, club });
   if (!result.ok) {

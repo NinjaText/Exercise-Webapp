@@ -2,6 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import type { User } from "@prisma/client";
+import { getOrgCapabilities } from "@/lib/org-capabilities";
 
 export async function getCurrentUser(): Promise<User> {
   const { userId, orgId } = await auth();
@@ -31,6 +32,13 @@ export async function getCurrentUser(): Promise<User> {
 
   if (!user.onboarded) {
     if (user.role === "CLIENT") redirect("/onboarding/client");
+    // Same rule as the platform layout: a TRAINER in a member-billed org is
+    // the invited club trainer. (Queried directly: org-capabilities.server
+    // imports this module.)
+    const org = user.clerkOrgId
+      ? await prisma.organization.findUnique({ where: { clerkOrgId: user.clerkOrgId } })
+      : null;
+    if (org && getOrgCapabilities(org).billing === "member") redirect("/onboarding/club-trainer");
     redirect("/onboarding");
   }
 

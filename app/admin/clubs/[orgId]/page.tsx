@@ -2,12 +2,17 @@ import { notFound } from "next/navigation";
 import { format } from "date-fns";
 import { prisma } from "@/lib/prisma";
 import { getOrgType } from "@/lib/org-capabilities";
-import { getProgramSchedulingType } from "@/lib/utils/program-scheduling";
 import { PageShell } from "@/components/shared/page-shell";
 import { PageHeader } from "@/components/shared/page-header";
 import { SectionCard } from "@/components/shared/section-card";
 import { DataList, type Column } from "@/components/shared/data-list";
 import { StatusBadge } from "@/components/shared/status-badge";
+import { COACHING_BADGE } from "@/lib/ui/status";
+import { getClubTrainer, getPendingTrainerInvite } from "@/lib/services/club-trainer.service";
+import { describeClubPrice } from "@/lib/services/club-pricing.service";
+import { priceFormField, priceSummary } from "./price-fields";
+import { starterOptions, starterProgramWhere } from "./starter-options";
+import { ClubTrainerControls } from "./club-trainer-controls";
 import { ClubForm } from "../club-form";
 import { ExtendTrialButton } from "./extend-trial-button";
 import { ConvertToTrainerButton } from "./convert-to-trainer-button";
@@ -22,10 +27,14 @@ export default async function AdminClubDetailPage({ params }: PageProps) {
   const org = await prisma.organization.findUnique({ where: { clerkOrgId: orgId } });
   if (!org || getOrgType(org) !== "CLUB") notFound();
 
-  const [programs, members] = await Promise.all([
+  const trainer = await getClubTrainer(orgId);
+  const pendingInvite = trainer ? null : await getPendingTrainerInvite(orgId).catch(() => null);
+
+  const [programs, members, coachingRows, membershipPrice, coachingPrice] = await Promise.all([
+    // Global Programs, the club trainer's templates and the current starters.
     prisma.program.findMany({
-      where: { isGlobal: true },
-      select: { id: true, name: true, schedulingType: true },
+      where: starterProgramWhere(org.starterProgramIds, trainer?.id ?? null),
+      select: { id: true, name: true, schedulingType: true, isGlobal: true },
       orderBy: { name: "asc" },
     }),
     prisma.memberSubscription.findMany({
@@ -34,12 +43,15 @@ export default async function AdminClubDetailPage({ params }: PageProps) {
       orderBy: { createdAt: "desc" },
       take: CLUB_MEMBER_LIST_LIMIT,
     }),
+    prisma.memberCoaching.findMany({ where: { clerkOrgId: orgId }, select: { userId: true, status: true } }),
+    describeClubPrice(org.stripePriceId ?? null),
+    describeClubPrice(org.coachingStripePriceId ?? null),
   ]);
+  const membershipField = priceFormField(membershipPrice);
+  const coachingField = priceFormField(coachingPrice);
+  const coachingByUser = new Map(coachingRows.map((c) => [c.userId, c.status]));
 
-  // Keep already-selected starters visible even if they later stopped qualifying.
-  const globalPrograms = programs
-    .filter((p) => getProgramSchedulingType(p) === "SCHEDULED" || org.starterProgramIds.includes(p.id))
-    .map(({ id, name }) => ({ id, name }));
+  const globalPrograms = starterOptions(programs, org.starterProgramIds);
 
   type Member = (typeof members)[number];
   const columns: Column<Member>[] = [
@@ -74,6 +86,20 @@ export default async function AdminClubDetailPage({ params }: PageProps) {
       render: (m) => <StatusBadge status={m.starterStatus} size="sm" dot={false} />,
     },
     {
+      key: "coaching",
+      header: "Coaching",
+      className: "hidden lg:table-cell",
+      render: (m) => {
+        const status = coachingByUser.get(m.userId);
+        const badge = status ? COACHING_BADGE[status] : undefined;
+        return badge ? (
+          <StatusBadge status={status!} label={badge.label} role={badge.role} size="sm" />
+        ) : (
+          <span className="text-xs text-muted-foreground">—</span>
+        );
+      },
+    },
+    {
       key: "actions",
       header: "",
       align: "right",
@@ -95,7 +121,11 @@ export default async function AdminClubDetailPage({ params }: PageProps) {
         title={org.name}
         description={`Join link: /join/${org.joinSlug}`}
         back={{ label: "Back to Clubs", href: "/admin/clubs" }}
-        meta={<span className="text-sm text-muted-foreground">Type: Club</span>}
+        meta={
+          <span className="text-sm text-muted-foreground">
+            Type: Club · Membership {priceSummary(membershipPrice)} · Coaching {priceSummary(coachingPrice)}
+          </span>
+        }
         primaryAction={<ConvertToTrainerButton clerkOrgId={orgId} hasMembers={members.length > 0} />}
       />
 
@@ -110,14 +140,42 @@ export default async function AdminClubDetailPage({ params }: PageProps) {
               joinSlug: org.joinSlug ?? "",
               joinCode: org.joinCode ?? "",
               trialDays: org.trialDays ?? 14,
-              stripePriceId: org.stripePriceId ?? "",
+              membershipAmount: membershipField.amount,
+              coachingAmount: coachingField.amount,
               starterProgramIds: org.starterProgramIds,
+              trainerEmail: "",
             }}
+            priceNotes={{ membership: membershipField.note, coaching: coachingField.note }}
           />
         </SectionCard>
-        <SectionCard title="Branding">
-          <p className="text-sm text-muted-foreground">The club name is used as its brand automatically. Logo and colour editing for clubs is a follow-up.</p>
-        </SectionCard>
+        <div className="flex flex-col gap-6">
+          <SectionCard title="Club trainer">
+            <div className="flex flex-col gap-3">
+              {trainer ? (
+                <p className="text-sm">
+                  <span className="font-medium text-foreground">
+                    {[trainer.firstName, trainer.lastName].filter(Boolean).join(" ") || trainer.email}
+                  </span>
+                  <span className="text-muted-foreground"> · {trainer.email}</span>
+                  {!trainer.onboarded && <span className="text-muted-foreground"> · onboarding not finished</span>}
+                </p>
+              ) : pendingInvite ? (
+                <p className="text-sm text-muted-foreground">
+                  Invite pending for <span className="font-medium text-foreground">{pendingInvite.email}</span>. The club
+                  opens to members once they accept.
+                </p>
+              ) : (
+                <p className="text-sm text-muted-foreground">No trainer. The club stays closed until one accepts an invite.</p>
+              )}
+              <ClubTrainerControls clerkOrgId={orgId} hasTrainer={Boolean(trainer)} invitePending={Boolean(pendingInvite)} />
+            </div>
+          </SectionCard>
+          <SectionCard title="Branding">
+            <p className="text-sm text-muted-foreground">
+              The club trainer manages the club&apos;s logo and colours from their Settings.
+            </p>
+          </SectionCard>
+        </div>
       </div>
 
       <SectionCard title="Members" count={members.length} description={memberListTruncationNote(members.length)}>

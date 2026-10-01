@@ -22,7 +22,7 @@ export default async function NewClubPage() {
         back={{ label: "Back to Clubs", href: "/admin/clubs" }}
       />
       <ClubForm mode="create" globalPrograms={globalPrograms} />
-      <p className="text-sm text-muted-foreground">The club name is used as its brand automatically. Logo and colour editing for clubs is a follow-up.</p>
+      <p className="text-sm text-muted-foreground">The club name is used as its brand automatically. The club trainer can set the logo and colours from their Settings once they join.</p>
     </PageShell>
   );
 }

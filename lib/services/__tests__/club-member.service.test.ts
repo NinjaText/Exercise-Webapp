@@ -28,12 +28,13 @@ vi.mock("@/lib/services/program.service", () => ({
   duplicateProgram: vi.fn(async () => ({ id: "copy1" })),
   assignProgram: vi.fn(async () => ({})),
 }));
-vi.mock("@/lib/services/club.service", () => ({
-  getPlatformStaffUser: vi.fn(async () => ({ id: "staff1" })),
+vi.mock("@/lib/services/club-trainer.service", () => ({
+  getClubTrainer: vi.fn(async () => ({ id: "staff1" })),
 }));
 
 import { prisma } from "@/lib/prisma";
 import { duplicateProgram, assignProgram } from "@/lib/services/program.service";
+import { getClubTrainer } from "@/lib/services/club-trainer.service";
 import {
   enrollClubMember, ensureMemberSubscription, assignNextStarterProgram, sweepClubStarterPrograms,
 } from "../club-member.service";
@@ -127,7 +128,16 @@ describe("ensureMemberSubscription", () => {
     const now = new Date("2026-10-01T00:00:00Z");
     await ensureMemberSubscription("u1", club, now);
     expect(prisma.memberSubscription.create).toHaveBeenCalledWith({
-      data: { userId: "u1", clerkOrgId: "org_club", status: "TRIALING", trialEndsAt: new Date("2026-10-15T00:00:00Z") },
+      data: {
+        userId: "u1",
+        clerkOrgId: "org_club",
+        status: "TRIALING",
+        trialEndsAt: new Date("2026-10-15T00:00:00Z"),
+        // Explicit nulls: Mongo `{ field: null }` filters miss unwritten fields.
+        stripeCustomerId: null,
+        stripeSubscriptionId: null,
+        currentPeriodEnd: null,
+      },
     });
   });
   it("never resets an existing trial", async () => {
@@ -198,6 +208,21 @@ describe("assignNextStarterProgram", () => {
     vi.mocked(duplicateProgram).mockRejectedValueOnce(new Error("clone aborted"));
     await expect(assignNextStarterProgram("u1")).rejects.toThrow("clone aborted");
     expect(prisma.memberSubscription.update).toHaveBeenCalledWith({ where: { userId: "u1" }, data: { starterStatus: "FAILED" } });
+  });
+
+  it("copies as the club trainer", async () => {
+    vi.mocked(prisma.program.findMany).mockResolvedValue([]);
+    await assignNextStarterProgram("u1");
+    expect(getClubTrainer).toHaveBeenCalledWith("org_club");
+  });
+
+  it("releases the claim to PENDING and skips when the club has no trainer", async () => {
+    vi.mocked(prisma.program.findMany).mockResolvedValue([]);
+    vi.mocked(getClubTrainer).mockResolvedValueOnce(null);
+    expect(await assignNextStarterProgram("u1")).toBe("skipped");
+    expect(duplicateProgram).not.toHaveBeenCalled();
+    expect(prisma.memberSubscription.update).toHaveBeenCalledWith({ where: { userId: "u1" }, data: { starterStatus: "PENDING" } });
+    expect(prisma.memberSubscription.update).not.toHaveBeenCalledWith({ where: { userId: "u1" }, data: { starterStatus: "FAILED" } });
   });
 
   it("skips users who are not in a club", async () => {

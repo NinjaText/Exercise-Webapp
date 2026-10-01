@@ -4,7 +4,9 @@ import { clerkClient } from "@clerk/nextjs/server";
 import { getCurrentUser } from "@/lib/current-user";
 import { prisma } from "@/lib/prisma";
 import { stripe } from "@/lib/stripe";
+import { isStripeSubscriptionAlreadyCanceled } from "@/lib/billing/stripe-errors";
 import { DELETE_CONFIRMATION_PHRASE } from "@/lib/constants/account";
+import { cancelMemberBillingForDeletion } from "@/lib/services/member-billing.service";
 import {
   deleteUserData,
   findDeletionBlockers,
@@ -14,33 +16,6 @@ import {
 export type DeleteOwnAccountResult =
   | { success: true }
   | { success: false; error: string; blockers?: DeletionBlocker[] };
-
-/**
- * A cancel that fails because the subscription is already gone or already
- * cancelled has reached the state we wanted, so it counts as success.
- * Stripe reports a missing object as `resource_missing`; an already-cancelled
- * subscription comes back as an invalid-request whose message says so.
- */
-function isAlreadyCancelled(error: unknown, subscriptionId: string): boolean {
-  const e = error as { code?: string; message?: string } | null;
-  if (e?.code === "resource_missing") {
-    // Stripe also returns `resource_missing` when the key or mode does not
-    // match the object (test key against a live subscription, or the wrong
-    // account), where the subscription is very much alive and still billing.
-    // We cannot tell the two apart from the error alone, so we keep treating
-    // it as cancelled but leave a trace to diagnose from.
-    console.warn(
-      `[account-deletion] Stripe returned resource_missing for subscription ${subscriptionId}; treating the cancel as already-cancelled. If the API key or mode is mismatched, this subscription may still be billing.`
-    );
-    return true;
-  }
-  const message = typeof e?.message === "string" ? e.message.toLowerCase() : "";
-  return (
-    message.includes("no such subscription") ||
-    message.includes("already canceled") ||
-    message.includes("already cancelled")
-  );
-}
 
 /**
  * Stops the trainer's Stripe billing before their data is destroyed.
@@ -60,7 +35,7 @@ async function cancelTrainerBilling(userId: string): Promise<void> {
   try {
     await stripe.subscriptions.cancel(subscription.stripeSubscriptionId);
   } catch (error) {
-    if (isAlreadyCancelled(error, subscription.stripeSubscriptionId)) return;
+    if (isStripeSubscriptionAlreadyCanceled(error, subscription.stripeSubscriptionId, "[account-deletion]")) return;
     throw error;
   }
 }
@@ -90,9 +65,12 @@ export async function deleteOwnAccountAction(input: {
     return { success: false, error: blockers[0].message, blockers };
   }
 
-  if (user.role === "TRAINER") {
+  if (user.role === "TRAINER" || user.role === "CLIENT") {
     try {
-      await cancelTrainerBilling(user.id);
+      // Trainers: platform billing. Clients: club membership + coaching
+      // (a no-op for trainer-org clients, who have no MemberSubscription).
+      if (user.role === "TRAINER") await cancelTrainerBilling(user.id);
+      else await cancelMemberBillingForDeletion(user.id);
     } catch (error) {
       console.error("[account-deletion] stripe cancellation failed for", user.id, error);
       return {

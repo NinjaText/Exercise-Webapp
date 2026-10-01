@@ -1,10 +1,15 @@
-import { describe, it, expect, beforeAll } from "vitest";
+import { describe, it, expect, beforeAll, afterEach } from "vitest";
 import {
   signJoinToken, verifyJoinToken, joinCodesMatch, normalizeJoinCode, JOIN_TOKEN_TTL_MS,
 } from "@/lib/clubs/join-token";
 
 beforeAll(() => {
-  process.env.CLUB_JOIN_SECRET = "test-secret-test-secret-test-secret-xx";
+  process.env.CLERK_SECRET_KEY = "test-clerk-secret-key-minimum-20-chars";
+});
+
+afterEach(() => {
+  delete process.env.CLERK_SECRET_KEY;
+  process.env.CLERK_SECRET_KEY = "test-clerk-secret-key-minimum-20-chars";
 });
 
 describe("join token", () => {
@@ -28,6 +33,19 @@ describe("join token", () => {
   it("rejects missing / malformed tokens", () => {
     expect(verifyJoinToken(undefined, "org_abc", t0)).toBe(false);
     expect(verifyJoinToken("garbage", "org_abc", t0)).toBe(false);
+  });
+  it("throws when CLERK_SECRET_KEY is missing on sign", () => {
+    delete process.env.CLERK_SECRET_KEY;
+    expect(() => signJoinToken("org_abc", t0)).toThrow("CLERK_SECRET_KEY must be set to sign club join tokens");
+  });
+  it("throws when CLERK_SECRET_KEY is too short on sign", () => {
+    process.env.CLERK_SECRET_KEY = "short";
+    expect(() => signJoinToken("org_abc", t0)).toThrow("CLERK_SECRET_KEY must be set to sign club join tokens");
+  });
+  it("rejects a token signed with a different key", () => {
+    const token = signJoinToken("org_abc", t0);
+    process.env.CLERK_SECRET_KEY = "different-clerk-secret-key-minimum-20-chars";
+    expect(verifyJoinToken(token, "org_abc", t0 + 1000)).toBe(false);
   });
 });
 

@@ -1,3 +1,4 @@
+import { activeUserOnly } from "@/lib/auth/active-user";
 import { generateObject } from "ai";
 import { openai } from "@ai-sdk/openai";
 import { z } from "zod";
@@ -105,7 +106,7 @@ export async function POST(req: Request) {
     const { userId } = await auth();
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
+    const dbUser = activeUserOnly(await prisma.user.findUnique({ where: { clerkId: userId } }));
     if (!dbUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const admin = await isSuperAdmin();

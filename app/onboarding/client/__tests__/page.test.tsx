@@ -10,6 +10,7 @@ const mockRedirect = vi.fn((path: string) => {
   throw new Error(`NEXT_REDIRECT:${path}`);
 });
 const mockGetOrgBranding = vi.fn();
+const mockResolveClubTrainerInvite = vi.fn();
 
 vi.mock("@clerk/nextjs/server", () => ({ auth: mockAuth }));
 vi.mock("@clerk/nextjs", () => ({
@@ -18,6 +19,7 @@ vi.mock("@clerk/nextjs", () => ({
 vi.mock("next/navigation", () => ({ redirect: mockRedirect }));
 vi.mock("@/lib/prisma", () => ({ prisma: { user: { findUnique: mockFindUnique } } }));
 vi.mock("@/lib/services/branding.service", () => ({ getOrgBranding: mockGetOrgBranding }));
+vi.mock("@/lib/services/club-trainer.service", () => ({ resolveClubTrainerInvite: mockResolveClubTrainerInvite }));
 vi.mock("@/components/onboarding/client-onboarding-form", () => ({
   ClientOnboardingForm: () => React.createElement("div", { "data-testid": "onboarding-form" }),
 }));
@@ -44,6 +46,7 @@ const unbrandedBranding = resolveBranding(null);
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockResolveClubTrainerInvite.mockResolvedValue(null);
 });
 
 describe("ClientOnboardingPage", () => {
@@ -104,5 +107,21 @@ describe("ClientOnboardingPage", () => {
     expect(html).toContain("so your trainer can personalize your exercise program");
     expect(html).toContain(`${new Date().getFullYear()} INMOTUS RX. All rights reserved`);
     expect(html).not.toContain('id="org-brand"');
+  });
+
+  it("sends an invited club trainer with no DB row to /onboarding/club-trainer", async () => {
+    mockAuth.mockResolvedValue({ userId: "user_t", orgId: "org_club" });
+    mockFindUnique.mockResolvedValue(null);
+    mockResolveClubTrainerInvite.mockResolvedValue({ clerkOrgId: "org_club", type: "CLUB" });
+    await expect(ClientOnboardingPage()).rejects.toThrow(/^NEXT_REDIRECT:\/onboarding\/club-trainer$/);
+    expect(mockResolveClubTrainerInvite).toHaveBeenCalledWith("user_t");
+  });
+
+  it("does not look up trainer invites once the DB row exists", async () => {
+    mockAuth.mockResolvedValue({ userId: "user_c", orgId: "org_123" });
+    mockFindUnique.mockResolvedValue({ onboarded: false, clerkOrgId: "org_123" });
+    mockGetOrgBranding.mockResolvedValue(unbrandedBranding);
+    await ClientOnboardingPage();
+    expect(mockResolveClubTrainerInvite).not.toHaveBeenCalled();
   });
 });
