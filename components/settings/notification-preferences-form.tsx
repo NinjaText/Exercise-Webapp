@@ -2,14 +2,12 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
-import { FormSection } from "@/components/shared/form-section";
+import { SettingsPanel, SettingsPanels, SettingsRow } from "@/components/settings/settings-section";
+import { SettingsSaveBar } from "@/components/settings/settings-save-bar";
 import { updateMyPreferenceAction } from "@/actions/notification-preference-actions";
 import type { PreferenceValues } from "@/lib/services/notification-preference.service";
 import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
 
 const CATEGORIES = [
   {
@@ -32,12 +30,14 @@ const CATEGORIES = [
 export function NotificationPreferencesForm({ initial }: { initial: PreferenceValues }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
-  const [values, setValues] = useState({
+  const [saved, setSaved] = useState({
     emailEnabled: initial.emailEnabled,
     sessions: initial.sessions,
     messages: initial.messages,
     nutrition: initial.nutrition,
   });
+  const [values, setValues] = useState(saved);
+  const dirty = (Object.keys(values) as (keyof typeof values)[]).some((k) => values[k] !== saved[k]);
 
   async function handleSave() {
     setSaving(true);
@@ -45,6 +45,7 @@ export function NotificationPreferencesForm({ initial }: { initial: PreferenceVa
     setSaving(false);
 
     if (result.success) {
+      setSaved(values);
       toast.success("Notification preferences saved");
       router.refresh();
     } else {
@@ -53,61 +54,65 @@ export function NotificationPreferencesForm({ initial }: { initial: PreferenceVa
   }
 
   return (
-    <div className="flex flex-col gap-8">
-      <FormSection
-        title="Email notifications"
-        description="Turn this off to stop all non-essential email. You will still see every notification in the app."
-      >
-        <div className="flex items-center justify-between gap-4">
-          <Label htmlFor="emailEnabled" className="text-sm font-medium">
-            Send me email notifications
-          </Label>
-          <Switch
-            id="emailEnabled"
-            checked={values.emailEnabled}
-            onCheckedChange={(checked) => setValues((v) => ({ ...v, emailEnabled: checked }))}
-          />
-        </div>
-      </FormSection>
-
-      <FormSection title="Categories" description="Choose which emails you want to receive.">
-        {CATEGORIES.map((category) => (
-          <div key={category.key} className="flex items-start justify-between gap-4">
-            <div className="flex flex-col gap-1">
-              <Label htmlFor={category.key} className="text-sm font-medium">
-                {category.label}
-              </Label>
-              <p className="text-sm text-muted-foreground">{category.description}</p>
-            </div>
+    <>
+      <SettingsPanels>
+        <SettingsPanel
+          title="Email delivery"
+          description="In-app notifications are always on. Turn email off to stop every non-essential email at once."
+        >
+          <SettingsRow
+            label="Email notifications"
+            description="Send me an email when something needs my attention."
+            htmlFor="emailEnabled"
+          >
             <Switch
-              id={category.key}
-              checked={values[category.key]}
-              disabled={!values.emailEnabled}
-              onCheckedChange={(checked) =>
-                setValues((v) => ({ ...v, [category.key]: checked }))
-              }
+              id="emailEnabled"
+              checked={values.emailEnabled}
+              onCheckedChange={(checked) => setValues((v) => ({ ...v, emailEnabled: checked }))}
             />
-          </div>
-        ))}
+          </SettingsRow>
+        </SettingsPanel>
 
-        <div className="flex items-start justify-between gap-4 border-t border-border pt-6">
-          <div className="flex flex-col gap-1">
-            <Label className="text-sm font-medium text-muted-foreground">Billing</Label>
-            <p className="text-sm text-muted-foreground">
-              Payment failures, cancellations, and refunds. Always sent — required for account
-              access.
-            </p>
+        <SettingsPanel
+          title="Categories"
+          description={
+            values.emailEnabled
+              ? "Choose which kinds of email you want to receive."
+              : "Email notifications are off. Turn them on above to choose categories."
+          }
+        >
+          <div className="flex flex-col divide-y divide-border">
+            {CATEGORIES.map((category) => (
+              <div key={category.key} className="py-4 first:pt-0">
+                <SettingsRow
+                  label={category.label}
+                  description={category.description}
+                  htmlFor={category.key}
+                  muted={!values.emailEnabled}
+                >
+                  <Switch
+                    id={category.key}
+                    checked={values.emailEnabled && values[category.key]}
+                    disabled={!values.emailEnabled}
+                    onCheckedChange={(checked) => setValues((v) => ({ ...v, [category.key]: checked }))}
+                  />
+                </SettingsRow>
+              </div>
+            ))}
+            <div className="pt-4">
+              <SettingsRow
+                label="Billing"
+                description="Payment failures, cancellations and refunds. Always sent, because they affect your access."
+                muted
+              >
+                <Switch checked disabled aria-label="Billing emails are always sent" />
+              </SettingsRow>
+            </div>
           </div>
-          <Switch checked disabled aria-label="Billing emails are always sent" />
-        </div>
-      </FormSection>
+        </SettingsPanel>
+      </SettingsPanels>
 
-      <div className="flex justify-end">
-        <Button onClick={handleSave} disabled={saving}>
-          {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          Save changes
-        </Button>
-      </div>
-    </div>
+      <SettingsSaveBar dirty={dirty} saving={saving} onDiscard={() => setValues(saved)} onSave={handleSave} />
+    </>
   );
 }

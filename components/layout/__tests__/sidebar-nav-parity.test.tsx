@@ -8,8 +8,8 @@ import { toViewModel } from "@/lib/branding/types";
 const UNBRANDED = toViewModel(DEFAULT_BRANDING);
 
 // The sidebar hand-writes the Account and Admin blocks as literal JSX (the
-// nesting under /settings and the Admin pill badge aren't expressible as a
-// flat array map — see task-3 fix round 1). This file is the drift guard:
+// Admin pill badge isn't expressible as a flat array map — see task-3 fix
+// round 1). This file is the drift guard:
 // it renders the real Sidebar and asserts every href/label the shared
 // nav-items module declares actually appears in the markup, and that no
 // trainer-only entry leaks into the client sidebar. Assertions loop over the
@@ -28,9 +28,6 @@ vi.mock("@clerk/nextjs", () => ({
 
 describe("Sidebar / nav-items parity", () => {
   it("renders every trainer primary nav, account nav and admin entry from the shared module", () => {
-    // "/settings" satisfies the Organization/Audit Log nesting condition
-    // (pathname.startsWith("/settings") && !startsWith("/settings/billing")),
-    // so this single render covers every trainer entry in one pass.
     mockPathname = "/settings";
     const html = renderToStaticMarkup(
       <Sidebar
@@ -51,8 +48,6 @@ describe("Sidebar / nav-items parity", () => {
   });
 
   it("renders every client primary nav and account nav entry, and leaks no trainer-only href", () => {
-    // "/settings" reveals the settings sub-nav (Notifications), which is
-    // visible to both roles on settings pages only.
     mockPathname = "/settings";
     const html = renderToStaticMarkup(
       <Sidebar

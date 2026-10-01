@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { UserButton } from "@clerk/nextjs";
 import { clerkAppearance } from "@/lib/ui/clerk-appearance";
-import { Settings, Shield, CreditCard, History, Building2, Bell, Palette } from "lucide-react";
+import { Settings, Shield } from "lucide-react";
 import { findActiveHref, getAccountNav, getPrimaryNav } from "./nav-items";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -111,16 +111,8 @@ export function Sidebar({
             Account
           </p>
         </div>
-        {role === "TRAINER" && navItem("/settings/billing", "Billing", CreditCard)}
+        {/* Every settings section is a tab on the settings page, so one entry here. */}
         {navItem("/settings", "Settings", Settings)}
-        {pathname.startsWith("/settings") && !pathname.startsWith("/settings/billing") && (
-          <div className="ml-4 mt-0.5 space-y-0.5 border-l border-sidebar-border/50 pl-2">
-            {navItem("/settings/notifications", "Notifications", Bell)}
-            {role === "TRAINER" && navItem("/settings/clinic", "Organization", Building2)}
-            {role === "TRAINER" && navItem("/settings/branding", "Branding", Palette)}
-            {role === "TRAINER" && navItem("/settings/audit-log", "Audit Log", History)}
-          </div>
-        )}
 
         {isAdmin && (
           <>

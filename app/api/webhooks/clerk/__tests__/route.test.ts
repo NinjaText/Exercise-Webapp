@@ -205,3 +205,27 @@ describe('organization.updated webhook event', () => {
     expect(mockRevalidateTag).not.toHaveBeenCalled()
   })
 })
+
+describe('user.updated webhook event', () => {
+  it('syncs the primary email address, not the first one in the list', async () => {
+    await POST(
+      makeRequest({
+        type: 'user.updated',
+        data: {
+          id: 'clerk_1',
+          image_url: 'https://img.clerk.com/a.png',
+          primary_email_address_id: 'e_2',
+          email_addresses: [
+            { id: 'e_1', email_address: 'old@example.com' },
+            { id: 'e_2', email_address: 'new@example.com' },
+          ],
+        },
+      })
+    )
+
+    expect(vi.mocked(prisma.user.updateMany)).toHaveBeenCalledWith({
+      where: { clerkId: 'clerk_1' },
+      data: { imageUrl: 'https://img.clerk.com/a.png', email: 'new@example.com' },
+    })
+  })
+})

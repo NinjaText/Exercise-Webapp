@@ -1,12 +1,30 @@
 import { requireRole } from "@/lib/current-user";
 import { prisma } from "@/lib/prisma";
-import { differenceInDays } from "date-fns";
-import { SubscriptionStatus } from "@/components/billing/subscription-status";
+import { differenceInDays, format } from "date-fns";
+import { Check } from "lucide-react";
+import { ManageSubscriptionButton } from "@/components/billing/subscription-status";
 import { PricingCards } from "@/components/billing/pricing-cards";
-import { PageHeader } from "@/components/shared/page-header";
-import { PageShell } from "@/components/shared/page-shell";
-import { SectionCard } from "@/components/shared/section-card";
-import { CreditCard, Clock, AlertCircle, XCircle } from "lucide-react";
+import { StatusBadge } from "@/components/shared/status-badge";
+import { SettingsPanel, SettingsPanels } from "@/components/settings/settings-section";
+import { TIER_CONFIG, type PlanTier } from "@/lib/stripe-config";
+
+const INCLUDED = [
+  "AI workout generation",
+  "Client progress tracking",
+  "Assessments & check-ins",
+  "Messaging",
+  "Program library",
+  "14-day free trial",
+];
+
+function Fact({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex flex-col gap-1">
+      <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</dt>
+      <dd className="text-sm font-medium">{children}</dd>
+    </div>
+  );
+}
 
 export default async function BillingSettingsPage() {
   const user = await requireRole("TRAINER");
@@ -16,115 +34,86 @@ export default async function BillingSettingsPage() {
   });
 
   const now = new Date();
+  const status = sub?.status ?? "NONE";
+  const hasPlan = status === "ACTIVE" || status === "PAST_DUE" || status === "UNPAID";
+  const showPlans = !hasPlan;
   const trialDaysRemaining =
-    sub?.status === "TRIALING" && sub.trialEndsAt > now
-      ? differenceInDays(sub.trialEndsAt, now)
-      : 0;
+    status === "TRIALING" && sub && sub.trialEndsAt > now ? differenceInDays(sub.trialEndsAt, now) : 0;
+  const tierLabel = sub ? (TIER_CONFIG[sub.plan as PlanTier]?.label ?? sub.plan) : null;
+  const price = sub ? TIER_CONFIG[sub.plan as PlanTier]?.priceInCents : undefined;
+
+  const summary = {
+    ACTIVE: {
+      title: `${tierLabel} plan`,
+      text: sub?.cancelAtPeriodEnd
+        ? "Your subscription will cancel at the end of the current billing period."
+        : "Your subscription is active. Change plans, update your card or download invoices in the billing portal.",
+    },
+    PAST_DUE: { title: "Payment issue", text: "Your last payment failed. Update your payment method to restore full access." },
+    UNPAID: { title: "Payment issue", text: "Your last payment failed. Update your payment method to restore full access." },
+    TRIALING: {
+      title: "Free trial",
+      text:
+        trialDaysRemaining > 0
+          ? `You have ${trialDaysRemaining} day${trialDaysRemaining === 1 ? "" : "s"} left. Choose a plan below to keep access when it ends.`
+          : "Your trial ends today. Choose a plan below to keep access.",
+    },
+    CANCELED: { title: "No active plan", text: "Your subscription has ended. Pick a plan below to get back in." },
+    NONE: { title: "No active plan", text: "Pick a plan below to get started." },
+  }[status] ?? { title: "Subscription", text: "" };
 
   return (
-    <PageShell width="narrow">
-      <PageHeader
-        title="Billing & Subscription"
-        description="Manage your plan and payment details"
-      />
-
-      {/* ACTIVE — show plan card */}
-      {sub?.status === "ACTIVE" && (
-        <SubscriptionStatus
-          plan={sub.plan}
-          status={sub.status}
-          currentPeriodEnd={sub.currentPeriodEnd}
-          cancelAtPeriodEnd={sub.cancelAtPeriodEnd}
-        />
-      )}
-
-      {/* TRIALING — show trial status + upgrade options */}
-      {sub?.status === "TRIALING" && (
-        <>
-          <div className="flex items-start gap-4 rounded-xl border border-info-border bg-info-soft p-5">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-info/15">
-              <Clock className="h-5 w-5 text-info-foreground" />
-            </div>
-            <div>
-              <p className="font-semibold text-info-foreground">Free trial active</p>
-              {trialDaysRemaining > 0 ? (
-                <p className="mt-0.5 text-sm text-info-foreground">
-                  You have{" "}
-                  <span className="font-bold">
-                    {trialDaysRemaining} day{trialDaysRemaining !== 1 ? "s" : ""}
-                  </span>{" "}
-                  remaining. Choose a plan below to continue after your trial ends.
-                </p>
-              ) : (
-                <p className="mt-0.5 text-sm text-info-foreground">
-                  Your trial ends today. Choose a plan to keep access.
-                </p>
-              )}
-            </div>
+    <SettingsPanels>
+      <SettingsPanel
+        title="Current plan"
+        description="Your subscription and what you're billed."
+        footer={hasPlan ? <ManageSubscriptionButton label={status === "ACTIVE" ? "Manage subscription" : "Update payment method"} /> : undefined}
+        footerHint={hasPlan ? "Opens the secure Stripe billing portal." : undefined}
+      >
+        <div className="flex flex-col gap-1.5">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-lg font-semibold tracking-tight">{summary.title}</p>
+            {status !== "NONE" && <StatusBadge status={status} size="sm" />}
           </div>
-          <div>
-            <h3 className="mb-4 text-lg font-semibold">Choose your plan</h3>
-            <PricingCards />
-          </div>
-        </>
-      )}
-
-      {/* PAST_DUE / UNPAID — payment issue */}
-      {(sub?.status === "PAST_DUE" || sub?.status === "UNPAID") && (
-        <div className="space-y-6">
-          <div className="flex items-start gap-4 rounded-xl border border-danger-border bg-danger-soft p-5">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-danger/15">
-              <AlertCircle className="h-5 w-5 text-danger-foreground" />
-            </div>
-            <div>
-              <p className="font-semibold text-danger-foreground">Payment issue</p>
-              <p className="mt-0.5 text-sm text-danger-foreground">
-                Your last payment failed. Update your payment method to restore
-                full access.
-              </p>
-            </div>
-          </div>
-          <SubscriptionStatus
-            plan={sub.plan}
-            status={sub.status}
-            currentPeriodEnd={sub.currentPeriodEnd}
-            cancelAtPeriodEnd={sub.cancelAtPeriodEnd}
-          />
+          <p className="text-sm text-muted-foreground">{summary.text}</p>
         </div>
+
+        {sub && (hasPlan || status === "TRIALING") && (
+          <dl className="grid gap-6 border-t border-border pt-6 sm:grid-cols-3">
+            {tierLabel && hasPlan && <Fact label="Plan">{tierLabel}</Fact>}
+            {price !== undefined && hasPlan && <Fact label="Price">${price / 100} / month</Fact>}
+            {status === "TRIALING" && <Fact label="Trial ends">{format(sub.trialEndsAt, "MMMM d, yyyy")}</Fact>}
+            {hasPlan && sub.currentPeriodEnd && (
+              <Fact label={sub.cancelAtPeriodEnd ? "Access until" : "Next billing date"}>
+                {format(sub.currentPeriodEnd, "MMMM d, yyyy")}
+              </Fact>
+            )}
+          </dl>
+        )}
+      </SettingsPanel>
+
+      {showPlans && (
+        <SettingsPanel
+          title="Choose a plan"
+          description="Every plan includes the full product. Plans differ only in how many clients you can coach."
+          bare
+        >
+          <PricingCards />
+        </SettingsPanel>
       )}
 
-      {/* CANCELED or no record — show upgrade options */}
-      {(!sub || sub.status === "CANCELED") && (
-        <div className="space-y-6">
-          <div className="flex items-start gap-4 rounded-xl border border-border bg-muted/50 p-5">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted">
-              <XCircle className="h-5 w-5 text-muted-foreground" />
-            </div>
-            <div>
-              <p className="font-semibold text-foreground">No active plan</p>
-              <p className="mt-0.5 text-sm text-muted-foreground">
-                Your subscription has ended. Pick a plan below to get back in.
-              </p>
-            </div>
-          </div>
-          <div>
-            <h3 className="mb-4 text-lg font-semibold">Choose your plan</h3>
-            <PricingCards />
-          </div>
-        </div>
-      )}
-
-      {/* What's included callout */}
-      <SectionCard title="All plans include" icon={CreditCard}>
-        <ul className="grid grid-cols-1 gap-x-8 gap-y-1.5 text-sm text-muted-foreground sm:grid-cols-2">
-          <li>✓ AI workout generation</li>
-          <li>✓ Client progress tracking</li>
-          <li>✓ Assessments &amp; check-ins</li>
-          <li>✓ Messaging</li>
-          <li>✓ Program library</li>
-          <li>✓ 14-day free trial</li>
+      <SettingsPanel title="Included in every plan" description="No feature is locked behind a higher tier.">
+        <ul className="grid gap-x-8 gap-y-3 sm:grid-cols-2">
+          {INCLUDED.map((item) => (
+            <li key={item} className="flex items-center gap-2.5 text-sm">
+              <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-success-soft">
+                <Check className="size-3 text-success-foreground" aria-hidden />
+              </span>
+              {item}
+            </li>
+          ))}
         </ul>
-      </SectionCard>
-    </PageShell>
+      </SettingsPanel>
+    </SettingsPanels>
   );
 }
