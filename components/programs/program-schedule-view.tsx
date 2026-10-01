@@ -190,7 +190,7 @@ function WorkoutVoiceMemoSection({
   }
 
   return (
-    <div className="border-t border-border/40 px-3 py-2.5">
+    <div className="border-t border-border px-3 py-2.5">
       {!open ? (
         <Button
           size="sm"
@@ -346,7 +346,7 @@ function EventPill({ event }: { event: ScheduleEvent }) {
 
   return (
     <>
-      <div className="h-full overflow-hidden rounded-[5px] border border-border/60 bg-card transition-opacity hover:opacity-90 cursor-pointer">
+      <div className="h-full overflow-hidden rounded-[5px] border border-border bg-card transition-opacity hover:opacity-90 cursor-pointer">
         <div className="px-2 py-1 flex items-start justify-between gap-1">
           <div className="flex items-start gap-1.5 flex-1 min-w-0">
             {cfg && (
@@ -1478,8 +1478,8 @@ export function ProgramScheduleView({
     <div className="space-y-4">
       {/* Template mode banner */}
       {!hasSessions && (
-        <div className="flex items-start gap-2 rounded-lg border border-brand-border bg-brand-soft px-4 py-3 text-sm text-brand-foreground">
-          <Info className="h-4 w-4 mt-0.5 shrink-0 text-brand" />
+        <div className="flex items-start gap-3 rounded-lg border border-brand-border bg-brand-soft p-3 text-body text-brand-foreground">
+          <Info className="mt-0.5 size-4 shrink-0 text-brand" />
           <span>
             <strong>Program structure view</strong> — workouts are shown at
             their scheduled day positions starting this week.{" "}
@@ -1501,11 +1501,11 @@ export function ProgramScheduleView({
                   className="h-2 w-2 shrink-0 rounded-full"
                   style={{ backgroundColor: c.dot }}
                 />
-                <span className="text-xs text-muted-foreground">{c.label}</span>
+                <span className="text-caption">{c.label}</span>
               </div>
             ))}
           {!readOnly && (
-            <span className="text-xs text-muted-foreground ml-auto">
+            <span className="ml-auto text-caption">
               Drag sessions to reschedule
             </span>
           )}
@@ -1515,7 +1515,7 @@ export function ProgramScheduleView({
       {/* Calendar — `schedule-day-only` strips react-big-calendar's hour grid
           (see app/globals.css). Program workouts are day-scoped, never
           clock-scoped, so Week and Day show day columns only. */}
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto rounded-xl bg-card p-4 shadow-xs ring-1 ring-border sm:p-5">
         <div
           className={cn(
             "schedule-day-only",

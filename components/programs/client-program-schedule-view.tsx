@@ -31,7 +31,7 @@ export function ClientProgramScheduleView({ rawSessions }: Props) {
 
   if (weeks.length === 0) {
     return (
-      <div className="flex items-start gap-2 rounded-lg border border-info-border bg-info-soft px-4 py-3 text-sm text-info-foreground">
+      <div className="flex items-start gap-3 rounded-lg border border-info-border bg-info-soft p-3 text-body text-info-foreground">
         <Info className="h-4 w-4 mt-0.5 shrink-0 text-info-foreground" />
         <span>No workouts have been scheduled for this program yet.</span>
       </div>
@@ -50,7 +50,7 @@ export function ClientProgramScheduleView({ rawSessions }: Props) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between rounded-lg border border-border bg-muted/40 px-3 py-2">
+      <div className="flex items-center justify-between rounded-xl bg-card px-3 py-2 shadow-xs ring-1 ring-border">
         <button
           onClick={() => setWeekIndex((i) => Math.max(0, i - 1))}
           disabled={clampedIndex === 0}
@@ -60,10 +60,10 @@ export function ClientProgramScheduleView({ rawSessions }: Props) {
           <ChevronLeft className="h-4 w-4" />
         </button>
         <div className="text-center">
-          <h2 className="text-sm font-bold tracking-tight sm:text-base">
+          <h2 className="text-label text-foreground sm:text-heading">
             Week {clampedIndex + 1} of {weeks.length}
           </h2>
-          <p className="text-[11px] text-muted-foreground">
+          <p className="text-caption">
             {format(weekStart, "MMM d")} – {format(addDays(weekStart, 6), "MMM d")}
           </p>
         </div>
@@ -109,7 +109,7 @@ export function ClientProgramScheduleView({ rawSessions }: Props) {
               {session ? (
                 <button
                   onClick={() => setSelectedSession(session)}
-                  className="flex flex-1 items-center gap-2 rounded-md border border-border/70 bg-muted/30 p-2 text-left transition-colors hover:border-foreground/30 hover:bg-muted/50"
+                  className="flex flex-1 items-center gap-2 rounded-md border border-border bg-muted/30 p-2 text-left transition-colors hover:border-foreground/30 hover:bg-muted/50"
                 >
                   <span className={cn("h-2 w-2 shrink-0 rounded-full", dotClass)} />
                   <div className="min-w-0 flex-1">
@@ -131,7 +131,7 @@ export function ClientProgramScheduleView({ rawSessions }: Props) {
                   </div>
                 </button>
               ) : (
-                <div className="flex flex-1 items-center justify-center gap-1.5 rounded-md border border-dashed border-border/60 text-muted-foreground/50">
+                <div className="flex flex-1 items-center justify-center gap-1.5 rounded-md border border-dashed border-border text-muted-foreground">
                   <Moon className="h-3.5 w-3.5" />
                   <span className="text-xs">Rest day</span>
                 </div>
@@ -174,7 +174,7 @@ export function ClientProgramScheduleView({ rawSessions }: Props) {
                 {session ? (
                   <button
                     onClick={() => setSelectedSession(session)}
-                    className="flex flex-1 flex-col items-start gap-1.5 rounded-md border border-border/70 bg-muted/30 p-2 text-left transition-colors hover:border-foreground/30 hover:bg-muted/50"
+                    className="flex flex-1 flex-col items-start gap-1.5 rounded-md border border-border bg-muted/30 p-2 text-left transition-colors hover:border-foreground/30 hover:bg-muted/50"
                   >
                     <span className={cn("h-2 w-2 shrink-0 rounded-full", dotClass)} />
                     <p className="line-clamp-2 text-xs font-semibold leading-snug text-foreground">
@@ -194,7 +194,7 @@ export function ClientProgramScheduleView({ rawSessions }: Props) {
                     </div>
                   </button>
                 ) : (
-                  <div className="flex flex-1 flex-col items-center justify-center gap-1 rounded-md border border-dashed border-border/60 text-muted-foreground/50">
+                  <div className="flex flex-1 flex-col items-center justify-center gap-1 rounded-md border border-dashed border-border text-muted-foreground">
                     <Moon className="h-3.5 w-3.5" />
                     <span className="text-[10px]">Rest day</span>
                   </div>

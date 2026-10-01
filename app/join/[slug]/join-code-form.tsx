@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { verifyJoinCodeAction } from "@/actions/club-join-actions";
 
 export function JoinCodeForm({ slug, clubName }: { slug: string; clubName: string }) {
@@ -25,24 +24,16 @@ export function JoinCodeForm({ slug, clubName }: { slug: string; clubName: strin
   }
 
   return (
-    <Card className="w-full max-w-sm">
-      <CardHeader>
-        <CardTitle>Join {clubName}</CardTitle>
-        <CardDescription>Enter the access code your club gave you to start your free trial.</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={submit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="join-code">Access code</Label>
-            <Input id="join-code" value={code} onChange={(e) => setCode(e.target.value)}
-              autoComplete="off" autoCapitalize="characters" required />
-          </div>
-          {error && <p className="text-sm text-danger-foreground" role="alert">{error}</p>}
-          <Button type="submit" className="w-full" disabled={pending || !code.trim()}>
-            {pending ? "Checking…" : "Continue"}
-          </Button>
-        </form>
-      </CardContent>
-    </Card>
+    <form onSubmit={submit} className="flex flex-col gap-5" aria-label={`Join ${clubName}`}>
+      <div className="flex flex-col gap-2">
+        <Label htmlFor="join-code">Access code</Label>
+        <Input id="join-code" value={code} onChange={(e) => setCode(e.target.value)}
+          autoComplete="off" autoCapitalize="characters" required className="h-11" />
+      </div>
+      {error && <p className="text-body text-danger-foreground" role="alert">{error}</p>}
+      <Button type="submit" size="lg" className="h-11 w-full" disabled={pending || !code.trim()}>
+        {pending ? "Checking…" : "Continue"}
+      </Button>
+    </form>
   );
 }

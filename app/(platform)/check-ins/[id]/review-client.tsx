@@ -5,17 +5,13 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PageShell } from "@/components/shared/page-shell";
+import { PageHeader } from "@/components/shared/page-header";
+import { SectionCard } from "@/components/shared/section-card";
+import { StatusBadge } from "@/components/shared/status-badge";
 import { toast } from "sonner";
 import { addCoachNotesAction, markReviewedAction } from "@/actions/checkin-actions";
-import {
-  ArrowLeft,
-  CheckCircle2,
-  Clock,
-  Save,
-  User,
-} from "lucide-react";
-import Link from "next/link";
+import { CheckCircle2, Save, User } from "lucide-react";
 import { formatDateTime } from "@/lib/utils/formatting";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -55,7 +51,7 @@ function AnswerDisplay({
 }) {
   if (answer === undefined || answer === null) {
     return (
-      <span className="text-sm text-muted-foreground italic">No answer</span>
+      <span className="text-body italic text-muted-foreground">No answer</span>
     );
   }
 
@@ -67,17 +63,17 @@ function AnswerDisplay({
 
     return (
       <div className="flex items-center gap-4">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary text-lg font-bold text-primary-foreground shadow-none">
+        <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary text-heading tabular-nums text-primary-foreground">
           {val}
         </div>
-        <div className="flex-1 space-y-1">
+        <div className="flex flex-1 flex-col gap-1">
           <div className="h-2 overflow-hidden rounded-full bg-muted">
             <div
               className={`h-full rounded-full transition-all ${color}`}
               style={{ width: `${pct}%` }}
             />
           </div>
-          <p className="text-xs text-muted-foreground">out of 10</p>
+          <p className="text-caption">out of 10</p>
         </div>
       </div>
     );
@@ -100,7 +96,7 @@ function AnswerDisplay({
 
   // TEXT or MULTIPLE_CHOICE
   return (
-    <p className="text-sm leading-relaxed text-foreground">
+    <p className="whitespace-pre-wrap text-body text-foreground">
       {String(answer)}
     </p>
   );
@@ -161,108 +157,71 @@ export function ReviewClient({ response, questions, answers }: Props) {
   }
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
-      {/* Header */}
-      <div className="flex items-start gap-3">
-        <Button variant="ghost" size="icon" asChild>
-          <Link href="/check-ins">
-            <ArrowLeft className="h-4 w-4" />
-          </Link>
-        </Button>
-        <div className="flex-1 min-w-0">
-          <div className="flex flex-wrap items-center gap-3">
-            <h2 className="text-2xl font-bold tracking-tight">
-              {response.templateName}
-            </h2>
-            <Badge className="bg-info-soft text-info-foreground border-0 text-xs">
-              {frequencyLabel(response.frequency)}
-            </Badge>
+    <PageShell width="narrow">
+      <PageHeader
+        title={response.templateName}
+        back={{ label: "Back to check-ins", href: "/check-ins" }}
+        breadcrumb={[{ label: "Check-ins", href: "/check-ins" }, { label: response.clientName }]}
+        meta={
+          <>
+            <StatusBadge status={response.frequency} label={frequencyLabel(response.frequency)} role="info" dot={false} />
             {isReviewed ? (
-              <Badge className="bg-success-soft text-success-foreground border-0 text-xs gap-1">
-                <CheckCircle2 className="h-3 w-3" />
-                Reviewed
-              </Badge>
+              <StatusBadge status="reviewed" label="Reviewed" role="success" />
             ) : (
-              <Badge className="bg-warning-soft text-warning-foreground border-0 text-xs gap-1">
-                <Clock className="h-3 w-3" />
-                Needs Review
-              </Badge>
+              <StatusBadge status="needs-review" label="Needs Review" role="warning" />
             )}
-          </div>
-          <div className="mt-1 flex items-center gap-4 text-sm text-muted-foreground">
             <span className="flex items-center gap-1.5">
-              <User className="h-3.5 w-3.5" />
+              <User className="size-3.5" aria-hidden />
               {response.clientName}
             </span>
             <span>Submitted {formatDateTime(response.submittedAt)}</span>
-          </div>
-        </div>
-      </div>
+          </>
+        }
+      />
 
       {/* Answers */}
-      <div className="space-y-3">
-        {questions.map((q, idx) => (
-          <Card
-            key={q.id}
-            className="ring-1 ring-border shadow-none"
-          >
-            <CardHeader className="pb-2">
-              <CardTitle className="flex items-start gap-2 text-sm font-semibold text-muted-foreground">
-                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-bold">
+      <SectionCard title="Answers" count={questions.length} contentClassName="px-0 pb-0">
+        <ol className="divide-y divide-border border-t border-border">
+          {questions.map((q, idx) => (
+            <li key={q.id} className="flex flex-col gap-2 px-5 py-4">
+              <p className="flex items-start gap-2 text-label text-muted-foreground">
+                <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-surface-muted text-caption font-semibold tabular-nums text-foreground ring-1 ring-border">
                   {idx + 1}
                 </span>
                 {q.questionText}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pt-0">
-              <AnswerDisplay
-                questionType={q.questionType}
-                answer={answers[q.id]}
-              />
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+              </p>
+              <div className="pl-7">
+                <AnswerDisplay questionType={q.questionType} answer={answers[q.id]} />
+              </div>
+            </li>
+          ))}
+        </ol>
+      </SectionCard>
 
       {/* Coach notes */}
-      <Card className="ring-1 ring-border shadow-none">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">Coach Notes</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
+      <SectionCard title="Coach Notes">
+        <div className="flex flex-col gap-4">
           <Textarea
+            aria-label="Coach notes"
             placeholder="Add your notes, observations, or recommendations for the client..."
             rows={5}
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
           />
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-end gap-2">
             {!isReviewed && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleMarkReviewed}
-                disabled={markingReviewed}
-                className="gap-2"
-              >
-                <CheckCircle2 className="h-4 w-4" />
+              <Button variant="outline" onClick={handleMarkReviewed} disabled={markingReviewed}>
+                <CheckCircle2 />
                 {markingReviewed ? "Saving..." : "Mark as Reviewed"}
               </Button>
             )}
-            <div className={!isReviewed ? "" : "ml-auto"}>
-              <Button
-                size="sm"
-                onClick={handleSaveNotes}
-                disabled={savingNotes}
-                className="gap-2"
-              >
-                <Save className="h-4 w-4" />
-                {savingNotes ? "Saving..." : "Save Notes"}
-              </Button>
-            </div>
+            <Button onClick={handleSaveNotes} disabled={savingNotes}>
+              <Save />
+              {savingNotes ? "Saving..." : "Save Notes"}
+            </Button>
           </div>
-        </CardContent>
-      </Card>
-    </div>
+        </div>
+      </SectionCard>
+    </PageShell>
   );
 }

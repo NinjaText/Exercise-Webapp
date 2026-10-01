@@ -9,14 +9,24 @@ describe("PageHeader", () => {
       <PageHeader
         title="Edit Program"
         description="Modify the program"
-        back={{ label: "Back to Program", href: "/programs/1" }}
+        back={{ label: "Back to program", href: "/programs/1" }}
       />
     );
     expect(html).toContain("<h1");
     expect(html).toContain("Edit Program");
     expect(html).toContain("Modify the program");
     expect(html).toContain('href="/programs/1"');
-    expect(html).toContain("Back to Program");
+    expect(html).toContain("Back to program");
+  });
+
+  it("uses the title and body type scale and centers the actions on the title row", () => {
+    const html = renderToStaticMarkup(
+      <PageHeader title="Clients" description="Everyone you coach" primaryAction={<Button>Invite</Button>} />
+    );
+    expect(html).toMatch(/<h1[^>]*class="[^"]*\btext-title\b/);
+    expect(html).toMatch(/<p[^>]*class="[^"]*\btext-body\b[^"]*text-muted-foreground/);
+    expect(html).toContain("sm:items-center");
+    expect(html).not.toContain("sm:items-baseline");
   });
 
   it("puts primaryAction and secondaryActions in the actions slot", () => {

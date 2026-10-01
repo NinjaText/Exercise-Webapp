@@ -25,6 +25,7 @@ vi.mock("@/lib/services/club-member.service", () => ({
 vi.mock("@/lib/services/branding.service", () => ({
   getOrgBranding: vi.fn(async () => ({ displayName: "Pine Valley" })),
 }));
+vi.mock("@/lib/ui/clerk-appearance", () => ({ clerkAuthAppearance: () => ({}) }));
 vi.mock("@/lib/branding/types", () => ({ toViewModel: (b: unknown) => b }));
 vi.mock("@/components/branding/brand-style", () => ({ BrandStyle: () => null }));
 vi.mock("@/components/branding/org-identity", () => ({ OrgIdentity: () => null }));
@@ -59,6 +60,15 @@ describe("/join/[slug] closed until the club trainer accepts", () => {
   it("is open once the trainer exists", async () => {
     const html = renderToStaticMarkup(await JoinClubPage(params));
     expect(html).not.toContain("open yet");
+  });
+
+  it("renders the code form inside the AuthShell with the club headline when unverified", async () => {
+    const { verifyJoinToken } = await import("@/lib/clubs/join-token");
+    vi.mocked(verifyJoinToken).mockReturnValueOnce(false as any);
+    const html = renderToStaticMarkup(await JoinClubPage(params));
+    expect(html).toContain('data-slot="auth-shell"');
+    expect(html).toContain("Join Pine Valley");
+    expect(html).toContain("JOIN_FORM");
   });
 
   it("complete page refuses to enroll when the club has no trainer", async () => {

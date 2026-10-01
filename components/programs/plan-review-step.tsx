@@ -74,7 +74,7 @@ export function PlanReviewStep({ plan, onConfirm, onBack, isGenerating }: PlanRe
           const isEditing = editingWeek === week.week
 
           return (
-            <Card key={week.week} className="border">
+            <Card key={week.week} className="border py-0">
               <CardContent className="pt-3 pb-3 px-4">
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex-1 min-w-0">

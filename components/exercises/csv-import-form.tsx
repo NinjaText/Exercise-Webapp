@@ -103,7 +103,7 @@ export function CsvImportForm() {
   return (
     <div className="space-y-6">
       {/* Template download */}
-      <div className="flex items-center justify-between rounded-xl border border-border bg-muted/40 px-5 py-3">
+      <div className="flex items-center justify-between rounded-xl border border-border bg-surface-muted px-5 py-3">
         <div>
           <p className="text-sm font-medium text-foreground">Download the CSV template</p>
           <p className="text-xs text-muted-foreground">
@@ -232,7 +232,7 @@ export function CsvImportForm() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-border bg-muted/40">
+                  <tr className="border-b border-border bg-surface-muted">
                     {PREVIEW_COLUMNS.map((col) => (
                       <th key={col} className="px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
                         {col}

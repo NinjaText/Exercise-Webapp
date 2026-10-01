@@ -72,12 +72,12 @@ export function ClientCoachingPanel({ coaching }: { coaching: ClientCoachingPane
       action={badge ? <StatusBadge status={status!} label={badge.label} role={badge.role} /> : undefined}
     >
       <div className="flex flex-col items-start gap-3">
-        <p className="text-sm text-muted-foreground">
+        <p className="text-body text-muted-foreground">
           {status && STATUS_COPY[status] ? STATUS_COPY[status] : "No active coaching request."}
           {cancelAtPeriodEnd && periodEnd ? ` Coaching ends ${format(periodEnd, "MMM d, yyyy")}.` : ""}
         </p>
         {showNote && (
-          <p className="whitespace-pre-wrap break-words rounded-md bg-muted p-3 text-sm">{coaching.note}</p>
+          <p className="whitespace-pre-wrap break-words rounded-lg bg-surface-muted p-3 text-body">{coaching.note}</p>
         )}
         {actions.length > 0 && (
           <div className="flex flex-wrap gap-2">

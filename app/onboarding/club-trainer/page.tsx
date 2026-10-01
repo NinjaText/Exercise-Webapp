@@ -12,9 +12,11 @@ import {
 } from "@/lib/services/club-trainer.service";
 import { ClubError } from "@/lib/services/club-error";
 import { getOrgBranding } from "@/lib/services/branding.service";
+import { resolveBranding } from "@/lib/branding/resolve";
 import { toViewModel } from "@/lib/branding/types";
 import { BrandStyle } from "@/components/branding/brand-style";
-import { OrgIdentity } from "@/components/branding/org-identity";
+import { AuthShell } from "@/components/auth/auth-shell";
+import { clerkAuthAppearance } from "@/lib/ui/clerk-appearance";
 import { ClubTrainerOnboardingForm } from "@/components/onboarding/club-trainer-onboarding-form";
 
 /**
@@ -45,11 +47,17 @@ export default async function ClubTrainerOnboardingPage() {
   const { userId } = await auth();
 
   // Unauthenticated: Clerk's SignUp consumes the invitation's __clerk_ticket.
+  // The club isn't known yet, so product branding (no lookup).
   if (!userId) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-muted to-info-soft px-4 py-12">
-        <SignUp routing="hash" forceRedirectUrl="/onboarding/club-trainer" />
-      </div>
+      <AuthShell
+        branding={toViewModel(resolveBranding(null))}
+        headingMode="form"
+        headline="Welcome, coach."
+        subhead="Create your account to accept your club's invitation."
+      >
+        <SignUp routing="hash" forceRedirectUrl="/onboarding/club-trainer" appearance={clerkAuthAppearance()} />
+      </AuthShell>
     );
   }
 
@@ -59,15 +67,12 @@ export default async function ClubTrainerOnboardingPage() {
 
   if (!user || !org || !isClubTrainer) {
     return (
-      <div className="flex min-h-screen items-center justify-center px-4">
-        <div className="max-w-md space-y-2 text-center">
-          <h1 className="text-xl font-semibold text-foreground">This account isn&apos;t a club trainer</h1>
-          <p className="text-sm text-muted-foreground">
-            Club trainers join through the invitation email, using a dedicated account. Sign out and open the
-            invitation link again, or contact support.
-          </p>
-        </div>
-      </div>
+      <AuthShell branding={toViewModel(resolveBranding(null))} headline="This account isn't a club trainer">
+        <p className="text-body text-muted-foreground">
+          Club trainers join through the invitation email, using a dedicated account. Sign out and open the
+          invitation link again, or contact support.
+        </p>
+      </AuthShell>
     );
   }
 
@@ -77,37 +82,19 @@ export default async function ClubTrainerOnboardingPage() {
   const brandingVm = toViewModel(branding);
 
   return (
-    <div className="flex min-h-screen">
+    <>
       <BrandStyle branding={branding} />
-      <div className="hidden w-1/2 flex-col justify-between bg-sidebar-gradient p-12 lg:flex">
-        <div className="flex items-center gap-2.5">
-          <OrgIdentity branding={brandingVm} surface="dark" />
-        </div>
-        <div>
-          <h1 className="text-4xl font-extrabold tracking-tight text-sidebar-foreground">
-            Welcome to {branding.displayName}.
-          </h1>
-          <p className="mt-4 max-w-md text-lg text-sidebar-foreground/70">
-            You&apos;ll manage the club&apos;s programs and coach its members.
-          </p>
-        </div>
-        <p className="text-sm text-sidebar-foreground/40">
-          &copy; {new Date().getFullYear()} {branding.displayName}. All rights reserved.
-        </p>
-      </div>
-
-      <div className="flex flex-1 flex-col items-center justify-center bg-[oklch(0.97_0.005_247)] p-6 sm:p-12">
-        <div className="mb-8 flex items-center gap-2.5 lg:hidden">
-          <OrgIdentity branding={brandingVm} surface="light" />
-        </div>
-        <div className="w-full max-w-lg">
-          <ClubTrainerOnboardingForm
-            clubName={branding.displayName}
-            initialFirstName={user.firstName}
-            initialLastName={user.lastName}
-          />
-        </div>
-      </div>
-    </div>
+      <AuthShell
+        branding={brandingVm}
+        headline={`Welcome to ${branding.displayName}.`}
+        subhead="You'll manage the club's programs and coach its members."
+      >
+        <ClubTrainerOnboardingForm
+          clubName={branding.displayName}
+          initialFirstName={user.firstName}
+          initialLastName={user.lastName}
+        />
+      </AuthShell>
+    </>
   );
 }

@@ -1,9 +1,10 @@
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { PageShell } from "@/components/shared/page-shell";
 
 export default function ProgramDetailLoading() {
   return (
-    <div className="space-y-6">
+    <PageShell>
       <div className="flex items-center justify-between">
         <div>
           <Skeleton className="h-8 w-64" />
@@ -30,6 +31,6 @@ export default function ProgramDetailLoading() {
           </CardContent>
         </Card>
       ))}
-    </div>
+    </PageShell>
   );
 }

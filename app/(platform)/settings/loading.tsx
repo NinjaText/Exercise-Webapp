@@ -9,9 +9,9 @@ export default function SettingsLoading() {
         <Skeleton className="mt-2 h-4 w-72" />
       </div>
       <div className="flex flex-col gap-4 rounded-xl p-6 ring-1 ring-border">
-        <Skeleton className="h-10 w-full" />
-        <Skeleton className="h-10 w-full" />
-        <Skeleton className="h-10 w-full" />
+        <Skeleton className="h-9 w-full" />
+        <Skeleton className="h-9 w-full" />
+        <Skeleton className="h-9 w-full" />
       </div>
     </div>
   );

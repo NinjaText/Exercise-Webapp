@@ -31,19 +31,19 @@ export function MemberBillingButtons({
   }
 
   return (
-    <div className="space-y-3">
+    <div className="flex flex-col gap-3">
       {canSubscribe && (
-        <Button className="w-full" disabled={loading !== null} onClick={() => go("subscribe")}>
+        <Button size="lg" className="h-11 w-full" disabled={loading !== null} onClick={() => go("subscribe")}>
           {loading === "subscribe" ? "Redirecting…" : "Subscribe"}
         </Button>
       )}
       {canManage && (
-        <Button variant="outline" className="w-full" disabled={loading !== null} onClick={() => go("manage")}>
+        <Button variant="outline" size="lg" className="h-11 w-full" disabled={loading !== null} onClick={() => go("manage")}>
           {loading === "manage" ? "Redirecting…" : "Manage billing"}
         </Button>
       )}
       {missingPrice && (
-        <p className="text-sm text-muted-foreground">
+        <p className="text-body text-muted-foreground">
           Subscriptions aren&apos;t set up for this club yet — contact support.
         </p>
       )}

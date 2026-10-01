@@ -18,7 +18,10 @@ vi.mock("@/lib/services/club-trainer.service", () => ({
 vi.mock("@/lib/services/branding.service", () => ({
   getOrgBranding: vi.fn(async () => ({ displayName: "Pine Valley" })),
 }));
-vi.mock("@/lib/branding/types", () => ({ toViewModel: (b: unknown) => b }));
+vi.mock("@/lib/branding/types", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/branding/types")>()),
+  toViewModel: (b: unknown) => b,
+}));
 vi.mock("@/components/branding/brand-style", () => ({ BrandStyle: () => null }));
 vi.mock("@/components/branding/org-identity", () => ({ OrgIdentity: () => null }));
 vi.mock("@/components/onboarding/club-trainer-onboarding-form", () => ({

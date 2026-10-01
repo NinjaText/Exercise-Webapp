@@ -4,11 +4,13 @@ import { toLocalCalendarDate } from "@/lib/utils/calendar-date";
 
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/current-user";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dumbbell, Gauge, ListChecks, StickyNote, TriangleAlert } from "lucide-react";
+import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/shared/page-header";
 import { PageShell } from "@/components/shared/page-shell";
 import { StatusBadge } from "@/components/shared/status-badge";
-import { ROLE_CLASSES } from "@/lib/ui/status";
+import { SectionCard } from "@/components/shared/section-card";
+import { StatCard } from "@/components/shared/stat-card";
 import { ClientNoteReply } from "@/components/sessions/client-note-reply";
 
 // ---------- Types derived from the Prisma query ----------
@@ -125,7 +127,7 @@ export default async function SessionReviewPage({ params }: Props) {
   return (
     <PageShell>
       <PageHeader
-        back={{ label: "Back", href: `/clients/${id}/adherence` }}
+        back={{ label: "Back to sessions", href: `/clients/${id}/adherence` }}
         breadcrumb={[
           { label: "Clients", href: "/clients" },
           { label: clientName, href: `/clients/${id}` },
@@ -134,160 +136,95 @@ export default async function SessionReviewPage({ params }: Props) {
         ]}
         title={session.workout.name}
         description={clientName}
-        className="pb-0"
-      />
-
-      {/* Session meta */}
-      <Card>
-        <CardContent className="space-y-4">
-          <div className="flex flex-wrap items-center gap-2 text-sm">
-            <span className="text-muted-foreground">
+        meta={
+          <>
+            <span className="tabular-nums">
               {format(toLocalCalendarDate(session.scheduledDate), "MMM d, yyyy")}
             </span>
             <StatusBadge status={session.status} />
             {session.overallRPE != null && (
-              <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${ROLE_CLASSES.brand.soft} ${ROLE_CLASSES.brand.text}`}>
-                RPE {session.overallRPE}
-              </span>
+              <StatusBadge status="rpe" role="brand" dot={false} label={`RPE ${session.overallRPE}`} />
             )}
             {session.durationMinutes != null && (
-              <span className="inline-flex items-center rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
-                {session.durationMinutes} min
-              </span>
+              <StatusBadge
+                status="duration"
+                role="neutral"
+                dot={false}
+                label={`${session.durationMinutes} min`}
+              />
+            )}
+          </>
+        }
+      />
+
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard size="compact" label="Exercises" value={totalExercises} icon={Dumbbell} />
+        <StatCard size="compact" label="Sets logged" value={setsLogged} icon={ListChecks} role="success" />
+        <StatCard
+          size="compact"
+          label="Couldn't complete"
+          value={couldntComplete}
+          icon={TriangleAlert}
+          role={couldntComplete > 0 ? "warning" : "neutral"}
+        />
+        <StatCard size="compact" label="Overall RPE" value={session.overallRPE ?? "—"} icon={Gauge} />
+      </div>
+
+      {session.overallNotes && (
+        <SectionCard title="Session notes" icon={StickyNote}>
+          <p className="whitespace-pre-wrap text-body text-foreground">{session.overallNotes}</p>
+        </SectionCard>
+      )}
+
+      {session.workout.blocks.map((block) => (
+        <section key={block.id} className="flex flex-col gap-3">
+          <div className="flex items-baseline gap-2">
+            <h2 className="text-heading text-foreground">{block.name || block.type}</h2>
+            {isCircuitBlock(block.type) && (
+              <span className="text-caption tabular-nums">· {block.rounds ?? 1} rounds</span>
             )}
           </div>
 
-          {session.overallNotes && (
-            <div className="rounded-md bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
-              <span className="font-medium text-foreground">Notes: </span>
-              {session.overallNotes}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+          <div className="flex flex-col gap-4">
+            {block.exercises.map((exercise) => {
+              const setCount = getSetCount(block, exercise);
+              const setLogs = setLogsByBlockExerciseId.get(exercise.id) ?? [];
+              const completion = getExerciseCompletion(setCount, setLogs);
+              const clientNote = clientNoteByBlockExerciseId.get(exercise.id);
 
-      {/* Summary stats */}
-      <div className="flex flex-wrap gap-3">
-        <StatChip label="Exercises" value={totalExercises} />
-        <StatChip label="Sets logged" value={setsLogged} />
-        <StatChip
-          label="Couldn't complete"
-          value={couldntComplete}
-          tone={couldntComplete > 0 ? "warning" : "neutral"}
-        />
-        <StatChip label="Overall RPE" value={session.overallRPE ?? "—"} />
-      </div>
-
-      {/* Blocks */}
-      <div className="space-y-6">
-        {session.workout.blocks.map((block) => (
-          <section key={block.id} className="space-y-3">
-            <div className="flex items-center gap-2 border-b border-border pb-2">
-              <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                {block.name || block.type}
-              </h3>
-              {isCircuitBlock(block.type) && (
-                <span className="text-xs text-muted-foreground">
-                  · {block.rounds ?? 1} rounds
-                </span>
-              )}
-            </div>
-
-            <div className="space-y-4">
-              {block.exercises.map((exercise) => {
-                const setCount = getSetCount(block, exercise);
-                const setLogs =
-                  setLogsByBlockExerciseId.get(exercise.id) ?? [];
-                const completion = getExerciseCompletion(setCount, setLogs);
-                const clientNote = clientNoteByBlockExerciseId.get(exercise.id);
-
-                return (
-                  <Card key={exercise.id}>
-                    <CardHeader className="flex flex-row items-center justify-between gap-3 border-b">
-                      <CardTitle className="text-base font-semibold">
-                        {exercise.exercise.name}
-                      </CardTitle>
-                      <CompletionBadge completion={completion} />
-                    </CardHeader>
-                    <CardContent className="p-0">
-                      {clientNote && (
-                        <ClientNoteReply
-                          sessionId={session.id}
-                          blockExerciseId={exercise.id}
-                          clientNote={clientNote}
-                          clientFirstName={session.client.firstName}
-                        />
-                      )}
-                      <SetTable
-                        block={block}
-                        exercise={exercise}
-                        setCount={setCount}
-                        setLogs={setLogs}
-                      />
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
-          </section>
-        ))}
-      </div>
+              return (
+                // Edge-to-edge card: the header carries its own padding and the
+                // set table runs flush to the card edges.
+                <Card key={exercise.id} className="gap-0 py-0">
+                  <div className="flex items-center justify-between gap-3 border-b border-border px-5 py-4">
+                    <h3 className="truncate text-heading text-foreground">{exercise.exercise.name}</h3>
+                    <CompletionBadge completion={completion} />
+                  </div>
+                  {clientNote && (
+                    <ClientNoteReply
+                      sessionId={session.id}
+                      blockExerciseId={exercise.id}
+                      clientNote={clientNote}
+                      clientFirstName={session.client.firstName}
+                    />
+                  )}
+                  <SetTable block={block} exercise={exercise} setCount={setCount} setLogs={setLogs} />
+                </Card>
+              );
+            })}
+          </div>
+        </section>
+      ))}
     </PageShell>
   );
 }
 
 // ---------- Sub-components ----------
 
-function StatChip({
-  label,
-  value,
-  tone = "neutral",
-}: {
-  label: string;
-  value: number | string;
-  tone?: "neutral" | "warning";
-}) {
-  const toneClass =
-    tone === "warning"
-      ? `${ROLE_CLASSES.warning.soft} ${ROLE_CLASSES.warning.text} ring-warning-border`
-      : "bg-muted text-foreground ring-border";
-
-  return (
-    <div
-      className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm ring-1 ${toneClass}`}
-    >
-      <span className="text-xs uppercase tracking-wide text-muted-foreground">
-        {label}
-      </span>
-      <span className="font-semibold">{value}</span>
-    </div>
-  );
-}
-
-function CompletionBadge({
-  completion,
-}: {
-  completion: "all" | "partial" | "none";
-}) {
-  if (completion === "all") {
-    return (
-      <span className="inline-flex items-center rounded-full bg-success-soft px-2.5 py-0.5 text-xs font-medium text-success-foreground">
-        All done
-      </span>
-    );
-  }
-  if (completion === "partial") {
-    return (
-      <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${ROLE_CLASSES.warning.soft} ${ROLE_CLASSES.warning.text}`}>
-        Partial
-      </span>
-    );
-  }
-  return (
-    <span className="inline-flex items-center rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
-      Not started
-    </span>
-  );
+function CompletionBadge({ completion }: { completion: "all" | "partial" | "none" }) {
+  if (completion === "all") return <StatusBadge status="all" role="success" label="All done" />;
+  if (completion === "partial") return <StatusBadge status="partial" role="warning" label="Partial" />;
+  return <StatusBadge status="none" role="neutral" label="Not started" />;
 }
 
 function SetTable({
@@ -317,14 +254,14 @@ function SetTable({
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full text-sm">
-        <thead className="bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
+      <table className="w-full text-body">
+        <thead className="bg-surface-muted text-caption font-medium">
           <tr>
-            <th className="px-3 py-2 text-left font-medium">#</th>
-            <th className="px-3 py-2 text-left font-medium">Target</th>
-            <th className="px-3 py-2 text-left font-medium">Actual</th>
-            <th className="px-3 py-2 text-left font-medium">Weight</th>
-            <th className="px-3 py-2 text-left font-medium">Status</th>
+            <th className="h-9 px-5 text-left font-medium">#</th>
+            <th className="h-9 px-3 text-left font-medium">Target</th>
+            <th className="h-9 px-3 text-left font-medium">Actual</th>
+            <th className="h-9 px-3 text-left font-medium">Weight</th>
+            <th className="h-9 px-5 text-left font-medium">Status</th>
           </tr>
         </thead>
         <tbody>
@@ -383,39 +320,29 @@ function SetRow({
   let statusBadge: React.ReactNode;
   let noteText: string | null = null;
   if (!log) {
-    statusBadge = (
-      <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
-        ○ Not logged
-      </span>
-    );
+    statusBadge = <StatusBadge status="not-logged" role="neutral" size="sm" label="Not logged" />;
   } else if (isCouldntComplete(log)) {
     statusBadge = (
-      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${ROLE_CLASSES.warning.soft} ${ROLE_CLASSES.warning.text}`}>
-        ⚠ Couldn&apos;t complete
-      </span>
+      <StatusBadge status="couldnt-complete" role="warning" size="sm" label="Couldn't complete" />
     );
     if (log.notes) noteText = log.notes;
   } else {
-    statusBadge = (
-      <span className="inline-flex items-center rounded-full bg-success-soft px-2 py-0.5 text-xs font-medium text-success-foreground">
-        ✓ Done
-      </span>
-    );
+    statusBadge = <StatusBadge status="done" role="success" size="sm" label="Done" />;
   }
 
   return (
-    <tr className="border-t border-border/60">
-      <td className="px-3 py-2 font-medium text-foreground">
+    <tr className="border-t border-border">
+      <td className="px-5 py-2.5 font-medium text-foreground tabular-nums">
         {indexLabel} {displayIndex}
       </td>
-      <td className="px-3 py-2 text-muted-foreground">{targetText}</td>
-      <td className="px-3 py-2 text-foreground">{actualText}</td>
-      <td className="px-3 py-2 text-muted-foreground">{weightText}</td>
-      <td className="px-3 py-2">
+      <td className="px-3 py-2.5 text-muted-foreground tabular-nums">{targetText}</td>
+      <td className="px-3 py-2.5 text-foreground tabular-nums">{actualText}</td>
+      <td className="px-3 py-2.5 text-muted-foreground tabular-nums">{weightText}</td>
+      <td className="px-5 py-2.5">
         <div className="flex flex-col gap-1">
           {statusBadge}
           {noteText && (
-            <span className="text-xs text-muted-foreground">{noteText}</span>
+            <span className="text-caption">{noteText}</span>
           )}
         </div>
       </td>

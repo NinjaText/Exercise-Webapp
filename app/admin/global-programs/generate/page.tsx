@@ -11,7 +11,7 @@ export default async function AdminGenerateGlobalProgramPage() {
   return (
     <PageShell>
       <PageHeader
-        back={{ label: "Back to Global Programs", href: "/admin/global-programs" }}
+        back={{ label: "Back to global programs", href: "/admin/global-programs" }}
         breadcrumb={[
           { label: "Admin", href: "/admin" },
           { label: "Global Programs", href: "/admin/global-programs" },

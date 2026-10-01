@@ -82,21 +82,21 @@ export default async function SuccessPage({
   const brandingVm = toViewModel(branding);
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-muted to-info-soft px-4 py-12">
+    <div className="flex min-h-dvh items-center justify-center bg-canvas px-4 py-12">
       <BrandStyle branding={branding} />
       <div className="w-full max-w-md">
-        <div className="mb-6 flex items-center justify-center gap-2.5">
+        <div className="mb-8 flex items-center justify-center gap-2.5">
           <OrgIdentity branding={brandingVm} surface="light" />
         </div>
         <div className="mb-8 text-center">
-          <h1 className="text-2xl font-bold text-foreground">Payment successful 🎉</h1>
-          <p className="mt-1 text-muted-foreground">
+          <h1 className="text-title text-foreground">Payment successful</h1>
+          <p className="mt-1 text-body text-muted-foreground">
             {claimed ? "Your account is ready." : "Let's get your program set up."}
           </p>
         </div>
 
         {!purchaseFound && (
-          <Card>
+          <Card className="gap-6 py-6 shadow-md">
             <CardHeader>
               <CardTitle>We couldn&apos;t find that purchase</CardTitle>
               <CardDescription>
@@ -112,7 +112,7 @@ export default async function SuccessPage({
         )}
 
         {purchaseFound && claimed && (
-          <Card>
+          <Card className="gap-6 py-6 shadow-md">
             <CardHeader>
               <CardTitle>This account is already set up</CardTitle>
               <CardDescription>Sign in to access your program.</CardDescription>

@@ -198,7 +198,7 @@ function BlockNameInput({ blockId, initialName, onSave, disabled }: {
   React.useEffect(() => { setValue(initialName ?? ""); }, [initialName]);
 
   if (disabled) {
-    return initialName ? <span className="text-sm font-medium">{initialName}</span> : null;
+    return initialName ? <span className="text-label text-foreground">{initialName}</span> : null;
   }
 
   if (editing) {
@@ -213,7 +213,7 @@ function BlockNameInput({ blockId, initialName, onSave, disabled }: {
         }}
         autoFocus
         placeholder="Block name..."
-        className="h-6 text-sm px-2 py-0 w-36 shadow-none"
+        className="h-7 w-40 px-2 py-0 text-body shadow-none"
       />
     );
   }
@@ -221,10 +221,11 @@ function BlockNameInput({ blockId, initialName, onSave, disabled }: {
   return (
     <button
       onClick={() => setEditing(true)}
-      className="text-sm text-muted-foreground hover:text-foreground px-1 py-0.5 rounded hover:bg-muted transition-colors"
+      type="button"
+      className="rounded-md px-1.5 py-0.5 text-label text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none"
       title="Click to edit block name"
     >
-      {initialName ?? <span className="italic text-muted-foreground/40 text-xs">Add name...</span>}
+      {initialName ?? <span className="text-caption italic">Add name...</span>}
     </button>
   );
 }
@@ -247,9 +248,9 @@ function CircuitControls({ blockIndex, blockId, rounds, restBetweenRounds, onSav
   React.useEffect(() => { setLocalRest(restBetweenRounds != null ? String(restBetweenRounds) : ""); }, [restBetweenRounds]);
 
   return (
-    <div className="flex items-center gap-3 ml-1">
+    <div className="ml-1 flex items-center gap-3">
       <div className="flex items-center gap-1">
-        <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Sets</span>
+        <span className="text-caption font-medium uppercase tracking-wide">Sets</span>
         <Input
           type="number"
           min={1}
@@ -261,11 +262,12 @@ function CircuitControls({ blockIndex, blockId, rounds, restBetweenRounds, onSav
             if (!isNaN(v) && v >= 1) onSave(blockIndex, blockId, { rounds: v });
           }}
           disabled={disabled}
-          className="h-6 w-12 text-xs px-1.5 text-center shadow-none"
+          aria-label="Sets"
+          className="h-7 w-12 px-1.5 text-center text-caption text-foreground shadow-none"
         />
       </div>
       <div className="flex items-center gap-1">
-        <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Rest</span>
+        <span className="text-caption font-medium uppercase tracking-wide">Rest</span>
         <Input
           type="number"
           min={0}
@@ -277,9 +279,10 @@ function CircuitControls({ blockIndex, blockId, rounds, restBetweenRounds, onSav
           }}
           disabled={disabled}
           placeholder="—"
-          className="h-6 w-14 text-xs px-1.5 text-center shadow-none"
+          aria-label="Rest between sets (seconds)"
+          className="h-7 w-14 px-1.5 text-center text-caption text-foreground shadow-none"
         />
-        <span className="text-[10px] text-muted-foreground">sec</span>
+        <span className="text-caption">sec</span>
       </div>
     </div>
   );
@@ -345,7 +348,7 @@ function SortableExercise({
 
 
   return (
-    <div ref={setNodeRef} style={style} className="py-2 border-b last:border-0 border-border group">                                                                   
+    <div ref={setNodeRef} style={style} className="group border-b border-border py-3 last:border-0">                                                                   
       {/* Exercise header */}
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-3 flex-1">
@@ -372,23 +375,23 @@ function SortableExercise({
           </div>
           
           <div className="flex items-center gap-2 flex-1">
-            <div className="flex items-center justify-center w-7 h-7 rounded-md bg-secondary text-secondary-foreground font-bold text-xs shrink-0 cursor-pointer" onClick={() => setExpanded(!expanded)}>
+            <div className="flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-md bg-surface-muted text-caption font-semibold text-foreground tabular-nums ring-1 ring-border" onClick={() => setExpanded(!expanded)}>
               {blockLetter}{exerciseIndex + 1}
             </div>
 
             <div className="flex flex-col flex-1 cursor-pointer min-w-0" onClick={() => setExpanded(!expanded)}>
               <div className="flex items-center gap-2">
-                <span className="font-semibold text-sm truncate">
+                <span className="truncate text-label text-foreground">
                   {exercise.exercise.name}
                 </span>
                 {hasRealVideoUrl(exercise.exercise.videoUrl) && (
-                  <span className="text-[10px] bg-secondary px-1.5 py-0.5 rounded-sm font-medium shrink-0">
+                  <span className="shrink-0 rounded-sm bg-surface-muted px-1.5 py-0.5 text-caption font-medium ring-1 ring-border">
                     Video
                   </span>
                 )}
               </div>
               {(exercise.notes || isCircuit) && (
-                <span className="text-xs text-muted-foreground line-clamp-1">
+                <span className="line-clamp-1 text-caption">
                    {isCircuit ? "Circuit/Superset" : ""} {exercise.notes && isCircuit ? " - " : ""}{exercise.notes}
                 </span>
               )}
@@ -399,25 +402,31 @@ function SortableExercise({
         <div className="flex items-center gap-1">
           <Button
             variant="ghost"
-            size="icon-xs"
-            className="text-muted-foreground hover:text-foreground h-6 w-6"
+            size="icon-sm"
+            className="text-muted-foreground hover:text-foreground"
             onClick={() => setExpanded(!expanded)}
+            aria-label={expanded ? "Collapse exercise" : "Expand exercise"}
+            aria-expanded={expanded}
           >
             {expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
           </Button>
           
         <Button
           variant="ghost"
-          size="icon-xs"
-          className="text-muted-foreground hover:text-primary mr-1"
+          size="icon-sm"
+          className="text-muted-foreground hover:text-primary"
           onClick={loadHistory}
           title="View Exercise History"
+          aria-label="View exercise history"
         >
           <History className="h-3.5 w-3.5" />
         </Button>
 {(!sessionStatus || sessionStatus !== "COMPLETED") && (
   <DropdownMenu>
-    <DropdownMenuTrigger className="text-muted-foreground hover:text-foreground h-6 w-6 lg:opacity-0 group-hover:opacity-100 transition-opacity inline-flex items-center justify-center rounded-md hover:bg-muted">
+    <DropdownMenuTrigger
+      aria-label="Exercise actions"
+      className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground outline-none transition-opacity hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100 motion-reduce:transition-none lg:opacity-0"
+    >
       <MoreVertical className="h-3.5 w-3.5" />
     </DropdownMenuTrigger>
     <DropdownMenuContent align="end">
@@ -437,9 +446,9 @@ function SortableExercise({
       {/* Sets & Notes Container — always visible so reps/sets/lbs are editable
           without a further click. The video preview stays behind the expand
           toggle to avoid loading an iframe per exercise on open. */}
-      <div className="ml-[2.75rem] mt-3 pl-2 border-l-2 border-muted/50">
+      <div className="mt-3 ml-11 border-l-2 border-border pl-3">
           {expanded && hasRealVideoUrl(exercise.exercise.videoUrl) && (
-            <div className="mb-3 w-full max-w-[280px] aspect-video rounded-md overflow-hidden bg-black/10">
+            <div className="mb-3 aspect-video w-full max-w-[280px] overflow-hidden rounded-md bg-surface-muted ring-1 ring-border">
               <UniversalVideoPlayer
                 url={exercise.exercise.videoUrl}
                 provider={exercise.exercise.videoProvider}
@@ -449,7 +458,8 @@ function SortableExercise({
           <div className="mb-3">
             <Input
               placeholder="Add coach notes..."
-              className="text-xs h-7 bg-transparent border-dashed border-muted focus:border-solid hover:border-solid shadow-none px-2 disabled:opacity-70 disabled:cursor-default disabled:border-transparent"                                                                    
+              aria-label="Coach notes"
+              className="h-8 border-dashed bg-transparent px-2 text-caption text-foreground shadow-none hover:border-solid focus:border-solid disabled:cursor-default disabled:border-transparent disabled:opacity-70"                                                                    
               value={exercise.notes || ""}
               onChange={(e) => onUpdateNotes(blockIndex, exerciseIndex, e.target.value)}
               disabled={sessionStatus === "COMPLETED"}
@@ -459,7 +469,7 @@ function SortableExercise({
           <div className="space-y-1 overflow-x-auto">
             {/* Minimal Set Headers */}
             {exercise.sets.length > 0 && (
-              <div className="grid min-w-[340px] grid-cols-[1.5rem_minmax(80px,1.5fr)_minmax(80px,1.5fr)_minmax(60px,1fr)_1.5rem] gap-2 text-[10px] font-medium text-muted-foreground uppercase tracking-wider px-1 mb-1">
+              <div className="mb-1 grid min-w-[340px] grid-cols-[1.5rem_minmax(80px,1.5fr)_minmax(80px,1.5fr)_minmax(60px,1fr)_2rem] gap-2 px-1 text-caption font-medium uppercase tracking-wide">
                 <span className="text-center">Set</span>
                 <span>Reps / Dur</span>
                 <span>Load / %</span>
@@ -476,9 +486,9 @@ function SortableExercise({
               return (
               <div
                 key={set.id}
-                className="grid min-w-[340px] grid-cols-[1.5rem_minmax(80px,1.5fr)_minmax(80px,1.5fr)_minmax(60px,1fr)_1.5rem] gap-2 items-center group/set border rounded-sm p-1 bg-background/50 hover:bg-accent/20 transition-colors"
+                className="group/set grid min-w-[340px] grid-cols-[1.5rem_minmax(80px,1.5fr)_minmax(80px,1.5fr)_minmax(60px,1fr)_2rem] items-center gap-2 rounded-md border border-border bg-surface p-1 transition-colors hover:bg-surface-muted motion-reduce:transition-none"
               >
-                <div className="text-xs font-medium text-muted-foreground text-center relative">                                                                               
+                <div className="relative text-center text-caption font-medium tabular-nums">                                                                               
                   {setIndex + 1}
                   {savingSetIds.has(set.id) && (
                     <Loader2 className="h-2.5 w-2.5 animate-spin absolute -right-1 -top-1 text-primary" />                                                      
@@ -491,7 +501,7 @@ function SortableExercise({
                     type="number"
                     value={set.targetReps ?? ""}
                     onChange={(e) => onSetChange(blockIndex, exerciseIndex, setIndex, "targetReps", e.target.value)}                                                  
-                    className="h-6 text-xs px-1.5 shadow-none border-transparent hover:border-border focus:border-ring focus-visible:ring-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="h-7 border-transparent px-1.5 text-caption text-foreground shadow-none hover:border-border-strong focus:border-ring focus-visible:ring-1 disabled:cursor-not-allowed disabled:opacity-50"
                     placeholder="Reps"
                     disabled={isCompleted}
                   />
@@ -500,7 +510,7 @@ function SortableExercise({
                       type="number"
                       value={set.targetDuration ?? ""}
                       onChange={(e) => onSetChange(blockIndex, exerciseIndex, setIndex, "targetDuration", e.target.value)}
-                      className="h-6 text-[10px] px-1.5 text-muted-foreground bg-transparent shadow-none border-transparent hover:border-border focus:border-ring focus-visible:ring-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="h-7 border-transparent bg-transparent px-1.5 text-caption shadow-none hover:border-border-strong focus:border-ring focus-visible:ring-1 disabled:cursor-not-allowed disabled:opacity-50"
                       placeholder="Duration"
                       disabled={isCompleted}
                     />
@@ -509,7 +519,7 @@ function SortableExercise({
                       onValueChange={(v) => onSetUnitChange(blockIndex, exerciseIndex, setIndex, "targetDurationUnit", v)}
                       disabled={isCompleted}
                     >
-                      <SelectTrigger className="h-6 text-[10px] px-1.5 w-12 shrink-0 shadow-none border-transparent hover:border-border focus:border-ring disabled:opacity-50 disabled:cursor-not-allowed">
+                      <SelectTrigger aria-label="Duration unit" className="h-7 w-12 shrink-0 border-transparent px-1.5 text-caption shadow-none hover:border-border-strong focus:border-ring disabled:cursor-not-allowed disabled:opacity-50">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -520,7 +530,7 @@ function SortableExercise({
                   </div>
                   {isCompleted && actualLog && (actualLog.actualReps != null || actualLog.actualDuration != null) && (
                      <div className="absolute -right-2 -top-2 flex gap-0.5 z-10" title="Actual Performance">
-                       <Badge variant="outline" className="px-1 py-0 h-4 text-[9px] shadow-sm flex items-center gap-0.5">
+                       <Badge variant="outline" className="flex h-4 items-center gap-0.5 bg-surface px-1 py-0 text-caption shadow-xs">
                          <CheckCircle className="h-2.5 w-2.5" />
                          {actualLog.actualReps != null ? `${actualLog.actualReps}r` : ''}
                          {actualLog.actualReps != null && actualLog.actualDuration != null ? ' | ' : ''}
@@ -536,7 +546,7 @@ function SortableExercise({
                     type="number"
                     value={set.targetWeight ?? ""}
                     onChange={(e) => onSetChange(blockIndex, exerciseIndex, setIndex, "targetWeight", e.target.value)}                                                
-                    className="h-6 text-xs px-1.5 shadow-none border-transparent hover:border-border focus:border-ring focus-visible:ring-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="h-7 border-transparent px-1.5 text-caption text-foreground shadow-none hover:border-border-strong focus:border-ring focus-visible:ring-1 disabled:cursor-not-allowed disabled:opacity-50"
                     placeholder="Lbs/Kg"
                     disabled={isCompleted}
                   />
@@ -544,13 +554,13 @@ function SortableExercise({
                     type="number"
                     value={set.targetPercentage1RM ?? ""}
                     onChange={(e) => onSetChange(blockIndex, exerciseIndex, setIndex, "targetPercentage1RM", e.target.value)}
-                    className="h-6 text-[10px] px-1.5 text-muted-foreground bg-transparent shadow-none border-transparent hover:border-border focus:border-ring focus-visible:ring-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="h-7 border-transparent bg-transparent px-1.5 text-caption shadow-none hover:border-border-strong focus:border-ring focus-visible:ring-1 disabled:cursor-not-allowed disabled:opacity-50"
                     placeholder="% 1RM"
                     disabled={isCompleted}
                   />
                   {isCompleted && actualLog && actualLog.actualWeight != null && (
                      <div className="absolute -right-2 -top-2 flex gap-0.5 z-10" title="Actual Weight">
-                       <Badge variant="outline" className="px-1 py-0 h-4 text-[9px] shadow-sm flex items-center gap-0.5">
+                       <Badge variant="outline" className="flex h-4 items-center gap-0.5 bg-surface px-1 py-0 text-caption shadow-xs">
                          <CheckCircle className="h-2.5 w-2.5" />
                          {actualLog.actualWeight}
                        </Badge>
@@ -564,7 +574,7 @@ function SortableExercise({
                     type="text"
                     value={set.tempo ?? ""}
                     onChange={(e) => onSetChange(blockIndex, exerciseIndex, setIndex, "tempo", e.target.value)}
-                    className="h-6 text-xs px-1.5 shadow-none border-transparent hover:border-border focus:border-ring focus-visible:ring-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="h-7 border-transparent px-1.5 text-caption text-foreground shadow-none hover:border-border-strong focus:border-ring focus-visible:ring-1 disabled:cursor-not-allowed disabled:opacity-50"
                     placeholder="Tempo"
                     disabled={isCompleted}
                   />
@@ -572,7 +582,7 @@ function SortableExercise({
                     type="number"
                     value={set.restAfter ?? ""}
                     onChange={(e) => onSetChange(blockIndex, exerciseIndex, setIndex, "restAfter", e.target.value)}                                                   
-                    className="h-6 text-[10px] px-1.5 text-muted-foreground bg-transparent shadow-none border-transparent hover:border-border focus:border-ring focus-visible:ring-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="h-7 border-transparent bg-transparent px-1.5 text-caption shadow-none hover:border-border-strong focus:border-ring focus-visible:ring-1 disabled:cursor-not-allowed disabled:opacity-50"
                     placeholder="Rest(s)"
                     disabled={isCompleted}
                   />
@@ -583,7 +593,8 @@ function SortableExercise({
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="text-muted-foreground hover:text-destructive h-6 w-6 opacity-0 group-hover/set:opacity-100 transition-opacity disabled:opacity-0"                                                                               
+                    aria-label={`Delete set ${setIndex + 1}`}
+                    className="size-8 text-muted-foreground opacity-0 transition-opacity hover:text-destructive focus-visible:opacity-100 group-hover/set:opacity-100 disabled:opacity-0 motion-reduce:transition-none"                                                                               
                     onClick={() => onDeleteSet(blockIndex, exerciseIndex, setIndex)}  
                     disabled={isCompleted}
                   >
@@ -598,10 +609,10 @@ function SortableExercise({
             <Button
               variant="ghost"
               size="sm"
-              className="text-muted-foreground mt-2 text-xs h-7 px-2 hover:bg-secondary"
+              className="mt-2 px-2 text-muted-foreground"
               onClick={() => onAddSet(blockIndex, exerciseIndex)}
             >
-              <Plus className="h-3 w-3 mr-1" />
+              <Plus className="size-3.5" />
               Add Set
             </Button>
           ) : null}
@@ -1292,13 +1303,13 @@ export function WorkoutEditorPanel({
     <>
       <Dialog open={isOpen} onOpenChange={handleOpenChange}>
         <DialogContent
-          className="w-full sm:max-w-3xl lg:max-w-5xl max-h-[92vh] overflow-hidden flex flex-col p-0 gap-0"
+          className="flex max-h-[92dvh] w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-3xl lg:max-w-5xl"
           showCloseButton={false}
         >
           {/* Header */}
-          <DialogHeader className="border-b px-4 py-4 shrink-0 sm:px-6">
-            <div className="flex items-center justify-between">
-              <div className="flex-1 min-w-0">
+          <DialogHeader className="shrink-0 border-b border-border px-4 py-4 sm:px-6">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
                 <DialogTitle className="sr-only">
                   {panelState.mode === "creating" ? "Create Workout" : "Edit Workout"}
                 </DialogTitle>
@@ -1307,7 +1318,7 @@ export function WorkoutEditorPanel({
                     value={workoutName}
                     onChange={(e) => setWorkoutName(e.target.value)}
                     placeholder="Workout name..."
-                    className="text-lg font-semibold border-none px-0 focus-visible:ring-0 h-auto"                                                              
+                    className="h-auto border-none px-0 text-heading shadow-none focus-visible:ring-0"                                                              
                   />
                 ) : session ? (
                   <Input
@@ -1318,33 +1329,34 @@ export function WorkoutEditorPanel({
                     }}
                     onBlur={handleSaveName}
                     placeholder="Workout name..."
-                    className="text-lg font-semibold border-none px-0 focus-visible:ring-0 h-auto"                                                              
+                    className="h-auto border-none px-0 text-heading shadow-none focus-visible:ring-0"                                                              
                   />
                 ) : null}
-                <div className="flex items-center gap-1.5 mt-1 text-sm text-muted-foreground">                                                                  
-                  <CalendarIcon className="h-3.5 w-3.5" />
+                <div className="mt-1 flex flex-wrap items-center gap-1.5 text-body text-muted-foreground">                                                                  
+                  <CalendarIcon className="size-3.5" aria-hidden />
                   <span>{dateLabel}</span>
                   {session && (
                     <StatusBadge status={session.status} size="sm" className="ml-2" />
                   )}
                 </div>
               </div>
-              <div className="flex items-center gap-1 ml-2">
+              <div className="flex shrink-0 items-center gap-1">
                 {session && (
                   <Popover open={duplicatePopoverOpen} onOpenChange={setDuplicatePopoverOpen}>
                     <PopoverTrigger
                       title="Duplicate workout to another date"
-                      className="inline-flex items-center justify-center rounded-md h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                      aria-label="Duplicate workout to another date"
+                      className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none"
                     >
                       <Copy className="h-4 w-4" />
                     </PopoverTrigger>
-                    <PopoverContent align="end" className="w-72 p-4 space-y-3">
-                      <p className="text-sm font-medium">Duplicate workout to</p>
-                      <input
+                    <PopoverContent align="end" className="flex w-72 flex-col gap-3 p-4">
+                      <label htmlFor="duplicate-workout-date" className="text-label text-foreground">Duplicate workout to</label>
+                      <Input
+                        id="duplicate-workout-date"
                         type="date"
                         value={duplicateDate}
                         onChange={(e) => setDuplicateDate(e.target.value)}
-                        className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                       />
                       <Button
                         size="sm"
@@ -1352,7 +1364,7 @@ export function WorkoutEditorPanel({
                         disabled={!duplicateDate || duplicating}
                         onClick={handleDuplicateWorkout}
                       >
-                        {duplicating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                        {duplicating ? <Loader2 className="size-4 animate-spin" /> : null}
                         {duplicating ? "Duplicating..." : "Duplicate"}
                       </Button>
                     </PopoverContent>
@@ -1364,6 +1376,7 @@ export function WorkoutEditorPanel({
                     size="icon-sm"
                     onClick={handleDeleteSession}
                     disabled={deleting}
+                    aria-label="Delete workout"
                     className="text-destructive hover:text-destructive"
                   >
                     {deleting ? (
@@ -1373,8 +1386,8 @@ export function WorkoutEditorPanel({
                     )}
                   </Button>
                 )}
-                <Button variant="ghost" size="icon-sm" onClick={onClose}>       
-                  <X className="h-4 w-4" />
+                <Button variant="ghost" size="icon-sm" onClick={onClose} aria-label="Close">
+                  <X className="size-4" />
                 </Button>
               </div>
             </div>
@@ -1382,15 +1395,15 @@ export function WorkoutEditorPanel({
 
           {/* Body */}
           <div className="flex-1 min-h-0 overflow-y-auto">
-            <div className="px-4 py-5 space-y-4 sm:px-6">
+            <div className="flex flex-col gap-4 px-4 py-5 sm:px-6">
               {loading ? (
                 <div className="flex items-center justify-center py-20">        
-                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />                                                                            
+                  <Loader2 className="size-6 animate-spin text-muted-foreground" />                                                                            
                 </div>
               ) : panelState.mode === "creating" && !session ? (
                 /* Creating mode — choose manual or AI */
-                <div className="py-10 space-y-6">
-                  <p className="text-center text-sm text-muted-foreground">
+                <div className="flex flex-col gap-6 py-10">
+                  <p className="text-center text-body text-muted-foreground">
                     How would you like to create a workout for {dateLabel}?
                   </p>
                   <div className="grid grid-cols-2 gap-4">
@@ -1398,9 +1411,9 @@ export function WorkoutEditorPanel({
                     <button
                       onClick={handleCreateWorkout}
                       disabled={saving || !workoutName.trim()}
-                      className="group flex flex-col items-center gap-3 rounded-xl border-2 border-border bg-background p-4 sm:p-6 text-left transition-all hover:border-info-border hover:bg-info-soft disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="group flex flex-col items-center gap-3 rounded-xl bg-surface p-4 text-left shadow-xs ring-1 ring-border outline-none transition-colors hover:bg-info-soft hover:ring-info-border focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none sm:p-6"
                     >
-                      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-info-soft text-info-foreground group-hover:bg-info-border transition-colors">
+                      <div className="flex size-12 items-center justify-center rounded-full bg-info-soft text-info-foreground transition-colors group-hover:bg-info-border motion-reduce:transition-none">
                         {saving ? (
                           <Loader2 className="h-5 w-5 animate-spin" />
                         ) : (
@@ -1408,8 +1421,8 @@ export function WorkoutEditorPanel({
                         )}
                       </div>
                       <div className="text-center">
-                        <p className="font-semibold text-sm">Build Manually</p>
-                        <p className="text-xs text-muted-foreground mt-1">
+                        <p className="text-label text-foreground">Build manually</p>
+                        <p className="mt-1 text-caption">
                           Pick exercises and build the session yourself
                         </p>
                       </div>
@@ -1423,14 +1436,14 @@ export function WorkoutEditorPanel({
                           panelState.mode === "creating" ? panelState.date : new Date()
                         );
                       }}
-                      className="group flex flex-col items-center gap-3 rounded-xl border-2 border-border bg-background p-4 sm:p-6 text-left transition-all hover:border-brand-border hover:bg-brand-soft"
+                      className="group flex flex-col items-center gap-3 rounded-xl bg-surface p-4 text-left shadow-xs ring-1 ring-border outline-none transition-colors hover:bg-brand-soft hover:ring-brand-border focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none sm:p-6"
                     >
-                      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-brand-soft text-brand-foreground group-hover:bg-brand-border transition-colors">
+                      <div className="flex size-12 items-center justify-center rounded-full bg-brand-soft text-brand-foreground transition-colors group-hover:bg-brand-border motion-reduce:transition-none">
                         <Sparkles className="h-5 w-5" />
                       </div>
                       <div className="text-center">
-                        <p className="font-semibold text-sm">Generate with AI</p>
-                        <p className="text-xs text-muted-foreground mt-1">
+                        <p className="text-label text-foreground">Generate with AI</p>
+                        <p className="mt-1 text-caption">
                           Let AI build a full program for this client
                         </p>
                       </div>
@@ -1441,9 +1454,9 @@ export function WorkoutEditorPanel({
                 /* Edit mode - show blocks & exercises */
                 <>
                   {session.status === "COMPLETED" && (session.overallRPE !== null || session.overallNotes) && (
-                    <div className="bg-success-soft border border-success-border rounded-md p-4 text-sm text-success-foreground mb-6">
-                      <div className="flex items-center gap-2 font-semibold mb-1">
-                        <CheckCircle className="h-4 w-4" />
+                    <div className="rounded-lg border border-success-border bg-success-soft p-4 text-body text-success-foreground">
+                      <div className="mb-1 flex items-center gap-2 text-label">
+                        <CheckCircle className="size-4" aria-hidden />
                         Client Feedback
                       </div>
                       <div className="grid gap-1">
@@ -1468,7 +1481,7 @@ export function WorkoutEditorPanel({
                       <div
                         key={block.id}
                         className={cn(
-                          "mb-6 relative rounded-lg transition-shadow",
+                          "relative mb-2 rounded-lg transition-shadow motion-reduce:transition-none",
                           selection.level === "block" && selection.blockIndex === blockIndex
                             ? "ring-2 ring-info/40"
                             : "",
@@ -1484,7 +1497,7 @@ export function WorkoutEditorPanel({
                       >
                         {/* Block header */}
                         <div
-                          className="flex items-center justify-between mb-2 pb-1 border-b border-muted cursor-pointer"
+                          className="mb-1 flex cursor-pointer items-center justify-between gap-2 border-b border-border pb-2"
                           onClick={(e) => {
                             const target = e.target as HTMLElement;
                             if (target.closest("input, button, [role='combobox']")) return;
@@ -1496,10 +1509,10 @@ export function WorkoutEditorPanel({
                             });
                           }}
                         >
-                          <div className="flex items-center gap-2 flex-wrap flex-1 min-w-0">
+                          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
                             <Badge
                               variant="secondary"
-                              className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0 rounded-sm"
+                              className="rounded-sm px-1.5 py-0 text-caption font-semibold uppercase tracking-wide text-foreground"
                             >
                               {typeConfig.label}
                             </Badge>
@@ -1525,15 +1538,16 @@ export function WorkoutEditorPanel({
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="h-7 text-xs text-muted-foreground hover:text-primary px-2"
+                              className="px-2 text-muted-foreground hover:text-primary"
                               onClick={() => handleOpenPicker(block.id)}
+                              aria-label="Add exercise"
                             >
-                              <Plus className="h-3 w-3 mr-1" />
+                              <Plus className="size-3.5" />
                               <span className="hidden sm:inline">Add Exercise</span>
                             </Button>
 
                             <DropdownMenu>
-                              <DropdownMenuTrigger className="h-7 w-7 inline-flex items-center justify-center rounded-md hover:bg-muted text-muted-foreground"><Settings className="h-4 w-4" /></DropdownMenuTrigger>
+                              <DropdownMenuTrigger aria-label="Block settings" className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"><Settings className="size-4" /></DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
                                 {BLOCK_TYPES.filter(
                                   (bt) => bt.value !== block.type
@@ -1561,7 +1575,7 @@ export function WorkoutEditorPanel({
                         </div>
 
                         {/* Exercises in block */}
-                        <div className="divide-y border border-transparent flex-1 mb-2">
+                        <div className="mb-2 flex-1">
                           <DndContext
                             sensors={sensors}
                             collisionDetection={closestCenter}
@@ -1609,18 +1623,17 @@ export function WorkoutEditorPanel({
 
                   {/* Add block */}
                   {addingBlockType ? (
-                      <div className="bg-muted/30 rounded-lg border border-dashed p-4 flex flex-col gap-3">       
-                        <p className="text-sm font-medium text-muted-foreground">Select Block Type:</p>                                                                             
+                      <div className="flex flex-col gap-3 rounded-lg border border-dashed border-border-strong bg-surface-muted p-4">
+                        <p className="text-label text-muted-foreground">Select block type</p>                                                                             
                         <div className="flex flex-wrap gap-2">
                           {BLOCK_TYPES.map((bt) => (
                             <Button
                               key={bt.value}
                               variant="outline"
                               size="sm"
-                              className="h-8"
                               onClick={() => handleAddBlock(bt.value)}
                             >
-                              <div className={`w-2 h-2 rounded-full mr-2 ${bt.color.split(' ')[0]}`} />
+                              <span className={`size-2 rounded-full ${bt.color.split(' ')[0]}`} aria-hidden />
                               {bt.label}
                             </Button>
                           ))}
@@ -1628,7 +1641,7 @@ export function WorkoutEditorPanel({
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="h-8 text-muted-foreground hover:text-foreground"
+                            className="text-muted-foreground hover:text-foreground"
                             onClick={() => setAddingBlockType(false)}
                           >
                             Cancel
@@ -1638,11 +1651,11 @@ export function WorkoutEditorPanel({
                     ) : (
                       <Button
                         variant="ghost"
-                        className="w-full border-dashed border-2 text-muted-foreground hover:text-primary hover:bg-primary/5 h-12"
+                        className="h-12 w-full border border-dashed border-border-strong text-muted-foreground hover:bg-surface-muted hover:text-primary"
                         onClick={() => setAddingBlockType(true)}
                       >
-                        <Plus className="h-4 w-4 mr-2" />
-                        Add New Block
+                        <Plus className="size-4" />
+                        Add new block
                       </Button>
                     )}
                 </>
@@ -1652,13 +1665,13 @@ export function WorkoutEditorPanel({
 
           {/* Footer */}
           {session && nameChanged && (
-            <DialogFooter className="border-t px-4 py-3 m-0 bg-transparent rounded-none shrink-0 sm:justify-end sm:px-6">
+            <DialogFooter className="m-0 shrink-0 rounded-none border-t border-border bg-surface-muted px-4 py-3 sm:justify-end sm:px-6">
               <Button
                 onClick={handleSaveName}
                 disabled={saving}
               >
                 {saving ? (
-                  <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                  <Loader2 className="size-4 animate-spin" />
                 ) : null}
                 Save Name
               </Button>

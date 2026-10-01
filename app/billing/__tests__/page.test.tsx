@@ -16,6 +16,9 @@ vi.mock("@/lib/prisma", () => ({
 vi.mock("@/lib/org-capabilities.server", () => ({ getOrgForUser: vi.fn(), getCapabilitiesForUser: vi.fn() }));
 vi.mock("@/lib/services/club-member.service", () => ({ ensureMemberSubscription: vi.fn() }));
 vi.mock("@/components/billing/pricing-cards", () => ({ PricingCards: () => null }));
+vi.mock("@/lib/services/branding.service", () => ({
+  getOrgBranding: vi.fn(async () => ({ enabled: false, displayName: "INMOTUS RX", logoOnLightUrl: null, logoOnDarkUrl: null, markUrl: null })),
+}));
 vi.mock("../member-billing-view", () => ({ MemberBillingView: () => null }));
 
 import { prisma } from "@/lib/prisma";

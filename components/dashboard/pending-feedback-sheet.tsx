@@ -8,6 +8,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { EmptyState } from "@/components/shared/empty-state";
 import { FeedbackList } from "@/components/feedback/feedback-list";
 import {
   getPendingFeedbackAction,
@@ -57,8 +58,8 @@ function PendingFeedbackPanel() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground">
-        <Loader2 className="h-4 w-4 animate-spin" />
+      <div className="flex items-center justify-center gap-2 py-10 text-body text-muted-foreground">
+        <Loader2 className="size-4 animate-spin motion-reduce:animate-none" />
         Loading feedback…
       </div>
     );
@@ -66,10 +67,7 @@ function PendingFeedbackPanel() {
 
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center gap-2 py-10 text-center">
-        <TriangleAlert className="h-8 w-8 text-muted-foreground/40" />
-        <p className="text-sm text-muted-foreground">{error}</p>
-      </div>
+      <EmptyState size="compact" icon={TriangleAlert} title="Couldn't load feedback" description={error} />
     );
   }
 

@@ -36,7 +36,7 @@ export default async function EditProgramPage({ params }: Props) {
   return (
     <PageShell>
       <PageHeader
-        back={{ label: "Back to Program", href: `/programs/${id}` }}
+        back={{ label: "Back to program", href: `/programs/${id}` }}
         breadcrumb={[
           { label: "Programs", href: "/programs" },
           { label: program.name, href: `/programs/${id}` },

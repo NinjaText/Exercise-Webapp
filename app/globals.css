@@ -51,6 +51,9 @@
   --color-brand-soft: var(--brand-soft);
   --color-brand-border: var(--brand-border);
   --color-border-strong: var(--border-strong);
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-muted);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
   --color-muted-foreground: var(--muted-foreground);
@@ -70,6 +73,14 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+  /* Elevation scale. Each name points at the same-named property set in
+     :root/.dark below (unlayered, so it beats this theme-layer declaration),
+     which lets shadow-xs/sm/md/lg follow the theme. Cards use xs, popovers
+     and menus md, dialogs lg. */
+  --shadow-xs: var(--shadow-xs);
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
 }
 
 :root {
@@ -112,11 +123,20 @@
   --brand-foreground: oklch(0.36 0.15 264);
   --brand-soft: oklch(0.95 0.03 264);
   --brand-border: oklch(0.87 0.06 264);
+  /* Canvas is the app background behind cards; surfaces sit on it. */
+  --canvas: oklch(0.975 0.004 255);
+  --surface: oklch(1 0 0);
+  --surface-muted: oklch(0.965 0.005 255);
   --border-strong: oklch(0.84 0.015 264);
-  --border: oklch(0.91 0.01 264);
+  --border: oklch(0.925 0.008 264);
   --input: oklch(0.91 0.01 264);
   --ring: oklch(0.47 0.19 264);
   --radius: 0.75rem;
+  /* Elevation - cool-tinted, low-opacity shadows */
+  --shadow-xs: 0 1px 2px 0 oklch(0.13 0.02 264 / 0.05);
+  --shadow-sm: 0 1px 3px 0 oklch(0.13 0.02 264 / 0.07), 0 1px 2px -1px oklch(0.13 0.02 264 / 0.05);
+  --shadow-md: 0 4px 12px -2px oklch(0.13 0.02 264 / 0.08), 0 2px 4px -2px oklch(0.13 0.02 264 / 0.05);
+  --shadow-lg: 0 16px 40px -8px oklch(0.13 0.02 264 / 0.14), 0 4px 12px -4px oklch(0.13 0.02 264 / 0.06);
   /* Charts - teal/blue/indigo family for medical */
   --chart-1: oklch(0.55 0.18 200);
   --chart-2: oklch(0.47 0.19 264);
@@ -175,10 +195,17 @@
   --brand-foreground: oklch(0.86 0.09 264);
   --brand-soft: oklch(0.65 0.15 264 / 14%);
   --brand-border: oklch(0.65 0.15 264 / 32%);
+  --canvas: oklch(0.125 0 0);
+  --surface: oklch(0.205 0 0);
+  --surface-muted: oklch(0.235 0 0);
   --border-strong: oklch(1 0 0 / 18%);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.556 0 0);
+  --shadow-xs: 0 1px 2px 0 oklch(0 0 0 / 0.3);
+  --shadow-sm: 0 1px 3px 0 oklch(0 0 0 / 0.35), 0 1px 2px -1px oklch(0 0 0 / 0.3);
+  --shadow-md: 0 4px 12px -2px oklch(0 0 0 / 0.45), 0 2px 4px -2px oklch(0 0 0 / 0.3);
+  --shadow-lg: 0 16px 40px -8px oklch(0 0 0 / 0.6), 0 4px 12px -4px oklch(0 0 0 / 0.35);
   --chart-1: oklch(0.55 0.18 200);
   --chart-2: oklch(0.65 0.15 264);
   --chart-3: oklch(0.6 0.16 155);
@@ -268,6 +295,48 @@
 @utility bg-sidebar-gradient {
   background-color: var(--sidebar);
   background-image: linear-gradient(180deg, var(--sidebar), var(--sidebar-gradient-end, var(--sidebar)));
+}
+
+/* Typography scale (spec §2.1). Sizes are rem so they follow the app-shell
+   density scale above. Colour is left to text-* colour utilities, except the
+   caption's muted default; custom utilities sort before single-property ones,
+   so an explicit text-foreground (or text-sm) still wins. Display and title
+   use Lexend; the rest inherit Inter. */
+@utility text-display {
+  font-family: var(--font-lexend), var(--font-inter), sans-serif;
+  font-size: 1.875rem;
+  line-height: 2.25rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+@utility text-title {
+  font-family: var(--font-lexend), var(--font-inter), sans-serif;
+  font-size: 1.375rem;
+  line-height: 1.75rem;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+}
+@utility text-heading {
+  font-size: 1rem;
+  line-height: 1.5rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+@utility text-body {
+  font-size: 0.875rem;
+  line-height: 1.375rem;
+  font-weight: 400;
+}
+@utility text-label {
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+  font-weight: 500;
+}
+@utility text-caption {
+  font-size: 0.75rem;
+  line-height: 1rem;
+  font-weight: 400;
+  color: var(--muted-foreground);
 }
 
 /* Gradient text utility */
@@ -383,14 +452,14 @@
   padding: 0 !important;
   border: none !important;
   outline: none !important;
-  box-shadow: 0 1px 3px oklch(0 0 0 / 0.08) !important;
+  box-shadow: var(--shadow-xs) !important;
   background: transparent !important;
   transition: opacity 0.15s, transform 0.15s !important;
 }
 
 .rbc-event:hover {
   transform: translateY(-1px) !important;
-  box-shadow: 0 3px 8px oklch(0 0 0 / 0.12) !important;
+  box-shadow: var(--shadow-sm) !important;
 }
 
 .rbc-event:focus,
@@ -431,7 +500,7 @@
   border: 1px solid var(--border) !important;
   border-radius: 12px !important;
   background: var(--card) !important;
-  box-shadow: 0 12px 40px oklch(0 0 0 / 0.14) !important;
+  box-shadow: var(--shadow-md) !important;
   padding: 12px !important;
   min-width: 200px !important;
 }
@@ -601,4 +670,17 @@ html[data-native] header,
 html[data-native] [data-slot="mobile-tab-bar"] {
   -webkit-user-select: none;
   user-select: none;
+}
+
+/* ── Step forms in AuthShell (onboarding) ────────────────────────────────
+   Below lg the StepForm action bar is fixed to the viewport edges; reserve
+   its height at the end of AuthShell's panel (which already pads the safe
+   area) so the last field and the footer links scroll clear of it. */
+@media (width < 64rem) {
+  [data-slot="auth-panel"]:has([data-slot="step-form-actions"])::after {
+    content: "";
+    display: block;
+    flex-shrink: 0;
+    height: 4.5rem;
+  }
 }

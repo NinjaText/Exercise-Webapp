@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -224,26 +225,34 @@ export function MessageThread({
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between gap-3 border-b border-border p-3 sm:p-4">
-        <h2 className="min-w-0 truncate font-semibold text-foreground">{recipientName}</h2>
+      <div className="flex min-h-14 shrink-0 items-center justify-between gap-3 border-b border-border px-4 py-2.5">
+        <div className="flex min-w-0 items-center gap-3">
+          <Avatar className="size-8 shrink-0">
+            <AvatarFallback className="bg-surface-muted text-caption font-medium text-foreground">
+              {recipientInitials}
+            </AvatarFallback>
+          </Avatar>
+          <h2 className="min-w-0 truncate text-heading text-foreground">{recipientName}</h2>
+        </div>
         {headerRight}
       </div>
 
       {/* Filter: chat messages vs. voice notes left against a workout.
           Only offered once the thread actually contains both kinds. */}
       {hasVoiceNotes && (
-        <div className="flex shrink-0 gap-1 border-b border-border px-4 py-2">
+        <div className="flex shrink-0 gap-1 border-b border-border px-4 py-2" role="group" aria-label="Filter thread">
           {ITEM_FILTERS.map((option) => (
             <button
               key={option.key}
               type="button"
               onClick={() => setFilter(option.key)}
               aria-pressed={filter === option.key}
-              className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+              className={cn(
+                "h-7 rounded-md px-2.5 text-caption font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none",
                 filter === option.key
-                  ? "bg-primary/10 text-primary"
-                  : "text-muted-foreground hover:bg-muted"
-              }`}
+                  ? "bg-brand-soft text-brand-foreground"
+                  : "text-muted-foreground hover:bg-surface-muted hover:text-foreground"
+              )}
             >
               {option.label}
             </button>
@@ -252,10 +261,10 @@ export function MessageThread({
       )}
 
       {/* Messages */}
-      <ScrollArea className="min-h-0 flex-1 p-4">
-        <div className="space-y-4">
+      <ScrollArea className="min-h-0 flex-1 bg-canvas/40">
+        <div className="flex flex-col gap-4 p-4 sm:px-6">
           {visibleItems.length === 0 && (
-            <p className="py-8 text-center text-sm text-muted-foreground">
+            <p className="py-8 text-center text-body text-muted-foreground">
               Nothing to show for this filter.
             </p>
           )}
@@ -295,28 +304,9 @@ export function MessageThread({
         </div>
       </ScrollArea>
 
-      {/* Input */}
-      <div className="border-t border-border p-4">
-        {allowInternalNotes && !showRecorder && (
-          <div className="mb-2 flex gap-1">
-            {(["message", "note"] as const).map((mode) => (
-              <button
-                key={mode}
-                type="button"
-                onClick={() => setComposeMode(mode)}
-                className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
-                  composeMode === mode
-                    ? mode === "note"
-                      ? "bg-warning-soft text-warning-foreground"
-                      : "bg-primary/10 text-primary"
-                    : "text-muted-foreground hover:bg-muted"
-                }`}
-              >
-                {mode === "message" ? "Message" : "Note (internal)"}
-              </button>
-            ))}
-          </div>
-        )}
+      {/* Composer: one bordered field holding the textarea and its actions,
+          so the input, mode switch and send read as a single control. */}
+      <div className="shrink-0 border-t border-border bg-surface p-3 sm:p-4">
         {showRecorder ? (
           <VoiceMessageRecorder
             recipientId={recipientId}
@@ -324,7 +314,13 @@ export function MessageThread({
             onCancel={() => setShowRecorder(false)}
           />
         ) : (
-          <div className="flex gap-2">
+          <div
+            data-slot="message-composer"
+            className={cn(
+              "flex flex-col rounded-xl border bg-surface shadow-xs transition-[border-color,box-shadow] focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50 motion-reduce:transition-none",
+              composeMode === "note" ? "border-warning-border bg-warning-soft" : "border-input hover:border-border-strong"
+            )}
+          >
             <Textarea
               value={content}
               onChange={(e) => {
@@ -333,26 +329,58 @@ export function MessageThread({
               }}
               onKeyDown={handleKeyDown}
               placeholder={composeMode === "note" ? "Write a note only you can see..." : "Type a message..."}
+              aria-label={composeMode === "note" ? "Internal note" : "Message"}
               rows={1}
-              className={`min-h-[2.5rem] resize-none ${composeMode === "note" ? "border-warning-border bg-warning-soft" : ""}`}
+              className="max-h-40 min-h-11 resize-none border-0 bg-transparent px-3 pt-2.5 pb-1 shadow-none hover:border-0 focus-visible:ring-0 disabled:bg-transparent"
             />
-            {composeMode === "message" && (
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => setShowRecorder(true)}
-                aria-label="Record a voice note"
-              >
-                <Mic className="h-4 w-4" />
-              </Button>
-            )}
-            <Button onClick={handleSend} disabled={sending || !content.trim()} size="icon">
-              {sending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+            <div className="flex items-center justify-between gap-2 px-2 pb-2">
+              {allowInternalNotes ? (
+                <div role="group" aria-label="Compose mode" className="flex gap-1">
+                  {(["message", "note"] as const).map((mode) => (
+                    <button
+                      key={mode}
+                      type="button"
+                      onClick={() => setComposeMode(mode)}
+                      aria-pressed={composeMode === mode}
+                      className={cn(
+                        "h-7 rounded-md px-2.5 text-caption font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none",
+                        composeMode === mode
+                          ? mode === "note"
+                            ? "bg-warning-soft text-warning-foreground ring-1 ring-warning-border"
+                            : "bg-brand-soft text-brand-foreground"
+                          : "text-muted-foreground hover:bg-surface-muted hover:text-foreground"
+                      )}
+                    >
+                      {mode === "message" ? "Message" : "Note (internal)"}
+                    </button>
+                  ))}
+                </div>
               ) : (
-                <Send className="h-4 w-4" />
+                <span className="hidden px-1 text-caption sm:inline">Enter to send · Shift+Enter for a new line</span>
               )}
-            </Button>
+              <div className="ml-auto flex items-center gap-1.5">
+                {composeMode === "message" && (
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    className="size-11 sm:size-8"
+                    onClick={() => setShowRecorder(true)}
+                    aria-label="Record a voice note"
+                  >
+                    <Mic />
+                  </Button>
+                )}
+                <Button
+                  onClick={handleSend}
+                  disabled={sending || !content.trim()}
+                  size="icon-sm"
+                  className="size-11 sm:size-8"
+                  aria-label={composeMode === "note" ? "Save note" : "Send message"}
+                >
+                  {sending ? <Loader2 className="animate-spin" /> : <Send />}
+                </Button>
+              </div>
+            </div>
           </div>
         )}
       </div>
@@ -411,7 +439,7 @@ function VoiceNoteBubble({ item, isOwn }: { item: ThreadVoiceNoteItem; isOwn: bo
         </div>
 
         <div
-          className={`mt-1 flex items-center gap-1 text-xs text-muted-foreground/60 ${
+          className={`mt-1 flex items-center gap-1 text-caption ${
             isOwn ? "justify-end" : ""
           }`}
         >
@@ -519,7 +547,7 @@ function MessageBubble({
         )}
 
         {isDeleted ? (
-          <div className="inline-block rounded-lg px-4 py-2 text-sm italic text-muted-foreground ring-1 ring-border">
+          <div className="inline-block rounded-2xl px-3.5 py-2 text-body italic text-muted-foreground ring-1 ring-border">
             This message was deleted
           </div>
         ) : editing ? (
@@ -565,12 +593,12 @@ function MessageBubble({
               </p>
             )}
             <div
-              className={`inline-block rounded-lg px-4 py-2 text-sm ${
+              className={`inline-block whitespace-pre-wrap break-words rounded-2xl px-3.5 py-2 text-left text-body ${
                 message.isInternal
                   ? "bg-warning-soft text-warning-foreground ring-1 ring-warning-border"
                   : isOwn
                     ? "bg-primary text-primary-foreground"
-                    : "bg-muted text-foreground"
+                    : "bg-surface text-foreground ring-1 ring-border"
               }`}
             >
               {message.content}
@@ -579,7 +607,7 @@ function MessageBubble({
         )}
 
         <div
-          className={`mt-1 flex items-center gap-1 text-xs text-muted-foreground/60 ${
+          className={`mt-1 flex items-center gap-1 text-caption ${
             isOwn ? "justify-end" : ""
           }`}
         >

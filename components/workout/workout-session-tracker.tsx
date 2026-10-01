@@ -31,7 +31,16 @@ import {
 import { Check, SkipForward, X, PlayCircle, Loader2, Timer, ChevronRight, ChevronLeft, ChevronDown, Trophy, RotateCcw, ClipboardList, Dumbbell } from "lucide-react";
 import type { SetLogEntry, SetLogCache } from "./types";
 import { instructionsToBullets } from "./format-instructions";
-import { WORKOUT_STATE } from "./workout-tokens";
+import {
+  WORKOUT_STATE,
+  WORKOUT_TOUCH,
+  WORKOUT_TOUCH_ICON,
+  SET_FIELD,
+  SET_FIELD_LABEL,
+  SET_FIELD_INPUT,
+  SET_FIELD_STATIC,
+} from "./workout-tokens";
+import { cn } from "@/lib/utils";
 import { ROLE_CLASSES } from "@/lib/ui/status";
 import { aggregateProgramEquipment } from "@/lib/utils/program-equipment";
 import { VoiceMemoRecorder } from "@/components/voice-memo/VoiceMemoRecorder";
@@ -524,102 +533,103 @@ export function WorkoutSessionTracker({
   };
 
   // ── Pre-start screen ──────────────────────────────────────────────────────
+  // The page header already carries the workout name, so this card leads with
+  // what the client is about to do rather than repeating the title.
   if (!sessionActive) {
     return (
-      <div className="mx-auto max-w-lg">
-        <div className="overflow-hidden rounded-2xl border-0 shadow-xl ring-1 ring-border/50">
-          <div className="bg-muted p-8 text-center">
-            <PlayCircle className="mx-auto mb-4 h-14 w-14 text-primary" strokeWidth={1.5} />
-            <h2 className="text-2xl font-bold text-foreground">{session.workout.name}</h2>
-            <p className="mt-3 text-muted-foreground">
-              {session.workout.blocks.reduce((n, b) => n + b.exercises.length, 0)} exercises · Let&apos;s go!
-            </p>
+      <div className="w-full">
+        <Card className="gap-0 overflow-hidden py-0">
+          <div className="flex flex-col items-center gap-3 px-5 pt-8 pb-6 text-center">
+            <span className="flex size-14 items-center justify-center rounded-full bg-primary/10 text-primary">
+              <PlayCircle className="size-7" strokeWidth={1.75} aria-hidden />
+            </span>
+            <div>
+              <h2 className="text-title text-foreground">Guided workout</h2>
+              <p className="mt-1 text-body text-muted-foreground">
+                {session.workout.blocks.reduce((n, b) => n + b.exercises.length, 0)} exercises · Let&apos;s go!
+              </p>
+            </div>
             {equipment.length > 0 && (
-              <div className="mt-4 flex flex-wrap items-center justify-center gap-1.5">
-                <Dumbbell className="h-3.5 w-3.5 text-muted-foreground/70" />
+              <div className="flex flex-wrap items-center justify-center gap-1.5">
+                <Dumbbell className="size-3.5 text-muted-foreground" aria-hidden />
                 {equipment.map((item) => (
-                  <Badge key={item} variant="secondary" className="text-[11px] font-medium">
+                  <Badge key={item} variant="secondary">
                     {item}
                   </Badge>
                 ))}
               </div>
             )}
           </div>
-          <div className="bg-card p-4 sm:p-6">
-            <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-              Session Overview
-            </p>
-            <div className="space-y-2">
+          <div className="border-t border-border p-5">
+            <p className="mb-3 text-label text-muted-foreground">Session overview</p>
+            <ul className="divide-y divide-border overflow-hidden rounded-lg border border-border">
               {session.workout.blocks.map((block) => (
-                <div key={block.id} className="flex items-center gap-3 rounded-lg bg-muted/40 px-3 py-2">
-                  <span className="truncate text-sm font-medium">{block.name || block.type}</span>
+                <li key={block.id} className="flex min-h-11 items-center gap-3 bg-surface-muted/50 px-3 py-2">
+                  <span className="truncate text-label text-foreground">{block.name || block.type}</span>
                   {isCircuitBlock(block.type) && block.rounds > 1 && (
-                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0 shrink-0">
+                    <Badge variant="secondary" className="shrink-0">
                       {block.rounds} rounds
                     </Badge>
                   )}
-                  <span className="ml-auto shrink-0 text-xs text-muted-foreground">
+                  <span className="ml-auto shrink-0 text-caption tabular-nums">
                     {block.exercises.length} ex.
                   </span>
-                </div>
+                </li>
               ))}
-            </div>
+            </ul>
             <Button
               size="lg"
-              className="mt-6 h-11 w-full"
+              className="mt-5 h-12 w-full sm:h-10"
               onClick={handleStart}
               disabled={isLoading}
             >
-              {isLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <PlayCircle className="mr-2 h-5 w-5" />}
+              {isLoading ? <Loader2 className="mr-2 size-5 animate-spin" /> : <PlayCircle className="mr-2 size-5" />}
               Start Session
             </Button>
           </div>
-        </div>
+        </Card>
       </div>
     );
   }
 
   // ── Active workout ────────────────────────────────────────────────────────
   return (
-    <div className="mx-auto max-w-lg space-y-4 pb-24">
-      {/* Top bar */}
-      <div className="flex items-center justify-between rounded-2xl border border-border/60 bg-card px-4 py-3 shadow-sm">
-        <div className="flex items-center gap-2 text-sm font-semibold">
-          <Timer className="h-4 w-4 text-primary" />
-          {formatTime(timer)}
-        </div>
-        <Badge variant="outline" className="font-semibold">
-          {doneCount} / {totalExerciseItems}
-        </Badge>
-        <div className="flex items-center gap-1">
-          {onSwitchMode && (
+    <div className="flex w-full flex-col gap-4">
+      {/* Timer, progress and exits — pinned so they stay in reach while the
+          client scrolls a long exercise card. The negative top offset matches
+          <main>'s gutter (p-4 / lg:p-6 / 2xl:p-8) so the bar sits flush with
+          the top of the scroll area. */}
+      <div className="sticky -top-4 z-20 -mx-4 border-b border-border bg-canvas/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-canvas/80 sm:mx-0 sm:rounded-xl sm:rounded-t-none sm:border sm:bg-surface sm:shadow-xs lg:-top-6 2xl:-top-8">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 text-heading tabular-nums">
+            <Timer className="size-4 text-primary" aria-hidden />
+            {formatTime(timer)}
+          </div>
+          <div className="flex items-center gap-1">
+            {onSwitchMode && (
+              <Button
+                variant="ghost"
+                className={cn(WORKOUT_TOUCH, "gap-1.5 px-3 text-muted-foreground hover:text-foreground")}
+                onClick={onSwitchMode}
+              >
+                <ClipboardList className="size-4" />
+                Checklist
+              </Button>
+            )}
             <Button
               variant="ghost"
-              size="sm"
-              className="h-7 gap-1.5 text-xs text-muted-foreground hover:text-foreground"
-              onClick={onSwitchMode}
+              className={cn(WORKOUT_TOUCH, "gap-1.5 px-3 text-destructive hover:bg-destructive/10 hover:text-destructive")}
+              onClick={() => { toast.info("Session preserved"); router.push("/dashboard"); }}
             >
-              <ClipboardList className="h-3.5 w-3.5" />
-              Checklist
+              <X className="size-4" /> End
             </Button>
-          )}
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 gap-1.5 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
-            onClick={() => { toast.info("Session preserved"); router.push("/dashboard"); }}
-          >
-            <X className="h-3.5 w-3.5" /> End
-          </Button>
+          </div>
         </div>
-      </div>
-
-      {/* Progress */}
-      <div className="space-y-1.5">
-        <Progress value={progress} className="h-2 rounded-full" />
-        <div className="flex justify-between text-[11px] text-muted-foreground">
-          <span>{Math.round(progress)}% complete</span>
-          <span>{totalExerciseItems - doneCount} remaining</span>
+        <div className="mt-2 flex items-center gap-3">
+          <Progress value={progress} className="h-1.5 flex-1 rounded-full" />
+          <span className="shrink-0 text-caption tabular-nums">
+            {doneCount}/{totalExerciseItems} · {totalExerciseItems - doneCount} left
+          </span>
         </div>
       </div>
 
@@ -627,50 +637,48 @@ export function WorkoutSessionTracker({
       <div className="flex items-center justify-between gap-2">
         <Button
           variant="outline"
-          size="sm"
-          className="h-8 gap-1 text-xs"
+          className={cn(WORKOUT_TOUCH, "gap-1")}
           disabled={currentIndex === 0}
           onClick={() => setCurrentIndex((i) => Math.max(0, i - 1))}
         >
-          <ChevronLeft className="h-3.5 w-3.5" /> Prev
+          <ChevronLeft className="size-4" /> Prev
         </Button>
-        <span className="text-sm font-semibold text-muted-foreground">
+        <span className="text-label tabular-nums text-muted-foreground">
           {currentItem?.kind === "rest" ? "Rest" : `${currentIndex + 1} of ${totalItems}`}
         </span>
         <Button
           variant="outline"
-          size="sm"
-          className="h-8 gap-1 text-xs"
+          className={cn(WORKOUT_TOUCH, "gap-1")}
           disabled={currentIndex === totalItems - 1}
           onClick={() => setCurrentIndex((i) => Math.min(totalItems - 1, i + 1))}
         >
-          Next <ChevronRight className="h-3.5 w-3.5" />
+          Next <ChevronRight className="size-4" />
         </Button>
       </div>
 
       {/* Rest card */}
       {currentItem?.kind === "rest" && (
-        <Card className="overflow-hidden border-0 shadow-md ring-1 ring-border/50">
-          <div className={`h-1 w-full ${ROLE_CLASSES.info.dot}`} />
-          <CardContent className="p-4 sm:p-6 text-center space-y-4">
+        <Card className="relative">
+          <div className={`absolute inset-x-0 top-0 h-1 ${ROLE_CLASSES.info.dot}`} aria-hidden />
+          <CardContent className="space-y-4 py-3 text-center">
             <div className={`mx-auto flex h-16 w-16 items-center justify-center rounded-2xl ${ROLE_CLASSES.info.soft}`}>
               <Timer className={`h-8 w-8 ${ROLE_CLASSES.info.text}`} />
             </div>
             <div>
-              <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+              <p className="text-label text-muted-foreground">
                 {currentItem.blockName}
               </p>
-              <p className="text-lg font-bold mt-1">Rest Between Rounds</p>
-              <p className="text-xs text-muted-foreground mt-0.5">
+              <p className="mt-1 text-title">Rest between rounds</p>
+              <p className="mt-1 text-caption">
                 After round {currentItem.afterRound + 1} of {currentItem.totalRounds}
               </p>
             </div>
-            <div className={`text-5xl font-bold tabular-nums ${ROLE_CLASSES.info.text}`}>
+            <div className={`text-5xl font-semibold tabular-nums ${ROLE_CLASSES.info.text}`} aria-live="polite">
               {restCountdown !== null ? formatTime(restCountdown) : formatTime(currentItem.restSeconds)}
             </div>
             <Button
               variant="outline"
-              className="gap-2"
+              className={cn(WORKOUT_TOUCH, "gap-2 px-5")}
               onClick={() => { setRestCountdown(null); advanceToNext(); }}
             >
               <SkipForward className="h-4 w-4" />
@@ -693,15 +701,15 @@ export function WorkoutSessionTracker({
         const showAsSegments = activityType === "INTERVAL_RUN";
 
         return (
-          <Card className="overflow-hidden border-0 shadow-md ring-1 ring-border/50">
+          <Card className="gap-0 overflow-hidden py-0">
             <div className={`h-1 w-full ${isCompleted ? WORKOUT_STATE.completed.dot : isSkipped ? "bg-muted" : "bg-primary"}`} />
-            <CardContent className="p-5 space-y-4">
+            <CardContent className="space-y-5 p-5">
               {/* Block + round badges */}
               <div className="flex items-center gap-2 flex-wrap">
-                <Badge variant="secondary" className="text-[10px] px-1.5 py-0.5">{blockName}</Badge>
+                <Badge variant="secondary">{blockName}</Badge>
                 {isCircuit && totalRounds > 1 && (
-                  <Badge variant="outline" className={`text-[10px] px-1.5 py-0.5 ${ROLE_CLASSES.brand.soft} ${ROLE_CLASSES.brand.text} ${ROLE_CLASSES.brand.border}`}>
-                    <RotateCcw className="h-2.5 w-2.5 mr-1" />
+                  <Badge variant="outline" className={`${ROLE_CLASSES.brand.soft} ${ROLE_CLASSES.brand.text} ${ROLE_CLASSES.brand.border}`}>
+                    <RotateCcw className="mr-1 size-3" aria-hidden />
                     Round {round + 1} / {totalRounds}
                   </Badge>
                 )}
@@ -710,9 +718,9 @@ export function WorkoutSessionTracker({
               {/* Header */}
               <div className="flex items-start justify-between gap-2">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <h3 className="text-xl font-bold leading-tight">{blockExercise.exercise.name}</h3>
+                  <h3 className="text-title text-foreground">{blockExercise.exercise.name}</h3>
                   {isRunType && (
-                    <Badge variant="outline" className={`text-[10px] px-1.5 py-0.5 ${WORKOUT_STATE.current.soft} ${WORKOUT_STATE.current.text} ${WORKOUT_STATE.current.border} shrink-0`}>
+                    <Badge variant="outline" className={`${WORKOUT_STATE.current.soft} ${WORKOUT_STATE.current.text} ${WORKOUT_STATE.current.border} shrink-0`}>
                       {activityType === "INTERVAL_RUN" ? "Interval Run" : "Run"}
                     </Badge>
                   )}
@@ -723,7 +731,7 @@ export function WorkoutSessionTracker({
                   </Badge>
                 )}
                 {isSkipped && (
-                  <Badge className="bg-muted text-muted-foreground border shrink-0">Skipped</Badge>
+                  <Badge variant="secondary" className="shrink-0">Skipped</Badge>
                 )}
               </div>
 
@@ -746,17 +754,18 @@ export function WorkoutSessionTracker({
 
               {/* Instructions (collapsed by default) */}
               {blockExercise.exercise.instructions && (
-                <div className="rounded-xl bg-muted/40 px-4 py-3">
+                <div className="rounded-lg bg-surface-muted px-4">
                   <button
                     type="button"
                     onClick={() => setInstructionsExpanded((v) => !v)}
-                    className="flex w-full items-center justify-between text-sm font-semibold text-muted-foreground"
+                    aria-expanded={instructionsExpanded}
+                    className="flex min-h-11 w-full items-center justify-between rounded-sm text-label text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     Instructions
-                    <ChevronDown className={`h-4 w-4 transition-transform ${instructionsExpanded ? "rotate-180" : ""}`} />
+                    <ChevronDown className={`size-4 transition-transform motion-reduce:transition-none ${instructionsExpanded ? "rotate-180" : ""}`} aria-hidden />
                   </button>
                   {instructionsExpanded && (
-                    <ul className="mt-2 space-y-1 text-sm leading-relaxed text-muted-foreground list-disc pl-4">
+                    <ul className="list-disc space-y-1 pb-3 pl-4 text-body text-muted-foreground">
                       {instructionsToBullets(blockExercise.exercise.instructions).map((line, idx) => (
                         <li key={idx}>{line}</li>
                       ))}
@@ -767,8 +776,8 @@ export function WorkoutSessionTracker({
 
               {/* Trainer notes */}
               {blockExercise.notes && (
-                <div className="rounded-xl bg-muted/60 px-3 py-2.5">
-                  <p className={`text-sm ${WORKOUT_STATE.current.text}`}>
+                <div className="rounded-lg bg-surface-muted px-4 py-3">
+                  <p className={`text-body ${WORKOUT_STATE.current.text}`}>
                     <span className="font-semibold">Tip:</span>{" "}
                     <span className="italic">{blockExercise.notes}</span>
                   </p>
@@ -778,50 +787,48 @@ export function WorkoutSessionTracker({
               {/* Circuit: single round log entry (never for Interval Run — its segments are ordered, not repeating rounds) */}
               {isCircuit && !showAsSegments && targetSet && (
                 <div className="space-y-3">
-                  <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-                    Log Set
-                  </p>
-                  <div className={`flex items-center gap-3 rounded-xl border p-3 transition-colors ${activeSetLogs[0]?.completed ? `${WORKOUT_STATE.completed.border} ${WORKOUT_STATE.completed.soft}` : "border-border bg-background"}`}>
-                    <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold ${activeSetLogs[0]?.completed ? `${WORKOUT_STATE.completed.dot} text-white` : "bg-primary/10 text-primary"}`}>
+                  <p className="text-label text-muted-foreground">Log set</p>
+                  <div className={`flex items-center gap-3 rounded-lg border p-3 transition-colors ${activeSetLogs[0]?.completed ? `${WORKOUT_STATE.completed.border} ${WORKOUT_STATE.completed.soft}` : "border-border bg-surface"}`}>
+                    <div className={`flex size-9 shrink-0 items-center justify-center rounded-full text-label tabular-nums ${activeSetLogs[0]?.completed ? `${WORKOUT_STATE.completed.dot} text-white` : "bg-primary/10 text-primary"}`}>
                       {activeSetLogs[0]?.completed ? <Check className="h-4 w-4" /> : round + 1}
                     </div>
-                    <div className="flex-1 space-y-1.5">
+                    <div className="min-w-0 flex-1 space-y-2">
                       {isRunType && prescriptionSummary(targetSet) && (
-                        <p className="text-xs text-muted-foreground">{prescriptionSummary(targetSet)}</p>
+                        <p className="text-caption">{prescriptionSummary(targetSet)}</p>
                       )}
                       <div className="flex flex-wrap gap-2">
                         {!isRunType && targetSet.targetReps != null && (
-                          <div className="space-y-0.5">
-                            <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Reps completed</Label>
-                            <Input type="number" placeholder={targetSet.targetReps.toString()} value={activeSetLogs[0]?.actualReps ?? ""} onChange={(e) => handleSetInputChange(0, "actualReps", e.target.value)} className="h-8 w-20 text-sm" disabled={activeSetLogs[0]?.completed} />
-                          </div>
+                          <label className={SET_FIELD}>
+                            <span className={SET_FIELD_LABEL}>Reps completed</span>
+                            <Input type="number" placeholder={targetSet.targetReps.toString()} value={activeSetLogs[0]?.actualReps ?? ""} onChange={(e) => handleSetInputChange(0, "actualReps", e.target.value)} className={cn(SET_FIELD_INPUT, "w-20")} disabled={activeSetLogs[0]?.completed} />
+                          </label>
                         )}
                         {!isRunType && targetSet.targetWeight != null && (
-                          <div className="space-y-0.5">
-                            <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Weight</Label>
-                            <Input type="number" placeholder={targetSet.targetWeight.toString()} value={activeSetLogs[0]?.actualWeight ?? ""} onChange={(e) => handleSetInputChange(0, "actualWeight", e.target.value)} className="h-8 w-20 text-sm" disabled={activeSetLogs[0]?.completed} />
-                          </div>
+                          <label className={SET_FIELD}>
+                            <span className={SET_FIELD_LABEL}>Weight</span>
+                            <Input type="number" placeholder={targetSet.targetWeight.toString()} value={activeSetLogs[0]?.actualWeight ?? ""} onChange={(e) => handleSetInputChange(0, "actualWeight", e.target.value)} className={cn(SET_FIELD_INPUT, "w-20")} disabled={activeSetLogs[0]?.completed} />
+                          </label>
                         )}
                         {isRunType && targetSet.targetDistance != null && (
-                          <div className="space-y-0.5">
-                            <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Distance (mi)</Label>
-                            <Input type="number" step={0.1} placeholder={targetSet.targetDistance.toString()} value={activeSetLogs[0]?.actualDistance ?? ""} onChange={(e) => handleSetInputChange(0, "actualDistance", e.target.value)} className="h-8 w-20 text-sm" disabled={activeSetLogs[0]?.completed} />
-                          </div>
+                          <label className={SET_FIELD}>
+                            <span className={SET_FIELD_LABEL}>Distance (mi)</span>
+                            <Input type="number" step={0.1} placeholder={targetSet.targetDistance.toString()} value={activeSetLogs[0]?.actualDistance ?? ""} onChange={(e) => handleSetInputChange(0, "actualDistance", e.target.value)} className={cn(SET_FIELD_INPUT, "w-20")} disabled={activeSetLogs[0]?.completed} />
+                          </label>
                         )}
                         {targetSet.targetDuration != null && (
-                          <div className="space-y-0.5">
-                            <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">{targetSet.targetDurationUnit === "MIN" ? "Min" : "Secs"}</Label>
-                            <Input type="number" placeholder={targetSet.targetDuration.toString()} value={activeSetLogs[0]?.actualDuration ?? ""} onChange={(e) => handleSetInputChange(0, "actualDuration", e.target.value)} className="h-8 w-20 text-sm" disabled={activeSetLogs[0]?.completed} />
-                          </div>
+                          <label className={SET_FIELD}>
+                            <span className={SET_FIELD_LABEL}>{targetSet.targetDurationUnit === "MIN" ? "Min" : "Secs"}</span>
+                            <Input type="number" placeholder={targetSet.targetDuration.toString()} value={activeSetLogs[0]?.actualDuration ?? ""} onChange={(e) => handleSetInputChange(0, "actualDuration", e.target.value)} className={cn(SET_FIELD_INPUT, "w-20")} disabled={activeSetLogs[0]?.completed} />
+                          </label>
                         )}
-                        <div className="space-y-0.5">
-                          <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">RPE</Label>
-                          <Input type="number" min={0} max={10} placeholder={targetSet.targetRPE?.toString() ?? "—"} value={activeSetLogs[0]?.actualRPE ?? ""} onChange={(e) => handleSetInputChange(0, "actualRPE", e.target.value)} className="h-8 w-16 text-sm" disabled={activeSetLogs[0]?.completed} />
-                        </div>
+                        <label className={SET_FIELD}>
+                          <span className={SET_FIELD_LABEL}>RPE</span>
+                          <Input type="number" min={0} max={10} placeholder={targetSet.targetRPE?.toString() ?? "—"} value={activeSetLogs[0]?.actualRPE ?? ""} onChange={(e) => handleSetInputChange(0, "actualRPE", e.target.value)} className={cn(SET_FIELD_INPUT, "w-16")} disabled={activeSetLogs[0]?.completed} />
+                        </label>
                         {targetSet.restAfter != null && (
-                          <div className="space-y-0.5">
-                            <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Rest</Label>
-                            <p className="h-8 flex items-center text-sm text-muted-foreground">{targetSet.restAfter}s</p>
+                          <div className={SET_FIELD}>
+                            <span className={SET_FIELD_LABEL}>Rest</span>
+                            <p className={SET_FIELD_STATIC}>{targetSet.restAfter}s</p>
                           </div>
                         )}
                       </div>
@@ -829,11 +836,12 @@ export function WorkoutSessionTracker({
                     <Button
                       size="icon"
                       variant="outline"
-                      className={`h-8 w-8 shrink-0 rounded-full border-2 ${activeSetLogs[0]?.completed ? "border-success bg-success text-white hover:bg-success" : "border-muted-foreground/30 bg-transparent"}`}
+                      className={`${WORKOUT_TOUCH_ICON} shrink-0 rounded-full border-2 ${activeSetLogs[0]?.completed ? "border-success bg-success text-white hover:bg-success" : "border-muted-foreground/30 bg-transparent"}`}
+                      aria-label="Log set"
                       onClick={() => handleLogSet(0)}
                       disabled={activeSetLogs[0]?.completed || loggingSet === 0}
                     >
-                      {loggingSet === 0 ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                      {loggingSet === 0 ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
                     </Button>
                   </div>
                 </div>
@@ -842,7 +850,7 @@ export function WorkoutSessionTracker({
               {/* Normal: all sets (also used for Interval Run's ordered segments) */}
               {(!isCircuit || showAsSegments) && (
                 <div className="space-y-3">
-                  <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                  <p className="text-label text-muted-foreground">
                     {showAsSegments ? "Segments" : "Sets"}
                   </p>
                   {blockExercise.sets.map((set, i) => {
@@ -850,50 +858,50 @@ export function WorkoutSessionTracker({
                     const isSetDone = logData.completed;
                     const label = showAsSegments ? segmentLabel(set.setType, set.repeatCount) : null;
                     return (
-                      <div key={set.id} className={`flex items-center gap-3 rounded-xl border p-3 transition-colors ${isSetDone ? `${WORKOUT_STATE.completed.border} ${WORKOUT_STATE.completed.soft}` : "border-border bg-background"}`}>
-                        <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold ${isSetDone ? `${WORKOUT_STATE.completed.dot} text-white` : "bg-primary/10 text-primary"}`}>
+                      <div key={set.id} className={`flex items-center gap-3 rounded-lg border p-3 transition-colors ${isSetDone ? `${WORKOUT_STATE.completed.border} ${WORKOUT_STATE.completed.soft}` : "border-border bg-surface"}`}>
+                        <div className={`flex size-9 shrink-0 items-center justify-center rounded-full text-label tabular-nums ${isSetDone ? `${WORKOUT_STATE.completed.dot} text-white` : "bg-primary/10 text-primary"}`}>
                           {isSetDone ? <Check className="h-4 w-4" /> : i + 1}
                         </div>
-                        <div className="flex-1 space-y-1.5">
+                        <div className="min-w-0 flex-1 space-y-2">
                           {isRunType && (label || prescriptionSummary(set)) && (
-                            <p className="text-xs text-muted-foreground">
-                              {label && <span className="font-semibold text-foreground mr-1">{label}</span>}
+                            <p className="text-caption">
+                              {label && <span className="mr-1 font-medium text-foreground">{label}</span>}
                               {prescriptionSummary(set)}
                             </p>
                           )}
                           <div className="flex flex-wrap gap-2">
                             {!isRunType && set.targetReps != null && (
-                              <div className="space-y-0.5">
-                                <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Reps completed</Label>
-                                <Input type="number" placeholder={set.targetReps.toString()} value={logData.actualReps ?? ""} onChange={(e) => handleSetInputChange(i, "actualReps", e.target.value)} className="h-8 w-20 text-sm" disabled={isSetDone} />
-                              </div>
+                              <label className={SET_FIELD}>
+                                <span className={SET_FIELD_LABEL}>Reps completed</span>
+                                <Input type="number" placeholder={set.targetReps.toString()} value={logData.actualReps ?? ""} onChange={(e) => handleSetInputChange(i, "actualReps", e.target.value)} className={cn(SET_FIELD_INPUT, "w-20")} disabled={isSetDone} />
+                              </label>
                             )}
                             {!isRunType && set.targetWeight != null && (
-                              <div className="space-y-0.5">
-                                <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Weight</Label>
-                                <Input type="number" placeholder={set.targetWeight.toString()} value={logData.actualWeight ?? ""} onChange={(e) => handleSetInputChange(i, "actualWeight", e.target.value)} className="h-8 w-20 text-sm" disabled={isSetDone} />
-                              </div>
+                              <label className={SET_FIELD}>
+                                <span className={SET_FIELD_LABEL}>Weight</span>
+                                <Input type="number" placeholder={set.targetWeight.toString()} value={logData.actualWeight ?? ""} onChange={(e) => handleSetInputChange(i, "actualWeight", e.target.value)} className={cn(SET_FIELD_INPUT, "w-20")} disabled={isSetDone} />
+                              </label>
                             )}
                             {isRunType && set.targetDistance != null && (
-                              <div className="space-y-0.5">
-                                <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Distance (mi)</Label>
-                                <Input type="number" step={0.1} placeholder={set.targetDistance.toString()} value={logData.actualDistance ?? ""} onChange={(e) => handleSetInputChange(i, "actualDistance", e.target.value)} className="h-8 w-20 text-sm" disabled={isSetDone} />
-                              </div>
+                              <label className={SET_FIELD}>
+                                <span className={SET_FIELD_LABEL}>Distance (mi)</span>
+                                <Input type="number" step={0.1} placeholder={set.targetDistance.toString()} value={logData.actualDistance ?? ""} onChange={(e) => handleSetInputChange(i, "actualDistance", e.target.value)} className={cn(SET_FIELD_INPUT, "w-20")} disabled={isSetDone} />
+                              </label>
                             )}
                             {set.targetDuration != null && (
-                              <div className="space-y-0.5">
-                                <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">{set.targetDurationUnit === "MIN" ? "Min" : "Secs"}</Label>
-                                <Input type="number" placeholder={set.targetDuration.toString()} value={logData.actualDuration ?? ""} onChange={(e) => handleSetInputChange(i, "actualDuration", e.target.value)} className="h-8 w-20 text-sm" disabled={isSetDone} />
-                              </div>
+                              <label className={SET_FIELD}>
+                                <span className={SET_FIELD_LABEL}>{set.targetDurationUnit === "MIN" ? "Min" : "Secs"}</span>
+                                <Input type="number" placeholder={set.targetDuration.toString()} value={logData.actualDuration ?? ""} onChange={(e) => handleSetInputChange(i, "actualDuration", e.target.value)} className={cn(SET_FIELD_INPUT, "w-20")} disabled={isSetDone} />
+                              </label>
                             )}
-                            <div className="space-y-0.5">
-                              <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">RPE</Label>
-                              <Input type="number" min={0} max={10} placeholder={set.targetRPE?.toString() ?? "—"} value={logData.actualRPE ?? ""} onChange={(e) => handleSetInputChange(i, "actualRPE", e.target.value)} className="h-8 w-16 text-sm" disabled={isSetDone} />
-                            </div>
+                            <label className={SET_FIELD}>
+                              <span className={SET_FIELD_LABEL}>RPE</span>
+                              <Input type="number" min={0} max={10} placeholder={set.targetRPE?.toString() ?? "—"} value={logData.actualRPE ?? ""} onChange={(e) => handleSetInputChange(i, "actualRPE", e.target.value)} className={cn(SET_FIELD_INPUT, "w-16")} disabled={isSetDone} />
+                            </label>
                             {set.restAfter != null && (
-                              <div className="space-y-0.5">
-                                <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Rest</Label>
-                                <p className="h-8 flex items-center text-sm text-muted-foreground">{set.restAfter}s</p>
+                              <div className={SET_FIELD}>
+                                <span className={SET_FIELD_LABEL}>Rest</span>
+                                <p className={SET_FIELD_STATIC}>{set.restAfter}s</p>
                               </div>
                             )}
                           </div>
@@ -901,11 +909,12 @@ export function WorkoutSessionTracker({
                         <Button
                           size="icon"
                           variant="outline"
-                          className={`h-8 w-8 shrink-0 rounded-full border-2 ${isSetDone ? "border-success bg-success text-white hover:bg-success" : "border-muted-foreground/30 bg-transparent"}`}
+                          className={`${WORKOUT_TOUCH_ICON} shrink-0 rounded-full border-2 ${isSetDone ? "border-success bg-success text-white hover:bg-success" : "border-muted-foreground/30 bg-transparent"}`}
+                          aria-label={`Log set ${i + 1}`}
                           onClick={() => handleLogSet(i)}
                           disabled={isSetDone || loggingSet === i}
                         >
-                          {loggingSet === i ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                          {loggingSet === i ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
                         </Button>
                       </div>
                     );
@@ -914,30 +923,30 @@ export function WorkoutSessionTracker({
               )}
 
               {/* Client note */}
-              <div className={`space-y-1.5 rounded-xl ${ROLE_CLASSES.brand.soft} p-3`}>
-                <Label htmlFor={`client-note-${blockExercise.id}`} className={`text-xs font-semibold uppercase tracking-widest ${ROLE_CLASSES.brand.text}`}>
-                  Your Notes
+              <div className={`space-y-1.5 rounded-lg ${ROLE_CLASSES.brand.soft} p-3`}>
+                <Label htmlFor={`client-note-${blockExercise.id}`} className={ROLE_CLASSES.brand.text}>
+                  Your notes
                 </Label>
                 <Textarea
                   id={`client-note-${blockExercise.id}`}
                   placeholder="Anything you want your trainer to know about this exercise..."
                   value={clientNotes[blockExercise.id] ?? ""}
                   onChange={(e) => handleClientNoteChange(blockExercise.id, e.target.value)}
-                  className={`min-h-14 text-xs italic resize-none bg-background/70 ${ROLE_CLASSES.brand.border}`}
+                  className={`min-h-16 resize-none bg-surface ${ROLE_CLASSES.brand.border}`}
                 />
               </div>
 
               {/* Action buttons */}
-              <div className="flex gap-3 pt-1">
+              <div className="flex gap-3">
                 <Button
-                  className="h-11 flex-1"
+                  className="h-12 flex-1 sm:h-10"
                   onClick={handleCompleteAll}
                   disabled={isLoading}
                 >
                   {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
                   Complete
                 </Button>
-                <Button variant="outline" className="h-11 flex-1 gap-2" onClick={handleSkip} disabled={isLoading}>
+                <Button variant="outline" className="h-12 flex-1 gap-2 sm:h-10" onClick={handleSkip} disabled={isLoading}>
                   <SkipForward className="h-4 w-4" /> Skip
                 </Button>
               </div>
@@ -960,12 +969,12 @@ export function WorkoutSessionTracker({
           </DialogHeader>
           <div className="space-y-5 py-2">
             <div>
-              <Label className="font-semibold">
+              <Label htmlFor="session-rpe" className="font-semibold">
                 How hard was this session? <span className="font-normal text-muted-foreground">RPE {rpe}/10</span>
               </Label>
               <div className="mt-3 flex items-center gap-3">
                 <span className="text-xs text-muted-foreground">Easy</span>
-                <input type="range" min={0} max={10} value={rpe} onChange={(e) => setRpe(Number(e.target.value))} className="flex-1 accent-primary" />
+                <input id="session-rpe" type="range" min={0} max={10} value={rpe} onChange={(e) => setRpe(Number(e.target.value))} className="flex-1 accent-primary" />
                 <span className="text-xs text-muted-foreground">Max</span>
               </div>
               <div className="mt-2 flex gap-1">
@@ -975,8 +984,8 @@ export function WorkoutSessionTracker({
               </div>
             </div>
             <div className="space-y-1.5">
-              <Label className="font-semibold">Session Notes <span className="font-normal text-muted-foreground">(optional)</span></Label>
-              <Textarea placeholder="How did it feel? Any pain or discomfort to flag?" value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} className="resize-none" />
+              <Label htmlFor="session-notes" className="font-semibold">Session Notes <span className="font-normal text-muted-foreground">(optional)</span></Label>
+              <Textarea id="session-notes" placeholder="How did it feel? Any pain or discomfort to flag?" value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} className="resize-none" />
             </div>
             {!clientMemo ? (
               <div className="space-y-1.5">

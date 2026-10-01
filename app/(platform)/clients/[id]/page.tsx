@@ -158,13 +158,6 @@ export default async function ClientDetailPage({ params, searchParams }: Props) 
             { label: "Outcomes", href: `/clients/${id}/outcomes`, icon: BarChart3 },
             { label: "Photos & notes", href: `/clients/${id}/progress`, icon: Camera },
           ]}
-          tabs={
-            <TabsList variant="line">
-              <TabsTrigger value="calendar">Calendar</TabsTrigger>
-              <TabsTrigger value="programs">Programs ({assignedPrograms.length})</TabsTrigger>
-              {canMessage && <TabsTrigger value="messages">Messages</TabsTrigger>}
-            </TabsList>
-          }
         />
 
         {coachingPanel && <ClientCoachingPanel coaching={coachingPanel} />}
@@ -197,6 +190,17 @@ export default async function ClientDetailPage({ params, searchParams }: Props) 
           }
         />
 
+        {/* The tabs switch only the work area below; the coaching, adherence and
+            clinical summaries above stay put, so the tab strip sits here rather
+            than under the page title. */}
+        <div className="border-b border-border">
+          <TabsList variant="line">
+            <TabsTrigger value="calendar">Calendar</TabsTrigger>
+            <TabsTrigger value="programs">Programs ({assignedPrograms.length})</TabsTrigger>
+            {canMessage && <TabsTrigger value="messages">Messages</TabsTrigger>}
+          </TabsList>
+        </div>
+
         <TabsContent value="calendar">
           <ClientCalendar
             clientId={client.id}
@@ -216,7 +220,7 @@ export default async function ClientDetailPage({ params, searchParams }: Props) 
 
         {canMessage && (
         <TabsContent value="messages">
-          <Card className="overflow-hidden p-0 ring-1 ring-border shadow-none">
+          <Card className="gap-0 py-0">
             <div className="h-[70dvh] max-h-[640px]">
               <MessageThread
                 items={threadItems}

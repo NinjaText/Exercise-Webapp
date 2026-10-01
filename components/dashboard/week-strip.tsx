@@ -55,8 +55,8 @@ export function WeekStrip({ sessions, today = new Date() }: Props) {
       icon={CalendarDays}
       action={{ label: "View calendar", href: "/calendar" }}
     >
-      <div className="space-y-3">
-        <div className="grid grid-cols-7 gap-1.5">
+      <div className="space-y-4">
+        <div className="grid grid-cols-7 gap-1 sm:gap-2">
           {days.map((day) => (
             <WeekStripCell key={day.date.toISOString()} day={day} />
           ))}
@@ -65,8 +65,8 @@ export function WeekStrip({ sessions, today = new Date() }: Props) {
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
           {SESSION_STATUS_LEGEND.map((entry) => (
             <div key={entry.status} className="flex items-center gap-1.5">
-              <div className={cn("h-2 w-2 rounded-full", entry.dot)} />
-              <span className="text-[10px] text-muted-foreground">{entry.label}</span>
+              <div className={cn("size-2 rounded-full", entry.dot)} />
+              <span className="text-caption">{entry.label}</span>
             </div>
           ))}
         </div>
@@ -83,31 +83,32 @@ function WeekStripCell({ day }: { day: WeekStripDay }) {
 
   const content = (
     <>
-      <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+      <span className="text-caption font-medium">
         {format(date, "EEE")}
       </span>
-      <span className={cn("text-sm font-bold", currentDay && "text-primary")}>
+      <span className={cn("text-heading tabular-nums", currentDay && "text-primary")}>
         {format(date, "d")}
       </span>
       <span className="flex h-4 items-center justify-center">
         {completed ? (
-          <Check className="h-3.5 w-3.5 text-success" aria-hidden />
+          <Check className="size-3.5 text-success" aria-hidden />
         ) : session ? (
-          <span className={cn("h-2 w-2 rounded-full", getSessionStatusDot(session.status))} />
+          <span className={cn("size-2 rounded-full", getSessionStatusDot(session.status))} />
         ) : (
-          <span className="h-1 w-1 rounded-full bg-border" />
+          <span className="size-1 rounded-full bg-border-strong" />
         )}
       </span>
-      <span className="line-clamp-2 min-h-6 text-center text-[10px] leading-tight text-muted-foreground">
+      <span className="line-clamp-2 min-h-8 text-center text-caption">
         {label ?? "Rest"}
       </span>
     </>
   );
 
   const className = cn(
-    "flex flex-col items-center gap-1 rounded-lg border p-1.5 transition-colors",
-    currentDay ? "border-primary bg-primary/5" : "border-border/60",
-    session && "hover:bg-muted/60"
+    "flex min-w-0 flex-col items-center gap-1 rounded-lg border px-1 py-2 transition-colors motion-reduce:transition-none",
+    currentDay ? "border-primary bg-primary/5" : "border-border",
+    session &&
+      "outline-none hover:border-border-strong hover:bg-surface-muted focus-visible:ring-2 focus-visible:ring-ring"
   );
 
   if (!session) {

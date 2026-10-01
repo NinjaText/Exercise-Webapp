@@ -143,10 +143,11 @@ export default async function ExercisesPage({ searchParams }: Props) {
         <Link
           key={k}
           href={kindUrl(k)}
+          aria-current={activeKind === k ? "page" : undefined}
           className={cn(
-            "relative px-3 py-2 text-sm font-medium",
+            "relative inline-flex h-9 items-center rounded-sm px-3 text-label outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none",
             activeKind === k
-              ? "text-foreground after:absolute after:inset-x-0 after:-bottom-px after:h-0.5 after:bg-foreground"
+              ? "text-foreground after:absolute after:inset-x-0 after:-bottom-px after:h-0.5 after:rounded-full after:bg-primary"
               : "text-muted-foreground hover:text-foreground"
           )}
         >

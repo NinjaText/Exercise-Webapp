@@ -114,7 +114,7 @@ export default async function PlatformLayout({ children }: { children: React.Rea
   return (
     <SearchProvider>
       <BreadcrumbProvider>
-        <div data-app-shell className="flex h-dvh overflow-hidden bg-[oklch(0.97_0.005_247)]">
+        <div data-app-shell className="flex h-dvh overflow-hidden bg-canvas">
           <BrandStyle branding={branding} />
           <Sidebar
             role={user.role}
@@ -127,7 +127,7 @@ export default async function PlatformLayout({ children }: { children: React.Rea
             hiddenHrefs={hiddenHrefs}
             branding={brandingVm}
           />
-          <div className="flex flex-1 flex-col overflow-hidden">
+          <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
             <Header
               user={user}
               unreadMessageCount={unreadMessageCount}
@@ -136,7 +136,9 @@ export default async function PlatformLayout({ children }: { children: React.Rea
               branding={brandingVm}
               hiddenHrefs={hiddenHrefs}
             />
-            <main className="flex-1 overflow-y-auto p-4 pb-[calc(1rem_+_var(--tab-bar-height)_+_var(--safe-bottom))] sm:p-6 sm:pb-[calc(1.5rem_+_var(--tab-bar-height)_+_var(--safe-bottom))] lg:pb-6">
+            {/* Spec §2.1 gutter: 16 mobile / 24 ≥1024 / 32 ≥1536. Below lg the bottom
+                padding also clears the fixed tab bar and the safe area. */}
+            <main className="flex-1 overflow-y-auto p-4 pb-[calc(1rem_+_var(--tab-bar-height)_+_var(--safe-bottom))] lg:p-6 2xl:p-8">
               {memberTrialDays !== null && <MemberTrialBanner daysLeft={memberTrialDays} />}
               <div className="page-enter">{children}</div>
             </main>

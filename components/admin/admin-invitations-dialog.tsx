@@ -44,7 +44,7 @@ export function AdminInvitationsDialog({ clerkOrgId, trainerName }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={<Button variant="ghost" size="sm" className="gap-1.5 text-xs h-7 px-2" />}>
+      <DialogTrigger render={<Button variant="ghost" size="sm" className="gap-1.5" />}>
         <Mail className="h-3.5 w-3.5" />
         Invitations
       </DialogTrigger>

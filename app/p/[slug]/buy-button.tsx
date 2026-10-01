@@ -58,11 +58,11 @@ export function BuyButton({
           </span>
         </Label>
       )}
-      <Button onClick={handleBuy} disabled={loading} size="lg" className="h-11 w-full text-base">
+      <Button onClick={handleBuy} disabled={loading} size="lg" className="h-11 w-full">
         {loading && <Loader2 className="size-4 animate-spin" />}
         {loading ? "Starting checkout…" : "Buy Now"}
       </Button>
-      {error && <p className="text-sm text-destructive">{error}</p>}
+      {error && <p className="text-body text-danger-foreground" role="alert">{error}</p>}
     </div>
   );
 }

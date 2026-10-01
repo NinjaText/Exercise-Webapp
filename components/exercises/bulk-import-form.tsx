@@ -143,7 +143,7 @@ function VideoSelectionGrid({
   );
 }
 
-interface ExerciseRow {
+export interface ExerciseRow {
   rowId: string;
   videoUrl: string;
   videoFileName: string;
@@ -547,10 +547,10 @@ export function BulkImportForm() {
   // ── Render ───────────────────────────────────────────────────────────────────
 
   return (
-    <div className="space-y-8">
+    <div className="flex flex-col gap-6">
 
       {/* ── Mode tabs ── */}
-      <div className="flex gap-1 rounded-xl border bg-muted/40 p-1">
+      <div className="flex gap-1 rounded-xl border border-border bg-surface-muted p-1">
         <button
           type="button"
           onClick={() => setMode("youtube")}
@@ -593,7 +593,7 @@ export function BulkImportForm() {
       </div>
 
       {/* ── Exercise Context ── */}
-      <div className="flex flex-col gap-3 rounded-xl border bg-muted/40 p-4 md:flex-row md:items-center md:justify-between">
+      <div className="flex flex-col gap-3 rounded-xl border border-border bg-surface-muted p-4 md:flex-row md:items-center md:justify-between">
         <div className="md:max-w-xs">
           <p className="text-sm font-medium">Exercise Context</p>
           <p className="text-xs text-muted-foreground">
@@ -610,7 +610,7 @@ export function BulkImportForm() {
       {/* ── YouTube URLs panel ── */}
       {mode === "youtube" && (
         <div className="space-y-4">
-          <div className="rounded-xl border bg-background shadow-sm">
+          <div className="rounded-xl bg-card shadow-xs ring-1 ring-border">
             <div className="border-b px-5 py-4">
               <p className="font-medium">Paste YouTube URLs</p>
               <p className="mt-0.5 text-sm text-muted-foreground">
@@ -672,7 +672,7 @@ export function BulkImportForm() {
       {/* ── Playlist panel ── */}
       {mode === "playlist" && (
         <div className="space-y-4">
-          <div className="rounded-xl border bg-background shadow-sm">
+          <div className="rounded-xl bg-card shadow-xs ring-1 ring-border">
             <div className="border-b px-5 py-4">
               <p className="font-medium">Import from YouTube Playlist</p>
               <p className="mt-0.5 text-sm text-muted-foreground">
@@ -761,7 +761,7 @@ export function BulkImportForm() {
       {/* ── Search panel ── */}
       {mode === "search" && (
         <div className="space-y-4">
-          <div className="rounded-xl border bg-background shadow-sm">
+          <div className="rounded-xl bg-card shadow-xs ring-1 ring-border">
             <div className="border-b px-5 py-4">
               <p className="font-medium">Discover Exercises from YouTube</p>
               <p className="mt-0.5 text-sm text-muted-foreground">
@@ -875,7 +875,7 @@ export function BulkImportForm() {
 
           {/* Sticky publish bar */}
           <div className="sticky bottom-4 z-10">
-            <div className="flex items-center justify-between rounded-xl border bg-background px-5 py-4 shadow-lg">
+            <div className="flex items-center justify-between rounded-xl bg-card px-5 py-4 shadow-lg ring-1 ring-border">
               <div>
                 <p className="font-semibold">
                   {readyCount} of {rows.length} ready to publish
@@ -914,12 +914,12 @@ interface RowProps {
   onToggleBodyRegion: (region: string) => void;
 }
 
-function ExerciseRowCard({ row, index, onUpdate, onRemove, onGenerate, onToggleEquipment, onToggleBodyRegion }: RowProps) {
+export function ExerciseRowCard({ row, index, onUpdate, onRemove, onGenerate, onToggleEquipment, onToggleBodyRegion }: RowProps) {
   const isReady = !!(row.name.trim() && row.bodyRegion.length > 0 && row.difficultyLevel);
   const isYT = isYouTubeUrl(row.videoUrl);
 
   return (
-    <div className={`rounded-xl border bg-background shadow-sm transition-colors ${isReady ? "border-success-border" : ""}`}>
+    <div className={`rounded-xl bg-card shadow-xs ring-1 ring-border transition-colors ${isReady ? "ring-success-border" : ""}`}>
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3">
         <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold">
@@ -969,7 +969,8 @@ function ExerciseRowCard({ row, index, onUpdate, onRemove, onGenerate, onToggleE
         />
         <Button
           type="button"
-          variant={row.aiStatus === "done" ? "secondary" : "outline"}
+          variant="outline"
+          data-state={row.aiStatus === "done" ? "on" : "off"}
           onClick={onGenerate}
           disabled={row.aiStatus === "loading" || !row.name.trim()}
           className="shrink-0"

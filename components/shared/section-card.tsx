@@ -16,6 +16,8 @@ export interface SectionCardProps {
   children: React.ReactNode;
   className?: string;
   contentClassName?: string;
+  /** "compact" uses 16px padding instead of 20px (spec §2.1). */
+  size?: "default" | "compact";
   /**
    * Makes the whole card a link with the clickable hover treatment.
    * When set, a link-shaped `action` renders as a plain label because the
@@ -38,9 +40,13 @@ function isLinkAction(a: SectionCardProps["action"]): a is LinkAction {
 }
 
 /**
- * The standard content panel: icon + title + optional count on the left,
- * one action on the right, body below. Every dashboard card and detail
- * panel uses this so headers and "View all" links match (spec §5).
+ * The standard content panel (spec §2.3): surface, hairline ring, shadow-xs,
+ * rounded-xl. Header row with icon + title + optional count and description
+ * on the left and one action on the right, body below. Padding 20 (compact 16).
+ *
+ * Padding contract: the header and the body carry their own padding (the Card
+ * root is `py-0 gap-0`), so `contentClassName="px-0 pb-0"` makes the body
+ * edge-to-edge for lists.
  */
 export function SectionCard({
   title,
@@ -51,43 +57,60 @@ export function SectionCard({
   children,
   className,
   contentClassName,
+  size = "default",
   href,
 }: SectionCardProps) {
+  const compact = size === "compact";
+  const actionClass = "inline-flex shrink-0 items-center gap-1 text-label text-primary";
+
   const card = (
     <Card
       data-slot="section-card"
+      data-size={size}
       className={cn(
-        "gap-0 py-0 ring-1 ring-border",
-        href && "transition-shadow hover:shadow-sm hover:ring-border-strong",
+        "gap-0 py-0",
+        href && "transition-shadow hover:shadow-sm hover:ring-border-strong motion-reduce:transition-none",
         className
       )}
     >
-      <div className="flex items-start justify-between gap-3 px-5 pt-4 pb-3">
-        <div className="flex min-w-0 items-center gap-2">
-          {Icon && <Icon className="size-4 shrink-0 text-muted-foreground" aria-hidden />}
-          <h2 className="truncate text-base font-semibold tracking-tight">{title}</h2>
-          {typeof count === "number" && (
-            <span
-              data-slot="section-card-count"
-              className="rounded-full bg-neutral-soft px-1.5 text-xs font-medium tabular-nums text-neutral-foreground"
-            >
-              {count}
-            </span>
-          )}
+      <div
+        data-slot="section-card-header"
+        className={cn(
+          "flex items-start justify-between gap-3",
+          compact ? "px-4 pt-4 pb-3" : "px-5 pt-5 pb-4"
+        )}
+      >
+        <div className="flex min-w-0 flex-col gap-1">
+          <div className="flex min-w-0 items-center gap-2">
+            {Icon && <Icon className="size-4 shrink-0 text-muted-foreground" aria-hidden />}
+            <h2 className="truncate text-heading text-foreground">{title}</h2>
+            {typeof count === "number" && (
+              <span
+                data-slot="section-card-count"
+                className="rounded-full bg-neutral-soft px-1.5 text-xs font-medium tabular-nums text-neutral-foreground"
+              >
+                {count}
+              </span>
+            )}
+          </div>
+          {description && <p className="text-body text-muted-foreground">{description}</p>}
         </div>
         {action &&
           (isLinkAction(action) ? (
             href ? (
               // The whole card is already a link — a nested <a> is invalid
               // HTML, so render the same label/icon as a plain span instead.
-              <span className="inline-flex shrink-0 items-center gap-1 text-sm font-medium text-primary">
+              <span className={actionClass}>
                 {action.label}
                 <ArrowRight className="size-3.5" aria-hidden />
               </span>
             ) : (
               <Link
                 href={action.href}
-                className="inline-flex shrink-0 items-center gap-1 text-sm font-medium text-primary hover:underline"
+                className={cn(
+                  actionClass,
+                  "rounded-sm outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+                )}
               >
                 {action.label}
                 <ArrowRight className="size-3.5" aria-hidden />
@@ -97,8 +120,9 @@ export function SectionCard({
             <div className="shrink-0">{action}</div>
           ))}
       </div>
-      {description && <p className="px-5 pb-3 text-sm text-muted-foreground">{description}</p>}
-      <CardContent className={cn("px-5 pb-5", contentClassName)}>{children}</CardContent>
+      <CardContent className={cn(compact ? "px-4 pb-4" : "px-5 pb-5", contentClassName)}>
+        {children}
+      </CardContent>
     </Card>
   );
 

@@ -3,8 +3,9 @@ import { stripe } from "@/lib/stripe";
 import { getOrgBranding } from "@/lib/services/branding.service";
 import { toViewModel } from "@/lib/branding/types";
 import { BrandStyle } from "@/components/branding/brand-style";
-import { OrgIdentity } from "@/components/branding/org-identity";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { AuthShell } from "@/components/auth/auth-shell";
+import { PlanCard } from "@/components/billing/plan-card";
+import { StatusBanner } from "@/components/billing/status-banner";
 import { hasScheduledSubscription, trialDaysLeft } from "@/lib/billing/access";
 import { formatStripeAmount } from "@/lib/utils/money";
 import { getCoachingViewModel } from "@/lib/clubs/coaching-view";
@@ -29,7 +30,7 @@ export async function MemberBillingView({
   const branding = await getOrgBranding(org.clerkOrgId);
   const price = org.stripePriceId ? await stripe.prices.retrieve(org.stripePriceId).catch(() => null) : null;
   const priceLabel = price?.unit_amount != null
-    ? `${formatStripeAmount(price.unit_amount, price.currency)} / ${price.recurring?.interval ?? "month"}`
+    ? { price: formatStripeAmount(price.unit_amount, price.currency), interval: price.recurring?.interval ?? "month" }
     : null;
   const coaching = await getCoachingViewModel({ id: userId, role: "CLIENT", clerkOrgId: org.clerkOrgId });
   const coachingLink = coaching ? memberCoachingLinkLabel(coaching.status) : null;
@@ -41,58 +42,61 @@ export async function MemberBillingView({
   const hasSubscription = isActive || scheduled || sub?.status === "UNPAID";
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-[oklch(0.97_0.005_247)] px-4 py-12">
+    <>
       <BrandStyle branding={branding} />
-      <OrgIdentity branding={toViewModel(branding)} surface="light" />
-      {reason === "trial_expired" && (
-        <p className="rounded-lg border border-neutral-border bg-neutral-soft px-4 py-3 text-sm text-neutral-foreground">
-          Your free trial has ended. Subscribe to keep training.
-        </p>
-      )}
-      {reason === "payment_failed" && (
-        <p className="rounded-lg border border-danger-border bg-danger-soft px-4 py-3 text-sm text-danger-foreground">
-          Your last payment failed — update your card to restore access.
-        </p>
-      )}
-      <Card className="w-full max-w-sm">
-        <CardHeader>
-          <CardTitle>{branding.displayName} membership</CardTitle>
-          <CardDescription>
-            {daysLeft !== null ? `${daysLeft} day${daysLeft === 1 ? "" : "s"} left in your free trial.` : null}
-            {scheduled ? " Your membership starts automatically when it ends." : null}
-            {isActive ? "Your membership is active." : null}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {priceLabel && <p className="text-2xl font-semibold text-foreground">{priceLabel}</p>}
-          <MemberBillingButtons
-            canSubscribe={!hasSubscription && Boolean(org.stripePriceId)}
-            canManage={Boolean(sub?.stripeCustomerId)}
-            missingPrice={!org.stripePriceId}
-          />
-        </CardContent>
-      </Card>
-      {coaching && (
-        <Card className="w-full max-w-sm">
-          <CardHeader>
-            <CardTitle>Coaching</CardTitle>
-            <CardDescription>{COACHING_COPY[coaching.status ?? "NONE"]}</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {coaching.priceLabel && <p className="text-2xl font-semibold text-foreground">{coaching.priceLabel}</p>}
+      <AuthShell
+        branding={toViewModel(branding)}
+        headline={`${branding.displayName} membership`}
+        subhead={isActive ? "Your membership is active." : "Manage your membership and billing."}
+      >
+        <div className="flex flex-col gap-6">
+          {reason === "trial_expired" && (
+            <StatusBanner tone="neutral">Your free trial has ended. Subscribe to keep training.</StatusBanner>
+          )}
+          {reason === "payment_failed" && (
+            <StatusBanner tone="danger">
+              Your last payment failed — update your card to restore access.
+            </StatusBanner>
+          )}
+          {daysLeft !== null && (
+            <StatusBanner tone="info">
+              {daysLeft} day{daysLeft === 1 ? "" : "s"} left in your free trial.
+              {scheduled ? " Your membership starts automatically when it ends." : null}
+            </StatusBanner>
+          )}
+          <PlanCard
+            name="Monthly membership"
+            price={priceLabel?.price}
+            cadence={priceLabel ? `/ ${priceLabel.interval}` : undefined}
+            billedNote={priceLabel ? `Billed ${priceLabel.interval === "month" ? "monthly" : `per ${priceLabel.interval}`}` : undefined}
+            features={["Your club's training programs", "Workout logging and progress tracking"]}
+          >
             <MemberBillingButtons
-              canSubscribe={false}
-              canManage={coaching.status === "ACTIVE" || coaching.status === "PAST_DUE"}
-              missingPrice={false}
+              canSubscribe={!hasSubscription && Boolean(org.stripePriceId)}
+              canManage={Boolean(sub?.stripeCustomerId)}
+              missingPrice={!org.stripePriceId}
             />
-            {coachingLink && (
-              <Button asChild variant="outline" className="w-full">
-                <Link href="/dashboard">{coachingLink}</Link>
-              </Button>
-            )}
-          </CardContent>
-        </Card>
-      )}
-    </div>
+          </PlanCard>
+          {coaching && (
+            <PlanCard
+              name="Coaching"
+              price={coaching.priceLabel ?? undefined}
+              billedNote={COACHING_COPY[coaching.status ?? "NONE"]}
+            >
+              <MemberBillingButtons
+                canSubscribe={false}
+                canManage={coaching.status === "ACTIVE" || coaching.status === "PAST_DUE"}
+                missingPrice={false}
+              />
+              {coachingLink && (
+                <Button asChild variant="outline" size="lg" className="h-11 w-full">
+                  <Link href="/dashboard">{coachingLink}</Link>
+                </Button>
+              )}
+            </PlanCard>
+          )}
+        </div>
+      </AuthShell>
+    </>
   );
 }

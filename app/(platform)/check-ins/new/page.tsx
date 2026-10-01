@@ -13,8 +13,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
+import { PageShell } from "@/components/shared/page-shell";
+import { PageHeader } from "@/components/shared/page-header";
+import { SectionCard } from "@/components/shared/section-card";
+import { FormField } from "@/components/shared/form-section";
+import { StatusBadge } from "@/components/shared/status-badge";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { createCheckInTemplateAction } from "@/actions/checkin-actions";
@@ -24,7 +28,6 @@ import {
   ChevronUp,
   ChevronDown,
   Sparkles,
-  ArrowLeft,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -218,42 +221,27 @@ export default function NewCheckInTemplatePage() {
   // ── Render ──
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" asChild>
-          <Link href="/check-ins">
-            <ArrowLeft className="h-4 w-4" />
-          </Link>
-        </Button>
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight">
-            New Check-in Template
-          </h2>
-          <p className="text-muted-foreground text-sm">
-            Build a reusable questionnaire to send to clients on a schedule.
-          </p>
-        </div>
-      </div>
+    <PageShell width="narrow">
+      <PageHeader
+        title="New Check-in Template"
+        description="Build a reusable questionnaire to send to clients on a schedule."
+        back={{ label: "Back to check-ins", href: "/check-ins" }}
+        breadcrumb={[{ label: "Check-ins", href: "/check-ins" }, { label: "New template" }]}
+      />
 
       {/* Template info */}
-      <Card className="ring-1 ring-border shadow-none">
-        <CardHeader className="pb-4">
-          <CardTitle className="text-base">Template Details</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="name">Template Name</Label>
+      <SectionCard title="Template Details">
+        <div className="flex flex-col gap-4">
+          <FormField label="Template Name" htmlFor="name">
             <Input
               id="name"
               placeholder="e.g. Weekly Pain & Recovery Check-in"
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
-          </div>
+          </FormField>
 
-          <div className="space-y-2">
-            <Label htmlFor="description">Description (optional)</Label>
+          <FormField label="Description (optional)" htmlFor="description">
             <Textarea
               id="description"
               placeholder="Briefly describe the purpose of this check-in..."
@@ -261,10 +249,9 @@ export default function NewCheckInTemplatePage() {
               value={description}
               onChange={(e) => setDescription(e.target.value)}
             />
-          </div>
+          </FormField>
 
-          <div className="space-y-2">
-            <Label htmlFor="frequency">Frequency</Label>
+          <FormField label="Frequency" htmlFor="frequency">
             <Select
               value={frequency}
               onValueChange={(v) => setFrequency(v as Frequency)}
@@ -278,71 +265,55 @@ export default function NewCheckInTemplatePage() {
                 <SelectItem value="MONTHLY">Monthly</SelectItem>
               </SelectContent>
             </Select>
-          </div>
-        </CardContent>
-      </Card>
+          </FormField>
+        </div>
+      </SectionCard>
 
       {/* Quick suggestions */}
-      <Card className="ring-1 ring-border shadow-none">
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Sparkles className="h-4 w-4 text-brand" />
-            Quick Add Suggestions
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
+      <SectionCard title="Quick Add Suggestions" icon={Sparkles}>
           <div className="flex flex-wrap gap-2">
             {SUGGESTIONS.map((s) => (
               <button
                 key={s.questionText}
                 type="button"
                 onClick={() => addSuggestion(s)}
-                className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-muted/40 px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted hover:border-border"
+                className="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-border bg-surface px-3 py-1.5 text-caption font-medium text-foreground outline-none transition-colors hover:border-border-strong hover:bg-surface-muted focus-visible:ring-3 focus-visible:ring-ring/50 motion-reduce:transition-none"
               >
-                <Plus className="h-3 w-3 shrink-0" />
+                <Plus className="size-3 shrink-0" aria-hidden />
                 {s.questionText}
               </button>
             ))}
           </div>
-        </CardContent>
-      </Card>
+      </SectionCard>
 
       {/* Questions */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h3 className="font-semibold">
+      <section aria-labelledby="checkin-questions" className="flex flex-col gap-4">
+        <div className="flex items-center justify-between gap-3">
+          <h2 id="checkin-questions" className="text-heading text-foreground">
             Questions{" "}
-            <span className="font-normal text-muted-foreground text-sm">
+            <span className="text-body font-normal text-muted-foreground tabular-nums">
               ({questions.filter((q) => q.questionText.trim()).length})
             </span>
-          </h3>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={addQuestion}
-            className="gap-2"
-          >
-            <Plus className="h-4 w-4" />
+          </h2>
+          <Button type="button" variant="outline" size="sm" onClick={addQuestion}>
+            <Plus />
             Add Question
           </Button>
         </div>
 
-        <div className="space-y-3">
+        <div className="flex flex-col gap-3">
           {questions.map((q, idx) => (
-            <Card
-              key={q.id}
-              className="ring-1 ring-border shadow-none"
-            >
-              <CardContent className="p-4 space-y-4">
+            <Card key={q.id} size="sm" className="gap-0 py-0">
+              <CardContent className="flex flex-col gap-4 p-4">
                 {/* Row: order controls + type badge + delete */}
                 <div className="flex items-center gap-2">
-                  <div className="flex flex-col gap-0.5">
+                  <div className="flex flex-col">
                     <button
                       type="button"
                       onClick={() => moveQuestion(idx, "up")}
                       disabled={idx === 0}
-                      className="rounded p-0.5 text-muted-foreground hover:text-foreground disabled:opacity-30"
+                      aria-label="Move question up"
+                      className="inline-flex size-8 items-center justify-center rounded text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-30"
                     >
                       <ChevronUp className="h-3.5 w-3.5" />
                     </button>
@@ -350,22 +321,25 @@ export default function NewCheckInTemplatePage() {
                       type="button"
                       onClick={() => moveQuestion(idx, "down")}
                       disabled={idx === questions.length - 1}
-                      className="rounded p-0.5 text-muted-foreground hover:text-foreground disabled:opacity-30"
+                      aria-label="Move question down"
+                      className="inline-flex size-8 items-center justify-center rounded text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-30"
                     >
                       <ChevronDown className="h-3.5 w-3.5" />
                     </button>
                   </div>
 
-                  <span className="text-xs text-muted-foreground w-4 text-center">
+                  <span className="w-4 text-center text-caption tabular-nums">
                     {idx + 1}
                   </span>
 
-                  <Badge
-                    variant="outline"
-                    className="border-border/60 text-[10px] text-muted-foreground ml-1"
-                  >
-                    {questionTypeLabel(q.questionType)}
-                  </Badge>
+                  <StatusBadge
+                    status={q.questionType}
+                    label={questionTypeLabel(q.questionType)}
+                    role="neutral"
+                    dot={false}
+                    size="sm"
+                    className="ml-1"
+                  />
 
                   <div className="ml-auto flex items-center gap-3">
                     <div className="flex items-center gap-2">
@@ -378,27 +352,29 @@ export default function NewCheckInTemplatePage() {
                       />
                       <Label
                         htmlFor={`required-${q.id}`}
-                        className="text-xs text-muted-foreground cursor-pointer"
+                        className="cursor-pointer text-caption"
                       >
                         Required
                       </Label>
                     </div>
-                    <button
+                    <Button
                       type="button"
+                      variant="ghost"
+                      size="icon-sm"
                       onClick={() => removeQuestion(q.id)}
-                      className="rounded p-1 text-muted-foreground hover:text-destructive transition-colors"
+                      aria-label="Remove question"
+                      className="text-muted-foreground hover:text-destructive"
                     >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                      <Trash2 />
+                    </Button>
                   </div>
                 </div>
 
                 {/* Question text */}
-                <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">
-                    Question
-                  </Label>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor={`question-${q.id}`}>Question</Label>
                   <Input
+                    id={`question-${q.id}`}
                     placeholder="Enter your question..."
                     value={q.questionText}
                     onChange={(e) =>
@@ -408,10 +384,8 @@ export default function NewCheckInTemplatePage() {
                 </div>
 
                 {/* Question type */}
-                <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">
-                    Answer Type
-                  </Label>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor={`type-${q.id}`}>Answer Type</Label>
                   <Select
                     value={q.questionType}
                     onValueChange={(v) =>
@@ -422,7 +396,7 @@ export default function NewCheckInTemplatePage() {
                       })
                     }
                   >
-                    <SelectTrigger>
+                    <SelectTrigger id={`type-${q.id}`}>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -438,27 +412,29 @@ export default function NewCheckInTemplatePage() {
 
                 {/* Multiple choice options */}
                 {q.questionType === "MULTIPLE_CHOICE" && (
-                  <div className="space-y-2">
-                    <Label className="text-xs text-muted-foreground">
-                      Options
-                    </Label>
-                    <div className="space-y-2">
+                  <div className="flex flex-col gap-1.5">
+                    <Label>Options</Label>
+                    <div className="flex flex-col gap-2">
                       {q.options.map((opt, oi) => (
                         <div key={oi} className="flex items-center gap-2">
                           <Input
+                            aria-label={`Option ${oi + 1}`}
                             placeholder={`Option ${oi + 1}`}
                             value={opt}
                             onChange={(e) =>
                               updateOption(q.id, oi, e.target.value)
                             }
                           />
-                          <button
+                          <Button
                             type="button"
+                            variant="ghost"
+                            size="icon-sm"
                             onClick={() => removeOption(q.id, oi)}
-                            className="shrink-0 rounded p-1 text-muted-foreground hover:text-destructive transition-colors"
+                            aria-label={`Remove option ${oi + 1}`}
+                            className="shrink-0 text-muted-foreground hover:text-destructive"
                           >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
+                            <Trash2 />
+                          </Button>
                         </div>
                       ))}
                       <Button
@@ -466,9 +442,9 @@ export default function NewCheckInTemplatePage() {
                         variant="ghost"
                         size="sm"
                         onClick={() => addOption(q.id)}
-                        className="gap-2 text-muted-foreground hover:text-foreground"
+                        className="w-fit text-muted-foreground hover:text-foreground"
                       >
-                        <Plus className="h-3.5 w-3.5" />
+                        <Plus />
                         Add Option
                       </Button>
                     </div>
@@ -482,27 +458,23 @@ export default function NewCheckInTemplatePage() {
         <Button
           type="button"
           variant="outline"
-          className="w-full gap-2 border-dashed"
+          className="w-full border-dashed"
           onClick={addQuestion}
         >
-          <Plus className="h-4 w-4" />
+          <Plus />
           Add Another Question
         </Button>
-      </div>
+      </section>
 
       {/* Footer actions */}
-      <div className="flex items-center justify-end gap-3 pb-8">
+      <div className="flex items-center justify-end gap-2 border-t border-border pt-6">
         <Button variant="outline" asChild>
           <Link href="/check-ins">Cancel</Link>
         </Button>
-        <Button
-          onClick={handleSave}
-          disabled={saving}
-          className="gap-2"
-        >
+        <Button onClick={handleSave} disabled={saving}>
           {saving ? "Saving..." : "Save Template"}
         </Button>
       </div>
-    </div>
+    </PageShell>
   );
 }

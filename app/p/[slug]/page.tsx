@@ -6,7 +6,7 @@ import { toViewModel } from "@/lib/branding/types";
 import { brandIconsMetadata } from "@/lib/branding/metadata";
 import { BrandStyle } from "@/components/branding/brand-style";
 import { OrgIdentity } from "@/components/branding/org-identity";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { BuyButton } from "./buy-button";
 
 export async function generateMetadata({
@@ -43,22 +43,22 @@ export default async function SalesPage({
   const bundle = pkg.upsell && pkg.upsell.programTemplateId ? pkg.upsell : null;
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-muted to-info-soft px-4 py-12">
+    <div className="flex min-h-dvh items-center justify-center bg-canvas px-4 py-12">
       <BrandStyle branding={branding} />
       <div className="w-full max-w-md">
-        <div className="mb-6 flex items-center justify-center gap-2.5">
+        <div className="mb-8 flex items-center justify-center gap-2.5">
           <OrgIdentity branding={brandingVm} surface="light" />
         </div>
-        <div className="mb-8 text-center">
-          <h1 className="text-2xl font-bold text-foreground">{pkg.name}</h1>
-          {pkg.description && <p className="mt-1 text-muted-foreground">{pkg.description}</p>}
-        </div>
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-3xl font-bold">${price}</CardTitle>
-            <CardDescription>One-time payment</CardDescription>
+        <Card className="gap-6 py-6 shadow-md">
+          <CardHeader className="gap-2">
+            <h1 className="text-title text-balance text-foreground">{pkg.name}</h1>
+            {pkg.description && <p className="text-body text-muted-foreground">{pkg.description}</p>}
           </CardHeader>
-          <CardContent>
+          <CardContent className="flex flex-col gap-6">
+            <div className="flex flex-col gap-1">
+              <p className="text-display tabular-nums text-foreground">${price}</p>
+              <p className="text-caption">One-time payment</p>
+            </div>
             <BuyButton
               slug={pkg.slug!}
               bundle={

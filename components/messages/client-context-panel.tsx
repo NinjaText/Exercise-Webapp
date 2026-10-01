@@ -17,22 +17,24 @@ export function ClientContextPanel({ client, data }: ClientContextPanelProps) {
   const lastMessage = messages[messages.length - 1];
   const category = lastMessage ? getMessageCategory(lastMessage) : "message";
 
+  const sectionTitle = "mb-3 text-caption font-medium uppercase tracking-wide";
+
   return (
-    <div className="h-full space-y-4 overflow-y-auto p-4">
+    <div className="flex h-full flex-col divide-y divide-border overflow-y-auto bg-surface-muted/40">
       {lastMessage && category !== "message" && (
-        <section className="rounded-xl border border-border bg-card p-4">
-          <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Context</h3>
+        <section className="p-4">
+          <h3 className={sectionTitle}>Context</h3>
           <div className="flex items-start gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted">
-              <Dumbbell className="h-4 w-4 text-muted-foreground" />
+            <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-surface ring-1 ring-border">
+              <Dumbbell className="size-4 text-muted-foreground" aria-hidden />
             </div>
-            <div className="min-w-0">
-              <p className="text-sm font-medium text-foreground">
+            <div className="flex min-w-0 flex-col gap-0.5">
+              <p className="text-label text-foreground">
                 {MESSAGE_CATEGORY_LABEL[category]}
                 {lastMessage.replyToExerciseName ? `: ${lastMessage.replyToExerciseName}` : ""}
               </p>
               {program && (
-                <Link href={`/programs/${program.id}`} className="text-xs text-primary hover:underline">
+                <Link href={`/programs/${program.id}`} className="w-fit rounded-sm text-caption text-primary outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring">
                   View Program
                 </Link>
               )}
@@ -41,38 +43,36 @@ export function ClientContextPanel({ client, data }: ClientContextPanelProps) {
         </section>
       )}
 
-      <section className="rounded-xl border border-border bg-card p-4">
-        <div className="mb-3 flex items-center justify-between">
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Client Overview</h3>
-          <Link href={`/clients/${client.id}`} className="text-xs text-primary hover:underline">
+      <section className="p-4">
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <h3 className="text-caption font-medium uppercase tracking-wide">Client Overview</h3>
+          <Link href={`/clients/${client.id}`} className="rounded-sm text-caption text-primary outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring">
             View profile
           </Link>
         </div>
-        <p className="mb-3 text-sm font-semibold text-foreground">
-          {getDisplayName(client)}
-        </p>
-        <dl className="space-y-2 text-sm">
-          <div className="flex items-center justify-between">
+        <p className="mb-3 text-heading text-foreground">{getDisplayName(client)}</p>
+        <dl className="flex flex-col gap-2.5 text-body">
+          <div className="flex items-center justify-between gap-3">
             <dt className="text-muted-foreground">Program</dt>
             <dd className="max-w-[60%] truncate text-right font-medium text-foreground">
               {program?.name ?? "None assigned"}
             </dd>
           </div>
           {program && (
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-3">
               <dt className="text-muted-foreground">Status</dt>
               <dd><PlanStatusBadge status={program.status} /></dd>
             </div>
           )}
           {stats && (
-            <div className="flex items-center justify-between">
-              <dt className="text-muted-foreground">Workouts Completed</dt>
-              <dd className="font-medium text-foreground">
+            <div className="flex items-center justify-between gap-3">
+              <dt className="text-muted-foreground">Workouts completed</dt>
+              <dd className="font-medium tabular-nums text-foreground">
                 {stats.completed} / {stats.total} ({stats.percent}%)
               </dd>
             </div>
           )}
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-3">
             <dt className="text-muted-foreground">Last Check-in</dt>
             <dd className="font-medium text-foreground">
               {lastCheckIn ? formatRelativeTime(lastCheckIn) : "No sessions yet"}
@@ -81,26 +81,26 @@ export function ClientContextPanel({ client, data }: ClientContextPanelProps) {
         </dl>
       </section>
 
-      <section className="rounded-xl border border-border bg-card p-4">
-        <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Quick Actions</h3>
-        <div className="space-y-1">
-          <Link href={`/clients/${client.id}`}>
-            <Button variant="ghost" size="sm" className="w-full justify-start gap-2 px-2">
-              <MessageSquare className="h-4 w-4" /> Client Profile
-            </Button>
-          </Link>
-          {program && (
-            <Link href={`/programs/${program.id}`}>
-              <Button variant="ghost" size="sm" className="w-full justify-start gap-2 px-2">
-                <Dumbbell className="h-4 w-4" /> Adjust Program
-              </Button>
+      <section className="p-4">
+        <h3 className={sectionTitle}>Quick Actions</h3>
+        <div className="-mx-2 flex flex-col gap-0.5">
+          <Button variant="ghost" size="sm" className="w-full justify-start" asChild>
+            <Link href={`/clients/${client.id}`}>
+              <MessageSquare /> Client Profile
             </Link>
-          )}
-          <Link href={`/clients/${client.id}/progress`}>
-            <Button variant="ghost" size="sm" className="w-full justify-start gap-2 px-2">
-              <TrendingUp className="h-4 w-4" /> View Progress
+          </Button>
+          {program && (
+            <Button variant="ghost" size="sm" className="w-full justify-start" asChild>
+              <Link href={`/programs/${program.id}`}>
+                <Dumbbell /> Adjust Program
+              </Link>
             </Button>
-          </Link>
+          )}
+          <Button variant="ghost" size="sm" className="w-full justify-start" asChild>
+            <Link href={`/clients/${client.id}/progress`}>
+              <TrendingUp /> View Progress
+            </Link>
+          </Button>
         </div>
       </section>
     </div>

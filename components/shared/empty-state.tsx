@@ -17,6 +17,10 @@ interface EmptyStateProps {
   className?: string;
 }
 
+/**
+ * Spec §2.3: icon in a soft circle, a title, one sentence and one action.
+ * "default" for page-level empties, "compact" inside cards and list bodies.
+ */
 export function EmptyState({
   icon: Icon,
   title,
@@ -49,22 +53,28 @@ export function EmptyState({
       data-size={size}
       className={cn(
         "flex flex-col items-center justify-center text-center",
-        compact ? "gap-2 px-4 py-8" : "gap-3 px-6 py-16",
+        compact ? "gap-3 px-4 py-10" : "gap-4 px-6 py-16",
         className
       )}
     >
-      <div className={cn("rounded-full bg-muted text-muted-foreground", compact ? "p-2.5" : "p-4")}>
-        <Icon className={compact ? "size-5" : "size-7"} aria-hidden />
+      <div
+        data-slot="empty-state-icon"
+        className={cn(
+          "flex items-center justify-center rounded-full bg-surface-muted text-muted-foreground ring-1 ring-border",
+          compact ? "size-10" : "size-12"
+        )}
+      >
+        <Icon className={compact ? "size-5" : "size-6"} aria-hidden />
       </div>
-      <div className="space-y-1">
-        <h3 className={cn("font-semibold", compact ? "text-sm" : "text-base")}>{title}</h3>
+      <div className="flex flex-col gap-1">
+        <h3 className={cn("text-foreground", compact ? "text-label" : "text-heading")}>{title}</h3>
         {description && (
-          <p className={cn("mx-auto max-w-md text-muted-foreground", compact ? "text-xs" : "text-sm")}>
+          <p className={cn("mx-auto max-w-sm text-muted-foreground", compact ? "text-caption" : "text-body")}>
             {description}
           </p>
         )}
       </div>
-      {(action ?? builtInAction) && <div className={compact ? "mt-1" : "mt-3"}>{action ?? builtInAction}</div>}
+      {(action ?? builtInAction) && <div className={compact ? "mt-1" : "mt-2"}>{action ?? builtInAction}</div>}
     </div>
   );
 }

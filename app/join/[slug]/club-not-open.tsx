@@ -1,11 +1,17 @@
+import { Clock } from "lucide-react";
 import { CLUB_NOT_OPEN_MESSAGE } from "@/lib/services/club-trainer.service";
 
-/** D5: a club opens for joining once its trainer has accepted the invite. */
+/**
+ * D5: a club opens for joining once its trainer has accepted the invite.
+ * Rendered inside AuthShell, whose headline ("Not open yet") is the page h1.
+ */
 export function ClubNotOpen() {
   return (
-    <div className="max-w-md space-y-2 text-center">
-      <h1 className="text-xl font-semibold text-foreground">Not open yet</h1>
-      <p className="text-sm text-muted-foreground">{CLUB_NOT_OPEN_MESSAGE}</p>
+    <div className="flex flex-col items-start gap-4">
+      <div className="flex size-12 items-center justify-center rounded-full bg-neutral-soft text-neutral-foreground">
+        <Clock className="size-6" aria-hidden />
+      </div>
+      <p className="text-body text-muted-foreground">{CLUB_NOT_OPEN_MESSAGE}</p>
     </div>
   );
 }

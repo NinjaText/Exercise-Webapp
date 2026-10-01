@@ -93,7 +93,7 @@ export function AdminExerciseFilters({ search, selected }: Props) {
         />
       </div>
       <div className="flex min-h-9 basis-full flex-wrap items-center gap-3 rounded-lg border border-input bg-background px-3 py-1.5">
-        <span className="text-xs font-medium text-muted-foreground shrink-0">Body region</span>
+        <span className="text-label text-muted-foreground shrink-0">Body region</span>
         {BODY_REGIONS.map((r) => {
           const id = `admin-region-${r.value}`;
           return (
@@ -103,7 +103,7 @@ export function AdminExerciseFilters({ search, selected }: Props) {
                 checked={selected.includes(r.value)}
                 onCheckedChange={(next) => toggleRegion(r.value, next === true)}
               />
-              <Label htmlFor={id} className="text-xs font-normal">{r.label}</Label>
+              <Label htmlFor={id} className="text-caption text-foreground">{r.label}</Label>
             </div>
           );
         })}

@@ -25,6 +25,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 import { Dumbbell, FileText, Sparkles, Tags, X } from "lucide-react";
 import { SectionCard } from "@/components/shared/section-card";
 import {
@@ -96,6 +97,11 @@ interface Props {
    * plain program page — e.g. when arriving from a client's profile.
    */
   assignClientId?: string;
+  /**
+   * Where the sticky save bar parks on phones. "tabbar" (default) clears the
+   * platform's fixed mobile tab bar; "none" is for shells without one (admin).
+   */
+  stickyOffset?: "tabbar" | "none";
 }
 
 // Helper to map DB workout to input type
@@ -155,7 +161,7 @@ function mapWorkoutToInput(w: Record<string, unknown>): WorkoutInput {
   };
 }
 
-export function ProgramEditor({ program, exercises, onSave, redirectTo, organizationOrganizationId, clinics, collections, exerciseSourcePreference, assignClientId }: Props) {
+export function ProgramEditor({ program, exercises, onSave, redirectTo, organizationOrganizationId, clinics, collections, exerciseSourcePreference, assignClientId, stickyOffset = "tabbar" }: Props) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
   const [syncingToMaster, setSyncingToMaster] = useState(false);
@@ -474,9 +480,9 @@ export function ProgramEditor({ program, exercises, onSave, redirectTo, organiza
         </SectionCard>
 
         {/* Categorization Card */}
-        <SectionCard title="Categorization" icon={Tags} contentClassName="space-y-5">
-          <div className="grid gap-5 sm:grid-cols-3">
-            <div className="space-y-2">
+        <SectionCard title="Categorization" icon={Tags} contentClassName="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div className="space-y-1.5">
               <Label>Body Area</Label>
               <TagListInput
                 values={bodyAreas}
@@ -485,7 +491,7 @@ export function ProgramEditor({ program, exercises, onSave, redirectTo, organiza
                 suggestions={BODY_AREA_SUGGESTIONS}
               />
             </div>
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <Label>Goal</Label>
               <TagListInput
                 values={goals}
@@ -494,7 +500,7 @@ export function ProgramEditor({ program, exercises, onSave, redirectTo, organiza
                 suggestions={GOAL_SUGGESTIONS}
               />
             </div>
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <Label>Activity / Sport</Label>
               <TagListInput
                 values={activities}
@@ -505,8 +511,8 @@ export function ProgramEditor({ program, exercises, onSave, redirectTo, organiza
             </div>
           </div>
 
-          <div className="grid gap-5 sm:grid-cols-3">
-            <div className="space-y-2">
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div className="space-y-1.5">
               <Label>Level</Label>
               <Select
                 items={LEVEL_ITEMS}
@@ -524,14 +530,14 @@ export function ProgramEditor({ program, exercises, onSave, redirectTo, organiza
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2 sm:col-span-2">
+            <div className="space-y-1.5 sm:col-span-2">
               <Label>Tags</Label>
               <TagListInput values={tags} onChange={setTags} placeholder="Add a tag..." />
             </div>
           </div>
 
           {collections && collections.length > 0 && (
-            <div className="space-y-2 border-t pt-5">
+            <div className="space-y-1.5 border-t border-border pt-4">
               <Label>Collections</Label>
               <div className="flex flex-wrap gap-x-5 gap-y-2">
                 {collections.map((c) => (
@@ -563,9 +569,8 @@ export function ProgramEditor({ program, exercises, onSave, redirectTo, organiza
               variant="outline"
               size="sm"
               onClick={autoDetectEquipment}
-              className="gap-1.5 text-xs"
             >
-              <Sparkles className="h-3.5 w-3.5" />
+              <Sparkles className="size-4" />
               Auto-detect from exercises
             </Button>
           }
@@ -573,7 +578,7 @@ export function ProgramEditor({ program, exercises, onSave, redirectTo, organiza
           {/* Current equipment tags */}
           <div className="flex flex-wrap gap-2 min-h-7">
             {equipment.length === 0 && (
-              <p className="text-sm text-muted-foreground">
+              <p className="text-body text-muted-foreground">
                 No equipment added yet. Type below or use auto-detect.
               </p>
             )}
@@ -581,15 +586,18 @@ export function ProgramEditor({ program, exercises, onSave, redirectTo, organiza
               <Badge
                 key={item}
                 variant="secondary"
-                className="gap-1 pr-1 text-sm"
+                className="h-8 gap-1 pr-1 text-sm"
               >
                 {item}
+                {/* Visible glyph stays small; the hit area is 32px via the
+                    negative-margin halo so the chip itself doesn't grow. */}
                 <button
                   type="button"
                   onClick={() => removeEquipmentItem(item)}
-                  className="ml-0.5 rounded-full hover:bg-muted-foreground/20 p-0.5"
+                  aria-label={`Remove ${item}`}
+                  className="relative inline-flex size-6 items-center justify-center rounded-full outline-none after:absolute after:-inset-1 hover:bg-muted-foreground/20 focus-visible:ring-2 focus-visible:ring-ring"
                 >
-                  <X className="h-3 w-3" />
+                  <X className="size-3" />
                 </button>
               </Badge>
             ))}
@@ -627,8 +635,17 @@ export function ProgramEditor({ program, exercises, onSave, redirectTo, organiza
           exerciseSourcePreference={exerciseSourcePreference}
         />
 
-        {/* Submit */}
-        <div className="flex justify-end gap-3">
+        {/* Submit — a sticky action bar so a long program can be saved without
+            scrolling back to the bottom. On phones it clears the fixed tab bar
+            (platform shell) or sits at the safe-area edge (admin shell). */}
+        <div
+          className={cn(
+            "sticky z-20 flex flex-wrap justify-end gap-2 rounded-xl bg-surface/95 p-3 shadow-md ring-1 ring-border backdrop-blur supports-[backdrop-filter]:bg-surface/85 lg:bottom-4",
+            stickyOffset === "tabbar"
+              ? "bottom-[calc(var(--tab-bar-height)+var(--safe-bottom)+0.75rem)]"
+              : "bottom-[calc(var(--safe-bottom)+0.75rem)]",
+          )}
+        >
           {isAssignedCopyOfTemplate && (
             <Button
               type="button"
@@ -636,7 +653,16 @@ export function ProgramEditor({ program, exercises, onSave, redirectTo, organiza
               disabled={syncingToMaster}
               onClick={() => setSyncConfirmOpen(true)}
             >
-              {syncingToMaster ? "Saving..." : "Save changes to master program"}
+              {syncingToMaster ? (
+                "Saving..."
+              ) : (
+                <>
+                  <span className="sm:hidden">Save to master</span>
+                  <span className="hidden sm:inline">
+                    Save changes to master program
+                  </span>
+                </>
+              )}
             </Button>
           )}
           <Button type="button" variant="outline" onClick={() => router.back()}>

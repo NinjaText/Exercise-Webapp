@@ -23,6 +23,7 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import { EmptyState } from "@/components/shared/empty-state";
 import { MessageSquare, ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { MESSAGES_PANE_SURFACE, MESSAGES_VIEWPORT_HEIGHT } from "@/components/messages/layout-classes";
 import { getDisplayName } from "@/lib/utils/display-name";
 
 interface MessagesSearchParams {
@@ -46,7 +47,7 @@ export default async function MessagesPage({ searchParams }: Props) {
   const contacts = await getTrainersForClient(user.id);
 
   return (
-    <PageShell width="full" className="h-[calc(100dvh-4rem-2rem)] sm:h-[calc(100dvh-4rem-3rem)]">
+    <PageShell className={MESSAGES_VIEWPORT_HEIGHT}>
       <PageHeader
         title="Inbox"
         description={
@@ -58,11 +59,13 @@ export default async function MessagesPage({ searchParams }: Props) {
       />
 
       {threads.length === 0 ? (
-        <EmptyState
-          icon={MessageSquare}
-          title="No messages yet"
-          description="Start a conversation by clicking New Message above."
-        />
+        <div className={cn("flex min-h-0 flex-1 items-center justify-center", MESSAGES_PANE_SURFACE)}>
+          <EmptyState
+            icon={MessageSquare}
+            title="No messages yet"
+            description="Start a conversation by clicking New Message above."
+          />
+        </div>
       ) : (
         <div className="min-h-0 flex-1">
           <MessagesInboxClient initialThreads={threads} currentUserId={user.id} />
@@ -95,7 +98,7 @@ async function TrainerInbox({
   const selectedId = selectedThread?.otherUser.id ?? null;
   // `selectedId` always falls back to the first thread (for a sane desktop
   // default), so the mobile list/thread toggle below must key off whether a
-  // thread was explicitly requested via ?thread= — otherwise "Back to Inbox"
+  // thread was explicitly requested via ?thread= — otherwise "Back to inbox"
   // could never show the list again once a thread had been opened.
   const isExplicitSelection = Boolean(threadParam);
 
@@ -124,7 +127,7 @@ async function TrainerInbox({
   const unreadCount = allThreads.reduce((sum, t) => sum + t.unreadCount, 0);
 
   return (
-    <PageShell width="full" className="h-[calc(100dvh-4rem-2rem)] sm:h-[calc(100dvh-4rem-3rem)]">
+    <PageShell width="full" className={MESSAGES_VIEWPORT_HEIGHT}>
       <PageHeader
         title="Inbox"
         description="All messages, workout comments, and exercise feedback"
@@ -164,7 +167,7 @@ async function TrainerInbox({
       />
 
       {threads.length === 0 ? (
-        <div className="flex min-h-0 flex-1 items-center justify-center">
+        <div className={cn("flex min-h-0 flex-1 items-center justify-center", MESSAGES_PANE_SURFACE)}>
           <EmptyState
             icon={MessageSquare}
             title={unreadOnly ? "No unread messages" : "No messages yet"}
@@ -175,7 +178,7 @@ async function TrainerInbox({
             }
             action={
               unreadOnly ? (
-                <Link href="/messages" scroll={false} className="text-sm font-medium text-primary hover:underline">
+                <Link href="/messages" scroll={false} className="rounded-sm text-label text-primary outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring">
                   View all conversations
                 </Link>
               ) : undefined
@@ -183,7 +186,12 @@ async function TrainerInbox({
           />
         </div>
       ) : (
-        <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden rounded-xl bg-card ring-1 ring-border shadow-none md:grid-cols-[20rem_1fr] xl:grid-cols-[20rem_1fr_17.5rem]">
+        <div
+          className={cn(
+            "grid min-h-0 flex-1 grid-cols-1 md:grid-cols-[18rem_1fr] lg:grid-cols-[20rem_1fr] xl:grid-cols-[20rem_1fr_17.5rem]",
+            MESSAGES_PANE_SURFACE
+          )}
+        >
           <div className={cn("min-h-0 border-r border-border", isExplicitSelection ? "hidden md:block" : "block")}>
             <InboxList threads={threads} currentUserId={trainerId} selectedId={selectedId} />
           </div>
@@ -194,9 +202,9 @@ async function TrainerInbox({
                 <Link
                   href="/messages"
                   scroll={false}
-                  className="flex shrink-0 items-center gap-2 border-b border-border px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground md:hidden"
+                  className="flex min-h-11 shrink-0 items-center gap-2 border-b border-border px-4 text-label text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring md:hidden"
                 >
-                  <ArrowLeft className="h-4 w-4" /> Back to Inbox
+                  <ArrowLeft className="size-4" /> Back to inbox
                 </Link>
                 <div className="min-h-0 flex-1">
                   <MessageThread
@@ -211,9 +219,13 @@ async function TrainerInbox({
                 </div>
               </>
             ) : (
-              <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-                Select a conversation
-              </div>
+              <EmptyState
+                icon={MessageSquare}
+                size="compact"
+                title="Select a conversation"
+                description="Pick a thread on the left to read and reply."
+                className="h-full"
+              />
             )}
           </div>
 

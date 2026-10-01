@@ -14,7 +14,8 @@ const mockResolveClubTrainerInvite = vi.fn();
 
 vi.mock("@clerk/nextjs/server", () => ({ auth: mockAuth }));
 vi.mock("@clerk/nextjs", () => ({
-  SignUp: () => React.createElement("div", { "data-testid": "sign-up" }),
+  SignUp: (p: { forceRedirectUrl: string; routing: string }) =>
+    React.createElement("div", { "data-testid": "sign-up", "data-redirect": p.forceRedirectUrl, "data-routing": p.routing }),
 }));
 vi.mock("next/navigation", () => ({ redirect: mockRedirect }));
 vi.mock("@/lib/prisma", () => ({ prisma: { user: { findUnique: mockFindUnique } } }));
@@ -56,6 +57,9 @@ describe("ClientOnboardingPage", () => {
     const html = renderToStaticMarkup(await ClientOnboardingPage());
 
     expect(html).toContain('data-testid="sign-up"');
+    expect(html).toContain('data-redirect="/onboarding/client"');
+    expect(html).toContain('data-routing="hash"');
+    expect(html).toContain('data-slot="auth-shell"');
     expect(mockFindUnique).not.toHaveBeenCalled();
     expect(mockGetOrgBranding).not.toHaveBeenCalled();
   });
@@ -77,7 +81,8 @@ describe("ClientOnboardingPage", () => {
 
     expect(mockGetOrgBranding).toHaveBeenCalledWith("org_123");
     expect(html).toContain("so Acme Physio can personalize your exercise program");
-    expect(html).toContain(`${new Date().getFullYear()} Acme Physio. All rights reserved`);
+    // AuthShell's brand-panel copyright line carries the org's name.
+    expect(html).toContain("© Acme Physio");
     expect(html).not.toContain("your trainer can personalize");
     // BrandStyle emits the derived theme <style> tag.
     expect(html).toContain('id="org-brand"');
@@ -85,6 +90,9 @@ describe("ClientOnboardingPage", () => {
     // hard-coded hex gradient.
     expect(html).toContain("bg-sidebar-gradient");
     expect(html).not.toContain("#0f172a");
+    // The step form sits in AuthShell's wide (640px) form column.
+    expect(html).toMatch(/data-slot="auth-form-column" data-size="wide"/);
+    expect(html).toContain('data-testid="onboarding-form"');
   });
 
   it("falls back to the session orgId when there is no DB user row yet (freshly invited client)", async () => {
@@ -105,7 +113,7 @@ describe("ClientOnboardingPage", () => {
     const html = renderToStaticMarkup(await ClientOnboardingPage());
 
     expect(html).toContain("so your trainer can personalize your exercise program");
-    expect(html).toContain(`${new Date().getFullYear()} INMOTUS RX. All rights reserved`);
+    expect(html).toContain("© INMOTUS RX");
     expect(html).not.toContain('id="org-brand"');
   });
 

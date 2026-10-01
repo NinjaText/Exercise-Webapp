@@ -19,10 +19,10 @@ export default async function NewClubPage() {
       <PageHeader
         breadcrumb={[{ label: "Admin", href: "/admin" }, { label: "Clubs", href: "/admin/clubs" }, { label: "New" }]}
         title="New club"
-        back={{ label: "Back to Clubs", href: "/admin/clubs" }}
+        back={{ label: "Back to clubs", href: "/admin/clubs" }}
       />
       <ClubForm mode="create" globalPrograms={globalPrograms} />
-      <p className="text-sm text-muted-foreground">The club name is used as its brand automatically. The club trainer can set the logo and colours from their Settings once they join.</p>
+      <p className="text-body text-muted-foreground">The club name is used as its brand automatically. The club trainer can set the logo and colours from their Settings once they join.</p>
     </PageShell>
   );
 }

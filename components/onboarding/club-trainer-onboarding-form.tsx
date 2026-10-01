@@ -1,15 +1,30 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { completeClubTrainerOnboarding } from "@/actions/club-trainer-onboarding-actions";
+import { StepForm, useStepForm } from "./step-form";
+import {
+  buildClubTrainerOnboardingPayload,
+  validateClubTrainer,
+  type ClubTrainerOnboardingValues,
+} from "./onboarding-payloads";
+import { TextField } from "./onboarding-fields";
 
+const VALIDATORS = [validateClubTrainer] as const;
+
+/** Saves the names; true on success, otherwise the server error is toasted. */
+export async function submitClubTrainerOnboarding(values: ClubTrainerOnboardingValues): Promise<boolean> {
+  const res = await completeClubTrainerOnboarding(buildClubTrainerOnboardingPayload(values));
+  if (!res.ok) {
+    toast.error(res.error);
+    return false;
+  }
+  return true;
+}
+
+/** The club trainer's one short step: confirm their name. */
 export function ClubTrainerOnboardingForm({
   clubName,
   initialFirstName,
@@ -21,58 +36,54 @@ export function ClubTrainerOnboardingForm({
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const [firstName, setFirstName] = useState(initialFirstName);
-  const [lastName, setLastName] = useState(initialLastName);
+  const form = useStepForm<ClubTrainerOnboardingValues>(
+    { firstName: initialFirstName, lastName: initialLastName },
+    VALIDATORS,
+  );
+  const { values: v, errors, set } = form;
 
-  const submit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const finish = () => {
+    if (!form.validateAll()) return;
     startTransition(async () => {
-      const res = await completeClubTrainerOnboarding({ firstName, lastName });
-      if (!res.ok) {
-        toast.error(res.error);
-        return;
-      }
+      if (!(await submitClubTrainerOnboarding(form.values))) return;
       router.replace("/dashboard");
       router.refresh();
     });
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Welcome, coach</CardTitle>
-        <CardDescription>You&apos;re the trainer for {clubName}. Tell us your name to get started.</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={submit} className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="firstName">First name *</Label>
-              <Input
-                id="firstName"
-                value={firstName}
-                onChange={(e) => setFirstName(e.target.value)}
-                maxLength={80}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="lastName">Last name *</Label>
-              <Input
-                id="lastName"
-                value={lastName}
-                onChange={(e) => setLastName(e.target.value)}
-                maxLength={80}
-                required
-              />
-            </div>
-          </div>
-          <Button type="submit" className="w-full" disabled={pending || !firstName.trim() || !lastName.trim()}>
-            {pending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Continue
-          </Button>
-        </form>
-      </CardContent>
-    </Card>
+    <StepForm
+      width="default"
+      steps={[{ title: "Welcome, coach", description: `You're the trainer for ${clubName}. Tell us your name to get started.` }]}
+      step={0}
+      onBack={form.back}
+      onContinue={form.next}
+      onFinish={finish}
+      pending={pending}
+      invalidAttempt={form.invalidAttempt}
+    >
+      <div className="grid gap-4 sm:grid-cols-2">
+        <TextField
+          id="firstName"
+          label="First name"
+          required
+          autoComplete="given-name"
+          maxLength={80}
+          value={v.firstName}
+          onValueChange={(firstName) => set({ firstName })}
+          error={errors.firstName}
+        />
+        <TextField
+          id="lastName"
+          label="Last name"
+          required
+          autoComplete="family-name"
+          maxLength={80}
+          value={v.lastName}
+          onValueChange={(lastName) => set({ lastName })}
+          error={errors.lastName}
+        />
+      </div>
+    </StepForm>
   );
 }

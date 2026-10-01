@@ -57,7 +57,7 @@ export function FeedbackForm({ planExerciseId, exerciseName, onSuccess }: Feedba
     <form onSubmit={handleSubmit}>
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Feedback: {exerciseName}</CardTitle>
+          <CardTitle className="text-heading">Feedback: {exerciseName}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
@@ -67,11 +67,12 @@ export function FeedbackForm({ planExerciseId, exerciseName, onSuccess }: Feedba
                 <button
                   key={r.value}
                   type="button"
+                  aria-pressed={rating === r.value}
                   onClick={() => setRating(r.value)}
-                  className={`rounded-lg border-2 p-3 text-sm font-medium transition-colors ${
+                  className={`min-h-11 rounded-lg border px-3 py-2.5 text-label outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none ${
                     rating === r.value
                       ? ratingColors[r.value]
-                      : "border-border hover:border-border/80"
+                      : "border-border bg-surface hover:border-border-strong hover:bg-surface-muted"
                   }`}
                 >
                   {r.label}
@@ -85,7 +86,7 @@ export function FeedbackForm({ planExerciseId, exerciseName, onSuccess }: Feedba
             <Textarea id="comment" name="comment" rows={2} placeholder="Any additional details..." />
           </div>
 
-          <Button type="submit" disabled={loading} className="w-full">
+          <Button type="submit" disabled={loading} className="h-11 w-full sm:h-9">
             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Submit Feedback
           </Button>

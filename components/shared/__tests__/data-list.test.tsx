@@ -30,7 +30,7 @@ describe("DataList", () => {
     expect(html).toContain('href="/clients/1"');
     expect(html).toContain('data-clickable="true"');
     expect(html).toContain("after:absolute");
-    expect(html.indexOf('href="/clients/1"')).toBeLessThan(html.indexOf("4"));
+    expect(html.indexOf('href="/clients/1"')).toBeLessThan(html.indexOf(">4<"));
   });
 
   it("renders the emptyState node when there is no data", () => {
@@ -82,5 +82,22 @@ describe("DataList", () => {
     );
     expect(clickHtml).toContain('tabindex="0"');
     expect(clickHtml).toContain('data-clickable="true"');
+  });
+
+  it("uses a muted header row, 44px rows and a hover state", () => {
+    const html = renderToStaticMarkup(
+      <DataList columns={columns} data={rows} keyExtractor={(r) => r.id} stickyHeader />
+    );
+    expect(html).toMatch(/data-slot="table-header"[^>]*class="[^"]*\bbg-surface-muted\b/);
+    expect(html).toMatch(/data-slot="table-cell"[^>]*class="[^"]*\bh-11\b/);
+    expect(html).toContain("hover:bg-surface-muted");
+  });
+
+  it("renders the shared EmptyState for the emptyMessage fallback", () => {
+    const html = renderToStaticMarkup(
+      <DataList columns={columns} data={[]} keyExtractor={(r) => r.id} emptyMessage="No clients" />
+    );
+    expect(html).toContain('data-slot="empty-state"');
+    expect(html).toContain("No clients");
   });
 });

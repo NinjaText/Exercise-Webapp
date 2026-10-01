@@ -128,7 +128,7 @@ export function VoiceMessageRecorder({ recipientId, onSent, onCancel }: VoiceMes
         <>
           <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-danger" />
           <span className="flex-1 text-sm font-medium text-danger-foreground">Recording… {formatTime(elapsed)}</span>
-          <Button size="sm" variant="destructive" className="h-7 gap-1 text-xs" onClick={stopRecording}>
+          <Button size="sm" variant="destructive" className="h-11 gap-1 text-xs sm:h-7" onClick={stopRecording}>
             <Square className="h-3 w-3" />
             Stop
           </Button>
@@ -136,10 +136,10 @@ export function VoiceMessageRecorder({ recipientId, onSent, onCancel }: VoiceMes
       ) : (
         <>
           <audio src={audioUrl ?? undefined} controls className="h-8 flex-1 min-w-0" />
-          <Button size="sm" variant="outline" className="h-8 gap-1" onClick={discard} disabled={uploading}>
+          <Button size="sm" variant="outline" className="h-11 gap-1 sm:h-8" onClick={discard} disabled={uploading}>
             <RotateCcw className="h-3.5 w-3.5" />
           </Button>
-          <Button size="sm" className="h-8 gap-1.5" onClick={submit} disabled={uploading}>
+          <Button size="sm" className="h-11 gap-1.5 sm:h-8" onClick={submit} disabled={uploading}>
             {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
             Send
           </Button>

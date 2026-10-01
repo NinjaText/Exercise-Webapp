@@ -77,7 +77,7 @@ export function TagListInput({ values, onChange, placeholder, suggestions }: Pro
               key={s}
               type="button"
               onClick={() => add(s)}
-              className="rounded-md px-1.5 py-0.5 text-[11px] leading-5 text-muted-foreground/80 bg-muted/60 hover:bg-muted hover:text-foreground transition-colors"
+              className="rounded-md px-1.5 py-0.5 text-[11px] leading-5 text-muted-foreground bg-muted/60 hover:bg-muted hover:text-foreground transition-colors"
             >
               {s}
             </button>

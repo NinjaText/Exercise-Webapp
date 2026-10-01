@@ -1,30 +1,30 @@
 import Link from "next/link";
-import { CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { AuthShell } from "@/components/auth/auth-shell";
+import { getOrgBranding } from "@/lib/services/branding.service";
+import { toViewModel } from "@/lib/branding/types";
 
 export const metadata = { title: "Account deleted" };
 
-export default function AccountDeletedPage() {
+export default async function AccountDeletedPage() {
+  // The account (and its org link) is gone, so show product branding.
+  const branding = toViewModel(await getOrgBranding(null));
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <div className="mb-4 flex justify-center">
-            <CheckCircle2 className="h-12 w-12 text-success" />
-          </div>
-          <CardTitle>Your account has been deleted</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4 text-center">
-          <p className="text-sm text-muted-foreground">
-            Your profile, health and fitness records, and messages have been removed.
-            We&apos;re sorry to see you go.
-          </p>
-          <Button asChild variant="outline">
-            <Link href="/">Back to home</Link>
-          </Button>
-        </CardContent>
-      </Card>
-    </div>
+    <AuthShell
+      branding={branding}
+      headline="Your account has been deleted"
+      subhead="Your profile, health and fitness records, and messages have been removed."
+    >
+      <div className="flex flex-col items-start gap-6">
+        <p className="text-body text-muted-foreground">
+          We&apos;re sorry to see you go. You are welcome to come back and create a
+          new account at any time.
+        </p>
+        <Button asChild variant="outline">
+          <Link href="/">Back to home</Link>
+        </Button>
+      </div>
+    </AuthShell>
   );
 }

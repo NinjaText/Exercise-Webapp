@@ -66,17 +66,19 @@ export function PageHeader({
       {back && (
         <Link
           href={back.href}
-          className="inline-flex w-fit items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+          className="inline-flex w-fit items-center gap-1.5 rounded-sm text-label text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none"
         >
           <ArrowLeft className="size-4" />
           {back.label}
         </Link>
       )}
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+      {/* Actions centre on the title row; min-h-9 (the 36px button height) keeps a
+          one-line title and an icon-only overflow trigger on the same axis. */}
+      <div className="flex flex-col gap-3 sm:min-h-9 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
-          <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
-          {description && <p className="mt-1 text-sm text-muted-foreground">{description}</p>}
+          <h1 className="text-title text-foreground">{title}</h1>
+          {description && <p className="mt-1 text-body text-muted-foreground">{description}</p>}
         </div>
 
         {hasActions && (
@@ -129,7 +131,7 @@ export function PageHeader({
       {meta && (
         <div
           data-slot="page-header-meta"
-          className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground"
+          className="flex flex-wrap items-center gap-x-3 gap-y-2 text-body text-muted-foreground"
         >
           {meta}
         </div>

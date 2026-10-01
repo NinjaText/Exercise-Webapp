@@ -6,6 +6,7 @@ import Link from "next/link";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
+import { PaginationBar } from "@/components/shared/pagination-bar";
 import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
@@ -55,7 +56,7 @@ function AdminExerciseCard({
   return (
     <Card
       className={cn(
-        "group relative flex flex-col overflow-hidden ring-1 ring-border shadow-none transition-shadow duration-250 hover:shadow-sm hover:ring-border-strong",
+        "group relative flex flex-col gap-0 overflow-hidden py-0 ring-1 ring-border shadow-none transition-shadow duration-250 hover:shadow-sm hover:ring-border-strong",
         !ex.isActive && "opacity-60",
         selected && "ring-2 ring-primary hover:ring-primary"
       )}
@@ -72,7 +73,7 @@ function AdminExerciseCard({
       <Link href={editHref} className="relative block h-44 overflow-hidden bg-muted">
         <ExerciseImage src={null} alt={ex.name} videoUrl={ex.videoUrl} label={ex.name.split(" ").slice(0, 3).join(" ")} />
         <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-          <div className="flex items-center gap-1.5 rounded-full bg-white/90 px-4 py-1.5 text-sm font-semibold text-foreground shadow-lg backdrop-blur-sm">
+          <div className="flex items-center gap-1.5 rounded-full bg-white/90 px-4 py-1.5 text-body font-semibold text-foreground shadow-lg backdrop-blur-sm">
             <Pencil className="h-3.5 w-3.5" />
             Edit Exercise
           </div>
@@ -83,7 +84,7 @@ function AdminExerciseCard({
               {phases.map((p: string) => (
                 <span
                   key={p}
-                  className="rounded-full bg-foreground/75 px-2 py-0.5 text-[10px] font-semibold text-background backdrop-blur-sm"
+                  className="rounded-full bg-foreground/75 px-2 py-0.5 text-label font-semibold text-background backdrop-blur-sm"
                 >
                   {phaseLabel[p] ?? p}
                 </span>
@@ -92,7 +93,7 @@ function AdminExerciseCard({
           )}
           <div className="ml-auto flex items-center gap-1.5">
             {hasRealVideoUrl(ex.videoUrl) && (
-              <span className="flex items-center gap-1 rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-semibold text-white backdrop-blur-sm">
+              <span className="flex items-center gap-1 rounded-full bg-black/60 px-2 py-0.5 text-label font-semibold text-white backdrop-blur-sm">
                 <PlayCircle className="h-3 w-3" />Video
               </span>
             )}
@@ -103,7 +104,7 @@ function AdminExerciseCard({
       <CardContent className="flex flex-1 flex-col p-4">
         <div className="flex items-start justify-between gap-2">
           <Link href={editHref} className="min-w-0 flex-1">
-            <h3 className="truncate text-sm font-semibold leading-tight transition-colors group-hover:text-primary">
+            <h3 className="truncate text-body font-semibold leading-tight transition-colors group-hover:text-primary">
               {ex.name}
             </h3>
           </Link>
@@ -119,23 +120,23 @@ function AdminExerciseCard({
           )}
         </div>
 
-        <p className="mt-1 text-xs font-medium text-muted-foreground/70">
+        <p className="mt-1 text-label text-muted-foreground">
           {ex.bodyRegion.map(formatBodyRegion).join(", ")}
         </p>
 
         {ex.description && (
-          <p className="mt-2 line-clamp-2 flex-1 text-xs leading-relaxed text-muted-foreground">{ex.description}</p>
+          <p className="mt-2 line-clamp-2 flex-1 text-caption leading-relaxed">{ex.description}</p>
         )}
 
         {ex.equipmentRequired.length > 0 && (
           <div className="mt-3 flex flex-wrap gap-1">
             {ex.equipmentRequired.slice(0, 3).map((eq: string) => (
-              <Badge key={eq} variant="outline" className="h-5 px-1.5 text-[10px] font-medium text-muted-foreground">
+              <Badge key={eq} variant="outline" className="h-5 px-1.5 text-caption font-medium">
                 {eq}
               </Badge>
             ))}
             {ex.equipmentRequired.length > 3 && (
-              <Badge variant="outline" className="h-5 px-1.5 text-[10px] text-muted-foreground">
+              <Badge variant="outline" className="h-5 px-1.5 text-caption">
                 +{ex.equipmentRequired.length - 3}
               </Badge>
             )}
@@ -147,7 +148,7 @@ function AdminExerciseCard({
             <p className="truncate text-[11px] font-medium text-foreground">
               {ex.createdBy ? `${ex.createdBy.firstName ?? ""} ${ex.createdBy.lastName ?? ""}`.trim() || ex.createdBy.email : "System"}
             </p>
-            <p className="text-[10px] text-muted-foreground">Added {format(new Date(ex.createdAt), "MMM d, yyyy")}</p>
+            <p className="text-caption">Added {format(new Date(ex.createdAt), "MMM d, yyyy")}</p>
           </div>
           <StatusBadge status={ex.isActive ? "ACTIVE" : "INACTIVE"} size="sm" className="shrink-0" />
         </div>
@@ -246,7 +247,7 @@ export function AdminExercisesGrid({ exercises, total, totalPages, page, search,
         {exercises.length > 0 ? (
           <>
             <div className="flex items-center justify-between">
-              <label className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+              <label className="flex items-center gap-2 text-label text-muted-foreground">
                 <Checkbox
                   checked={allOnPageSelected}
                   indeterminate={someOnPageSelected}
@@ -255,10 +256,10 @@ export function AdminExercisesGrid({ exercises, total, totalPages, page, search,
                 />
                 Select all on this page
               </label>
-              <span className="text-xs text-muted-foreground">{total.toLocaleString()} exercises</span>
+              <span className="text-caption">{total.toLocaleString()} exercises</span>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
               {exercises.map((ex) => (
                 <AdminExerciseCard
                   key={ex.id}
@@ -270,34 +271,26 @@ export function AdminExercisesGrid({ exercises, total, totalPages, page, search,
             </div>
           </>
         ) : (
-          <div className="rounded-xl bg-card ring-1 ring-border">
+          <div className="rounded-xl bg-surface ring-1 ring-border shadow-xs">
             <EmptyState icon={Dumbbell} title="No exercises found" size="compact" />
           </div>
         )}
 
         {totalPages > 1 && (
-          <div className="flex items-center justify-between rounded-xl bg-card px-5 py-3 ring-1 ring-border">
-            <p className="text-xs text-muted-foreground">Page {page} of {totalPages} · {total.toLocaleString()} exercises</p>
-            <div className="flex gap-2">
-              {page > 1 && (
-                <Button asChild variant="outline" size="sm">
-                  <Link href={`?search=${search}&bodyRegion=${bodyRegions.join(",")}&page=${page - 1}${kind === "assessment" ? "&kind=assessment" : ""}`}>← Prev</Link>
-                </Button>
-              )}
-              {page < totalPages && (
-                <Button asChild variant="outline" size="sm">
-                  <Link href={`?search=${search}&bodyRegion=${bodyRegions.join(",")}&page=${page + 1}${kind === "assessment" ? "&kind=assessment" : ""}`}>Next →</Link>
-                </Button>
-              )}
-            </div>
-          </div>
+          <PaginationBar
+            page={page}
+            pageSize={24}
+            total={total}
+            itemLabel="exercises"
+            buildHref={(p) => `?search=${search}&bodyRegion=${bodyRegions.join(",")}&page=${p}${kind === "assessment" ? "&kind=assessment" : ""}`}
+          />
         )}
       </div>
 
       {selectedIds.size > 0 && (
         <div className="fixed inset-x-0 bottom-6 z-50 flex justify-center px-4">
           <div className="flex items-center gap-3 rounded-full border border-border bg-background/95 px-4 py-2 shadow-lg backdrop-blur">
-            <span className="text-sm font-medium">{selectedIds.size} selected</span>
+            <span className="text-body font-medium">{selectedIds.size} selected</span>
             <Button size="sm" variant="destructive" onClick={() => setConfirmOpen(true)} disabled={isPending}>
               {isPending ? (
                 <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />

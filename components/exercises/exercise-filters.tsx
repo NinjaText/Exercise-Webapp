@@ -122,7 +122,7 @@ export function ExerciseFilters({ equipmentOptions }: { equipmentOptions: string
       </Button>
 
       {panelOpen && (
-        <div className="basis-full mt-1 rounded-xl border border-border bg-card p-5 shadow-sm">
+        <div className="basis-full mt-1 rounded-xl bg-card p-5 shadow-xs ring-1 ring-border">
           <div className="mb-4 flex items-center justify-between">
             <p className="font-semibold">Filters</p>
             <div className="flex items-center gap-3">

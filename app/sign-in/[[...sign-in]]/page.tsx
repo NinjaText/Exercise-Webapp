@@ -1,15 +1,20 @@
 import { SignIn } from "@clerk/nextjs";
+import { AuthShell } from "@/components/auth/auth-shell";
+import { clerkAuthAppearance } from "@/lib/ui/clerk-appearance";
+import { getOrgBranding } from "@/lib/services/branding.service";
+import { toViewModel } from "@/lib/branding/types";
 
-export default function SignInPage() {
+export default async function SignInPage() {
+  const branding = toViewModel(await getOrgBranding(null));
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-muted to-info-soft px-4 py-12">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-foreground">Welcome back</h1>
-          <p className="text-muted-foreground mt-1">Sign in to your INMOTUS RX account</p>
-        </div>
-        <SignIn forceRedirectUrl="/onboarding" />
-      </div>
-    </div>
+    <AuthShell
+      branding={branding}
+      headingMode="form"
+      headline="Welcome back"
+      subhead="Sign in to manage your clients and programs."
+    >
+      <SignIn forceRedirectUrl="/onboarding" appearance={clerkAuthAppearance()} />
+    </AuthShell>
   );
 }

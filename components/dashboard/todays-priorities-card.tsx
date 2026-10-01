@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/accordion";
 import { ListChecks, CircleCheck } from "lucide-react";
 import { SectionCard } from "@/components/shared/section-card";
+import { EmptyState } from "@/components/shared/empty-state";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { ROLE_CLASSES, statusRole } from "@/lib/ui/status";
 import { cn } from "@/lib/utils";
@@ -90,15 +91,12 @@ export function TodaysPrioritiesCard({ priorities, expandSignal = 0 }: TodaysPri
       className="h-full"
     >
       {priorities.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-6 text-center">
-          <CircleCheck className="h-9 w-9 text-success/40" />
-          <p className="mt-2.5 text-sm font-medium text-muted-foreground">
-            You&apos;re all caught up
-          </p>
-          <p className="mt-1 text-xs text-muted-foreground/60">
-            No clients need attention right now
-          </p>
-        </div>
+        <EmptyState
+          size="compact"
+          icon={CircleCheck}
+          title="You're all caught up"
+          description="No clients need attention right now"
+        />
       ) : (
         <Accordion
           multiple
@@ -110,7 +108,7 @@ export function TodaysPrioritiesCard({ priorities, expandSignal = 0 }: TodaysPri
               <AccordionTrigger>
                 <span className="flex items-center gap-2">
                   <StatusBadge status={severity} label={severityLabel[severity]} size="sm" />
-                  <span className="text-xs font-medium text-muted-foreground">{alerts.length}</span>
+                  <span className="text-caption font-medium tabular-nums">{alerts.length}</span>
                 </span>
               </AccordionTrigger>
               <AccordionContent>
@@ -118,20 +116,20 @@ export function TodaysPrioritiesCard({ priorities, expandSignal = 0 }: TodaysPri
                   {alerts.map((alert, i) => (
                     <div
                       key={`${alert.clientId}-${i}`}
-                      className="rounded-xl border border-border/60 bg-muted/20 p-2.5"
+                      className="rounded-lg border border-border bg-surface-muted/50 p-3"
                     >
-                      <div className="flex items-start gap-2.5">
+                      <div className="flex items-start gap-3">
                         <span
                           className={cn(
-                            "mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full",
+                            "mt-1.5 size-2 shrink-0 rounded-full",
                             ROLE_CLASSES[statusRole(alert.severity)].dot
                           )}
                         />
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-semibold">{alert.clientName}</p>
-                          <p className="mt-0.5 text-sm text-muted-foreground">{alert.message}</p>
-                          <p className="mt-0.5 text-xs text-muted-foreground">{alert.reason}</p>
-                          <div className="mt-2 flex flex-wrap gap-2">
+                          <p className="truncate text-label text-foreground">{alert.clientName}</p>
+                          <p className="mt-0.5 text-body text-muted-foreground">{alert.message}</p>
+                          <p className="mt-0.5 text-caption">{alert.reason}</p>
+                          <div className="mt-3 flex flex-wrap gap-2">
                             {ACTIONS_BY_KIND[alert.kind].map((actionKey) => {
                               const action = ACTION_CONFIG[actionKey];
                               return (
@@ -139,7 +137,6 @@ export function TodaysPrioritiesCard({ priorities, expandSignal = 0 }: TodaysPri
                                   key={actionKey}
                                   variant="outline"
                                   size="sm"
-                                  className="h-7 text-xs"
                                   asChild
                                 >
                                   <Link href={action.href(alert)}>{action.label}</Link>

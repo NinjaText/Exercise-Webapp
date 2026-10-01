@@ -85,9 +85,9 @@ export function HabitCard({ habit, onToggle, showDelete = false }: HabitCardProp
   return (
     <div
       className={cn(
-        "group relative flex flex-col gap-4 rounded-xl p-5 ring-1 ring-border shadow-none transition-all duration-200",
-        "hover:-translate-y-0.5 hover:shadow-sm hover:ring-border-strong",
-        isCompleted && "ring-success-border bg-success-soft"
+        "group relative flex flex-col gap-4 rounded-xl bg-card p-5 shadow-xs ring-1 ring-border transition-shadow motion-reduce:transition-none",
+        "hover:shadow-sm hover:ring-border-strong",
+        isCompleted && "bg-success-soft ring-success-border"
       )}
     >
       {/* Top row: icon + name + delete button */}
@@ -95,8 +95,8 @@ export function HabitCard({ habit, onToggle, showDelete = false }: HabitCardProp
         {/* Habit icon */}
         <div
           className={cn(
-            "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-2xl",
-            isCompleted ? "bg-success-soft" : "bg-muted"
+            "flex size-10 shrink-0 items-center justify-center rounded-lg text-xl",
+            isCompleted ? "bg-surface" : "bg-surface-muted"
           )}
           aria-hidden="true"
         >
@@ -105,18 +105,18 @@ export function HabitCard({ habit, onToggle, showDelete = false }: HabitCardProp
 
         {/* Name + streak */}
         <div className="min-w-0 flex-1">
-          <p className="font-semibold leading-tight truncate">{habit.name}</p>
+          <p className="truncate text-heading text-foreground">{habit.name}</p>
 
           {/* Target value if set */}
           {habit.targetValue && habit.unit && (
-            <p className="mt-0.5 text-xs text-muted-foreground">
+            <p className="mt-0.5 text-caption">
               Target: {habit.targetValue} {habit.unit}
             </p>
           )}
 
           {/* Streak */}
           {streak > 0 && (
-            <p className="mt-1 text-sm font-bold text-warning">
+            <p className="mt-1 text-label text-warning-foreground">
               🔥 {streak} day streak
             </p>
           )}
@@ -128,7 +128,7 @@ export function HabitCard({ habit, onToggle, showDelete = false }: HabitCardProp
             {/* base-ui AlertDialogTrigger does not support asChild — render the
                 button as children so the primitive wraps it with the open handler. */}
             <AlertDialogTrigger
-              className="shrink-0 rounded-md p-1 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 hover:text-destructive focus-visible:opacity-100 outline-none"
+              className="flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 outline-none transition-opacity group-hover:opacity-100 hover:bg-surface-muted hover:text-destructive focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none [@media(hover:none)]:opacity-100"
               aria-label="Remove habit"
               disabled={isPending}
             >
@@ -165,10 +165,10 @@ export function HabitCard({ habit, onToggle, showDelete = false }: HabitCardProp
         disabled={isPending}
         aria-label={isCompleted ? "Mark as not done" : "Mark as done"}
         className={cn(
-          "mt-auto flex w-full items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-semibold transition-all duration-200 outline-none focus-visible:ring-2 focus-visible:ring-ring",
+          "mt-auto flex h-10 w-full items-center justify-center gap-2 rounded-lg text-label outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50 motion-reduce:transition-none",
           isCompleted
             ? "bg-success text-white hover:bg-success/90"
-            : "bg-primary/10 text-primary hover:bg-primary/20"
+            : "bg-brand-soft text-brand-foreground hover:bg-primary/15"
         )}
       >
         {isPending ? (

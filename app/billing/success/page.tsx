@@ -1,78 +1,31 @@
-"use client";
-
-import { useEffect, useRef } from "react";
 import { Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { connection } from "next/server";
+import { AuthShell } from "@/components/auth/auth-shell";
+import { BrandStyle } from "@/components/branding/brand-style";
+import { getCurrentBranding } from "@/lib/services/branding.service";
+import { resolveBranding } from "@/lib/branding/resolve";
+import { toViewModel } from "@/lib/branding/types";
+import { BillingSuccess } from "./billing-success";
 
-function BillingSuccess() {
-  const router = useRouter();
-  const isCoaching = useSearchParams().get("coaching") === "1";
-  const attempts = useRef(0);
-
-  useEffect(() => {
-    const poll = setInterval(async () => {
-      attempts.current += 1;
-      try {
-        const res = await fetch("/api/stripe/status");
-        const data = await res.json() as {
-          subscription?: { status: string };
-          coaching?: { status: string } | null;
-        };
-        if (
-          (isCoaching
-            ? data.coaching?.status === "ACTIVE"
-            : data.subscription?.status === "ACTIVE") ||
-          attempts.current >= 10
-        ) {
-          clearInterval(poll);
-          router.push("/dashboard");
-        }
-      } catch {
-        if (attempts.current >= 10) {
-          clearInterval(poll);
-          router.push("/dashboard");
-        }
-      }
-    }, 1000);
-
-    return () => clearInterval(poll);
-  }, [router, isCoaching]);
+export default async function BillingSuccessPage() {
+  // Per-request page: opt out of prerendering before the (catch-guarded) lookup.
+  await connection();
+  // A branding lookup failure must never break this page: fall back to defaults.
+  const branding = await getCurrentBranding().catch(() => resolveBranding(null));
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[oklch(0.97_0.005_247)] px-4">
-      <div className="w-full max-w-md space-y-4 text-center">
-        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-success-soft">
-          <svg
-            className="h-8 w-8 text-success"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M5 13l4 4L19 7"
-            />
-          </svg>
-        </div>
-        <h1 className="text-2xl font-bold text-foreground">
-          {isCoaching ? "Coaching is starting" : "You\u2019re all set!"}
-        </h1>
-        <p className="text-muted-foreground">
-          {isCoaching
-            ? "Your coaching is being set up. Redirecting to dashboard…"
-            : "Your subscription is now active. Redirecting to dashboard…"}
-        </p>
-      </div>
-    </div>
-  );
-}
-
-export default function BillingSuccessPage() {
-  return (
-    <Suspense fallback={null}>
-      <BillingSuccess />
-    </Suspense>
+    <>
+      <BrandStyle branding={branding} />
+      <AuthShell
+        branding={toViewModel(branding)}
+        headline="Payment received"
+        subhead="We're confirming your subscription."
+        footer={null}
+      >
+        <Suspense fallback={null}>
+          <BillingSuccess />
+        </Suspense>
+      </AuthShell>
+    </>
   );
 }

@@ -38,16 +38,16 @@ function buildClientColumns(coaching: Record<string, string> | null): Column<Cli
       <div className="flex items-center gap-3">
         <Avatar className="size-8">
           <AvatarImage src={c.imageUrl || undefined} />
-          <AvatarFallback className="bg-primary/10 text-xs font-semibold text-primary">
+          <AvatarFallback className="bg-brand-soft text-xs font-semibold text-brand-foreground">
             {getInitials(c)}
           </AvatarFallback>
         </Avatar>
         <div className="min-w-0">
-          <p className={cn("truncate text-sm font-medium", c.isActive === false && "text-muted-foreground")}>
+          <p className={cn("truncate text-label text-foreground", c.isActive === false && "text-muted-foreground")}>
             {getDisplayName(c)}
           </p>
           {getDisplayName(c) !== c.email && (
-            <p className="truncate text-xs text-muted-foreground">{c.email}</p>
+            <p className="truncate text-caption">{c.email}</p>
           )}
         </div>
       </div>

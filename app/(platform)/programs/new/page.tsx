@@ -29,7 +29,7 @@ export default async function NewProgramPage({
   return (
     <PageShell>
       <PageHeader
-        back={{ label: "Back to Programs", href: "/programs" }}
+        back={{ label: "Back to programs", href: "/programs" }}
         breadcrumb={[{ label: "Programs", href: "/programs" }, { label: "Create Program" }]}
         title="Create Program"
         description="Build a new training program from scratch or start from a template."

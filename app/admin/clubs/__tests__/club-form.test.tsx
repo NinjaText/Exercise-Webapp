@@ -15,8 +15,8 @@ const values: ClubFormValues = {
 describe("ClubForm", () => {
   it("asks for dollar amounts, not Stripe price ids", () => {
     const html = renderToStaticMarkup(<ClubForm mode="create" globalPrograms={[]} />);
-    expect(html).toContain("Membership price ($/month)");
-    expect(html).toContain("Coaching price ($/month)");
+    expect(html).toContain("Membership price");
+    expect(html).toContain("Coaching price");
     expect(html).toContain('id="club-membership-amount"');
     expect(html).toContain('id="club-coaching-amount"');
     expect(html).not.toMatch(/price id|price_/i);

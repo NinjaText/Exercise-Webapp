@@ -64,7 +64,7 @@ export function ExerciseCard({
 
   return (
     <Card className={cn(
-      "group relative flex flex-col overflow-hidden ring-1 ring-border shadow-none transition-shadow duration-250 hover:shadow-sm hover:ring-border-strong",
+      "group relative flex flex-col gap-0 overflow-hidden py-0 transition-shadow duration-200 hover:shadow-sm hover:ring-border-strong motion-reduce:transition-none",
       isActive === false && "opacity-60"
     )}>
       <Link href={`/exercises/${id}`} className="relative block h-44 overflow-hidden bg-muted">
@@ -104,7 +104,7 @@ export function ExerciseCard({
       <CardContent className="flex flex-1 flex-col p-4">
         <div className="flex items-start justify-between gap-2">
           <Link href={`/exercises/${id}`} className="flex-1 min-w-0">
-            <h3 className="truncate text-sm font-semibold leading-tight transition-colors group-hover:text-primary">
+            <h3 className="truncate text-label text-foreground transition-colors group-hover:text-primary">
               {name}
             </h3>
           </Link>
@@ -158,7 +158,7 @@ export function ExerciseCard({
             <Button
               variant="outline"
               size="sm"
-              className="flex-1 h-7 gap-1.5 text-xs font-medium opacity-0 transition-opacity group-hover:opacity-100"
+              className="h-8 flex-1 gap-1.5 text-caption font-medium text-foreground opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100"
               asChild
             >
               <Link href={`/exercises/${id}/edit`}>

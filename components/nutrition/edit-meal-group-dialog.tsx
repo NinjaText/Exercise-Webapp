@@ -210,7 +210,7 @@ export function EditMealGroupDialog({ clientId, date, mealType, logs }: EditMeal
           </button>
         </div>
 
-        <DialogFooter className="mt-6">
+        <DialogFooter>
           <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={busy}>
             Cancel
           </Button>

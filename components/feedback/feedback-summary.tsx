@@ -8,7 +8,7 @@ interface FeedbackSummaryProps {
 export function FeedbackSummary({ feedback }: FeedbackSummaryProps) {
   if (feedback.length === 0) {
     return (
-      <Card>
+      <Card className="py-0">
         <CardContent className="py-4">
           <p className="text-muted-foreground text-sm text-center">No feedback yet</p>
         </CardContent>

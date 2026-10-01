@@ -4,7 +4,12 @@ import * as habitService from "@/lib/services/habit.service";
 import { getClientsForTrainer } from "@/lib/services/client.service";
 import { HabitCard } from "@/components/habits/habit-card";
 import { AddHabitDialog } from "@/components/habits/add-habit-dialog";
-import { Sparkles } from "lucide-react";
+import { PageShell } from "@/components/shared/page-shell";
+import { PageHeader } from "@/components/shared/page-header";
+import { SectionCard } from "@/components/shared/section-card";
+import { EmptyState } from "@/components/shared/empty-state";
+import { Card } from "@/components/ui/card";
+import { CalendarDays, Sparkles, Target } from "lucide-react";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -66,58 +71,47 @@ async function ClientHabitsView({ clientId }: { clientId: string }) {
   const totalHabits    = habits.length;
 
   return (
-    <div className="space-y-8">
-      {/* ── Header ───────────────────────────────────────────────────── */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0">
-          <h2 className="text-2xl font-bold tracking-tight">My Habits</h2>
-          <p className="text-muted-foreground">{getTodayLabel()}</p>
-        </div>
-        <AddHabitDialog />
-      </div>
+    <PageShell>
+      <PageHeader title="My Habits" description={getTodayLabel()} primaryAction={<AddHabitDialog />} />
 
       {/* ── Daily progress summary ────────────────────────────────────── */}
       {totalHabits > 0 && (
-        <div className="flex items-center gap-3 rounded-xl bg-muted/40 px-4 py-3 ring-1 ring-border/40">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-success-soft">
-            <Sparkles className="h-4 w-4 text-success" />
+        <Card className="flex-row items-center gap-3 px-5 py-4">
+          <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-success-soft text-success-foreground">
+            <Sparkles className="size-4" aria-hidden />
           </div>
-          <div>
-            <p className="text-sm font-semibold">
+          <div className="min-w-0">
+            <p className="text-label text-foreground tabular-nums">
               {completedToday} of {totalHabits} habits done today
             </p>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-caption">
               {completedToday === totalHabits && totalHabits > 0
                 ? "Amazing — you nailed all your habits today!"
                 : `${totalHabits - completedToday} remaining`}
             </p>
           </div>
-        </div>
+        </Card>
       )}
 
       {/* ── Empty state ───────────────────────────────────────────────── */}
       {totalHabits === 0 && (
-        <div className="rounded-xl border border-dashed border-border p-16 text-center">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-muted text-3xl">
-            🎯
-          </div>
-          <h3 className="mt-5 text-lg font-semibold">No habits yet</h3>
-          <p className="mx-auto mt-2 max-w-sm text-sm text-muted-foreground">
-            Add your first habit to start building consistency.
-          </p>
-          <div className="mt-5">
-            <AddHabitDialog triggerLabel="Add your first habit" />
-          </div>
-        </div>
+        <Card className="py-0">
+          <EmptyState
+            icon={Target}
+            title="No habits yet"
+            description="Add your first habit to start building consistency."
+            action={<AddHabitDialog triggerLabel="Add your first habit" />}
+          />
+        </Card>
       )}
 
       {/* ── Today's habits grid ───────────────────────────────────────── */}
       {totalHabits > 0 && (
-        <section className="space-y-3">
-          <h3 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">
+        <section aria-labelledby="habits-today" className="flex flex-col gap-4">
+          <h2 id="habits-today" className="text-heading text-foreground">
             Today
-          </h3>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          </h2>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {habits.map((habit) => (
               <HabitCard
                 key={habit.id}
@@ -134,27 +128,21 @@ async function ClientHabitsView({ clientId }: { clientId: string }) {
 
       {/* ── This Week overview ────────────────────────────────────────── */}
       {totalHabits > 0 && (
-        <section className="space-y-3">
-          <h3 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">
-            This Week
-          </h3>
-          <div className="space-y-2">
+        <SectionCard title="This Week" icon={CalendarDays} contentClassName="px-0 pb-0">
+          <ul className="divide-y divide-border border-t border-border">
             {habits.map((habit) => {
               const wl = weekLogsByHabit.get(habit.id) ?? [];
               const doneThisWeek = wl.filter((l) => l.completed).length;
 
               return (
-                <div
-                  key={habit.id}
-                  className="flex items-center gap-4 rounded-xl px-4 py-3 ring-1 ring-border shadow-none"
-                >
+                <li key={habit.id} className="flex items-center gap-4 px-5 py-3">
                   <span className="text-xl" aria-hidden="true">
                     {habit.icon ?? "🎯"}
                   </span>
-                  <span className="min-w-0 flex-1 truncate text-sm font-medium">
+                  <span className="min-w-0 flex-1 truncate text-label text-foreground">
                     {habit.name}
                   </span>
-                  <span className="shrink-0 text-xs text-muted-foreground">
+                  <span className="shrink-0 text-caption tabular-nums">
                     {doneThisWeek}/7
                   </span>
                   {/* Inline week dots */}
@@ -163,13 +151,13 @@ async function ClientHabitsView({ clientId }: { clientId: string }) {
                         We render it server-side via data — it's a purely visual component */}
                     <WeekDots logs={wl} />
                   </div>
-                </div>
+                </li>
               );
             })}
-          </div>
-        </section>
+          </ul>
+        </SectionCard>
       )}
-    </div>
+    </PageShell>
   );
 }
 
@@ -189,49 +177,43 @@ async function TrainerHabitsView({ trainerId }: { trainerId: string }) {
   const totalHabits = grouped.reduce((sum, g) => sum + g.habits.length, 0);
 
   return (
-    <div className="space-y-8">
-      {/* ── Header ───────────────────────────────────────────────────── */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0">
-          <h2 className="text-2xl font-bold tracking-tight">Client Habits</h2>
-          <p className="text-muted-foreground">
-            {totalHabits > 0
-              ? `${totalHabits} habit${totalHabits !== 1 ? "s" : ""} assigned across ${grouped.length} client${grouped.length !== 1 ? "s" : ""}`
-              : "Assign habits to your clients to help them build healthy routines"}
-          </p>
-        </div>
-        <AddHabitDialog clients={clients} />
-      </div>
+    <PageShell>
+      <PageHeader
+        title="Client Habits"
+        description={
+          totalHabits > 0
+            ? `${totalHabits} habit${totalHabits !== 1 ? "s" : ""} assigned across ${grouped.length} client${grouped.length !== 1 ? "s" : ""}`
+            : "Assign habits to your clients to help them build healthy routines"
+        }
+        primaryAction={<AddHabitDialog clients={clients} />}
+      />
 
       {/* ── Empty state ───────────────────────────────────────────────── */}
       {grouped.length === 0 && (
-        <div className="rounded-xl border border-dashed border-border p-16 text-center">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-muted text-3xl">
-            🎯
-          </div>
-          <h3 className="mt-5 text-lg font-semibold">No habits assigned yet</h3>
-          <p className="mx-auto mt-2 max-w-sm text-sm text-muted-foreground">
-            Assign daily habits to your clients — hydration, sleep, mobility
-            work and more.
-          </p>
-          {clients.length > 0 && (
-            <div className="mt-5">
-              <AddHabitDialog clients={clients} triggerLabel="Assign first habit" />
-            </div>
-          )}
-        </div>
+        <Card className="py-0">
+          <EmptyState
+            icon={Target}
+            title="No habits assigned yet"
+            description="Assign daily habits to your clients — hydration, sleep, mobility work and more."
+            action={
+              clients.length > 0 ? (
+                <AddHabitDialog clients={clients} triggerLabel="Assign first habit" />
+              ) : undefined
+            }
+          />
+        </Card>
       )}
 
       {/* ── Grouped by client ────────────────────────────────────────── */}
       {grouped.map(({ client, habits }) => (
-        <section key={client.id} className="space-y-3">
-          <h3 className="text-sm font-semibold">
+        <section key={client.id} aria-label={`${client.firstName} ${client.lastName}`} className="flex flex-col gap-4">
+          <h2 className="flex items-baseline gap-2 text-heading text-foreground">
             {client.firstName} {client.lastName}
-            <span className="ml-2 text-xs font-normal text-muted-foreground">
+            <span className="text-caption font-normal tabular-nums">
               {habits.length} habit{habits.length !== 1 ? "s" : ""}
             </span>
-          </h3>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          </h2>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {habits.map((habit) => (
               <HabitCard
                 key={habit.id}
@@ -242,7 +224,7 @@ async function TrainerHabitsView({ trainerId }: { trainerId: string }) {
           </div>
         </section>
       ))}
-    </div>
+    </PageShell>
   );
 }
 

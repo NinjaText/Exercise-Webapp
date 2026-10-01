@@ -4,6 +4,7 @@ import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { Sparkles, TriangleAlert, Lightbulb, CircleCheck, ChevronDown } from "lucide-react";
+import { EmptyState } from "@/components/shared/empty-state";
 import { Button } from "@/components/ui/button";
 import { dismissInsightAction } from "@/actions/dismiss-insight-action";
 import type { InsightKind } from "@/lib/constants/insights";
@@ -99,9 +100,9 @@ export function AiInsightsList() {
 
   if (loading) {
     return (
-      <div className="space-y-2.5">
+      <div className="space-y-2">
         {[0, 1, 2].map((i) => (
-          <div key={i} className="h-20 animate-pulse rounded-xl bg-muted/40" />
+          <div key={i} className="h-16 animate-pulse rounded-lg bg-surface-muted motion-reduce:animate-none" />
         ))}
       </div>
     );
@@ -109,13 +110,12 @@ export function AiInsightsList() {
 
   if (insights.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-8 text-center">
-        <Sparkles className="h-9 w-9 text-muted-foreground/30" />
-        <p className="mt-2.5 text-sm font-medium text-muted-foreground">No insights right now</p>
-        <p className="mt-1 text-xs text-muted-foreground/60">
-          Insights appear as your clients log activity
-        </p>
-      </div>
+      <EmptyState
+        size="compact"
+        icon={Sparkles}
+        title="No insights right now"
+        description="Insights appear as your clients log activity"
+      />
     );
   }
 
@@ -123,7 +123,7 @@ export function AiInsightsList() {
   const hiddenCount = insights.length - DEFAULT_VISIBLE_INSIGHTS;
 
   return (
-    <div className="space-y-2.5">
+    <div className="space-y-2">
       {visibleInsights.map((insight) => {
         const style = typeStyles[insight.type] ?? typeStyles.suggestion;
         const Icon = style.icon;
@@ -133,7 +133,7 @@ export function AiInsightsList() {
         const isOpen = openKeys.has(key);
 
         return (
-          <div key={key} className="rounded-xl border border-border/60 p-3">
+          <div key={key} className="rounded-lg border border-border p-3">
             {/* The whole header is the toggle — collapsed, an insight is just the
                 client and what happened; the reasoning and actions come on open. */}
             <button
@@ -144,9 +144,9 @@ export function AiInsightsList() {
             >
               <Icon className={`mt-0.5 h-4 w-4 shrink-0 ${style.className}`} />
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-medium">{insight.clientName}</span>
+                <span className="block truncate text-label text-foreground">{insight.clientName}</span>
                 <span
-                  className={`mt-0.5 block text-xs text-foreground/80 ${
+                  className={`mt-0.5 block text-caption text-foreground ${
                     isOpen ? "" : "line-clamp-2"
                   }`}
                 >
@@ -168,7 +168,7 @@ export function AiInsightsList() {
                     Next: <span className="font-normal">{insight.action}</span>
                   </p>
                 </div>
-                <div className="mt-2 flex flex-wrap gap-1.5 pl-6.5">
+                <div className="mt-3 flex flex-wrap gap-2 pl-6.5">
                   {actionKeys.map((actionKey: InsightActionKey) => {
                     const config = INSIGHT_ACTION_CONFIG[actionKey];
 
@@ -178,7 +178,7 @@ export function AiInsightsList() {
                           key={actionKey}
                           variant="ghost"
                           size="sm"
-                          className="h-7 text-xs text-muted-foreground"
+                          className="text-muted-foreground"
                           disabled={dismissingKey === key}
                           onClick={() => handleDismiss(insight)}
                         >
@@ -194,7 +194,7 @@ export function AiInsightsList() {
                     if (!href) return null;
 
                     return (
-                      <Button key={actionKey} variant="outline" size="sm" className="h-7 text-xs" asChild>
+                      <Button key={actionKey} variant="outline" size="sm" asChild>
                         <Link href={href}>{config.label}</Link>
                       </Button>
                     );
@@ -209,7 +209,7 @@ export function AiInsightsList() {
         <Button
           variant="ghost"
           size="sm"
-          className="h-7 w-full text-xs text-muted-foreground hover:text-foreground"
+          className="w-full text-muted-foreground hover:text-foreground"
           onClick={() => setExpanded((prev) => !prev)}
         >
           {expanded

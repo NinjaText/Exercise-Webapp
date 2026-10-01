@@ -656,7 +656,7 @@ export function ProgramBriefUpload({
             </Badge>
           </div>
 
-          <div className="border border-dashed rounded-lg p-6 text-center space-y-3">
+          <div className="space-y-3 rounded-xl border border-dashed border-border-strong bg-surface-muted/50 p-8 text-center">
             <input
               ref={inputRef}
               type="file"
@@ -664,7 +664,7 @@ export function ProgramBriefUpload({
               className="hidden"
               onChange={(e) => handleFileChange(e.target.files)}
             />
-            <FileText className="mx-auto h-8 w-8 text-muted-foreground" />
+            <FileText className="mx-auto size-8 text-muted-foreground" aria-hidden />
             <div className="text-sm">
               {file ? (
                 <span className="font-medium">{formatFileName(file.name)}</span>

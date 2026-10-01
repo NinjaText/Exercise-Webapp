@@ -27,7 +27,7 @@ export function PlanCard({
 }: PlanCardProps) {
   return (
     <Link href={`/workout-plans/${id}`}>
-      <Card className="h-full transition-shadow hover:shadow-md">
+      <Card className="h-full py-0 transition-shadow hover:shadow-md">
         <CardContent className="p-5">
           <div className="mb-3 flex items-start justify-between">
             <div className="rounded-lg bg-brand-soft p-2.5 text-brand-foreground">

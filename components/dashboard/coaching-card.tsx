@@ -52,7 +52,7 @@ export function CoachingCard({ coaching, className }: { coaching: CoachingViewMo
   }
 
   const withdrawButton = (
-    <Button variant="outline" onClick={withdraw} disabled={busy}>
+    <Button variant="outline" className="h-11 sm:h-9" onClick={withdraw} disabled={busy}>
       {withdrawing ? "Withdrawing…" : "Withdraw"}
     </Button>
   );
@@ -64,7 +64,7 @@ export function CoachingCard({ coaching, className }: { coaching: CoachingViewMo
       badge = <StatusBadge status="REQUESTED" role="info" label="Request sent" />;
       body = (
         <>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-body text-muted-foreground">
             Your coach will review your request. You&apos;ll be notified when they respond.
           </p>
           {withdrawButton}
@@ -75,11 +75,11 @@ export function CoachingCard({ coaching, className }: { coaching: CoachingViewMo
       badge = <StatusBadge status="ACCEPTED" role="success" label="Accepted" />;
       body = (
         <>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-body text-muted-foreground">
             Your coach accepted{priceLabel ? `, start coaching for ${priceLabel}` : ""}.
           </p>
           <div className="flex flex-wrap gap-2">
-            <Button onClick={() => redirectTo("checkout", "/api/checkout/coaching")} disabled={busy}>
+            <Button className="h-11 sm:h-9" onClick={() => redirectTo("checkout", "/api/checkout/coaching")} disabled={busy}>
               {redirecting === "checkout" ? "Redirecting…" : "Start coaching"}
             </Button>
             {withdrawButton}
@@ -91,8 +91,8 @@ export function CoachingCard({ coaching, className }: { coaching: CoachingViewMo
       badge = <StatusBadge status="ACTIVE" role="success" label="Active" />;
       body = (
         <>
-          <p className="text-sm text-muted-foreground">Coaching is active.</p>
-          <Button asChild>
+          <p className="text-body text-muted-foreground">Coaching is active.</p>
+          <Button className="h-11 sm:h-9" asChild>
             <Link href="/messages">Message your coach</Link>
           </Button>
         </>
@@ -102,8 +102,8 @@ export function CoachingCard({ coaching, className }: { coaching: CoachingViewMo
       badge = <StatusBadge status="PAST_DUE" role="warning" label="Paused" />;
       body = (
         <>
-          <p className="text-sm text-muted-foreground">Coaching is paused until your payment is updated.</p>
-          <Button onClick={() => redirectTo("portal", "/api/stripe/member-portal")} disabled={busy}>
+          <p className="text-body text-muted-foreground">Coaching is paused until your payment is updated.</p>
+          <Button className="h-11 sm:h-9" onClick={() => redirectTo("portal", "/api/stripe/member-portal")} disabled={busy}>
             {redirecting === "portal" ? "Redirecting…" : "Update payment"}
           </Button>
         </>
@@ -113,7 +113,7 @@ export function CoachingCard({ coaching, className }: { coaching: CoachingViewMo
       // none / DECLINED / CANCELED
       body = (
         <>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-body text-muted-foreground">
             {status === "DECLINED"
               ? "Your last request wasn't accepted. You can send a new one."
               : `Work one-on-one with your club coach${priceLabel ? ` for ${priceLabel}` : ""}.`}
@@ -125,7 +125,7 @@ export function CoachingCard({ coaching, className }: { coaching: CoachingViewMo
 
   return (
     <SectionCard title="Coaching" icon={HeartHandshake} action={badge} className={className}>
-      <div className="flex flex-col items-start gap-3">{body}</div>
+      <div className="flex flex-col items-start gap-4">{body}</div>
     </SectionCard>
   );
 }

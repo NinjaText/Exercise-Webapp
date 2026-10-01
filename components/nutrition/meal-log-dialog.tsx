@@ -358,7 +358,7 @@ function ManualMealForm({
         </div>
       </div>
 
-      <DialogFooter className="mt-6">
+      <DialogFooter>
         <Button type="button" variant="outline" onClick={onCancel} disabled={busy}>
           Cancel
         </Button>

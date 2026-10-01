@@ -14,6 +14,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import { EmptyState } from "@/components/shared/empty-state";
 import { SectionCard } from "@/components/shared/section-card";
 import { respondCoachingRequestAction } from "@/actions/coaching-actions";
 import type { CoachingRequestItem } from "@/lib/clubs/trainer-coaching";
@@ -44,14 +45,14 @@ export function CoachingRequestsCard({ requests }: { requests: CoachingRequestIt
   return (
     <SectionCard title="Coaching requests" icon={HeartHandshake} count={requests.length}>
       {requests.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No coaching requests</p>
+        <EmptyState size="compact" icon={HeartHandshake} title="No coaching requests" />
       ) : (
         <ul className="divide-y divide-border">
           {requests.map((r) => (
             <li key={r.memberId} className="flex flex-col gap-3 py-3 first:pt-0 last:pb-0 sm:flex-row sm:items-start sm:justify-between">
               <div className="min-w-0">
-                <p className="truncate text-sm font-medium">{r.name}</p>
-                {r.note && <p className="mt-1 whitespace-pre-wrap break-words text-sm text-muted-foreground">{r.note}</p>}
+                <p className="truncate text-label text-foreground">{r.name}</p>
+                {r.note && <p className="mt-1 whitespace-pre-wrap break-words text-body text-muted-foreground">{r.note}</p>}
               </div>
               <div className="flex shrink-0 gap-2">
                 <Button size="sm" onClick={() => respond(r.memberId, true)} disabled={pending}>

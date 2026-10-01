@@ -1,102 +1,97 @@
 "use client";
 
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { completeTrainerOnboarding } from "@/actions/onboarding-actions";
 import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
+import { completeTrainerOnboarding } from "@/actions/onboarding-actions";
+import { StepForm, useStepForm, type StepMeta } from "./step-form";
+import {
+  EMPTY_TRAINER_ONBOARDING_VALUES,
+  TRAINER_STEP_VALIDATORS,
+  buildTrainerOnboardingPayload,
+  type TrainerOnboardingValues,
+} from "./onboarding-payloads";
+import { TextField } from "./onboarding-fields";
 
+const STEPS: readonly StepMeta[] = [
+  { title: "About you", description: "Your name and contact details." },
+  { title: "Your organization", description: "The practice or business your clients will see." },
+];
+
+/** Creates the organization; a server-side refusal is shown as a toast, as before. */
+export async function submitTrainerOnboarding(values: TrainerOnboardingValues) {
+  const result = await completeTrainerOnboarding(buildTrainerOnboardingPayload(values));
+  if (result && !result.success) toast.error(result.error);
+}
+
+/** Trainer-org signup: About you → Your organization. */
 export function OnboardingForm() {
+  const form = useStepForm(EMPTY_TRAINER_ONBOARDING_VALUES, TRAINER_STEP_VALIDATORS);
   const [loading, setLoading] = useState(false);
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [organizationName, setOrganizationName] = useState("");
-  const [phone, setPhone] = useState("");
+  const { values: v, errors, set } = form;
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!firstName || !lastName || !organizationName) {
-      toast.error("Please fill in all required fields");
-      return;
-    }
-
+  async function finish() {
+    if (!form.validateAll()) return;
     setLoading(true);
-    const result = await completeTrainerOnboarding({
-      firstName,
-      lastName,
-      organizationName,
-      phone: phone || undefined,
-    });
-    setLoading(false);
-
-    if (result && !result.success) {
-      toast.error(result.error);
+    try {
+      await submitTrainerOnboarding(form.values);
+    } finally {
+      setLoading(false);
     }
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Set up your organization</CardTitle>
-        <CardDescription>Tell us about yourself and your practice</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
+    <StepForm
+      steps={STEPS}
+      step={form.step}
+      onBack={form.back}
+      onContinue={form.next}
+      onFinish={finish}
+      pending={loading}
+      invalidAttempt={form.invalidAttempt}
+    >
+      {form.step === 0 ? (
+        <>
           <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="firstName">First Name *</Label>
-              <Input
-                id="firstName"
-                value={firstName}
-                onChange={(e) => setFirstName(e.target.value)}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="lastName">Last Name *</Label>
-              <Input
-                id="lastName"
-                value={lastName}
-                onChange={(e) => setLastName(e.target.value)}
-                required
-              />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="organizationName">Organization Name *</Label>
-            <Input
-              id="organizationName"
-              value={organizationName}
-              onChange={(e) => setOrganizationName(e.target.value)}
-              placeholder="e.g., Summit Physical Therapy"
+            <TextField
+              id="firstName"
+              label="First name"
               required
+              autoComplete="given-name"
+              value={v.firstName}
+              onValueChange={(firstName) => set({ firstName })}
+              error={errors.firstName}
+            />
+            <TextField
+              id="lastName"
+              label="Last name"
+              required
+              autoComplete="family-name"
+              value={v.lastName}
+              onValueChange={(lastName) => set({ lastName })}
+              error={errors.lastName}
             />
           </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="phone">Phone (optional)</Label>
-            <Input
-              id="phone"
-              type="tel"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-            />
-          </div>
-
-          <Button
-            type="submit"
-            className="w-full"
-            disabled={loading || !firstName || !lastName || !organizationName}
-          >
-            {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Create Organization & Go to Dashboard
-          </Button>
-        </form>
-      </CardContent>
-    </Card>
+          <TextField
+            id="phone"
+            label="Phone (optional)"
+            type="tel"
+            autoComplete="tel"
+            value={v.phone}
+            onValueChange={(phone) => set({ phone })}
+          />
+        </>
+      ) : (
+        <TextField
+          id="organizationName"
+          label="Organization name"
+          required
+          autoComplete="organization"
+          value={v.organizationName}
+          onValueChange={(organizationName) => set({ organizationName })}
+          error={errors.organizationName}
+          placeholder="e.g., Summit Physical Therapy"
+        />
+      )}
+    </StepForm>
   );
 }

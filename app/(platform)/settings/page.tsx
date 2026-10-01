@@ -23,9 +23,13 @@ export default async function AccountSettingsPage() {
       <SessionsPanel />
       <DeleteAccountSection role={user.role} />
 
-      <nav aria-label="Legal" className="flex gap-4 pt-2 text-sm text-muted-foreground">
-        <Link href="/privacy" className="hover:text-foreground">Privacy Policy</Link>
-        <Link href="/terms" className="hover:text-foreground">Terms of Service</Link>
+      <nav aria-label="Legal" className="flex gap-4 pt-2 text-caption">
+        <Link href="/privacy" className="rounded-sm hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring outline-none">
+          Privacy Policy
+        </Link>
+        <Link href="/terms" className="rounded-sm hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring outline-none">
+          Terms of Service
+        </Link>
       </nav>
     </SettingsPanels>
   );

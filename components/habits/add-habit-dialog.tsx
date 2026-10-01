@@ -243,7 +243,7 @@ export function AddHabitDialog({
             </div>
           </div>
 
-          <DialogFooter className="mt-6">
+          <DialogFooter>
             <Button
               type="button"
               variant="outline"

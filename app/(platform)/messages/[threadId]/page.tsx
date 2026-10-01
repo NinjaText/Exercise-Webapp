@@ -7,9 +7,10 @@ import { prisma } from "@/lib/prisma";
 import { pusherServer } from "@/lib/pusher";
 import { threadChannel } from "@/lib/pusher-channels";
 import { MessageThread } from "@/components/messages/message-thread";
-import { ArrowLeft } from "lucide-react";
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
+import { PageShell } from "@/components/shared/page-shell";
+import { PageHeader } from "@/components/shared/page-header";
+import { MESSAGES_PANE_SURFACE, MESSAGES_VIEWPORT_HEIGHT } from "@/components/messages/layout-classes";
+import { cn } from "@/lib/utils";
 import { getDisplayName } from "@/lib/utils/display-name";
 
 interface Props {
@@ -40,24 +41,23 @@ export default async function ThreadPage({ params }: Props) {
     .trigger(threadChannel(threadId, user.id), "messages-read", { readByUserId: user.id })
     .catch((err) => console.error("[pusher] messages-read trigger failed:", err));
 
+  const recipientName = getDisplayName(otherUser);
+
   return (
-    <div className="flex h-[calc(100dvh-10rem)] flex-col">
-      <div className="shrink-0 pb-4">
-        <Button variant="ghost" size="sm" asChild className="-ml-2">
-          <Link href="/messages">
-            <ArrowLeft className="mr-1 h-4 w-4" />
-            Back to Inbox
-          </Link>
-        </Button>
-      </div>
-      <div className="min-h-0 flex-1">
+    <PageShell className={MESSAGES_VIEWPORT_HEIGHT}>
+      <PageHeader
+        title="Conversation"
+        back={{ label: "Back to inbox", href: "/messages" }}
+        breadcrumb={[{ label: "Inbox", href: "/messages" }, { label: recipientName }]}
+      />
+      <div className={cn("min-h-0 flex-1", MESSAGES_PANE_SURFACE)}>
         <MessageThread
           items={items}
           currentUserId={user.id}
           recipientId={threadId}
-          recipientName={getDisplayName(otherUser)}
+          recipientName={recipientName}
         />
       </div>
-    </div>
+    </PageShell>
   );
 }

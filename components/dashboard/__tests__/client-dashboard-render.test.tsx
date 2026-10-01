@@ -63,7 +63,7 @@ const baseProps: DashboardProps = {
 
 /** Counts real `<Button variant="default">` renders (unique cva fragment), never a hand-rolled `<button>` like the inbox tabs, which also carry `bg-primary text-primary-foreground` for their active state. */
 function countPrimaryButtons(html: string): number {
-  return (html.match(/bg-primary text-primary-foreground \[a\]:hover:bg-primary\/80/g) ?? []).length;
+  return (html.match(/bg-primary text-primary-foreground shadow-xs hover:bg-primary\/90 aria-expanded:bg-primary\/90/g) ?? []).length;
 }
 
 describe("ClientDashboard static render", () => {
@@ -84,7 +84,8 @@ describe("ClientDashboard static render", () => {
       <ClientDashboard {...baseProps} upcomingSessions={[makeSession()]} />
     );
 
-    expect(html).toMatch(/>5<\/p>\s*<p[^>]*>Workouts completed<\/p>/);
+    // StatCard renders the label (caption) above the value (spec §2.3).
+    expect(html).toMatch(/>Workouts completed<\/p>\s*<p[^>]*>5<\/p>/);
   });
 
   it("sanity: the filled-button class fragment appears at least once across fixtures", () => {

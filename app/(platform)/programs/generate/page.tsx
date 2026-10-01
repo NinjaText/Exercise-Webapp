@@ -92,7 +92,7 @@ export default async function GenerateProgramPage({
   return (
     <PageShell width="default">
       <PageHeader
-        back={{ label: "Back to Programs", href: "/programs" }}
+        back={{ label: "Back to programs", href: "/programs" }}
         breadcrumb={[{ label: "Programs", href: "/programs" }, { label: "Generate Program" }]}
         title="Generate Program"
         description="Use AI to create a personalised program for a client."

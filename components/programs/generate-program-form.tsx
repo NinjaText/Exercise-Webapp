@@ -3,14 +3,16 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
+import { FormField } from "@/components/shared/form-section";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DIFFICULTY_LEVELS, REHAB_GOALS, PERFORMANCE_GOALS } from "@/lib/utils/constants";
 import { generateProgramAction } from "@/actions/program-actions";
 import { toast } from "sonner";
-import { Check, ChevronDown, ChevronUp, ChevronsUpDown, Loader2, Plus, Sparkles, Trash2 } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { NATIVE_SELECT_CLASS } from "@/lib/ui/native-select";
+import { Check, ChevronDown, ChevronUp, ChevronsUpDown, Loader2, Plus, Sparkles, Trash2, X } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Command,
@@ -373,12 +375,12 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
     <div
       className={
         showClientDetails
-          ? "mx-auto grid w-full max-w-5xl grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]"
-          : "mx-auto w-full max-w-2xl"
+          ? "grid w-full max-w-5xl grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]"
+          : "w-full max-w-2xl"
       }
     >
       {isReviewing && clinicalPlan ? (
-        <Card className="ring-1 ring-border shadow-none">
+        <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-brand" />
@@ -396,21 +398,21 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
         </Card>
       ) : (
         <form onSubmit={handleRequestPlan}>
-          <Card className="ring-1 ring-border shadow-none">
+          <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Sparkles className="h-5 w-5 text-brand" />
                 AI Program Generator
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-6">
+            <CardContent className="space-y-4">
               {/* Client selector — hidden when no clients available (e.g. admin context).
                   The selected client's profile is shown in the side panel, not inline. */}
               {clients.length > 0 && (
-                <div className="space-y-2">
-                  <Label>Client <span className="text-muted-foreground font-normal">(optional)</span></Label>
+                <FormField label="Client (optional)" htmlFor="generate-client">
                   <select
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    id="generate-client"
+                    className={NATIVE_SELECT_CLASS}
                     value={selectedClient}
                     onChange={(e) => setSelectedClient(e.target.value)}
                   >
@@ -421,14 +423,19 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
                       </option>
                     ))}
                   </select>
-                </div>
+                </FormField>
               )}
 
               {/* Program Type */}
-              <div className="space-y-2">
-                <Label>Program Type</Label>
+              <FormField
+                label="Program type"
+                htmlFor="generate-program-type"
+                hint={`${programModeTouched ? "Manually set" : "Auto-detected from client profile"} — change if needed`}
+              >
                 <select
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  id="generate-program-type"
+                  aria-describedby="generate-program-type-hint"
+                  className={NATIVE_SELECT_CLASS}
                   value={programMode}
                   onChange={(e) => {
                     setProgramMode(e.target.value as ProgramMode);
@@ -438,16 +445,12 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
                   <option value="PERFORMANCE">🏋️ Performance / Athletic</option>
                   <option value="CLINICAL">🩺 Rehab / Clinical</option>
                 </select>
-                <p className="text-xs text-muted-foreground">
-                  {programModeTouched ? "Manually set" : "Auto-detected from client profile"} — change if needed
-                </p>
-              </div>
+              </FormField>
 
               {/* Scheduling — Scheduled program vs. anytime Resource */}
-              <div className="space-y-2">
-                <Label>Scheduling</Label>
+              <FormField label="Scheduling">
                 <SchedulingTypeSelector value={schedulingType} onChange={setSchedulingType} />
-              </div>
+              </FormField>
 
               {/* Clinic visibility — shown only in admin/global context (clinics provided) */}
               {clinics && (
@@ -460,10 +463,7 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
 
               {/* Start Date — shown only for a scheduled program with a client */}
               {selectedClient && !isOnDemand && (
-                <div className="space-y-2">
-                  <Label htmlFor="startDate">
-                    Program Start Date <span className="text-destructive">*</span>
-                  </Label>
+                <FormField label="Program start date" htmlFor="startDate" required>
                   <Input
                     id="startDate"
                     type="date"
@@ -471,15 +471,15 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
                     onChange={e => setStartDate(e.target.value)}
                     min={new Date().toISOString().split("T")[0]}
                   />
-                </div>
+                </FormField>
               )}
 
               {/* Session Duration + Days Per Week */}
               <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label>Session Duration (minutes)</Label>
+                <FormField label="Session duration (minutes)" htmlFor="generate-session-duration">
                   <select
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    id="generate-session-duration"
+                    className={NATIVE_SELECT_CLASS}
                     value={duration}
                     onChange={(e) => setDuration(Number(e.target.value))}
                   >
@@ -487,11 +487,20 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
                       <option key={m} value={m}>{m} minutes</option>
                     ))}
                   </select>
-                </div>
-                <div className="space-y-2">
-                  <Label>{isOnDemand ? "Number of Days" : "Days Per Week"}</Label>
+                </FormField>
+                <FormField
+                  label={isOnDemand ? "Number of days" : "Days per week"}
+                  htmlFor="generate-days"
+                  hint={
+                    isOnDemand
+                      ? "How many separate days this resource contains. It stays unscheduled — the client picks when to do each one."
+                      : undefined
+                  }
+                >
                   <select
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    id="generate-days"
+                    aria-describedby={isOnDemand ? "generate-days-hint" : undefined}
+                    className={NATIVE_SELECT_CLASS}
                     value={isOnDemand ? onDemandSessionCount : daysPerWeek}
                     onChange={(e) => {
                       const val = Number(e.target.value);
@@ -509,20 +518,13 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
                       </option>
                     ))}
                   </select>
-                  {isOnDemand && (
-                    <p className="text-xs text-muted-foreground">
-                      How many separate days this resource contains. It stays unscheduled —
-                      the client picks when to do each one.
-                    </p>
-                  )}
-                </div>
+                </FormField>
               </div>
 
               {/* Program Duration — cosmetic for a resource, which has no schedule */}
               {!isOnDemand && (
-              <div className="space-y-2">
-                <Label>Program Duration</Label>
-                <div className="flex items-center gap-2 flex-wrap">
+              <FormField label="Program duration">
+                <div role="group" aria-label="Program duration" className="flex flex-wrap items-center gap-2">
                   {[1, 2, 4, 6, 8, 12].map(w => (
                     <Button
                       key={w}
@@ -534,9 +536,10 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
                       {w === 1 && daysPerWeek === 1 ? "1 day" : w === 1 ? "1 wk" : `${w} wks`}
                     </Button>
                   ))}
-                  <div className="flex items-center gap-1.5 ml-1">
+                  <div className="ml-1 flex items-center gap-1.5">
                     <Input
                       type="number"
+                      aria-label="Program duration in weeks"
                       min={1}
                       max={52}
                       value={durationWeeks}
@@ -544,18 +547,17 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
                         const v = parseInt(e.target.value);
                         if (!isNaN(v) && v >= 1) setDurationWeeks(v);
                       }}
-                      className="h-8 w-16 text-sm text-center"
+                      className="h-8 w-16 text-center text-body"
                     />
-                    <span className="text-sm text-muted-foreground whitespace-nowrap">weeks</span>
+                    <span className="whitespace-nowrap text-body text-muted-foreground">weeks</span>
                   </div>
                 </div>
-              </div>
+              </FormField>
               )}
 
               {/* Program Goals */}
-              <div className="space-y-2">
-                <Label>Program Goals *</Label>
-                <div className="flex flex-wrap gap-2">
+              <FormField label="Program goals" required>
+                <div role="group" aria-label="Program goals" className="flex flex-wrap gap-2">
                   {goalOptions.map((goal) => (
                     <Button
                       key={goal}
@@ -568,16 +570,15 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
                     </Button>
                   ))}
                 </div>
-              </div>
+              </FormField>
 
               {/* Equipment */}
-              <div className="space-y-2">
-                <Label>Available Equipment</Label>
-                <p className="text-xs text-muted-foreground">
+              <FormField label="Available equipment">
+                <p className="text-caption">
                   Only exercises using this equipment (plus bodyweight) will be selected. Leave empty to allow any equipment.
                 </p>
                 {!equipmentTouched && selectedEquipment.length > 0 && selectedClientDetails && (
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-caption">
                     Pre-filled from {selectedClientDetails.firstName}&apos;s profile — adjust as needed.
                   </p>
                 )}
@@ -638,30 +639,30 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
                   </PopoverContent>
                 </Popover>
                 {selectedEquipment.length > 0 && !selectedEquipment.includes("none") && (
-                  <div className="flex flex-wrap gap-1.5 mt-1">
+                  <div className="mt-1 flex flex-wrap gap-1.5">
                     {selectedEquipment.map(item => (
                       <span
                         key={item}
-                        className="inline-flex items-center gap-1 rounded-full border bg-secondary px-2.5 py-0.5 text-xs font-medium"
+                        className="inline-flex h-8 items-center gap-1 rounded-full border border-border bg-secondary pl-2.5 pr-1 text-caption font-medium text-foreground"
                       >
                         {item}
                         <button
                           type="button"
                           onClick={() => toggleEquipment(item)}
-                          className="text-muted-foreground hover:text-foreground"
+                          aria-label={`Remove ${item}`}
+                          className="inline-flex size-6 items-center justify-center rounded-full text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
                         >
-                          ×
+                          <X className="size-3" />
                         </button>
                       </span>
                     ))}
                   </div>
                 )}
-              </div>
+              </FormField>
 
               {/* Difficulty Level */}
-              <div className="space-y-2">
-                <Label>Difficulty Level</Label>
-                <div className="flex gap-2">
+              <FormField label="Difficulty level">
+                <div role="group" aria-label="Difficulty level" className="flex flex-wrap gap-2">
                   {DIFFICULTY_LEVELS.map((d) => (
                     <Button
                       key={d.value}
@@ -674,14 +675,14 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
                     </Button>
                   ))}
                 </div>
-              </div>
+              </FormField>
 
               {/* Circuit Structure */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <div>
-                    <Label>Circuit Structure</Label>
-                    <p className="text-xs text-muted-foreground mt-0.5">
+                    <p className="text-label text-foreground">Circuit structure</p>
+                    <p className="mt-0.5 text-caption">
                       Configure each circuit — name, focus, and exact exercise count.
                       Total: <span className="font-medium text-foreground">{totalExercises} exercises</span> per session.
                     </p>
@@ -702,13 +703,14 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
                   {circuits.map((circuit, index) => (
                     <div
                       key={circuit.id}
-                      className="flex items-center gap-2 rounded-lg border bg-muted/30 p-3"
+                      className="flex items-center gap-2 rounded-lg border border-border bg-surface-muted p-3"
                     >
                       <div className="flex flex-col shrink-0">
                         <button
                           type="button"
                           disabled={index === 0}
                           onClick={() => moveCircuit(circuit.id, "up")}
+                          aria-label={`Move circuit ${index + 1} up`}
                           className="h-4 w-4 flex items-center justify-center text-muted-foreground hover:text-foreground disabled:opacity-20 disabled:cursor-not-allowed"
                         >
                           <ChevronUp className="h-3 w-3" />
@@ -717,13 +719,14 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
                           type="button"
                           disabled={index === circuits.length - 1}
                           onClick={() => moveCircuit(circuit.id, "down")}
+                          aria-label={`Move circuit ${index + 1} down`}
                           className="h-4 w-4 flex items-center justify-center text-muted-foreground hover:text-foreground disabled:opacity-20 disabled:cursor-not-allowed"
                         >
                           <ChevronDown className="h-3 w-3" />
                         </button>
                       </div>
 
-                      <span className="text-xs font-medium text-muted-foreground w-5 shrink-0">
+                      <span className="w-5 shrink-0 text-caption font-medium">
                         {index + 1}
                       </span>
 
@@ -731,13 +734,15 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
                         value={circuit.name}
                         onChange={(e) => updateCircuit(circuit.id, { name: e.target.value })}
                         placeholder="Circuit name"
-                        className="h-8 text-sm flex-1 min-w-0"
+                        aria-label={`Circuit ${index + 1} name`}
+                        className="h-8 min-w-0 flex-1 text-body"
                       />
 
                       <select
                         value={circuit.focusType}
                         onChange={(e) => updateCircuit(circuit.id, { focusType: e.target.value })}
-                        className="h-8 rounded-md border border-input bg-background px-2 py-1 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring flex-1 min-w-0"
+                        aria-label={`Circuit ${index + 1} focus`}
+                        className={cn(NATIVE_SELECT_CLASS, "h-8 min-w-0 flex-1 px-2")}
                       >
                         {CIRCUIT_FOCUS_OPTIONS.map((opt) => (
                           <option key={opt.value} value={opt.value}>
@@ -757,9 +762,10 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
                               exerciseCount: Math.max(1, Math.min(12, Number(e.target.value))),
                             })
                           }
-                          className="h-8 w-14 text-sm text-center"
+                          aria-label={`Circuit ${index + 1} exercise count`}
+                          className="h-8 w-14 text-center text-body"
                         />
-                        <span className="text-xs text-muted-foreground whitespace-nowrap">ex.</span>
+                        <span className="whitespace-nowrap text-caption">ex.</span>
                       </div>
 
                       <div className="flex items-center gap-1 shrink-0">
@@ -773,9 +779,10 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
                               rounds: Math.max(1, Math.min(8, Number(e.target.value))),
                             })
                           }
-                          className="h-8 w-14 text-sm text-center disabled:opacity-50"
+                          aria-label={`Circuit ${index + 1} sets`}
+                          className="h-8 w-14 text-center text-body disabled:opacity-50"
                         />
-                        <span className="text-xs text-muted-foreground whitespace-nowrap">sets</span>
+                        <span className="whitespace-nowrap text-caption">sets</span>
                       </div>
 
                       <div className="flex items-center gap-1 shrink-0">
@@ -791,17 +798,19 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
                             })
                           }
                           disabled={circuit.rounds <= 1}
-                          className="h-8 w-14 text-sm text-center disabled:opacity-50"
+                          aria-label={`Circuit ${index + 1} rest between sets (seconds)`}
+                          className="h-8 w-14 text-center text-body disabled:opacity-50"
                         />
-                        <span className="text-xs text-muted-foreground whitespace-nowrap">s rest</span>
+                        <span className="whitespace-nowrap text-caption">s rest</span>
                       </div>
 
                       <Button
                         type="button"
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive"
+                        className="size-8 shrink-0 text-muted-foreground hover:text-destructive"
                         onClick={() => removeCircuit(circuit.id)}
+                        aria-label={`Remove circuit ${index + 1}`}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -812,9 +821,11 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
 
               {/* Training Days — a resource has no weekly cadence */}
               {!isOnDemand && (
-                <div className="space-y-2">
-                  <Label>Training Days</Label>
-                  <div className="flex flex-wrap gap-2">
+                <FormField
+                  label="Training days"
+                  hint={`Select exactly ${daysPerWeek} day${daysPerWeek === 1 ? "" : "s"}.`}
+                >
+                  <div role="group" aria-label="Training days" className="flex flex-wrap gap-2">
                     {weekDays.map((day) => (
                       <Button
                         key={day}
@@ -827,15 +838,11 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
                       </Button>
                     ))}
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    Select exactly {daysPerWeek} day{daysPerWeek === 1 ? "" : "s"}.
-                  </p>
-                </div>
+                </FormField>
               )}
 
               {/* Subjective */}
-              <div className="space-y-2">
-                <Label htmlFor="subjective">Client Subjective</Label>
+              <FormField label="Client subjective" htmlFor="subjective">
                 <Textarea
                   id="subjective"
                   name="subjective"
@@ -844,11 +851,10 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
                   value={subjective}
                   onChange={(e) => setSubjective(e.target.value)}
                 />
-              </div>
+              </FormField>
 
               {/* Trainer prompt */}
-              <div className="space-y-2">
-                <Label htmlFor="trainerPrompt">Program Instructions (Optional)</Label>
+              <FormField label="Program instructions (optional)" htmlFor="trainerPrompt">
                 <Textarea
                   id="trainerPrompt"
                   name="trainerPrompt"
@@ -857,11 +863,10 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
                   value={trainerPrompt}
                   onChange={(e) => setTrainerPrompt(e.target.value)}
                 />
-              </div>
+              </FormField>
 
               {/* Additional notes */}
-              <div className="space-y-2">
-                <Label htmlFor="notes">Additional Notes</Label>
+              <FormField label="Additional notes" htmlFor="notes">
                 <Textarea
                   id="notes"
                   name="notes"
@@ -870,7 +875,7 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
                   value={additionalNotes}
                   onChange={(e) => setAdditionalNotes(e.target.value)}
                 />
-              </div>
+              </FormField>
 
               {/* Actions */}
               <div className="flex justify-end gap-3">

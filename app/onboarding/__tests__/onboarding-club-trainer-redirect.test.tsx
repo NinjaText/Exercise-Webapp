@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { renderToStaticMarkup } from "react-dom/server";
 
 vi.mock("@clerk/nextjs/server", () => ({ auth: vi.fn(async () => ({ userId: "clerk_1" })) }));
 vi.mock("next/navigation", () => ({
@@ -8,7 +9,7 @@ vi.mock("next/navigation", () => ({
 }));
 vi.mock("@/lib/prisma", () => ({ prisma: { user: { findUnique: vi.fn() } } }));
 vi.mock("@/lib/org-capabilities.server", () => ({ getCapabilitiesForUser: vi.fn() }));
-vi.mock("@/components/onboarding/onboarding-form", () => ({ OnboardingForm: () => null }));
+vi.mock("@/components/onboarding/onboarding-form", () => ({ OnboardingForm: () => "TRAINER_FORM" }));
 vi.mock("@/lib/services/club-trainer.service", () => ({ resolveClubTrainerInvite: vi.fn() }));
 
 import { prisma } from "@/lib/prisma";
@@ -35,6 +36,15 @@ describe("/onboarding (trainer-org signup)", () => {
     vi.mocked(prisma.user.findUnique).mockResolvedValue({ id: "t1", role: "TRAINER", clerkOrgId: null, onboarded: false } as any);
     vi.mocked(getCapabilitiesForUser).mockResolvedValue(getUserCapabilities({ orgType: "TRAINER", role: "TRAINER", coachingActive: false }));
     await expect(OnboardingPage()).resolves.toBeTruthy();
+  });
+
+  it("renders the form in AuthShell's wide column with product branding", async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(null);
+    const html = renderToStaticMarkup(await OnboardingPage());
+    expect(html).toContain('data-slot="auth-shell"');
+    expect(html).toMatch(/data-slot="auth-form-column" data-size="wide"/);
+    expect(html).toContain("TRAINER_FORM");
+    expect(html).toContain("INMOTUS RX");
   });
 
   it("redirects an invited club trainer whose row the webhook hasn't created yet", async () => {

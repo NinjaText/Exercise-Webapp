@@ -9,7 +9,7 @@ export default async function NewExercisePage() {
   return (
     <PageShell width="narrow">
       <PageHeader
-        back={{ label: "Back to Exercises", href: "/exercises" }}
+        back={{ label: "Back to exercises", href: "/exercises" }}
         breadcrumb={[{ label: "Exercises", href: "/exercises" }, { label: "New Exercise" }]}
         title="New Exercise"
       />

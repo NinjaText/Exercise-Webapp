@@ -44,7 +44,7 @@ export function RequestCoachingDialog({
 
   return (
     <>
-      <Button onClick={() => setOpen(true)}>{triggerLabel}</Button>
+      <Button className="h-11 sm:h-9" onClick={() => setOpen(true)}>{triggerLabel}</Button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogHeader>

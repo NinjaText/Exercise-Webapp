@@ -3,6 +3,7 @@
 import { Menu } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
 import { AdminSidebar } from "./admin-sidebar";
+import { SIDEBAR_DRAWER_CLASS } from "@/components/layout/sidebar-primitives";
 
 interface AdminMobileNavProps {
   userName: string;
@@ -14,11 +15,12 @@ export function AdminMobileNav({ userName, userEmail }: AdminMobileNavProps) {
   return (
     <Sheet>
       <SheetTrigger
-        className="inline-flex shrink-0 items-center justify-center rounded-lg border border-transparent text-sm font-medium transition-all outline-none select-none hover:bg-muted hover:text-foreground size-8 lg:hidden"
+        aria-label="Open navigation"
+        className="-ml-2.5 inline-flex size-11 shrink-0 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors select-none hover:bg-surface-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none lg:hidden"
       >
-        <Menu className="h-5 w-5" />
+        <Menu className="size-5" aria-hidden />
       </SheetTrigger>
-      <SheetContent side="left" className="w-64 p-0">
+      <SheetContent side="left" className={SIDEBAR_DRAWER_CLASS}>
         <SheetTitle className="sr-only">Navigation</SheetTitle>
         <AdminSidebar
           userName={userName}

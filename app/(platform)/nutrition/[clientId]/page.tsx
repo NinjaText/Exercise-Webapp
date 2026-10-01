@@ -19,6 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageShell } from "@/components/shared/page-shell";
 import { PageHeader } from "@/components/shared/page-header";
 import { SectionCard } from "@/components/shared/section-card";
+import { Card } from "@/components/ui/card";
 import { UtensilsCrossed, TrendingUp } from "lucide-react";
 
 function describeEmptyRange(preset: nutritionService.NutritionRangePreset, start: Date, end: Date): string {
@@ -95,14 +96,14 @@ export default async function ClientNutritionDetailPage({
         />
 
         <SectionCard title="Today's Nutrition">
-          <div className="space-y-4">
+          <div className="flex flex-col gap-4">
             <MacroProgressBars
               calories={{ consumed: summary.consumed.calories, target: summary.target.calories }}
               proteinG={{ consumed: summary.consumed.proteinG, target: summary.target.proteinG }}
               carbsG={{ consumed: summary.consumed.carbsG, target: summary.target.carbsG }}
               fatG={{ consumed: summary.consumed.fatG, target: summary.target.fatG }}
             />
-            <div className="border-t border-border/50 pt-4">
+            <div className="border-t border-border pt-4">
               <WaterTracker
                 clientId={clientId}
                 date={today}
@@ -114,12 +115,12 @@ export default async function ClientNutritionDetailPage({
           </div>
         </SectionCard>
 
-        <TabsContent value="today" className="space-y-5 pt-1">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold">Meals</h3>
-            <MealsRangeFilter preset={preset} start={start} end={end} />
-          </div>
-
+        <TabsContent value="today" className="flex flex-col gap-6">
+          <SectionCard
+            title="Meals"
+            icon={UtensilsCrossed}
+            action={<MealsRangeFilter preset={preset} start={start} end={end} />}
+          >
           <MealsTable
             clientId={clientId}
             logs={mealsLogs}
@@ -128,11 +129,12 @@ export default async function ClientNutritionDetailPage({
             canEdit
             emptyMessage={describeEmptyRange(preset, start, end)}
           />
+          </SectionCard>
 
           {isSingleDay && <DayNotesCard clientId={clientId} date={start} comments={mealsComments} />}
         </TabsContent>
 
-        <TabsContent value="insights" className="space-y-5 pt-1">
+        <TabsContent value="insights" className="flex flex-col gap-6">
           <SectionCard title="Accountability Score">
             <AccountabilityScoreCard
               dailyScore={daily.score}
@@ -145,13 +147,13 @@ export default async function ClientNutritionDetailPage({
             <TrendRangeToggle history7={history7} history30={history30} streak={streak} />
           </SectionCard>
 
-          <div className="rounded-xl p-4 ring-1 ring-border">
+          <Card className="px-5">
             <WeeklyReviewCard
               clientId={clientId}
               referenceDate={today}
               title={`${clientName}'s Weekly Nutrition Summary`}
             />
-          </div>
+          </Card>
         </TabsContent>
       </Tabs>
     </PageShell>

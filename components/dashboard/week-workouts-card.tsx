@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { endOfDay, isSameDay, startOfDay, startOfWeek } from "date-fns";
 import { SectionCard } from "@/components/shared/section-card";
+import { EmptyState } from "@/components/shared/empty-state";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -206,11 +207,11 @@ export function WeekWorkoutsCard({
       action={{ label: "View all", href: "/programs" }}
       className="h-full"
     >
-      <div className="mb-3 flex flex-wrap items-center gap-2">
+      <div className="mb-4 flex flex-wrap items-center gap-2">
         <Tabs value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatusFilter)}>
-          <TabsList>
+          <TabsList variant="segmented" className="group-data-horizontal/tabs:h-8">
             {STATUS_FILTERS.map((filter) => (
-              <TabsTrigger key={filter.value} value={filter.value} className="text-xs">
+              <TabsTrigger key={filter.value} value={filter.value}>
                 {filter.label}
               </TabsTrigger>
             ))}
@@ -218,7 +219,7 @@ export function WeekWorkoutsCard({
         </Tabs>
         {clients.length > 0 && (
           <Select value={clientFilter} onValueChange={(v) => setClientFilter(v ?? "all")}>
-            <SelectTrigger className="h-8 w-44" size="sm">
+            <SelectTrigger className="w-44" size="sm">
               <SelectValue placeholder="All Clients">
                 {(value: string | null) =>
                   !value || value === "all"
@@ -239,17 +240,16 @@ export function WeekWorkoutsCard({
         )}
       </div>
       {rows.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-8 text-center">
-          <CalendarDays className="h-9 w-9 text-muted-foreground/30" />
-          <p className="mt-2.5 text-sm font-medium text-muted-foreground">
-            {sessions.length === 0 ? "No workouts this week" : "No workouts match these filters"}
-          </p>
-          <p className="mt-1 text-xs text-muted-foreground/60">
-            {sessions.length === 0
+        <EmptyState
+          size="compact"
+          icon={CalendarDays}
+          title={sessions.length === 0 ? "No workouts this week" : "No workouts match these filters"}
+          description={
+            sessions.length === 0
               ? "Assign programs to your clients to get started"
-              : "Try a different status, client, or date filter"}
-          </p>
-        </div>
+              : "Try a different status, client, or date filter"
+          }
+        />
       ) : (
         <div className="space-y-2">
           {visibleRows.map((row) => (
@@ -259,7 +259,7 @@ export function WeekWorkoutsCard({
             <Button
               variant="ghost"
               size="sm"
-              className="h-7 w-full text-xs text-muted-foreground hover:text-foreground"
+              className="w-full text-muted-foreground hover:text-foreground"
               onClick={() => setExpanded((prev) => !prev)}
             >
               {expanded

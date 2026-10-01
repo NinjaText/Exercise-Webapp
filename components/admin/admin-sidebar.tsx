@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { UserButton } from "@clerk/nextjs";
 import {
@@ -15,8 +14,14 @@ import {
   ScrollText,
   Flag,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  SidebarGroup,
+  SidebarIdentityRow,
+  SidebarNavLink,
+  SidebarUserBlock,
+  sidebarAsideClass,
+} from "@/components/layout/sidebar-primitives";
 
 const adminLinks = [
   { href: "/admin",                  label: "Overview",        icon: LayoutDashboard, exact: true },
@@ -38,83 +43,45 @@ interface AdminSidebarProps {
 export function AdminSidebar({ userName, userEmail, mobileMode = false }: AdminSidebarProps) {
   const pathname = usePathname();
 
-  const navItem = (href: string, label: string, Icon: React.ElementType, exact = false) => {
-    const isActive = exact ? pathname === href : pathname === href || pathname.startsWith(href + "/");
-
-    return (
-      <Link
-        key={href}
-        href={href}
-        className={cn(
-          "group relative flex items-center gap-3 h-9 rounded-lg px-3 text-sm font-medium transition-all duration-150",
-          isActive
-            ? "bg-sidebar-primary/15 text-sidebar-primary shadow-sm"
-            : "text-sidebar-foreground/60 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground"
-        )}
-      >
-        <Icon
-          className={cn(
-            "size-4 shrink-0",
-            isActive ? "text-sidebar-primary" : "text-sidebar-foreground/50"
-          )}
-        />
-        <span className="flex-1">{label}</span>
-      </Link>
-    );
-  };
+  const isActive = (href: string, exact = false) =>
+    exact ? pathname === href : pathname === href || pathname.startsWith(href + "/");
 
   return (
-    <aside className={cn("w-64 flex-col bg-sidebar", mobileMode ? "flex" : "hidden lg:flex")}>
-      {/* Logo */}
-      <div className="flex h-16 items-center gap-3 border-b border-sidebar-border/60 px-5">
-        <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-muted shadow-sm">
-          <Shield className="h-4 w-4 text-muted-foreground" />
+    <aside className={sidebarAsideClass(mobileMode)}>
+      {/* Distinct Super Admin identity (never org-branded). */}
+      <SidebarIdentityRow>
+        <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-sidebar-primary/20">
+          <Shield className="size-4 text-sidebar-primary" aria-hidden />
         </div>
-        <div>
-          <span className="text-[15px] font-bold tracking-tight text-sidebar-foreground">INMOTUS RX</span>
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-sidebar-primary/70">
-            Super Admin
-          </p>
+        <div className="min-w-0">
+          <span className="block text-[15px] font-bold tracking-tight text-sidebar-foreground">INMOTUS RX</span>
+          <p className="text-[10px] font-semibold tracking-widest text-sidebar-primary uppercase">Super Admin</p>
         </div>
-      </div>
+      </SidebarIdentityRow>
 
-      {/* Navigation */}
-      <ScrollArea className="min-h-0 flex-1 px-3 py-5">
-        <div className="mb-1 px-3 pb-2">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-sidebar-foreground/30">
-            Administration
-          </p>
-        </div>
-        <nav className="space-y-0.5">
-          {adminLinks.map((link) => navItem(link.href, link.label, link.icon, link.exact))}
-        </nav>
+      <ScrollArea className="min-h-0 flex-1">
+        <div className="space-y-6 px-3 py-4">
+          <SidebarGroup label="Administration">
+            <nav aria-label="Administration" className="space-y-0.5">
+              {adminLinks.map((link) => (
+                <SidebarNavLink
+                  key={link.href}
+                  href={link.href}
+                  label={link.label}
+                  icon={link.icon}
+                  active={isActive(link.href, link.exact)}
+                />
+              ))}
+            </nav>
+          </SidebarGroup>
 
-        <div className="my-5 h-px bg-sidebar-border/40" />
-
-        <div className="mb-1 px-3 pb-2">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-sidebar-foreground/30">
-            Platform
-          </p>
+          <SidebarGroup label="Platform">
+            <SidebarNavLink href="/dashboard" label="Back to app" icon={ArrowLeft} />
+          </SidebarGroup>
         </div>
-        <Link
-          href="/dashboard"
-          className="group flex items-center gap-3 h-9 rounded-lg px-3 text-sm font-medium text-sidebar-foreground/60 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground transition-all duration-150"
-        >
-          <ArrowLeft className="size-4 shrink-0 text-sidebar-foreground/50" />
-          <span className="flex-1">Back to app</span>
-        </Link>
       </ScrollArea>
 
-      {/* User section */}
-      <div className="border-t border-sidebar-border/60 p-4">
-        <div className="flex items-center gap-3 rounded-xl bg-sidebar-accent/40 px-3 py-2.5">
-          <UserButton signInUrl="/sign-in" />
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-semibold text-sidebar-foreground leading-tight">{userName}</p>
-            <p className="truncate text-[11px] text-sidebar-foreground/40 leading-tight">{userEmail}</p>
-          </div>
-        </div>
-      </div>
+      <SidebarUserBlock menu={<UserButton signInUrl="/sign-in" />} name={userName} email={userEmail} />
     </aside>
   );
 }

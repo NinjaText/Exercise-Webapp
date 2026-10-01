@@ -70,20 +70,20 @@ export default async function AdminOverviewPage() {
                   {u.imageUrl ? (
                     <Image src={u.imageUrl} alt="" fill className="object-cover" />
                   ) : (
-                    <span className="text-xs font-bold text-muted-foreground">
+                    <span className="text-label font-bold text-muted-foreground">
                       {u.firstName[0]}{u.lastName[0]}
                     </span>
                   )}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-foreground">
+                  <p className="truncate text-body font-medium text-foreground">
                     {u.firstName} {u.lastName}
                   </p>
-                  <p className="truncate text-xs text-muted-foreground">{u.email}</p>
+                  <p className="truncate text-caption">{u.email}</p>
                 </div>
                 <div className="flex flex-col items-end gap-1">
                   <StatusBadge status={u.role} size="sm" />
-                  <span className="text-[10px] text-muted-foreground/60">
+                  <span className="text-caption">
                     {format(new Date(u.createdAt), "MMM d")}
                   </span>
                 </div>
@@ -94,40 +94,40 @@ export default async function AdminOverviewPage() {
 
         <SectionCard
           title="Top Trainers"
-          action={<span className="text-xs text-muted-foreground">by client count</span>}
+          action={<span className="text-caption">by client count</span>}
           contentClassName="px-0 pb-0"
         >
           <div className="divide-y divide-border">
             {topTrainers.map((c, i) => (
               <div key={c.id} className="flex items-center gap-3 px-5 py-3">
-                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-bold text-muted-foreground">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-muted text-label font-bold text-muted-foreground">
                   {i + 1}
                 </span>
                 <div className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted overflow-hidden">
                   {c.imageUrl ? (
                     <Image src={c.imageUrl} alt="" fill className="object-cover" />
                   ) : (
-                    <span className="text-xs font-bold text-muted-foreground">{c.name.charAt(0)}</span>
+                    <span className="text-label font-bold text-muted-foreground">{c.name.charAt(0)}</span>
                   )}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-foreground">{c.name}</p>
-                  <p className="truncate text-xs text-muted-foreground">{c.email}</p>
+                  <p className="truncate text-body font-medium text-foreground">{c.name}</p>
+                  <p className="truncate text-caption">{c.email}</p>
                 </div>
                 <div className="flex items-center gap-3 text-right">
                   <div>
-                    <p className="text-sm font-bold tabular-nums text-foreground">{c.clientCount}</p>
-                    <p className="text-[10px] text-muted-foreground/60">clients</p>
+                    <p className="text-body font-bold tabular-nums text-foreground">{c.clientCount}</p>
+                    <p className="text-caption">clients</p>
                   </div>
                   <div>
-                    <p className="text-sm font-bold tabular-nums text-foreground">{c.programCount}</p>
-                    <p className="text-[10px] text-muted-foreground/60">programs</p>
+                    <p className="text-body font-bold tabular-nums text-foreground">{c.programCount}</p>
+                    <p className="text-caption">programs</p>
                   </div>
                 </div>
               </div>
             ))}
             {topTrainers.length === 0 && (
-              <p className="px-5 py-6 text-center text-sm text-muted-foreground">No trainers yet.</p>
+              <p className="px-5 py-6 text-center text-body text-muted-foreground">No trainers yet.</p>
             )}
           </div>
         </SectionCard>

@@ -6,8 +6,31 @@ import { getClubBySlug } from "@/lib/services/club.service";
 import { getClubTrainer } from "@/lib/services/club-trainer.service";
 import { enrollClubMember, assignNextStarterProgram } from "@/lib/services/club-member.service";
 import { JOIN_COOKIE, verifyJoinToken } from "@/lib/clubs/join-token";
+import { AuthShell } from "@/components/auth/auth-shell";
+import { BrandStyle } from "@/components/branding/brand-style";
+import { getOrgBranding } from "@/lib/services/branding.service";
+import type { ResolvedBranding } from "@/lib/branding/types";
+import { toViewModel } from "@/lib/branding/types";
 import { ActivateOrg } from "./activate-org";
 import { ClubNotOpen } from "../club-not-open";
+
+function JoinStatusShell({
+  branding, headline, subhead, children,
+}: {
+  branding: ResolvedBranding;
+  headline: string;
+  subhead?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <>
+      <BrandStyle branding={branding} />
+      <AuthShell branding={toViewModel(branding)} headline={headline} subhead={subhead}>
+        {children}
+      </AuthShell>
+    </>
+  );
+}
 
 export default async function JoinCompletePage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
@@ -23,23 +46,27 @@ export default async function JoinCompletePage({ params }: { params: Promise<{ s
 
   if (!(await getClubTrainer(club.clerkOrgId))) {
     return (
-      <div className="flex min-h-screen items-center justify-center px-4">
+      <JoinStatusShell
+        branding={await getOrgBranding(club.clerkOrgId)}
+        headline="Not open yet"
+      >
         <ClubNotOpen />
-      </div>
+      </JoinStatusShell>
     );
   }
 
   const result = await enrollClubMember({ clerkUserId: userId, club });
   if (!result.ok) {
     return (
-      <div className="flex min-h-screen items-center justify-center px-4">
-        <div className="max-w-md space-y-2 text-center">
-          <h1 className="text-xl font-semibold text-foreground">This email is already linked to another account</h1>
-          <p className="text-sm text-muted-foreground">
-            Sign out and join with a different email, or contact support if you think this is a mistake.
-          </p>
-        </div>
-      </div>
+      <JoinStatusShell
+        branding={await getOrgBranding(club.clerkOrgId)}
+        headline="This email is already linked to another account"
+        subhead="Use a different email to join this club."
+      >
+        <p className="text-body text-muted-foreground">
+          Sign out and join with a different email, or contact support if you think this is a mistake.
+        </p>
+      </JoinStatusShell>
     );
   }
 

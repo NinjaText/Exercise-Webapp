@@ -188,7 +188,7 @@ function EventComponent({ event }: { event: SessionEvent }) {
 
   return (
     <>
-      <div className="h-full overflow-hidden rounded-[5px] border border-border/60 bg-card transition-opacity hover:opacity-90">
+      <div className="h-full overflow-hidden rounded-md border border-border bg-card shadow-xs transition-colors hover:border-border-strong motion-reduce:transition-none">
         <div className="px-2 py-1 flex items-start justify-between gap-1">
           <div className="flex items-start gap-1.5 flex-1 min-w-0">
             <span
@@ -298,47 +298,54 @@ function CustomToolbar({
       : format(date, "MMMM yyyy");
 
   return (
-    <div className="mb-5 flex flex-wrap items-center gap-3">
+    <div className="mb-4 flex flex-wrap items-center gap-3">
       {/* Navigation */}
-      <div className="flex items-center overflow-hidden rounded-lg border border-border bg-muted/40">
+      <div className="flex items-center overflow-hidden rounded-md border border-input bg-surface shadow-xs">
         <button
+          type="button"
           onClick={() => onNavigate("PREV")}
-          className="flex h-8 w-8 items-center justify-center border-r border-border text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
+          aria-label="Previous"
+          className="flex size-8 items-center justify-center border-r border-border text-muted-foreground transition-colors hover:bg-surface-muted hover:text-foreground outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring motion-reduce:transition-none"
         >
           <ChevronLeft className="h-3.5 w-3.5" />
         </button>
         <button
+          type="button"
           onClick={() => onNavigate("TODAY")}
-          className="h-8 px-3 text-xs font-medium text-foreground transition-colors hover:bg-background"
+          className="h-8 px-3 text-label text-foreground transition-colors hover:bg-surface-muted outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring motion-reduce:transition-none"
         >
           Today
         </button>
         <button
+          type="button"
           onClick={() => onNavigate("NEXT")}
-          className="flex h-8 w-8 items-center justify-center border-l border-border text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
+          aria-label="Next"
+          className="flex size-8 items-center justify-center border-l border-border text-muted-foreground transition-colors hover:bg-surface-muted hover:text-foreground outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring motion-reduce:transition-none"
         >
           <ChevronRight className="h-3.5 w-3.5" />
         </button>
       </div>
 
       {/* Title */}
-      <h2 className="order-first w-full basis-full text-base font-bold tracking-tight sm:order-none sm:w-auto sm:flex-1 sm:basis-auto sm:text-lg">
+      <h2 className="order-first w-full basis-full text-heading text-foreground sm:order-none sm:w-auto sm:flex-1 sm:basis-auto">
         {title}
       </h2>
 
       {/* View toggle — Month/Week grids need real width to be usable, so they're
           desktop/tablet-only; phones are steered to Day view (see the mount
           effect below) and only get that option here. */}
-      <div className="flex items-center overflow-hidden rounded-lg border border-border bg-muted/40 p-0.5">
+      <div role="group" aria-label="Calendar view" className="flex items-center overflow-hidden rounded-md bg-surface-muted p-0.5 ring-1 ring-border">
         {([Views.MONTH, Views.WEEK, Views.DAY] as View[]).map((v) => (
           <button
             key={v}
+            type="button"
             onClick={() => onView(v)}
+            aria-pressed={view === v}
             className={cn(
-              "h-7 rounded-md px-3 text-xs font-medium transition-all",
-              v !== Views.DAY && "hidden sm:inline-flex",
+              "h-7 items-center rounded-[calc(var(--radius-md)-2px)] px-3 text-label outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none",
+              v !== Views.DAY ? "hidden sm:inline-flex" : "inline-flex",
               view === v
-                ? "bg-background text-foreground shadow-sm"
+                ? "bg-surface text-foreground shadow-xs"
                 : "text-muted-foreground hover:text-foreground"
             )}
           >
@@ -351,10 +358,9 @@ function CustomToolbar({
       <Button
         variant="outline"
         size="sm"
-        className="h-8 gap-1.5"
         onClick={onCreateClick}
       >
-        <Plus className="h-3.5 w-3.5" />
+        <Plus />
         <span className="hidden sm:inline">Create Workout</span>
         <span className="sm:hidden">Create</span>
       </Button>
@@ -384,6 +390,8 @@ export function ClientCalendar({
   // Runs once on mount so it doesn't fight a view the user picks afterward.
   useEffect(() => {
     if (window.matchMedia("(max-width: 640px)").matches) {
+      // Reading the viewport is only possible after mount (SSR has no window).
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setView(Views.DAY);
     }
   }, []);
@@ -462,14 +470,14 @@ export function ClientCalendar({
     <CalendarPillCtx.Provider value={{ onRefresh: handleRefresh }}>
     <div className="space-y-4">
       {/* Top bar: status legend */}
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+      <div role="group" className="flex flex-wrap items-center gap-x-4 gap-y-1.5" aria-label="Legend">
         {Object.entries(statusConfig).map(([key, c]) => (
           <div key={key} className="flex items-center gap-1.5">
             <span
               className="h-2 w-2 rounded-full shrink-0"
               style={{ backgroundColor: c.dot }}
             />
-            <span className="text-xs text-muted-foreground">{c.label}</span>
+            <span className="text-caption">{c.label}</span>
           </div>
         ))}
       </div>

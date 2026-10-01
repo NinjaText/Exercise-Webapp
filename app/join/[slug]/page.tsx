@@ -6,7 +6,8 @@ import { getClubTrainer } from "@/lib/services/club-trainer.service";
 import { getOrgBranding } from "@/lib/services/branding.service";
 import { toViewModel } from "@/lib/branding/types";
 import { BrandStyle } from "@/components/branding/brand-style";
-import { OrgIdentity } from "@/components/branding/org-identity";
+import { AuthShell } from "@/components/auth/auth-shell";
+import { clerkAuthAppearance } from "@/lib/ui/clerk-appearance";
 import { JOIN_COOKIE, verifyJoinToken } from "@/lib/clubs/join-token";
 import { JoinCodeForm } from "./join-code-form";
 import { ClubNotOpen } from "./club-not-open";
@@ -17,13 +18,15 @@ export default async function JoinClubPage({ params }: { params: Promise<{ slug:
   if (!club) notFound();
 
   const branding = await getOrgBranding(club.clerkOrgId);
+  const brandingVm = toViewModel(branding);
   if (!(await getClubTrainer(club.clerkOrgId))) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-8 bg-background px-4 py-12">
+      <>
         <BrandStyle branding={branding} />
-        <OrgIdentity branding={toViewModel(branding)} surface="light" />
-        <ClubNotOpen />
-      </div>
+        <AuthShell branding={brandingVm} headline="Not open yet">
+          <ClubNotOpen />
+        </AuthShell>
+      </>
     );
   }
 
@@ -32,18 +35,31 @@ export default async function JoinClubPage({ params }: { params: Promise<{ slug:
   const completeUrl = `/join/${slug}/complete`;
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center gap-8 bg-background px-4 py-12">
+    <>
       <BrandStyle branding={branding} />
-      <OrgIdentity branding={toViewModel(branding)} surface="light" />
       {verified ? (
-        <SignUp
-          routing="hash"
-          forceRedirectUrl={completeUrl}
-          signInForceRedirectUrl={completeUrl}
-        />
+        <AuthShell
+          branding={brandingVm}
+          headingMode="form"
+          headline={`Join ${branding.displayName}`}
+          subhead="Create your account to start your free trial."
+        >
+          <SignUp
+            routing="hash"
+            forceRedirectUrl={completeUrl}
+            signInForceRedirectUrl={completeUrl}
+            appearance={clerkAuthAppearance()}
+          />
+        </AuthShell>
       ) : (
-        <JoinCodeForm slug={slug} clubName={branding.displayName} />
+        <AuthShell
+          branding={brandingVm}
+          headline={`Join ${branding.displayName}`}
+          subhead="Enter the access code your club gave you to start your free trial."
+        >
+          <JoinCodeForm slug={slug} clubName={branding.displayName} />
+        </AuthShell>
       )}
-    </div>
+    </>
   );
 }

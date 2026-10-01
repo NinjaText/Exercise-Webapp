@@ -1,13 +1,19 @@
 "use client";
 
-import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { UserButton } from "@clerk/nextjs";
 import { clerkAppearance } from "@/lib/ui/clerk-appearance";
 import { Settings, Shield } from "lucide-react";
 import { findActiveHref, getAccountNav, getPrimaryNav } from "./nav-items";
-import { cn } from "@/lib/utils";
-import { Badge } from "@/components/ui/badge";
+import {
+  SidebarCountBadge,
+  SidebarGroup,
+  SidebarIdentityRow,
+  SidebarNavLink,
+  SidebarTag,
+  SidebarUserBlock,
+  sidebarAsideClass,
+} from "./sidebar-primitives";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { OrgIdentity } from "@/components/branding/org-identity";
 import type { BrandingViewModel } from "@/lib/branding/types";
@@ -45,120 +51,70 @@ export function Sidebar({
   const allHrefs = [...links.map((l) => l.href), ...getAccountNav(role, hiddenHrefs).map((l) => l.href)];
   const bestMatch = findActiveHref(pathname, allHrefs);
 
-  const navItem = (href: string, label: string, Icon: React.ElementType, badge?: React.ReactNode) => {
-    const isActive = href === bestMatch;
-
-    return (
-      <Link
-        key={href}
-        href={href}
-        className={cn(
-          "group relative flex items-center gap-3 h-9 rounded-lg px-3 text-sm font-medium transition-all duration-150",
-          isActive
-            ? "bg-sidebar-primary/15 text-sidebar-primary shadow-sm"
-            : "text-sidebar-foreground/60 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground"
-        )}
-      >
-        <Icon
-          className={cn(
-            "size-4 shrink-0",
-            isActive ? "text-sidebar-primary" : "text-sidebar-foreground/50"
-          )}
-        />
-        <span className="flex-1">{label}</span>
-        {badge}
-      </Link>
-    );
-  };
+  const navItem = (href: string, label: string, Icon: React.ElementType, badge?: React.ReactNode) => (
+    <SidebarNavLink
+      key={href}
+      href={href}
+      label={label}
+      icon={Icon}
+      active={href === bestMatch}
+      badge={badge}
+    />
+  );
 
   return (
-    <aside
-      className={cn("w-64 flex-col bg-sidebar-gradient", mobileMode ? "flex" : "hidden lg:flex")}
-    >
-      {/* Logo */}
-      <div className="flex h-16 items-center gap-3 border-b border-sidebar-border/60 px-5">
+    <aside className={sidebarAsideClass(mobileMode)}>
+      <SidebarIdentityRow>
         <OrgIdentity
           branding={branding}
           surface="dark"
           subtitle={role === "TRAINER" ? "Trainer Portal" : "Client Portal"}
         />
-      </div>
+      </SidebarIdentityRow>
 
-      {/* Navigation */}
-      <ScrollArea className="min-h-0 flex-1 px-3 py-5">
-        <div className="mb-1 px-3 pb-2">
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-sidebar-foreground/30">
-            Navigation
-          </p>
+      <ScrollArea className="min-h-0 flex-1">
+        <div className="space-y-6 px-3 py-4">
+          <SidebarGroup label="Navigation">
+            <nav aria-label="Main" className="space-y-0.5">
+              {links.map((link) =>
+                navItem(
+                  link.href,
+                  link.label,
+                  link.icon,
+                  link.href === "/messages" ? <SidebarCountBadge count={unreadMessageCount} /> : undefined
+                )
+              )}
+            </nav>
+          </SidebarGroup>
+
+          <SidebarGroup label="Account">
+            <nav aria-label="Account" className="space-y-0.5">
+              {/* Every settings section is a tab on the settings page, so one entry here. */}
+              {navItem("/settings", "Settings", Settings)}
+            </nav>
+          </SidebarGroup>
+
+          {isAdmin && (
+            <SidebarGroup label="Admin">
+              {navItem("/admin", "Super Admin", Shield, <SidebarTag>Admin</SidebarTag>)}
+            </SidebarGroup>
+          )}
         </div>
-        <nav className="space-y-0.5">
-          {links.map((link) => {
-            const badge =
-              link.href === "/messages" && unreadMessageCount > 0 ? (
-                <Badge
-                  variant="destructive"
-                  className="h-5 min-w-5 justify-center px-1 text-[10px] font-bold"
-                >
-                  {unreadMessageCount > 99 ? "99+" : unreadMessageCount}
-                </Badge>
-              ) : undefined;
-
-            return navItem(link.href, link.label, link.icon, badge);
-          })}
-        </nav>
-
-        <div className="my-5 h-px bg-sidebar-border/40" />
-
-        <div className="mb-1 px-3 pb-2">
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-sidebar-foreground/30">
-            Account
-          </p>
-        </div>
-        {/* Every settings section is a tab on the settings page, so one entry here. */}
-        {navItem("/settings", "Settings", Settings)}
-
-        {isAdmin && (
-          <>
-            <div className="my-5 h-px bg-sidebar-border/40" />
-            <div className="mb-1 px-3 pb-2">
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-sidebar-foreground/30">
-                Admin
-              </p>
-            </div>
-            <Link
-              href="/admin"
-              className="group flex items-center gap-3 h-9 rounded-lg px-3 text-sm font-medium text-sidebar-foreground/60 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground transition-all duration-150"
-            >
-              <Shield className="size-4 shrink-0 text-sidebar-primary/70" />
-              <span className="flex-1">Super Admin</span>
-              <span className="rounded-full bg-sidebar-primary/20 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-sidebar-primary">
-                Admin
-              </span>
-            </Link>
-          </>
-        )}
       </ScrollArea>
 
-      {/* User section */}
-      <div className="border-t border-sidebar-border/60 p-4">
-        <div className="flex items-center gap-3 rounded-xl bg-sidebar-accent/40 px-3 py-2.5">
-          <UserButton signInUrl="/sign-in" appearance={clerkAppearance} />
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-semibold text-sidebar-foreground leading-tight">
-              {userName}
+      <SidebarUserBlock
+        menu={<UserButton signInUrl="/sign-in" appearance={clerkAppearance} />}
+        name={userName}
+        email={userEmail}
+        footer={
+          // Spec §12.3 default: clients of a branded org see a small product credit.
+          branding.enabled && role === "CLIENT" ? (
+            <p className="mt-1 text-center text-[10px] text-sidebar-foreground/60">
+              Powered by INMOTUS RX
             </p>
-            <p className="truncate text-[11px] text-sidebar-foreground/40 leading-tight">
-              {userEmail}
-            </p>
-          </div>
-        </div>
-        {/* Spec §12.3 default: clients of a branded org see a small product credit. */}
-        {branding.enabled && role === "CLIENT" && (
-          <p className="mt-2 text-center text-[10px] text-sidebar-foreground/40">
-            Powered by INMOTUS RX
-          </p>
-        )}
-      </div>
+          ) : undefined
+        }
+      />
     </aside>
   );
 }

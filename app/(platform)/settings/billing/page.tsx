@@ -101,7 +101,7 @@ export default async function BillingSettingsPage() {
           description="Every plan includes the full product. Plans differ only in how many clients you can coach."
           bare
         >
-          <PricingCards />
+          <PricingCards headingLevel={3} />
         </SettingsPanel>
       )}
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { Loader2 } from "lucide-react";
 import { useOrganizationList } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 
@@ -20,7 +21,11 @@ export function ActivateOrg({ organizationId }: { organizationId: string }) {
   }, [isLoaded, setActive, organizationId, router]);
 
   return (
-    <div className="flex min-h-screen items-center justify-center text-sm text-muted-foreground">
+    <div
+      role="status"
+      className="flex min-h-dvh items-center justify-center gap-2 bg-surface text-body text-muted-foreground"
+    >
+      <Loader2 className="size-4 animate-spin motion-reduce:animate-none" aria-hidden />
       Setting up your account…
     </div>
   );

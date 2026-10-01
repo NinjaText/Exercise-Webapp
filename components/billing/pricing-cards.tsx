@@ -2,11 +2,10 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PlanCard } from "@/components/billing/plan-card";
 import { TIER_CONFIG, type PlanTier } from "@/lib/stripe-config";
-import { Check } from "lucide-react";
 
-export function PricingCards() {
+export function PricingCards({ headingLevel = 2 }: { headingLevel?: 2 | 3 | 4 } = {}) {
   const [loading, setLoading] = useState<PlanTier | null>(null);
 
   async function handleSelectPlan(tier: PlanTier) {
@@ -29,61 +28,37 @@ export function PricingCards() {
   const tiers: PlanTier[] = ["STARTER", "PRO", "UNLIMITED"];
 
   return (
-    <div className="grid gap-6 md:grid-cols-3 pt-5 items-stretch">
+    <div className="grid items-stretch gap-6 md:grid-cols-3">
       {tiers.map((tier) => {
         const config = TIER_CONFIG[tier];
         const isPopular = tier === "PRO";
         return (
-          <div key={tier} className="relative flex flex-col">
-            {isPopular && (
-              <div className="absolute -top-4 left-1/2 -translate-x-1/2 z-10 whitespace-nowrap">
-                <span className="rounded-full bg-primary px-3 py-1 text-xs font-semibold uppercase tracking-wide text-primary-foreground shadow">
-                  Most Popular
-                </span>
-              </div>
-            )}
-            <Card
-              className={`flex flex-col flex-1${isPopular ? " ring-2 ring-primary shadow-lg" : ""}`}
+          <PlanCard
+            key={tier}
+            name={config.label}
+            price={`$${config.priceInCents / 100}`}
+            cadence="/ month"
+            billedNote="Billed monthly"
+            badge={isPopular ? "Most popular" : undefined}
+            highlighted={isPopular}
+            headingLevel={headingLevel}
+            features={[
+              config.description,
+              "AI workout generation",
+              "Client progress tracking",
+              "Assessments & check-ins",
+            ]}
+          >
+            <Button
+              size="lg"
+              className="h-11 w-full"
+              onClick={() => handleSelectPlan(tier)}
+              disabled={loading !== null}
+              variant={isPopular ? "default" : "outline"}
             >
-              <CardHeader className="pt-8">
-                <CardTitle className="text-xl">{config.label}</CardTitle>
-                <div className="mt-2">
-                  <span className="text-4xl font-bold">
-                    ${config.priceInCents / 100}
-                  </span>
-                  <span className="text-muted-foreground">/mo</span>
-                </div>
-              </CardHeader>
-              <CardContent className="flex flex-col flex-1 space-y-4">
-                <ul className="space-y-2 flex-1">
-                  <li className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Check className="h-4 w-4 shrink-0 text-success" />
-                    {config.description}
-                  </li>
-                  <li className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Check className="h-4 w-4 shrink-0 text-success" />
-                    AI workout generation
-                  </li>
-                  <li className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Check className="h-4 w-4 shrink-0 text-success" />
-                    Client progress tracking
-                  </li>
-                  <li className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Check className="h-4 w-4 shrink-0 text-success" />
-                    Assessments &amp; check-ins
-                  </li>
-                </ul>
-                <Button
-                  className="w-full mt-auto"
-                  onClick={() => handleSelectPlan(tier)}
-                  disabled={loading !== null}
-                  variant={isPopular ? "default" : "outline"}
-                >
-                  {loading === tier ? "Redirecting…" : "Start Plan"}
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
+              {loading === tier ? "Redirecting…" : "Start Plan"}
+            </Button>
+          </PlanCard>
         );
       })}
     </div>
