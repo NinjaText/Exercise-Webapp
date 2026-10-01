@@ -15,7 +15,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { FoodItemRowList, emptyFoodItemDraft, type FoodItemDraft } from "./food-item-row-list";
+import { FoodItemRowList, emptyFoodItemDraft, type FoodItemDraft, type EditableFoodField } from "./food-item-row-list";
 
 const MEAL_LABELS: Record<string, string> = {
   BREAKFAST: "Breakfast",
@@ -75,7 +75,7 @@ export function EditMealGroupDialog({ clientId, date, mealType, logs }: EditMeal
     if (next) setItems(logs.map(toDraft));
   }
 
-  function updateItem(index: number, field: keyof FoodItemDraft, value: string) {
+  function updateItem(index: number, field: EditableFoodField, value: string) {
     setItems((prev) => {
       const next = [...prev];
       next[index] = { ...next[index], [field]: value };

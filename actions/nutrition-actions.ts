@@ -26,6 +26,7 @@ import {
   mealPhotoPresignSchema,
   mealPhotoConfirmSchema,
   analyzeMealPhotoSchema,
+  reestimateMealPhotoItemSchema,
   estimateMealMacrosBatchSchema,
   bulkCreateNutritionLogSchema,
   updateMealGroupSchema,
@@ -340,11 +341,34 @@ export async function analyzeMealPhotoAction(
   if (user.role !== "CLIENT") return { success: false, error: "Forbidden" };
 
   try {
-    const foods = await nutritionAiService.analyzeMealPhoto(parsed.data.photoUrl);
+    const foods = await nutritionAiService.analyzeMealPhoto(parsed.data.photoUrl, parsed.data.note || undefined);
     return { success: true, data: { foods } };
   } catch (err) {
     console.error("[nutrition] analyzeMealPhoto error:", err);
     return { success: false, error: "Failed to analyze photo" };
+  }
+}
+
+export async function reestimateMealPhotoItemAction(
+  input: unknown
+): Promise<ActionResult<{ estimate: MealMacroEstimate }>> {
+  const parsed = reestimateMealPhotoItemSchema.safeParse(input);
+  if (!parsed.success) return { success: false, error: "Invalid input" };
+
+  const user = await getAuthedUser();
+  if (!user) return { success: false, error: "Unauthorized" };
+  if (user.role !== "CLIENT") return { success: false, error: "Forbidden" };
+
+  const { photoUrl, ...item } = parsed.data;
+  try {
+    const estimate = await nutritionAiService.reestimateMealPhotoItem(photoUrl, {
+      ...item,
+      quantity: item.quantity || undefined,
+    });
+    return { success: true, data: { estimate } };
+  } catch (err) {
+    console.error("[nutrition] reestimateMealPhotoItem error:", err);
+    return { success: false, error: "Failed to re-estimate item" };
   }
 }
 

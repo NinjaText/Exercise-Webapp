@@ -53,6 +53,14 @@ export const mealPhotoConfirmSchema = z.object({
 
 export const analyzeMealPhotoSchema = z.object({
   photoUrl: z.string().url(),
+  note: z.string().trim().max(300).optional(),
+})
+
+export const reestimateMealPhotoItemSchema = z.object({
+  photoUrl: z.string().url(),
+  name: z.string().trim().min(1).max(200),
+  quantity: z.string().trim().max(100).optional(),
+  components: z.array(z.string().max(100)).max(12).optional(),
 })
 
 export const estimateMealMacrosBatchSchema = z.object({
