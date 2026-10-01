@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { isSuperAdmin } from "@/lib/current-user";
 import { createExerciseSchema, updateExerciseSchema } from "@/lib/validators/exercise";
 import * as exerciseService from "@/lib/services/exercise.service";
+import { ExerciseConflictError } from "@/lib/services/exercise-uniqueness.service";
 import { logAudit, diffFields, deriveActorType, AUDIT_ACTIONS } from "@/lib/services/audit-log.service";
 import type { BodyRegion, DifficultyLevel, ExercisePhase } from "@prisma/client";
 
@@ -63,6 +64,7 @@ export async function createExerciseAction(input: {
       revalidatePath("/exercises");
       return { success: true as const, data: exercise };
     } catch (error) {
+      if (error instanceof ExerciseConflictError) return { success: false as const, error: error.message };
       console.error("Failed to create exercise:", error);
       return { success: false as const, error: "Failed to create exercise" };
     }
@@ -117,6 +119,7 @@ export async function updateExerciseAction(
     revalidatePath(`/exercises/${exerciseId}`);
     return { success: true as const, data: exercise };
   } catch (error) {
+    if (error instanceof ExerciseConflictError) return { success: false as const, error: error.message };
     console.error("Failed to update exercise:", error);
     return { success: false as const, error: "Failed to update exercise" };
   }
@@ -358,120 +361,8 @@ export async function createOrganizationExerciseAction(input: {
     revalidatePath("/exercises");
     return { success: true as const, data: exercise };
   } catch (error) {
+    if (error instanceof ExerciseConflictError) return { success: false as const, error: error.message };
     console.error("Failed to create organization exercise:", error);
     return { success: false as const, error: "Failed to create exercise" };
   }
-}
-
-export async function adoptUniversalExerciseAction(exerciseId: string) {
-  const { userId, orgId: sessionOrgId } = await auth();
-  if (!userId) return { success: false as const, error: "Unauthorized" };
-
-  const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
-  if (!dbUser) return { success: false as const, error: "User not found" };
-  if (dbUser.role !== "TRAINER") return { success: false as const, error: "Forbidden" };
-
-  const organizationOrgId = sessionOrgId ?? dbUser.clerkOrgId ?? null;
-  if (!organizationOrgId) {
-    return { success: false as const, error: "You must belong to an organization to adopt exercises" };
-  }
-
-  const source = await prisma.exercise.findUnique({ where: { id: exerciseId } });
-  if (!source) return { success: false as const, error: "Exercise not found" };
-  if (source.source !== "UNIVERSAL") {
-    return { success: false as const, error: "Only universal exercises can be adopted" };
-  }
-
-  try {
-    const adopted = await exerciseService.cloneExerciseToOrganization(source, {
-      organizationId: organizationOrgId,
-      createdById: dbUser.id,
-    });
-
-    await logAudit({
-      actorId: dbUser.id,
-      actorType: deriveActorType(dbUser),
-      actorName: `${dbUser.firstName} ${dbUser.lastName}`,
-      action: AUDIT_ACTIONS.EXERCISE_CREATED,
-      targetType: "Exercise",
-      targetId: adopted.id,
-      targetLabel: adopted.name,
-      orgId: organizationOrgId,
-      metadata: { adoptedFrom: source.id },
-    });
-
-    revalidatePath("/exercises");
-    return { success: true as const, data: adopted };
-  } catch (error) {
-    console.error("Failed to adopt universal exercise:", error);
-    return { success: false as const, error: "Failed to adopt exercise" };
-  }
-}
-
-export async function adoptUniversalExercisesAction(exerciseIds: string[]) {
-  const { userId, orgId: sessionOrgId } = await auth();
-  if (!userId) return { success: false as const, error: "Unauthorized" };
-
-  const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
-  if (!dbUser) return { success: false as const, error: "User not found" };
-  if (dbUser.role !== "TRAINER") return { success: false as const, error: "Forbidden" };
-
-  const organizationOrgId = sessionOrgId ?? dbUser.clerkOrgId ?? null;
-  if (!organizationOrgId) {
-    return { success: false as const, error: "You must belong to an organization to adopt exercises" };
-  }
-
-  const ids = Array.from(new Set(exerciseIds)).filter(Boolean);
-  if (ids.length === 0) {
-    return { success: false as const, error: "No exercises selected" };
-  }
-
-  const sources = await prisma.exercise.findMany({ where: { id: { in: ids } } });
-  const sourceById = new Map(sources.map((source) => [source.id, source]));
-
-  const adopted: { name: string; adoptedFrom: string }[] = [];
-  const failures: { id: string; error: string }[] = [];
-
-  // Each id is validated and cloned independently so one bad id (missing or
-  // non-universal) never aborts the rest of the batch.
-  for (const id of ids) {
-    const source = sourceById.get(id);
-    if (!source) {
-      failures.push({ id, error: "Exercise not found" });
-      continue;
-    }
-    if (source.source !== "UNIVERSAL") {
-      failures.push({ id, error: "Only universal exercises can be adopted" });
-      continue;
-    }
-    try {
-      const clone = await exerciseService.cloneExerciseToOrganization(source, {
-        organizationId: organizationOrgId,
-        createdById: dbUser.id,
-      });
-      adopted.push({ name: clone.name, adoptedFrom: source.id });
-    } catch (error) {
-      console.error(`Failed to adopt universal exercise ${id}:`, error);
-      failures.push({ id, error: "Failed to adopt exercise" });
-    }
-  }
-
-  if (adopted.length > 0) {
-    await logAudit({
-      actorId: dbUser.id,
-      actorType: deriveActorType(dbUser),
-      actorName: `${dbUser.firstName} ${dbUser.lastName}`,
-      action: AUDIT_ACTIONS.EXERCISE_CREATED,
-      targetType: "Exercise",
-      orgId: organizationOrgId,
-      metadata: {
-        count: adopted.length,
-        names: adopted.slice(0, 20).map((e) => e.name),
-        adoptedFrom: adopted.map((e) => e.adoptedFrom),
-      },
-    });
-    revalidatePath("/exercises");
-  }
-
-  return { success: true as const, successCount: adopted.length, failures };
 }

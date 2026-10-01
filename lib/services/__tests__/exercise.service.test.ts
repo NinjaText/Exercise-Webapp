@@ -5,6 +5,7 @@ vi.mock('@/lib/prisma', () => ({
   prisma: {
     exercise: {
       findMany: vi.fn(),
+      findUnique: vi.fn(),
       update: vi.fn(),
       create: vi.fn(),
     },
@@ -14,6 +15,7 @@ vi.mock('@/lib/prisma', () => ({
 vi.mock('@/lib/utils/video', () => ({
   buildYouTubeSearchUrl: vi.fn((name: string) => `https://youtube.com/search?q=${name}`),
   extractYouTubeId: vi.fn(() => null),
+  isYouTubeUrl: vi.fn(() => false),
   getYouTubeThumbnail: vi.fn(() => null),
 }))
 
@@ -21,7 +23,6 @@ import { prisma } from '@/lib/prisma'
 import {
   getExercises,
   getExercisesForPicker,
-  cloneExerciseToOrganization,
   createExercise,
   updateExercise,
 } from '../exercise.service'
@@ -29,6 +30,7 @@ import {
 const mockFindMany = vi.mocked(prisma.exercise.findMany)
 const mockUpdate = vi.mocked(prisma.exercise.update)
 const mockCreate = vi.mocked(prisma.exercise.create)
+const mockFindUnique = vi.mocked(prisma.exercise.findUnique)
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -262,74 +264,54 @@ describe('updateExercise', () => {
   })
 })
 
-describe('cloneExerciseToOrganization', () => {
-  const universalSource = {
-    name: 'Squat',
-    description: 'A squat',
-    bodyRegion: ['LOWER_BODY'],
-    equipmentRequired: ['None'],
-    difficultyLevel: 'BEGINNER',
-    contraindications: ['knee pain'],
-    videoUrl: 'https://youtube.com/watch?v=abc',
-    videoProvider: 'youtube',
-    imageUrl: 'https://img/abc.jpg',
-    instructions: 'Bend knees',
-    musclesTargeted: ['quadriceps', 'glutes'],
-    exercisePhases: ['STRENGTHENING'],
-    commonMistakes: 'Knees cave in',
-    defaultSets: 3,
-    defaultReps: 10,
-    defaultHoldSeconds: null,
-    indicationTags: ['knee'],
-    rehabStage: 'LATE_REHAB',
-    isAssessment: false,
-  } as any
+describe('exercise uniqueness on write', () => {
+  const existingBridge = {
+    id: 'ex_bridge', name: 'Glute Bridge', videoUrl: 'https://youtu.be/AAAAAAAAAAA',
+    source: 'UNIVERSAL', organizationId: null,
+  }
 
-  it('creates an ORGANIZATION-scoped private copy carrying over descriptive fields', async () => {
-    mockCreate.mockResolvedValue({ id: 'new', name: 'Squat' } as any)
-    await cloneExerciseToOrganization(universalSource, {
-      organizationId: 'org_mine',
-      createdById: 'user_1',
-    })
-
-    expect(mockCreate).toHaveBeenCalledWith({
-      data: expect.objectContaining({
-        name: 'Squat',
-        description: 'A squat',
-        bodyRegion: ['LOWER_BODY'],
-        equipmentRequired: ['None'],
-        difficultyLevel: 'BEGINNER',
-        contraindications: ['knee pain'],
-        musclesTargeted: ['quadriceps', 'glutes'],
-        exercisePhases: ['STRENGTHENING'],
-        indicationTags: ['knee'],
-        rehabStage: 'LATE_REHAB',
-        source: 'ORGANIZATION',
-        organizationId: 'org_mine',
-        createdById: 'user_1',
-      }),
-    })
+  beforeEach(() => {
+    mockFindMany.mockResolvedValue([existingBridge] as never)
+    mockCreate.mockResolvedValue({ id: 'new' } as never)
+    mockUpdate.mockResolvedValue({ id: 'ex_other' } as never)
   })
 
-  it('never copies the source id or source flag (always ORGANIZATION)', async () => {
-    mockCreate.mockResolvedValue({ id: 'new' } as any)
-    await cloneExerciseToOrganization(
-      { ...universalSource, source: 'UNIVERSAL', id: 'src_1' },
-      { organizationId: 'org_mine', createdById: 'user_1' }
-    )
-    const call = mockCreate.mock.calls[0][0] as any
-    expect(call.data).not.toHaveProperty('id')
-    expect(call.data.source).toBe('ORGANIZATION')
+  it('rejects creating an org exercise whose name is already in the universal library', async () => {
+    await expect(
+      createExercise({
+        name: 'glute bridge', equipmentRequired: [], contraindications: [], createdById: 'u1',
+        source: 'ORGANIZATION', organizationId: 'org_1',
+      })
+    ).rejects.toThrow('An exercise named "Glute Bridge" already exists in your library')
+    expect(mockCreate).not.toHaveBeenCalled()
+    const where = (mockFindMany.mock.calls[0][0] as { where: unknown }).where
+    expect(where).toEqual({ isActive: true, OR: [{ source: 'UNIVERSAL' }, { organizationId: 'org_1' }] })
   })
 
-  it('carries the isAssessment flag over from the source exercise', async () => {
-    mockCreate.mockResolvedValue({ id: 'new', name: 'Squat' } as any)
-    await cloneExerciseToOrganization(
-      { ...universalSource, isAssessment: true },
-      { organizationId: 'org_mine', createdById: 'user_1' }
-    )
-    expect(mockCreate).toHaveBeenCalledWith({
-      data: expect.objectContaining({ isAssessment: true }),
-    })
+  it('creates the exercise when nothing clashes', async () => {
+    await createExercise({ name: 'Hip Thrust', equipmentRequired: [], contraindications: [], createdById: 'u1' })
+    expect(mockCreate).toHaveBeenCalledOnce()
+  })
+
+  it('skips the check when an update does not touch name, video or isActive', async () => {
+    await updateExercise('ex_other', { description: 'new copy' })
+    expect(mockFindUnique).not.toHaveBeenCalled()
+    expect(mockUpdate).toHaveBeenCalledOnce()
+  })
+
+  it('rejects renaming an exercise onto an existing name', async () => {
+    mockFindUnique.mockResolvedValue({
+      name: 'Hip Thrust', videoUrl: null, isActive: true, source: 'UNIVERSAL', organizationId: null,
+    } as never)
+    await expect(updateExercise('ex_other', { name: 'Glute-Bridge' })).rejects.toThrow('already exists')
+    expect(mockUpdate).not.toHaveBeenCalled()
+  })
+
+  it('does not re-check an unchanged video that predates the rule', async () => {
+    mockFindUnique.mockResolvedValue({
+      name: 'Glute Bridges', videoUrl: 'https://youtu.be/AAAAAAAAAAA', isActive: true, source: 'UNIVERSAL', organizationId: null,
+    } as never)
+    await updateExercise('ex_other', { name: 'Single Leg Glute Bridge', videoUrl: 'https://youtu.be/AAAAAAAAAAA' })
+    expect(mockUpdate).toHaveBeenCalledOnce()
   })
 })

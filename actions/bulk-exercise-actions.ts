@@ -7,6 +7,14 @@ import type { BodyRegion, DifficultyLevel, ExercisePhase } from "@prisma/client"
 import { logAudit, deriveActorType, AUDIT_ACTIONS } from "@/lib/services/audit-log.service";
 import { isYouTubeUrl, extractYouTubeId, getYouTubeThumbnail } from "@/lib/utils/video";
 import type { CsvExerciseRow } from "@/lib/validators/csv-exercise";
+import { findBatchExerciseConflicts } from "@/lib/services/exercise-uniqueness.service";
+
+// Keeps a rejected import's toast readable when many rows collide.
+function summarizeConflicts(messages: string[]): string {
+  const shown = messages.slice(0, 5).join("\n");
+  const rest = messages.length - 5;
+  return `Duplicate exercises — nothing was imported:\n${shown}${rest > 0 ? `\n…and ${rest} more` : ""}`;
+}
 
 export interface BulkExerciseInput {
   name: string;
@@ -40,6 +48,12 @@ export async function bulkCreateExercisesAction(exercises: BulkExerciseInput[]) 
   const orgData = dbUser.clerkOrgId
     ? { source: "ORGANIZATION" as const, organizationId: dbUser.clerkOrgId }
     : {};
+
+  const conflicts = await findBatchExerciseConflicts(
+    exercises.map((ex) => ({ name: ex.name.trim(), videoUrl: ex.videoUrl?.trim() || null })),
+    { source: "UNIVERSAL", ...orgData }
+  );
+  if (conflicts.length > 0) return { success: false as const, error: summarizeConflicts(conflicts) };
 
   try {
     const created = await prisma.$transaction(
@@ -109,6 +123,12 @@ export async function importExercisesFromCsvAction(rows: CsvExerciseRow[]) {
   }
 
   if (!rows.length) return { success: false as const, error: "No rows provided" };
+
+  const conflicts = await findBatchExerciseConflicts(
+    rows.map((row) => ({ name: row.name.trim(), videoUrl: row.videoUrl ?? null })),
+    { source: "UNIVERSAL" }
+  );
+  if (conflicts.length > 0) return { success: false as const, error: summarizeConflicts(conflicts) };
 
   try {
     const created = await prisma.$transaction(

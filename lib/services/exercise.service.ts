@@ -2,6 +2,8 @@ import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
 import type { BodyRegion, DifficultyLevel, ExercisePhase, ExerciseSource } from "@prisma/client";
 import { extractYouTubeId, getYouTubeThumbnail } from "@/lib/utils/video";
+import { assertExerciseIsUnique } from "@/lib/services/exercise-uniqueness.service";
+import { exerciseVideoKey, normalizeExerciseName, type ExerciseConflictField } from "@/lib/utils/exercise-identity";
 
 export interface ExerciseFilters {
   search?: string;
@@ -281,6 +283,13 @@ export async function createExercise(data: {
     }
   }
 
+  await assertExerciseIsUnique({
+    name: data.name,
+    videoUrl,
+    source: data.source ?? "UNIVERSAL",
+    organizationId: data.organizationId ?? null,
+  });
+
   return prisma.exercise.create({
     data: {
       name: data.name,
@@ -298,65 +307,6 @@ export async function createExercise(data: {
       organizationId: data.organizationId ?? null,
       exercisePhases: data.exercisePhases ?? [],
       isAssessment: data.isAssessment ?? false,
-    },
-  });
-}
-
-/**
- * Clones a Universal exercise into a new, independently-editable ORGANIZATION
- * exercise for the given org. The result is a copy (not a reference): all
- * descriptive fields are carried over and `source` is forced to ORGANIZATION —
- * the copy is private to that org, like every other ORGANIZATION exercise.
- * Callers MUST verify `source.source === 'UNIVERSAL'` before calling.
- */
-export async function cloneExerciseToOrganization(
-  source: {
-    name: string;
-    description: string | null;
-    bodyRegion: BodyRegion[];
-    equipmentRequired: string[];
-    difficultyLevel: DifficultyLevel | null;
-    contraindications: string[];
-    videoUrl: string | null;
-    videoProvider: string | null;
-    imageUrl: string | null;
-    instructions: string | null;
-    musclesTargeted: string[];
-    exercisePhases: ExercisePhase[];
-    commonMistakes: string | null;
-    defaultSets: number | null;
-    defaultReps: number | null;
-    defaultHoldSeconds: number | null;
-    indicationTags: string[];
-    rehabStage: string | null;
-    isAssessment: boolean;
-  },
-  target: { organizationId: string; createdById: string }
-) {
-  return prisma.exercise.create({
-    data: {
-      name: source.name,
-      description: source.description,
-      bodyRegion: source.bodyRegion,
-      equipmentRequired: source.equipmentRequired,
-      difficultyLevel: source.difficultyLevel,
-      contraindications: source.contraindications,
-      videoUrl: source.videoUrl,
-      videoProvider: source.videoProvider,
-      imageUrl: source.imageUrl,
-      instructions: source.instructions,
-      musclesTargeted: source.musclesTargeted,
-      exercisePhases: source.exercisePhases,
-      commonMistakes: source.commonMistakes,
-      defaultSets: source.defaultSets,
-      defaultReps: source.defaultReps,
-      defaultHoldSeconds: source.defaultHoldSeconds,
-      indicationTags: source.indicationTags,
-      rehabStage: source.rehabStage,
-      isAssessment: source.isAssessment,
-      source: "ORGANIZATION",
-      organizationId: target.organizationId,
-      createdById: target.createdById,
     },
   });
 }
@@ -393,7 +343,42 @@ export async function updateExercise(
     }
   }
 
+  await assertUpdateIsUnique(id, nextData);
+
   return prisma.exercise.update({ where: { id }, data: nextData });
+}
+
+// Only re-checks what the update actually changes (or everything, when an
+// archived exercise is being reactivated), so editing e.g. the description of
+// an exercise that predates the uniqueness rules isn't blocked by them.
+async function assertUpdateIsUnique(
+  id: string,
+  data: { name?: string; videoUrl?: string; isActive?: boolean }
+) {
+  if (data.name === undefined && data.videoUrl === undefined && data.isActive !== true) return;
+
+  const existing = await prisma.exercise.findUnique({
+    where: { id },
+    select: { name: true, videoUrl: true, isActive: true, source: true, organizationId: true },
+  });
+  if (!existing) return;
+
+  const next = {
+    id,
+    name: data.name ?? existing.name,
+    videoUrl: data.videoUrl !== undefined ? data.videoUrl : existing.videoUrl,
+    source: existing.source,
+    organizationId: existing.organizationId,
+  };
+  const isActive = data.isActive ?? existing.isActive;
+  if (!isActive) return;
+
+  const reactivating = !existing.isActive;
+  const fields: ExerciseConflictField[] = [];
+  if (reactivating || normalizeExerciseName(next.name) !== normalizeExerciseName(existing.name)) fields.push("name");
+  if (reactivating || exerciseVideoKey(next.videoUrl) !== exerciseVideoKey(existing.videoUrl)) fields.push("videoUrl");
+
+  await assertExerciseIsUnique(next, fields);
 }
 
 export async function deleteExercise(id: string) {

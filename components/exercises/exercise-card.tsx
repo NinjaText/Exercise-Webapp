@@ -5,12 +5,10 @@ import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { useRouter } from "next/navigation";
-import { Edit, PlayCircle, ArrowRight, Plus, Bookmark } from "lucide-react";
+import { Edit, PlayCircle, ArrowRight, Bookmark } from "lucide-react";
 import { ExerciseImage } from "@/components/exercises/exercise-image";
 import { formatBodyRegion, formatDifficulty } from "@/lib/utils/formatting";
-import { adoptUniversalExerciseAction, toggleExerciseFavoriteAction } from "@/actions/exercise-actions";
+import { toggleExerciseFavoriteAction } from "@/actions/exercise-actions";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { hasRealVideoUrl } from "@/lib/utils/video";
@@ -29,11 +27,6 @@ interface ExerciseCardProps {
   videoUrl?: string | null;
   isActive?: boolean;
   isTrainer?: boolean;
-  source?: string;
-  canAdopt?: boolean;
-  selectable?: boolean;
-  selected?: boolean;
-  onToggleSelect?: () => void;
   isFavorite?: boolean;
 }
 
@@ -48,16 +41,10 @@ const phaseConfig: Record<string, { label: string }> = {
 export function ExerciseCard({
   id, name, bodyRegion, difficultyLevel, exercisePhases, equipmentRequired,
   description, imageUrl, videoUrl, isActive, isTrainer,
-  source, canAdopt,
-  selectable, selected, onToggleSelect,
   isFavorite,
 }: ExerciseCardProps) {
-  const router = useRouter();
-  const [isAdopting, startAdopting] = useTransition();
   const [favorite, setFavorite] = useState(!!isFavorite);
   const [isTogglingFavorite, startTogglingFavorite] = useTransition();
-
-  const showAdopt = !!canAdopt && source === "UNIVERSAL";
 
   function handleToggleFavorite(e: React.MouseEvent) {
     e.preventDefault();
@@ -75,34 +62,11 @@ export function ExerciseCard({
 
   const phases = (exercisePhases ?? []).map((p) => phaseConfig[p] ?? { label: p });
 
-  function handleAdopt() {
-    startAdopting(async () => {
-      const result = await adoptUniversalExerciseAction(id);
-      if (result.success) {
-        toast.success("Added to your organization's library");
-        router.push("/exercises?source=ORGANIZATION");
-      } else {
-        toast.error(result.error);
-      }
-    });
-  }
-
   return (
     <Card className={cn(
       "group relative flex flex-col overflow-hidden ring-1 ring-border shadow-none transition-shadow duration-250 hover:shadow-sm hover:ring-border-strong",
-      isActive === false && "opacity-60",
-      selected && "ring-2 ring-primary"
+      isActive === false && "opacity-60"
     )}>
-      {selectable && (
-        <div className="absolute left-2 top-2 z-20">
-          <Checkbox
-            checked={!!selected}
-            onCheckedChange={onToggleSelect}
-            aria-label={`Select ${name}`}
-            className="bg-background/90"
-          />
-        </div>
-      )}
       <Link href={`/exercises/${id}`} className="relative block h-44 overflow-hidden bg-muted">
         <ExerciseImage src={null} alt={name} videoUrl={videoUrl} label={name.split(" ").slice(0, 3).join(" ")} />
         <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
@@ -201,19 +165,6 @@ export function ExerciseCard({
                 <Edit className="h-3 w-3" />Edit
               </Link>
             </Button>
-            {showAdopt && (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="h-7 gap-1 text-xs font-medium shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
-                onClick={handleAdopt}
-                disabled={isAdopting}
-              >
-                <Plus className="h-3 w-3" />
-                Add to My Organization
-              </Button>
-            )}
           </div>
         )}
       </CardContent>
