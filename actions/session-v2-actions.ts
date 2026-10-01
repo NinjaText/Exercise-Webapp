@@ -1,5 +1,6 @@
 ﻿"use server";
 
+import { activeUserOnly } from "@/lib/auth/active-user";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
@@ -8,11 +9,11 @@ import { appBaseUrl } from "@/lib/utils/app-url";
 import { computeScheduleVariance } from "@/lib/services/session.service";
 import { getProgramSchedulingType } from "@/lib/services/program.service";
 import { logUserAudit, AUDIT_ACTIONS } from "@/lib/services/audit-log.service";
+import { getCapabilitiesForUser } from "@/lib/org-capabilities.server";
 
-async function notifyTrainerOnCompletion(
-  sessionId: string,
-  client: { id: string; firstName: string; lastName: string }
-) {
+type NotifyingClient = { id: string; firstName: string; lastName: string };
+
+async function notifyTrainerOnCompletion(sessionId: string, client: NotifyingClient) {
   const session = await prisma.workoutSessionV2.findUnique({
     where: { id: sessionId },
     include: {
@@ -62,10 +63,7 @@ async function notifyTrainerOnCompletion(
 
 // Notifies the trainer once, at Finish Workout, if the client left a note on
 // any exercise — avoids firing a notification per debounced keystroke.
-async function notifyTrainerOfClientNotes(
-  sessionId: string,
-  client: { id: string; firstName: string; lastName: string }
-) {
+async function notifyTrainerOfClientNotes(sessionId: string, client: NotifyingClient) {
   const session = await prisma.workoutSessionV2.findUnique({
     where: { id: sessionId },
     include: {
@@ -118,7 +116,7 @@ export async function startSessionV2Action(sessionId: string) {
   const { userId } = await auth();
   if (!userId) return { success: false, error: "Unauthorized" };
   
-  const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
+  const dbUser = activeUserOnly(await prisma.user.findUnique({ where: { clerkId: userId } }));
   if (!dbUser) return { success: false, error: "User not found" };
 
   try {
@@ -164,7 +162,7 @@ export async function startOnDemandWorkoutAction(workoutId: string) {
   if (!userId) return { success: false as const, error: "Unauthorized" };
 
   try {
-    const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
+    const dbUser = activeUserOnly(await prisma.user.findUnique({ where: { clerkId: userId } }));
     if (!dbUser) return { success: false as const, error: "User not found" };
 
     const workout = await prisma.workout.findUnique({
@@ -258,7 +256,7 @@ export async function updateSetLogV2Action(
   if (!userId) return { success: false, error: "Unauthorized" };
 
   try {
-    const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
+    const dbUser = activeUserOnly(await prisma.user.findUnique({ where: { clerkId: userId } }));
     if (!dbUser) return { success: false, error: "User not found" };
 
     const session = await prisma.workoutSessionV2.findUnique({
@@ -329,7 +327,7 @@ export async function updateExerciseActualSetsAction(
   if (!userId) return { success: false, error: "Unauthorized" };
 
   try {
-    const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
+    const dbUser = activeUserOnly(await prisma.user.findUnique({ where: { clerkId: userId } }));
     if (!dbUser) return { success: false, error: "User not found" };
 
     const session = await prisma.workoutSessionV2.findUnique({
@@ -369,7 +367,7 @@ export async function updateExerciseClientNoteAction(
   if (!userId) return { success: false, error: "Unauthorized" };
 
   try {
-    const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
+    const dbUser = activeUserOnly(await prisma.user.findUnique({ where: { clerkId: userId } }));
     if (!dbUser) return { success: false, error: "User not found" };
 
     const session = await prisma.workoutSessionV2.findUnique({
@@ -411,7 +409,7 @@ export async function completeSessionV2Action(
   if (!userId) return { success: false, error: "Unauthorized" };
 
   try {
-    const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
+    const dbUser = activeUserOnly(await prisma.user.findUnique({ where: { clerkId: userId } }));
     if (!dbUser) return { success: false, error: "User not found" };
 
     const session = await prisma.workoutSessionV2.findUnique({
@@ -442,25 +440,30 @@ export async function completeSessionV2Action(
       },
     }));
 
-    // Fire trainer notifications — non-blocking, failures must not break completion
+    // Fire trainer notifications — non-blocking, failures must not break completion.
+    // Uncoached club members have no coach to notify (coachNotifications off).
     try {
-      await notifyTrainerOnCompletion(sessionId, {
-        id: dbUser.id,
-        firstName: dbUser.firstName,
-        lastName: dbUser.lastName,
-      });
-    } catch (notifyErr) {
-      console.error("Completion notification failed (non-fatal):", notifyErr);
-    }
+      const caps = await getCapabilitiesForUser(dbUser);
+      if (caps.coachNotifications) {
+        const client: NotifyingClient = {
+          id: dbUser.id,
+          firstName: dbUser.firstName,
+          lastName: dbUser.lastName,
+        };
+        try {
+          await notifyTrainerOnCompletion(sessionId, client);
+        } catch (notifyErr) {
+          console.error("Completion notification failed (non-fatal):", notifyErr);
+        }
 
-    try {
-      await notifyTrainerOfClientNotes(sessionId, {
-        id: dbUser.id,
-        firstName: dbUser.firstName,
-        lastName: dbUser.lastName,
-      });
-    } catch (notifyErr) {
-      console.error("Exercise note notification failed (non-fatal):", notifyErr);
+        try {
+          await notifyTrainerOfClientNotes(sessionId, client);
+        } catch (notifyErr) {
+          console.error("Exercise note notification failed (non-fatal):", notifyErr);
+        }
+      }
+    } catch (capsErr) {
+      console.error("Coach notification lookup failed (non-fatal):", capsErr);
     }
 
     revalidatePath("/dashboard");
@@ -482,7 +485,7 @@ export async function markExerciseDoneAction(
   if (!userId) return { success: false as const, error: "Unauthorized" };
 
   try {
-    const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
+    const dbUser = activeUserOnly(await prisma.user.findUnique({ where: { clerkId: userId } }));
     if (!dbUser) return { success: false as const, error: "User not found" };
 
     const session = await prisma.workoutSessionV2.findUnique({

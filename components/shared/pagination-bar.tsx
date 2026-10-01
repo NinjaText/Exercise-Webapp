@@ -23,6 +23,10 @@ function buildPageList(page: number, totalPages: number): (number | "...")[] {
   return result;
 }
 
+// Spec §2.3: sm-size (32px) hairline controls with the token focus ring.
+const navButton =
+  "flex h-8 items-center justify-center rounded-md border border-border bg-surface transition-colors outline-none hover:bg-surface-muted focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none";
+
 export function PaginationBar({ page, pageSize, total, buildHref, itemLabel = "items" }: PaginationBarProps) {
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   if (total === 0) return null;
@@ -32,20 +36,25 @@ export function PaginationBar({ page, pageSize, total, buildHref, itemLabel = "i
   const pages = buildPageList(page, totalPages);
 
   return (
-    <div className="flex flex-col items-center justify-between gap-3 border-t border-border/60 pt-4 sm:flex-row">
-      <p className="text-sm text-muted-foreground">
+    <nav
+      aria-label="Pagination"
+      className="flex flex-col items-center justify-between gap-3 border-t border-border pt-4 sm:flex-row"
+    >
+      <p className="text-body text-muted-foreground tabular-nums">
         Showing {start} to {end} of {total} {itemLabel}
       </p>
       <div className="flex items-center gap-1">
         <Link
           href={buildHref(Math.max(1, page - 1))}
           aria-disabled={page === 1}
+          aria-label="Previous page"
           className={cn(
-            "flex h-8 w-8 items-center justify-center rounded-md border border-border text-muted-foreground transition-colors hover:bg-muted",
+            navButton,
+            "w-8 text-muted-foreground hover:text-foreground",
             page === 1 && "pointer-events-none opacity-40"
           )}
         >
-          <ChevronLeft className="h-4 w-4" />
+          <ChevronLeft className="size-4" aria-hidden />
         </Link>
         {pages.map((p, i) =>
           p === "..." ? (
@@ -56,11 +65,13 @@ export function PaginationBar({ page, pageSize, total, buildHref, itemLabel = "i
             <Link
               key={p}
               href={buildHref(p)}
+              aria-current={p === page ? "page" : undefined}
               className={cn(
-                "flex h-8 min-w-8 items-center justify-center rounded-md border px-2 text-sm font-medium transition-colors",
+                navButton,
+                "min-w-8 px-2 text-label tabular-nums",
                 p === page
-                  ? "border-primary bg-primary text-primary-foreground"
-                  : "border-border text-foreground hover:bg-muted"
+                  ? "border-primary bg-primary text-primary-foreground hover:bg-primary/90"
+                  : "border-border text-foreground hover:bg-surface-muted"
               )}
             >
               {p}
@@ -70,14 +81,16 @@ export function PaginationBar({ page, pageSize, total, buildHref, itemLabel = "i
         <Link
           href={buildHref(Math.min(totalPages, page + 1))}
           aria-disabled={page === totalPages}
+          aria-label="Next page"
           className={cn(
-            "flex h-8 w-8 items-center justify-center rounded-md border border-border text-muted-foreground transition-colors hover:bg-muted",
+            navButton,
+            "w-8 text-muted-foreground hover:text-foreground",
             page === totalPages && "pointer-events-none opacity-40"
           )}
         >
-          <ChevronRight className="h-4 w-4" />
+          <ChevronRight className="size-4" aria-hidden />
         </Link>
       </div>
-    </div>
+    </nav>
   );
 }

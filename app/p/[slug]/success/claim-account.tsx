@@ -95,7 +95,7 @@ export function ClaimAccount({
 
   if (error) {
     return (
-      <Card>
+      <Card className="gap-6 py-6 shadow-md">
         <CardHeader>
           <CardTitle>Something went wrong</CardTitle>
           <CardDescription>{error}</CardDescription>
@@ -111,7 +111,7 @@ export function ClaimAccount({
 
   if (!signedIn || !userLoaded || !user) {
     return (
-      <Card>
+      <Card className="gap-6 py-6 shadow-md">
         <CardHeader className="items-center text-center">
           <Loader2 className="mb-2 size-8 animate-spin text-primary" />
           <CardTitle>Signing you in…</CardTitle>
@@ -121,7 +121,7 @@ export function ClaimAccount({
   }
 
   return (
-    <Card>
+    <Card className="gap-6 py-6 shadow-md">
       <CardHeader>
         <CardTitle>Create your password</CardTitle>
         <CardDescription>You&apos;re almost in — set a password to access your program.</CardDescription>

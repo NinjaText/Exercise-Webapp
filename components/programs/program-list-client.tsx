@@ -237,7 +237,7 @@ function SchedulingPillFilter({
 
 function ResourcesCallout({ onDismiss }: { onDismiss: () => void }) {
   return (
-    <div className="flex items-start gap-3 rounded-lg border border-info-border bg-info-soft p-3 text-sm">
+    <div className="flex items-start gap-3 rounded-lg border border-info-border bg-info-soft p-3 text-body">
       <Info className="mt-0.5 h-4 w-4 shrink-0 text-info-foreground" />
       <p className="flex-1 text-muted-foreground">
         <span className="font-medium text-foreground">What are Resources?</span>{" "}
@@ -249,9 +249,9 @@ function ResourcesCallout({ onDismiss }: { onDismiss: () => void }) {
         type="button"
         onClick={onDismiss}
         aria-label="Dismiss"
-        className="shrink-0 rounded-md p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+        className="flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-info/10 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
       >
-        <X className="h-3.5 w-3.5" />
+        <X className="size-4" />
       </button>
     </div>
   );
@@ -509,24 +509,29 @@ function LibraryProgramRow({
             disabled={togglingFavoriteId === program.id}
             onClick={() => onToggleFavorite(program.id, !program.isFavorite)}
             title={program.isFavorite ? "Remove from favorites" : "Add to favorites"}
+            aria-label={program.isFavorite ? "Remove from favorites" : "Add to favorites"}
             className={cn(
-              "inline-flex h-7 w-7 items-center justify-center rounded-md transition-opacity hover:bg-muted disabled:opacity-60",
+              "inline-flex size-8 items-center justify-center rounded-md transition-opacity hover:bg-muted disabled:opacity-60",
               program.isFavorite
                 ? "text-warning opacity-100"
-                : "text-muted-foreground opacity-0 group-hover:opacity-100"
+                : "text-muted-foreground opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
             )}
           >
             <Star className={cn("h-4 w-4", program.isFavorite && "fill-current")} />
           </button>
           <Link
             href={detailHref}
-            className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity hover:bg-muted hover:text-foreground group-hover:opacity-100"
+            className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity hover:bg-muted hover:text-foreground group-hover:opacity-100 focus-visible:opacity-100"
             title={matchedWorkoutId ? "View workout" : "View program"}
+            aria-label={matchedWorkoutId ? "View workout" : "View program"}
           >
             <Eye className="h-4 w-4" />
           </Link>
           <DropdownMenu>
-            <DropdownMenuTrigger className="shrink-0 flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-opacity hover:bg-muted">
+            <DropdownMenuTrigger
+              aria-label="Program actions"
+              className="flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground outline-none transition-opacity hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring"
+            >
               <MoreVertical className="h-4 w-4" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
@@ -602,7 +607,7 @@ function GlobalProgramRow({
             {program.isGlobal ? "Global" : "Community"}
           </Badge>
           {!program.isGlobal && program.trainer && (
-            <span className="text-[11px] text-muted-foreground">
+            <span className="text-caption">
               by {program.trainer.firstName} {program.trainer.lastName}
             </span>
           )}
@@ -694,7 +699,7 @@ function AssignedProgramRow({
                 Used {usageCount} time{usageCount === 1 ? "" : "s"}
               </span>
             </div>
-            <p className="text-[11px] text-muted-foreground">
+            <p className="text-caption">
               {usage?.lastUsedAt
                 ? `Last used ${format(new Date(usage.lastUsedAt), "d MMM yyyy")}`
                 : "Not used yet"}
@@ -713,7 +718,7 @@ function AssignedProgramRow({
                   <span className="text-sm font-medium">{percent}%</span>
                 </div>
                 <Progress value={percent} className="h-1.5" />
-                <p className="text-[11px] text-muted-foreground">{completed} of {total} workouts</p>
+                <p className="text-caption">{completed} of {total} workouts</p>
               </div>
             )}
           </TableCell>
@@ -721,7 +726,7 @@ function AssignedProgramRow({
             {progress?.nextSession ? (
               <div>
                 <p className="truncate text-sm">{progress.nextSession.workoutName}</p>
-                <p className="text-[11px] text-muted-foreground">{formatDueLabel(new Date(progress.nextSession.scheduledDate))}</p>
+                <p className="text-caption">{formatDueLabel(new Date(progress.nextSession.scheduledDate))}</p>
               </div>
             ) : (
               <span className="text-muted-foreground">—</span>
@@ -739,13 +744,17 @@ function AssignedProgramRow({
         <div className="flex items-center justify-end gap-1">
           <Link
             href={`/programs/${program.id}`}
-            className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity hover:bg-muted hover:text-foreground group-hover:opacity-100"
+            className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity hover:bg-muted hover:text-foreground group-hover:opacity-100 focus-visible:opacity-100"
             title="View program"
+            aria-label="View program"
           >
             <Eye className="h-4 w-4" />
           </Link>
           <DropdownMenu>
-            <DropdownMenuTrigger className="shrink-0 flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-opacity hover:bg-muted">
+            <DropdownMenuTrigger
+              aria-label="Program actions"
+              className="flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground outline-none transition-opacity hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring"
+            >
               <MoreVertical className="h-4 w-4" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-44">
@@ -792,6 +801,7 @@ function ProgramsEmptyState({
       icon={Library}
       title={title}
       description={description}
+      className="rounded-xl bg-card shadow-xs ring-1 ring-border"
       action={
         showCreateActions ? (
           <CreateProgramMenu onUseTemplate={onUseTemplate} trigger={<Button variant="outline" size="sm" />}>
@@ -920,7 +930,7 @@ function CheckboxGroup({
         <button
           type="button"
           onClick={() => setExpanded((v) => !v)}
-          className="text-xs font-medium text-primary hover:underline"
+          className="rounded-sm text-caption font-medium text-primary outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
         >
           {expanded ? "Show less" : `+ Show more`}
         </button>
@@ -965,81 +975,88 @@ function ProgramFiltersPanel({
   onApply: () => void;
 }) {
   return (
-    <div className="space-y-5 rounded-xl border border-border bg-card p-5 shadow-sm">
+    <div className="flex flex-col gap-5 rounded-xl bg-card p-5 shadow-xs ring-1 ring-border">
       <div className="flex items-center justify-between">
-        <h3 className="font-semibold">Filters</h3>
-        <button type="button" onClick={onReset} className="text-xs font-medium text-primary hover:underline">
+        <h2 className="text-heading text-foreground">Filters</h2>
+        <button
+          type="button"
+          onClick={onReset}
+          className="rounded-sm text-label text-primary outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+        >
           Clear all
         </button>
       </div>
 
-      <div className="space-y-1.5">
-        <p className="flex items-center gap-1.5 text-sm font-medium"><Users className="h-3.5 w-3.5 text-muted-foreground" /> Source</p>
-        <div className="flex flex-wrap items-center gap-4">
-          {(["all", "clinical", "global"] as const).map((v) => (
-            <label key={v} className="flex items-center gap-1.5 text-sm">
-              <input
-                type="radio"
-                name="program-source"
-                checked={typeFilter === v}
-                onChange={() => onTypeFilterChange(v)}
-                className="h-3.5 w-3.5 accent-primary"
-              />
-              {v === "all" ? "All Sources" : v === "clinical" ? "My Programs" : "InMotus Programs"}
-            </label>
-          ))}
+      {/* Facets flow into columns on wide screens so the panel stays short. */}
+      <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+        <div className="space-y-1.5">
+          <p className="flex items-center gap-1.5 text-label text-foreground"><Users className="size-3.5 text-muted-foreground" /> Source</p>
+          <div className="flex flex-wrap items-center gap-4">
+            {(["all", "clinical", "global"] as const).map((v) => (
+              <label key={v} className="flex items-center gap-1.5 text-sm">
+                <input
+                  type="radio"
+                  name="program-source"
+                  checked={typeFilter === v}
+                  onChange={() => onTypeFilterChange(v)}
+                  className="h-3.5 w-3.5 accent-primary"
+                />
+                {v === "all" ? "All Sources" : v === "clinical" ? "My Programs" : "InMotus Programs"}
+              </label>
+            ))}
+          </div>
         </div>
-      </div>
 
-      <div className="space-y-1.5">
-        <p className="text-sm font-medium">Sport</p>
-        <CheckboxGroup options={SPORT_OPTIONS} selected={sportFilter} onToggle={onToggleSport} onClear={() => sportFilter.forEach(onToggleSport)} limit={5} />
-      </div>
-
-      <div className="space-y-1.5">
-        <p className="text-sm font-medium">Body Area</p>
-        <CheckboxGroup options={BODY_AREA_OPTIONS} selected={bodyAreaFilter} onToggle={onToggleBodyArea} onClear={() => bodyAreaFilter.forEach(onToggleBodyArea)} limit={5} />
-      </div>
-
-      <div className="space-y-1.5">
-        <p className="text-sm font-medium">Goal</p>
-        <CheckboxGroup options={GOAL_OPTIONS} selected={goalFilter} onToggle={onToggleGoal} onClear={() => goalFilter.forEach(onToggleGoal)} />
-      </div>
-
-      <div className="space-y-1.5">
-        <p className="text-sm font-medium">Level</p>
-        <CheckboxGroup
-          options={LEVEL_OPTIONS}
-          selected={levelFilter}
-          onToggle={onToggleLevel}
-          onClear={() => levelFilter.forEach(onToggleLevel)}
-        />
-      </div>
-
-      <div className="space-y-1.5">
-        <p className="text-sm font-medium">Duration</p>
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-          <label className="flex items-center gap-1.5 text-sm">
-            <Checkbox checked={durationFilter.size === 0} onCheckedChange={() => durationFilter.forEach(onToggleDuration)} />
-            Any Duration
-          </label>
-          {DURATION_OPTIONS.map((opt) => (
-            <label key={opt.value} className="flex items-center gap-1.5 text-sm">
-              <Checkbox checked={durationFilter.has(opt.value)} onCheckedChange={() => onToggleDuration(opt.value)} />
-              {opt.label}
-            </label>
-          ))}
+        <div className="space-y-1.5">
+          <p className="text-label text-foreground">Sport</p>
+          <CheckboxGroup options={SPORT_OPTIONS} selected={sportFilter} onToggle={onToggleSport} onClear={() => sportFilter.forEach(onToggleSport)} limit={5} />
         </div>
-      </div>
 
-      <div className="space-y-1.5">
-        <p className="text-sm font-medium">Status</p>
-        <CheckboxGroup
-          options={STATUS_OPTIONS}
-          selected={statusFilter}
-          onToggle={onToggleStatus}
-          onClear={() => statusFilter.forEach(onToggleStatus)}
-        />
+        <div className="space-y-1.5">
+          <p className="text-label text-foreground">Body Area</p>
+          <CheckboxGroup options={BODY_AREA_OPTIONS} selected={bodyAreaFilter} onToggle={onToggleBodyArea} onClear={() => bodyAreaFilter.forEach(onToggleBodyArea)} limit={5} />
+        </div>
+
+        <div className="space-y-1.5">
+          <p className="text-label text-foreground">Goal</p>
+          <CheckboxGroup options={GOAL_OPTIONS} selected={goalFilter} onToggle={onToggleGoal} onClear={() => goalFilter.forEach(onToggleGoal)} />
+        </div>
+
+        <div className="space-y-1.5">
+          <p className="text-label text-foreground">Level</p>
+          <CheckboxGroup
+            options={LEVEL_OPTIONS}
+            selected={levelFilter}
+            onToggle={onToggleLevel}
+            onClear={() => levelFilter.forEach(onToggleLevel)}
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <p className="text-label text-foreground">Duration</p>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+            <label className="flex items-center gap-1.5 text-sm">
+              <Checkbox checked={durationFilter.size === 0} onCheckedChange={() => durationFilter.forEach(onToggleDuration)} />
+              Any Duration
+            </label>
+            {DURATION_OPTIONS.map((opt) => (
+              <label key={opt.value} className="flex items-center gap-1.5 text-sm">
+                <Checkbox checked={durationFilter.has(opt.value)} onCheckedChange={() => onToggleDuration(opt.value)} />
+                {opt.label}
+              </label>
+            ))}
+          </div>
+        </div>
+
+        <div className="space-y-1.5">
+          <p className="text-label text-foreground">Status</p>
+          <CheckboxGroup
+            options={STATUS_OPTIONS}
+            selected={statusFilter}
+            onToggle={onToggleStatus}
+            onClear={() => statusFilter.forEach(onToggleStatus)}
+          />
+        </div>
       </div>
 
       <div className="flex justify-end gap-2 border-t border-border pt-4">
@@ -1618,7 +1635,7 @@ export function ProgramListClient({
 
       {/* ================= LIBRARY TAB ================= */}
       {activeTab === "templates" && (
-        <div className="space-y-5">
+        <div className="flex flex-col gap-4">
           <div className="flex flex-wrap items-center gap-2">
             <CollectionChip
               label="All programs"
@@ -1645,11 +1662,11 @@ export function ProgramListClient({
 
           {selectedCollectionId && (
             <div className="flex items-center justify-between gap-2">
-              <h3 className="font-semibold text-sm">
+              <h2 className="text-heading text-foreground">
                 {allCollections.find((c) => c.id === selectedCollectionId)?.name} · {collectionPrograms.length} program{collectionPrograms.length === 1 ? "" : "s"}
-              </h3>
-              <Button variant="outline" size="sm" className="gap-1.5" onClick={openManageMembers}>
-                <Plus className="h-3.5 w-3.5" />
+              </h2>
+              <Button variant="outline" size="sm" onClick={openManageMembers}>
+                <Plus className="size-4" />
                 Add Programs
               </Button>
             </div>
@@ -1708,7 +1725,8 @@ export function ProgramListClient({
               </SelectContent>
             </Select>
             <Button
-              variant={filtersOpen ? "secondary" : "outline"}
+              variant="outline"
+              aria-pressed={filtersOpen}
               className="h-9"
               onClick={() => setFiltersOpen((v) => !v)}
             >
@@ -1756,7 +1774,7 @@ export function ProgramListClient({
               showCreateActions={typeFilter !== "global"}
             />
           ) : (
-            <div className="overflow-hidden rounded-xl bg-card ring-1 ring-border">
+            <div className="overflow-hidden rounded-xl bg-card shadow-xs ring-1 ring-border">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -1804,8 +1822,8 @@ export function ProgramListClient({
 
       {/* ================= ASSIGNED TAB ================= */}
       {activeTab === "programs" && (
-        <div className="space-y-5">
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
+        <div className="flex flex-col gap-4">
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-5">
             <StatCard size="compact" label="Active" value={assignedStatCounts.ACTIVE} icon={CheckCircle2} href={hrefWithParams({ status: "ACTIVE" })} role="success" />
             <StatCard size="compact" label="Starting Soon" value={assignedStatCounts.STARTING_SOON} icon={CalendarClock} href={hrefWithParams({ status: "STARTING_SOON" })} role="info" />
             <StatCard size="compact" label="Total Assigned" value={assignedPrograms.length} icon={ClipboardList} href={hrefWithParams({ status: null })} role="brand" />
@@ -1875,7 +1893,7 @@ export function ProgramListClient({
               onUseTemplate={() => handleTabChange("templates")}
             />
           ) : (
-            <div className="overflow-hidden rounded-xl bg-card ring-1 ring-border">
+            <div className="overflow-hidden rounded-xl bg-card shadow-xs ring-1 ring-border">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -2028,16 +2046,13 @@ export function ProgramListClient({
             </div>
           )}
 
-          <div className="flex-1 space-y-1 overflow-y-auto rounded-lg border border-border/50 p-1.5">
+          <div className="flex-1 space-y-1 overflow-y-auto rounded-lg border border-border p-1.5">
             {programs.length === 0 && (
-              <div className="py-10 text-center">
-                <Library className="mx-auto h-8 w-8 text-muted-foreground/40" />
-                <p className="mt-2 text-sm text-muted-foreground">Your library is empty — build a program first.</p>
-              </div>
+              <EmptyState size="compact" icon={Library} title="Your library is empty" description="Build a program first." />
             )}
             {programs.length > 0 &&
               programs.filter((p) => p.name.toLowerCase().includes(memberSearch.toLowerCase())).length === 0 && (
-                <p className="py-10 text-center text-sm text-muted-foreground">No programs match &quot;{memberSearch}&quot;.</p>
+                <p className="py-10 text-center text-body text-muted-foreground">No programs match &quot;{memberSearch}&quot;.</p>
               )}
             {programs
               .filter((p) => p.name.toLowerCase().includes(memberSearch.toLowerCase()))
@@ -2099,10 +2114,7 @@ export function ProgramListClient({
 
           <div className="flex-1 space-y-1 overflow-y-auto">
             {allCollections.length === 0 && (
-              <div className="py-6 text-center">
-                <Folder className="mx-auto h-8 w-8 text-muted-foreground/40" />
-                <p className="mt-2 text-sm text-muted-foreground">You don&apos;t have any collections yet.</p>
-              </div>
+              <EmptyState size="compact" icon={Folder} title="No collections yet" />
             )}
             {allCollections.map((c) => {
               const id = `program-collection-${c.id}`;
@@ -2128,12 +2140,11 @@ export function ProgramListClient({
             })}
           </div>
 
-          <div className="flex gap-2 border-t pt-3">
+          <div className="flex gap-2 border-t border-border pt-4">
             <Input
               value={inlineCollectionName}
               onChange={(e) => setInlineCollectionName(e.target.value)}
               placeholder="New collection name..."
-              className="h-8 text-sm"
               onKeyDown={(e) => {
                 if (e.key === "Enter" && inlineCollectionName.trim()) handleCreateInlineCollection();
               }}
@@ -2141,12 +2152,11 @@ export function ProgramListClient({
             <Button
               type="button"
               variant="outline"
-              size="sm"
-              className="h-8 shrink-0 gap-1.5"
+              className="shrink-0"
               disabled={creatingInlineCollection || !inlineCollectionName.trim()}
               onClick={handleCreateInlineCollection}
             >
-              <FolderPlus className="h-3.5 w-3.5" />
+              <FolderPlus className="size-4" />
               {creatingInlineCollection ? "Creating..." : "Create"}
             </Button>
           </div>

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageHeader } from "@/components/shared/page-header";
+import { EmptyState } from "@/components/shared/empty-state";
 import { StatusBadge } from "@/components/shared/status-badge";
 import {
   CalendarDays,
@@ -121,16 +122,18 @@ function ProgramsTab({
     programs.find((p) => progressByProgramId[p.id]?.nextSession)?.id ?? null;
 
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col gap-4">
       <QuickTipCallout />
-      {programs.map((program) => (
-        <ScheduledProgramCard
-          key={program.id}
-          program={program}
-          progress={progressByProgramId[program.id]}
-          isCurrent={program.id === currentProgramId}
-        />
-      ))}
+      <div className="grid gap-4 xl:grid-cols-2">
+        {programs.map((program) => (
+          <ScheduledProgramCard
+            key={program.id}
+            program={program}
+            progress={progressByProgramId[program.id]}
+            isCurrent={program.id === currentProgramId}
+          />
+        ))}
+      </div>
     </div>
   );
 }
@@ -151,22 +154,22 @@ function ScheduledProgramCard({
   const next = progress?.nextSession ?? null;
 
   return (
-    <div className="rounded-2xl ring-1 ring-border bg-card p-4 shadow-none sm:p-5">
+    <div className="rounded-xl bg-card p-4 shadow-xs ring-1 ring-border sm:p-5">
       <div className="flex items-start gap-3.5">
-        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-          <Icon className="h-6 w-6" />
+        <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-brand-soft text-brand-foreground">
+          <Icon className="size-5" />
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <Link
               href={`/programs/${program.id}`}
-              className="truncate text-base font-semibold hover:text-primary hover:underline"
+              className="truncate rounded-sm text-heading text-foreground outline-none hover:text-primary hover:underline focus-visible:ring-2 focus-visible:ring-ring"
             >
               {program.name}
             </Link>
             <StatusBadge status={program.status} size="sm" />
           </div>
-          <p className="mt-0.5 text-xs text-muted-foreground">
+          <p className="mt-0.5 text-caption">
             {categoryLabel} · {program._count.workouts}{" "}
             {program._count.workouts === 1 ? "workout" : "workouts"}
           </p>
@@ -174,7 +177,7 @@ function ScheduledProgramCard({
       </div>
 
       <div className="mt-4">
-        <div className="mb-1.5 flex items-center justify-between text-xs">
+        <div className="mb-2 flex items-center justify-between gap-2 text-caption">
           {program.week ? (
             <StatusBadge
               status="week"
@@ -183,24 +186,22 @@ function ScheduledProgramCard({
               label={`Week ${program.week.current} of ${program.week.total}`}
             />
           ) : (
-            <span className="font-medium">Progress</span>
+            <span className="font-medium text-foreground">Progress</span>
           )}
-          <span className="text-muted-foreground">
+          <span className="tabular-nums">
             {completed} of {total} workouts · {percent}%
           </span>
         </div>
         <Progress value={percent} className="h-2" />
       </div>
 
-      <div className="mt-4 flex flex-col gap-3 rounded-xl border border-border/60 bg-muted/30 p-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="mt-4 flex flex-col gap-3 rounded-lg border border-border bg-surface-muted/60 p-3 sm:flex-row sm:items-center sm:justify-between">
         {next ? (
           <>
             <div className="min-w-0">
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                Next Workout
-              </p>
-              <p className="truncate text-sm font-semibold">{next.workoutName}</p>
-              <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
+              <p className="text-caption font-medium">Next workout</p>
+              <p className="truncate text-label text-foreground">{next.workoutName}</p>
+              <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-caption">
                 <span className="inline-flex items-center gap-1">
                   <CalendarDays className="h-3.5 w-3.5" />
                   {format(toLocalCalendarDate(next.scheduledDate), "EEE, MMM d")}
@@ -213,26 +214,26 @@ function ScheduledProgramCard({
             </div>
             <Button
               variant={isCurrent ? "default" : "outline"}
-              className="h-11 shrink-0 font-semibold sm:h-9"
+              className="h-11 shrink-0 sm:h-9"
               asChild
             >
               <Link href={`/sessions/${next.sessionId}`}>
-                <Play className="mr-2 h-4 w-4 fill-current" />
+                <Play className="size-4 fill-current" />
                 Continue Workout
               </Link>
             </Button>
           </>
         ) : (
           <>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-body text-muted-foreground">
               {total > 0 && completed >= total
                 ? "You've finished every workout in this program. Nice work."
                 : "No upcoming workouts scheduled."}
             </p>
-            <Button variant="outline" className="shrink-0 font-semibold" asChild>
+            <Button variant="outline" className="h-11 shrink-0 sm:h-9" asChild>
               <Link href={`/programs/${program.id}`}>
                 View Program
-                <ChevronRight className="ml-1.5 h-4 w-4" />
+                <ChevronRight className="size-4" />
               </Link>
             </Button>
           </>
@@ -255,7 +256,7 @@ function ResourcesTab({ resources }: { resources: ClientProgramCard[] }) {
   }
 
   return (
-    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
       {resources.map((resource) => (
         <ResourceCard key={resource.id} resource={resource} />
       ))}
@@ -267,20 +268,20 @@ function ResourceCard({ resource }: { resource: ClientProgramCard }) {
   const { icon: Icon, label } = getProgramCategoryVisual(resource);
 
   return (
-    <div className="flex flex-col gap-3 rounded-2xl border border-border/60 bg-card p-4 shadow-sm">
+    <div className="flex flex-col gap-3 rounded-xl bg-card p-4 shadow-xs ring-1 ring-border">
       <div className="flex items-start gap-3">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand-soft text-brand-foreground">
-          <Icon className="h-5 w-5" />
+        <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-brand-soft text-brand-foreground">
+          <Icon className="size-5" />
         </span>
         <div className="min-w-0 flex-1">
           <Link
             href={`/programs/${resource.id}`}
-            className="block truncate text-sm font-semibold hover:text-primary hover:underline"
+            className="block truncate rounded-sm text-label text-foreground outline-none hover:text-primary hover:underline focus-visible:ring-2 focus-visible:ring-ring"
           >
             {resource.name}
           </Link>
-          <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
-            <Dumbbell className="h-3.5 w-3.5" />
+          <p className="mt-0.5 flex items-center gap-1 text-caption">
+            <Dumbbell className="size-3.5" />
             {label} · {resource._count.workouts}{" "}
             {resource._count.workouts === 1 ? "workout" : "workouts"}
           </p>
@@ -288,13 +289,13 @@ function ResourceCard({ resource }: { resource: ClientProgramCard }) {
       </div>
 
       {resource.description && (
-        <p className="line-clamp-2 text-xs text-muted-foreground">{resource.description}</p>
+        <p className="line-clamp-2 text-body text-muted-foreground">{resource.description}</p>
       )}
 
-      <Button size="sm" variant="outline" className="mt-auto w-full font-semibold" asChild>
+      <Button variant="outline" className="mt-auto h-11 w-full sm:h-9" asChild>
         <Link href={`/programs/${resource.id}`}>
           View Resource
-          <ChevronRight className="ml-1.5 h-3.5 w-3.5" />
+          <ChevronRight className="size-4" />
         </Link>
       </Button>
     </div>
@@ -362,7 +363,7 @@ function QuickTipCallout() {
   if (dismissed) return null;
 
   return (
-    <div className="flex items-start gap-3 rounded-xl border border-warning-border bg-warning-soft p-3 text-sm">
+    <div className="flex items-start gap-3 rounded-lg border border-warning-border bg-warning-soft p-3 text-body">
       <Lightbulb className="mt-0.5 h-4 w-4 shrink-0 text-warning-foreground" />
       <p className="flex-1 text-muted-foreground">
         <span className="font-medium text-foreground">Quick tip.</span> {tip.text}
@@ -371,9 +372,9 @@ function QuickTipCallout() {
         type="button"
         onClick={dismiss}
         aria-label="Dismiss tip"
-        className="shrink-0 rounded-md p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+        className="flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-warning/10 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
       >
-        <X className="h-3.5 w-3.5" />
+        <X className="size-4" />
       </button>
     </div>
   );
@@ -381,10 +382,11 @@ function QuickTipCallout() {
 
 function ClientEmptyState({ title, description }: { title: string; description: string }) {
   return (
-    <div className="rounded-xl border border-dashed border-border p-12 text-center">
-      <Library className="mx-auto h-12 w-12 text-muted-foreground/40" />
-      <h3 className="mt-4 font-semibold">{title}</h3>
-      <p className="mt-1 text-sm text-muted-foreground">{description}</p>
-    </div>
+    <EmptyState
+      icon={Library}
+      title={title}
+      description={description}
+      className="rounded-xl bg-card shadow-xs ring-1 ring-border"
+    />
   );
 }

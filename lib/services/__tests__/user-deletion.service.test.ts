@@ -34,6 +34,8 @@ vi.mock("@/lib/prisma", () => ({
     habitLog: { deleteMany: vi.fn() },
     clinicalNote: { deleteMany: vi.fn() },
     trainerSubscription: { deleteMany: vi.fn() },
+    memberSubscription: { deleteMany: vi.fn() },
+    memberCoaching: { deleteMany: vi.fn() },
     pendingProgramAssignment: { deleteMany: vi.fn() },
     dismissedInsight: { deleteMany: vi.fn() },
     assessment: { deleteMany: vi.fn() },
@@ -237,6 +239,22 @@ describe("findDeletionBlockers", () => {
 });
 
 describe("deleteUserData", () => {
+  // Required relations to User (restrict on Mongo): without these the user
+  // delete threw after everything else was already wiped.
+  it("deletes the club member's coaching and membership rows before the user row", async () => {
+    await deleteUserData("u1");
+
+    expect(p.memberCoaching.deleteMany).toHaveBeenCalledWith({ where: { userId: "u1" } });
+    expect(p.memberSubscription.deleteMany).toHaveBeenCalledWith({ where: { userId: "u1" } });
+    expect(p.memberCoaching.deleteMany.mock.invocationCallOrder[0]).toBeLessThan(p.user.delete.mock.invocationCallOrder[0]);
+    expect(p.memberSubscription.deleteMany.mock.invocationCallOrder[0]).toBeLessThan(p.user.delete.mock.invocationCallOrder[0]);
+  });
+
+  it("never treats membership or coaching rows as deletion blockers", async () => {
+    expect(await findDeletionBlockers("u1", { includeActiveClients: false })).toEqual([]);
+    expect(p.memberSubscription.deleteMany).not.toHaveBeenCalled();
+  });
+
   it("deletes leaf rows before the user row", async () => {
     p.workoutSessionV2.findMany.mockResolvedValue([{ id: "s1" }]);
     p.sessionExerciseLog.findMany.mockResolvedValue([{ id: "l1" }]);

@@ -10,7 +10,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { cn } from "@/lib/utils";
 
 interface ConfirmDialogProps {
   open: boolean;
@@ -42,12 +41,11 @@ export function ConfirmDialog({
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>{cancelLabel}</AlertDialogCancel>
+          {/* The Button destructive variant: the old override used a
+              text-destructive-foreground token that does not exist. */}
           <AlertDialogAction
             onClick={onConfirm}
-            className={cn(
-              variant === "destructive" &&
-                "bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            )}
+            variant={variant === "destructive" ? "destructive" : "default"}
           >
             {confirmLabel}
           </AlertDialogAction>

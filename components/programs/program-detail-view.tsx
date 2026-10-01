@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/tabs";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
+import { EmptyState } from "@/components/shared/empty-state";
 import { SectionCard } from "@/components/shared/section-card";
 import {
   Pencil,
@@ -299,7 +300,7 @@ export function ProgramDetailView({
                   { label: program.name as string },
                 ]
           }
-          back={adminMode ? { label: "Back to Programs", href: "/admin/programs" } : undefined}
+          back={adminMode ? { label: "Back to programs", href: "/admin/programs" } : undefined}
           title={program.name as string}
           description={program.description as string | undefined}
           primaryAction={
@@ -357,25 +358,26 @@ export function ProgramDetailView({
         />
 
         {startableSession && (
-          <div className="rounded-xl bg-card p-4 ring-1 ring-border flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-3 rounded-xl bg-card p-5 shadow-xs ring-1 ring-border sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0">
-              <p className="text-sm font-semibold truncate">
+              <p className="text-caption">Up next</p>
+              <p className="truncate text-heading text-foreground">
                 {((startableSession.workout as Record<string, unknown> | null)?.name as string) ?? "Next workout"}
               </p>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-body text-muted-foreground">
                 {format(toLocalCalendarDate(startableSession.scheduledDate as string | Date), "EEEE, MMM d")}
               </p>
             </div>
-            <Button size="default" className="shrink-0 font-semibold" asChild>
+            <Button className="h-11 shrink-0 sm:h-9" asChild>
               <Link href={`/sessions/${startableSession.id as string}`}>
-                <Play className="mr-2 h-4 w-4 fill-current" />
+                <Play className="size-4 fill-current" />
                 Start Workout
               </Link>
             </Button>
           </div>
         )}
 
-        <TabsContent value="overview" className="space-y-4 mt-4">
+        <TabsContent value="overview" className="flex flex-col gap-4">
           {equipmentNeeded.length > 0 && (
             <SectionCard title="Equipment needed" icon={Dumbbell}>
               <div className="flex flex-wrap gap-2">
@@ -388,10 +390,12 @@ export function ProgramDetailView({
             </SectionCard>
           )}
           {workouts.length === 0 ? (
-            <Card className="p-12 text-center">
-              <p className="text-muted-foreground">
-                No workouts yet. Edit this program to add workouts.
-              </p>
+            <Card className="gap-0 py-0">
+              <EmptyState
+                icon={Dumbbell}
+                title="No workouts yet"
+                description="Edit this program to add workouts."
+              />
             </Card>
           ) : (
             <div className="space-y-3">
@@ -404,11 +408,11 @@ export function ProgramDetailView({
                 const sessionCount = weekWorkouts.length;
 
                 return (
-                  <Card key={weekIdx} className="gap-0 overflow-hidden p-0 ring-1 ring-border shadow-none">
+                  <Card key={weekIdx} className="gap-0 py-0">
                     {!isSingleWeek && (
                       <button
                         type="button"
-                        className="w-full flex items-center gap-3 px-5 py-4 hover:bg-muted/40 transition-colors text-left"
+                        className="flex w-full items-center gap-3 px-5 py-4 text-left outline-none transition-colors hover:bg-surface-muted focus-visible:bg-surface-muted motion-reduce:transition-none"
                         onClick={() => toggleWeek(weekIdx)}
                       >
                         {isWeekExpanded ? (
@@ -416,8 +420,8 @@ export function ProgramDetailView({
                         ) : (
                           <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
                         )}
-                        <span className="font-semibold text-base">Week {weekIdx + 1}</span>
-                        <span className="text-sm text-muted-foreground">
+                        <span className="text-heading text-foreground">Week {weekIdx + 1}</span>
+                        <span className="text-body text-muted-foreground tabular-nums">
                           {sessionCount} session{sessionCount !== 1 ? "s" : ""}
                         </span>
                       </button>
@@ -425,7 +429,7 @@ export function ProgramDetailView({
 
                     {/* Workouts for this week */}
                     {isWeekExpanded && (
-                      <div className={cn(!isSingleWeek && "border-t", "divide-y")}>
+                      <div className={cn(!isSingleWeek && "border-t border-border", "divide-y divide-border")}>
                         {weekWorkouts.map((workout, dayPos) => {
                           const wId = workout.id as string;
                           const isExpanded = expandedWorkouts.has(wId);
@@ -442,10 +446,10 @@ export function ProgramDetailView({
                               )}
                             >
                               {/* Session row */}
-                              <div className="flex items-center hover:bg-muted/30 transition-colors">
+                              <div className="flex items-center transition-colors hover:bg-surface-muted/60 motion-reduce:transition-none">
                                 <button
                                   type="button"
-                                  className="flex items-center gap-3 px-5 py-3.5 text-left flex-1 min-w-0"
+                                  className="flex min-w-0 flex-1 items-center gap-3 px-5 py-3.5 text-left outline-none focus-visible:bg-surface-muted"
                                   onClick={() => toggleWorkout(wId)}
                                 >
                                   {isExpanded ? (
@@ -455,11 +459,11 @@ export function ProgramDetailView({
                                   )}
                                   <div className="flex items-center gap-2.5 flex-1 min-w-0">
                                     {!(isResource && workouts.length === 1) && (
-                                      <span className="text-xs font-medium text-muted-foreground bg-muted rounded-md px-2 py-0.5 shrink-0">
+                                      <span className="shrink-0 rounded-md bg-surface-muted px-2 py-0.5 text-caption font-medium ring-1 ring-border">
                                         Day {dayPos + 1}
                                       </span>
                                     )}
-                                    <span className="font-medium text-sm truncate">
+                                    <span className="truncate text-label text-foreground">
                                       {workout.name as string}
                                     </span>
                                     {scheduledDate && (
@@ -482,7 +486,7 @@ export function ProgramDetailView({
                                 {isResource && !isTrainer && (
                                   <Button
                                     size="sm"
-                                    className="mr-4 font-semibold"
+                                    className="mr-4"
                                     disabled={startingWorkoutId !== null}
                                     onClick={() => void handleStartResourceWorkout(wId)}
                                   >
@@ -497,8 +501,9 @@ export function ProgramDetailView({
                                 {isTrainer && (
                                   <button
                                     type="button"
-                                    className="px-4 py-3.5 shrink-0 text-muted-foreground hover:text-success transition-colors"
+                                    className="mr-3 flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
                                     title="Voice note"
+                                    aria-label={`Voice note for ${workout.name as string}`}
                                     onClick={() => setVoiceMemoWorkout({ id: wId, name: workout.name as string })}
                                   >
                                     <Mic className="h-4 w-4" />
@@ -508,13 +513,13 @@ export function ProgramDetailView({
 
                               {/* Expanded blocks */}
                               {isExpanded && (
-                                <div className="px-5 pb-4 pt-1 space-y-3 bg-muted/20">
+                                <div className="space-y-3 bg-surface-muted/50 px-5 pt-1 pb-4">
                                   {blocks.map((block) => {
                                     const bExercises = (block.exercises as Record<string, unknown>[]) || [];
                                     return (
-                                      <div key={block.id as string} className="border rounded-lg p-4 bg-card">
+                                      <div key={block.id as string} className="rounded-lg border border-border bg-card p-4">
                                         <div className="flex items-center gap-2 mb-3">
-                                          <span className="font-semibold text-sm">
+                                          <span className="text-label text-foreground">
                                             {(block.name as string) || "Block"}
                                           </span>
                                           {(block.type as string) !== "NORMAL" && (
@@ -535,13 +540,13 @@ export function ProgramDetailView({
                                             return (
                                               <div
                                                 key={be.id as string}
-                                                className="flex items-start gap-3 p-3 bg-muted/50 rounded-md"
+                                                className="flex items-start gap-3 rounded-md bg-surface-muted p-3"
                                               >
                                                 <div className="flex-1 min-w-0">
                                                   <div className="flex items-center gap-2 flex-wrap">
                                                     <button
                                                       type="button"
-                                                      className="font-medium text-sm text-left hover:underline focus:outline-none"
+                                                      className="rounded-sm text-left text-label text-foreground outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
                                                       onClick={() => setDetailExercise(exercise)}
                                                     >
                                                       {exercise?.name as string}
@@ -599,7 +604,7 @@ export function ProgramDetailView({
             </div>
           )}
         </TabsContent>
-        <TabsContent value="schedule" className="mt-4">
+        <TabsContent value="schedule">
           {isTrainer || adminMode ? (
             <ProgramScheduleView
               rawWorkouts={workouts}

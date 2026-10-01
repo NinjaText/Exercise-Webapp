@@ -9,6 +9,7 @@ import { GlobalProgramActions } from "./global-program-actions";
 import { PageShell } from "@/components/shared/page-shell";
 import { PageHeader } from "@/components/shared/page-header";
 import { PageToolbar } from "@/components/shared/page-toolbar";
+import { PaginationBar } from "@/components/shared/pagination-bar";
 import { DataList, type Column } from "@/components/shared/data-list";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -29,12 +30,12 @@ function buildColumns(clinics: Clinic): Column<GlobalProgramRow>[] {
         <div>
           <p className="font-medium text-foreground">{prog.name}</p>
           {prog.description && (
-            <p className="mt-0.5 max-w-xs truncate text-xs text-muted-foreground">{prog.description}</p>
+            <p className="mt-0.5 max-w-xs truncate text-caption">{prog.description}</p>
           )}
           {prog.tags.length > 0 && (
             <div className="mt-1 flex flex-wrap gap-1">
               {prog.tags.slice(0, 4).map((tag) => (
-                <span key={tag} className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] text-primary">
+                <span key={tag} className="rounded-full bg-primary/10 px-1.5 py-0.5 text-label text-primary">
                   {tag}
                 </span>
               ))}
@@ -59,14 +60,14 @@ function buildColumns(clinics: Clinic): Column<GlobalProgramRow>[] {
       header: "Workouts",
       align: "right",
       className: "hidden md:table-cell",
-      render: (prog) => <span className="text-xs text-muted-foreground">{prog._count.workouts}</span>,
+      render: (prog) => <span className="text-caption">{prog._count.workouts}</span>,
     },
     {
       key: "lastPushed",
       header: "Last Pushed",
       className: "hidden lg:table-cell",
       render: (prog) => (
-        <span className="text-xs text-muted-foreground">
+        <span className="text-caption">
           {prog.globalUpdatedAt ? format(new Date(prog.globalUpdatedAt), "MMM d, yyyy") : "—"}
         </span>
       ),
@@ -75,7 +76,7 @@ function buildColumns(clinics: Clinic): Column<GlobalProgramRow>[] {
       key: "created",
       header: "Created",
       render: (prog) => (
-        <span className="text-xs text-muted-foreground">{format(new Date(prog.createdAt), "MMM d, yyyy")}</span>
+        <span className="text-caption">{format(new Date(prog.createdAt), "MMM d, yyyy")}</span>
       ),
     },
     {
@@ -162,17 +163,13 @@ export default async function AdminGlobalProgramsPage({ searchParams }: PageProp
       />
 
       {totalPages > 1 && (
-        <div className="flex items-center justify-between px-1">
-          <p className="text-xs text-muted-foreground">Page {page} of {totalPages} · {total.toLocaleString()} programs</p>
-          <div className="flex gap-2">
-            {page > 1 && (
-              <a href={`?search=${search}&page=${page - 1}`} className="rounded-lg bg-muted px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted/80 transition-colors">← Prev</a>
-            )}
-            {page < totalPages && (
-              <a href={`?search=${search}&page=${page + 1}`} className="rounded-lg bg-muted px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted/80 transition-colors">Next →</a>
-            )}
-          </div>
-        </div>
+        <PaginationBar
+          page={page}
+          pageSize={25}
+          total={total}
+          itemLabel="programs"
+          buildHref={(p) => `?search=${search}&page=${p}`}
+        />
       )}
     </PageShell>
   );

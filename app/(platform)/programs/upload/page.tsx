@@ -46,7 +46,7 @@ export default async function ProgramBriefUploadPage({
   return (
     <PageShell width="default">
       <PageHeader
-        back={{ label: "Back to Programs", href: "/programs" }}
+        back={{ label: "Back to programs", href: "/programs" }}
         breadcrumb={[{ label: "Programs", href: "/programs" }, { label: "Upload Program Brief" }]}
         title="Upload Program Brief"
         description="Upload a structured brief and let AI generate a full program for review."

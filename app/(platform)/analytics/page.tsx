@@ -6,6 +6,7 @@ import {
   AttendanceTrendChart,
 } from "@/components/analytics/business-metrics-charts";
 import { PageHeader } from "@/components/shared/page-header";
+import { Card } from "@/components/ui/card";
 import { PageShell } from "@/components/shared/page-shell";
 import { StatCard } from "@/components/shared/stat-card";
 import { SectionCard } from "@/components/shared/section-card";
@@ -77,15 +78,17 @@ export default async function AnalyticsPage() {
       />
 
       {!metrics.hasOrganization && (
+        <Card className="py-0">
         <EmptyState
           size="compact"
           icon={Building2}
           title="No organization yet"
           description="Your account isn't linked to an organization yet, so there's no data to report. Metrics will populate once your organization is set up."
         />
+        </Card>
       )}
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 xl:grid-cols-5 xl:gap-6">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-5">
         {statCards.map((card) => (
           <StatCard
             key={card.label}

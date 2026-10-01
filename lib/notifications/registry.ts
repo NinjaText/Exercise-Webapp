@@ -18,6 +18,9 @@ import { NutritionNudgeEmail } from "@/lib/email/templates/nutrition-nudge";
 import { PaymentFailedEmail } from "@/lib/email/templates/payment-failed";
 import { SubscriptionCanceledEmail } from "@/lib/email/templates/subscription-canceled";
 import { RefundProcessedEmail } from "@/lib/email/templates/refund-processed";
+import { CoachingRequestedEmail } from "@/lib/email/templates/coaching-requested";
+import { CoachingAcceptedEmail } from "@/lib/email/templates/coaching-accepted";
+import { CoachingDeclinedEmail } from "@/lib/email/templates/coaching-declined";
 
 /**
  * Templates each declare their own prop interface, but the dispatcher assembles
@@ -133,6 +136,32 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, RegistryEntry> = {
     template: tpl(FeedbackResponseEmail),
     cooldownMinutes: null,
     subject: (d) => `${d.trainerName} replied to your feedback`,
+  },
+
+  // Club coaching add-on. Each is a one-off per request cycle, so no cooldown.
+  [NOTIFICATION_TYPES.COACHING_REQUESTED]: {
+    category: "messages",
+    clientFacing: false,
+    transactional: false,
+    template: tpl(CoachingRequestedEmail),
+    cooldownMinutes: null,
+    subject: (d) => `${d.memberName} requested coaching`,
+  },
+  [NOTIFICATION_TYPES.COACHING_ACCEPTED]: {
+    category: "messages",
+    clientFacing: true,
+    transactional: false,
+    template: tpl(CoachingAcceptedEmail),
+    cooldownMinutes: null,
+    subject: (d) => `${d.trainerName} accepted your coaching request`,
+  },
+  [NOTIFICATION_TYPES.COACHING_DECLINED]: {
+    category: "messages",
+    clientFacing: true,
+    transactional: false,
+    template: tpl(CoachingDeclinedEmail),
+    cooldownMinutes: null,
+    subject: () => "An update on your coaching request",
   },
 
   // ── Nutrition ─────────────────────────────────────────────────────────────

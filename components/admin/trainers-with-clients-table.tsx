@@ -28,7 +28,7 @@ function UserAvatar({ imageUrl, firstName, lastName }: { imageUrl: string | null
       {imageUrl ? (
         <Image src={imageUrl} alt="" fill className="object-cover" />
       ) : (
-        <span className="text-xs font-bold text-muted-foreground">
+        <span className="text-label font-bold text-muted-foreground">
           {firstName[0]}{lastName[0]}
         </span>
       )}
@@ -86,7 +86,7 @@ export function TrainersWithClientsTable({ trainers }: Props) {
                 <p className={`font-medium truncate ${!trainer.isActive ? "italic text-muted-foreground" : "text-foreground"}`}>
                   {trainer.firstName} {trainer.lastName}
                 </p>
-                <p className="text-xs text-muted-foreground truncate">{trainer.email}</p>
+                <p className="text-caption truncate">{trainer.email}</p>
               </div>
             </div>
           );
@@ -97,10 +97,10 @@ export function TrainersWithClientsTable({ trainers }: Props) {
             <div className="w-px h-4 bg-border shrink-0" />
             <UserAvatar imageUrl={client.imageUrl} firstName={client.firstName} lastName={client.lastName} />
             <div className="min-w-0">
-              <p className={`font-medium text-sm truncate ${!client.isActive ? "italic text-muted-foreground" : "text-foreground"}`}>
+              <p className={`font-medium text-body truncate ${!client.isActive ? "italic text-muted-foreground" : "text-foreground"}`}>
                 {client.firstName} {client.lastName}
               </p>
-              <p className="text-xs text-muted-foreground truncate">{client.email}</p>
+              <p className="text-caption truncate">{client.email}</p>
             </div>
           </div>
         );
@@ -135,7 +135,7 @@ export function TrainersWithClientsTable({ trainers }: Props) {
       header: "Joined",
       render: (row) => {
         const createdAt = row.kind === "trainer" ? row.trainer.createdAt : row.client.createdAt;
-        return <span className="text-xs text-muted-foreground">{format(new Date(createdAt), "MMM d, yyyy")}</span>;
+        return <span className="text-caption">{format(new Date(createdAt), "MMM d, yyyy")}</span>;
       },
     },
     {

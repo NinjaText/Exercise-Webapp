@@ -1,5 +1,6 @@
 "use server"
 
+import { activeUserOnly } from "@/lib/auth/active-user"
 import { auth } from "@clerk/nextjs/server"
 import { revalidatePath } from "next/cache"
 import { randomUUID } from "crypto"
@@ -10,6 +11,8 @@ import {
 } from "@aws-sdk/client-s3"
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
 import { prisma } from "@/lib/prisma"
+import { canCoachInteract, getCapabilitiesForUser } from "@/lib/org-capabilities.server"
+import { MESSAGING_UNAVAILABLE } from "@/lib/org-capabilities"
 import { getR2Client, R2_BUCKET_NAME, R2_PUBLIC_URL } from "@/lib/r2"
 import { pusherServer } from "@/lib/pusher"
 import { presignSchema, confirmSchema } from "@/lib/validators/voice-memo"
@@ -28,10 +31,28 @@ export type VoiceMemoData = {
   createdAt: Date
 }
 
+type SendingUser = { id: string; role: "TRAINER" | "CLIENT"; clerkOrgId: string | null }
+
+/** Voice notes live inside messaging; uncoached club members have none. */
+async function messagingDisabled(user: SendingUser): Promise<boolean> {
+  return !(await getCapabilitiesForUser(user)).messaging
+}
+
+/**
+ * Pair rule for a client's memo to the program's trainer: a club
+ * (member-billed) client may only reach their own club's trainer.
+ * Trainer-org clients keep today's rules.
+ */
+async function clientPairRefused(user: SendingUser, trainerId: string | null): Promise<boolean> {
+  if ((await getCapabilitiesForUser(user)).billing !== "member") return false
+  // No program trainer: nobody in the club to reach, so fail closed.
+  return !trainerId || !(await canCoachInteract(user, trainerId))
+}
+
 async function getAuthedUser() {
   const { userId: clerkId } = await auth()
   if (!clerkId) return null
-  return prisma.user.findUnique({ where: { clerkId } })
+  return activeUserOnly(await prisma.user.findUnique({ where: { clerkId } }))
 }
 
 export async function generateVoiceMemoPresignedUrl(
@@ -44,6 +65,7 @@ export async function generateVoiceMemoPresignedUrl(
 
     const user = await getAuthedUser()
     if (!user) return { success: false, error: "Unauthorized" }
+    if (await messagingDisabled(user)) return { success: false, error: MESSAGING_UNAVAILABLE }
 
     const workout = await prisma.workout.findUnique({
       where: { id: workoutId },
@@ -56,11 +78,18 @@ export async function generateVoiceMemoPresignedUrl(
 
     if (user.role === "TRAINER") {
       if (workout.program.trainerId !== user.id) return { success: false, error: "Forbidden" }
+      // Pair rule: the program's client must have messaging.
+      if (workout.program.clientId && !(await canCoachInteract(user, workout.program.clientId))) {
+        return { success: false, error: MESSAGING_UNAVAILABLE }
+      }
     } else {
       const completedSession = workout.sessions.find(
         (s) => s.clientId === user.id && s.status === "COMPLETED"
       )
       if (!completedSession) return { success: false, error: "Forbidden" }
+      if (await clientPairRefused(user, workout.program.trainerId)) {
+        return { success: false, error: MESSAGING_UNAVAILABLE }
+      }
     }
 
     const pendingKey = `voice-memos/pending/${randomUUID()}.${fileExtension}`
@@ -89,6 +118,7 @@ export async function confirmVoiceMemoUpload(
 
     const user = await getAuthedUser()
     if (!user) return { success: false, error: "Unauthorized" }
+    if (await messagingDisabled(user)) return { success: false, error: MESSAGING_UNAVAILABLE }
 
     const workout = await prisma.workout.findUnique({
       where: { id: workoutId },
@@ -113,11 +143,22 @@ export async function confirmVoiceMemoUpload(
     if (authorRole === "TRAINER" && workout.program.trainerId !== user.id) {
       return { success: false, error: "Forbidden" }
     }
+    // Pair rule: the program's client must have messaging.
+    if (
+      authorRole === "TRAINER" &&
+      workout.program.client &&
+      !(await canCoachInteract(user, workout.program.client.id))
+    ) {
+      return { success: false, error: MESSAGING_UNAVAILABLE }
+    }
     if (authorRole === "CLIENT") {
       const completedSession = workout.sessions.find(
         (s) => s.clientId === user.id && s.status === "COMPLETED"
       )
       if (!completedSession) return { success: false, error: "Forbidden" }
+      if (await clientPairRefused(user, workout.program.trainerId)) {
+        return { success: false, error: MESSAGING_UNAVAILABLE }
+      }
     }
 
     // Move object from pending/ to permanent key

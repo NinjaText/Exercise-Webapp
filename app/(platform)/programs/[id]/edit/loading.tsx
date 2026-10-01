@@ -1,9 +1,10 @@
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { PageShell } from "@/components/shared/page-shell";
 
 export default function EditProgramLoading() {
   return (
-    <div className="space-y-6">
+    <PageShell>
       <div>
         <Skeleton className="h-8 w-40" />
         <Skeleton className="h-4 w-60 mt-2" />
@@ -27,6 +28,6 @@ export default function EditProgramLoading() {
           <Skeleton className="h-60" />
         </CardContent>
       </Card>
-    </div>
+    </PageShell>
   );
 }

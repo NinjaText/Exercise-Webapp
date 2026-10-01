@@ -16,6 +16,8 @@ import { TrainersWithClientsTable } from "@/components/admin/trainers-with-clien
 import { PageShell } from "@/components/shared/page-shell";
 import { PageHeader } from "@/components/shared/page-header";
 import { PageToolbar } from "@/components/shared/page-toolbar";
+import { PaginationBar } from "@/components/shared/pagination-bar";
+import { cn } from "@/lib/utils";
 import { DataList, type Column } from "@/components/shared/data-list";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -43,7 +45,7 @@ const userColumns: Column<UserRow>[] = [
           {u.imageUrl ? (
             <Image src={u.imageUrl} alt="" fill className="object-cover" />
           ) : (
-            <span className="text-xs font-bold text-muted-foreground">
+            <span className="text-label font-bold text-muted-foreground">
               {u.firstName[0]}{u.lastName[0]}
             </span>
           )}
@@ -52,7 +54,7 @@ const userColumns: Column<UserRow>[] = [
           <p className={`font-medium truncate ${u.isActive === false ? "italic text-muted-foreground" : "text-foreground"}`}>
             {u.firstName} {u.lastName}
           </p>
-          <p className="text-xs text-muted-foreground truncate">{u.email}</p>
+          <p className="text-caption truncate">{u.email}</p>
         </div>
       </div>
     ),
@@ -66,14 +68,14 @@ const userColumns: Column<UserRow>[] = [
     key: "organization",
     header: "Organization",
     className: "hidden md:table-cell",
-    render: (u) => u.orgName ?? <span className="italic text-xs text-muted-foreground">—</span>,
+    render: (u) => u.orgName ?? <span className="italic text-caption">—</span>,
   },
   {
     key: "connections",
     header: "Connections",
     className: "hidden md:table-cell",
     render: (u) => (
-      <span className="text-muted-foreground text-xs">
+      <span className="text-caption">
         {u.role === "TRAINER"
           ? `${u.connectionCount} client${u.connectionCount !== 1 ? "s" : ""}`
           : `${u.connectionCount} trainer${u.connectionCount !== 1 ? "s" : ""}`}
@@ -93,7 +95,7 @@ const userColumns: Column<UserRow>[] = [
     header: "Joined",
     align: "right",
     render: (u) => (
-      <span className="text-xs text-muted-foreground tabular-nums">
+      <span className="text-caption tabular-nums">
         {format(new Date(u.createdAt), "MMM d, yyyy")}
       </span>
     ),
@@ -142,39 +144,34 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
     ? `${selectedOrgTrainer.firstName} ${selectedOrgTrainer.lastName}`
     : "All organizations";
 
+  const viewTabs = (
+    <div className="flex gap-5">
+      {([["all", "All Users"], ["orgs", "By Organization"]] as const).map(([v, label]) => (
+        <a
+          key={v}
+          href={`?view=${v}`}
+          aria-current={view === v ? "page" : undefined}
+          className={cn(
+            "relative inline-flex h-10 items-center rounded-sm px-0.5 text-sm font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background motion-reduce:transition-none",
+              view === v
+                ? "text-foreground after:absolute after:inset-x-0 after:-bottom-px after:h-0.5 after:bg-primary"
+                : "text-muted-foreground hover:text-foreground"
+          )}
+        >
+          {label}
+        </a>
+      ))}
+    </div>
+  );
+
   return (
     <PageShell>
       <PageHeader
         breadcrumb={[{ label: "Admin", href: "/admin" }, { label: "Users" }]}
         title="Users"
         description="Manage trainers and clients on the platform."
+        tabs={viewTabs}
       />
-
-      {/* View tabs */}
-      <div className="flex gap-1 rounded-xl border bg-muted/40 p-1 w-fit">
-        <a
-          href={`?view=all`}
-          className={[
-            "rounded-lg px-4 py-2 text-sm font-medium transition-colors",
-            view === "all"
-              ? "bg-background shadow-sm text-foreground"
-              : "text-muted-foreground hover:text-foreground",
-          ].join(" ")}
-        >
-          All Users
-        </a>
-        <a
-          href={`?view=orgs`}
-          className={[
-            "rounded-lg px-4 py-2 text-sm font-medium transition-colors",
-            view === "orgs"
-              ? "bg-background shadow-sm text-foreground"
-              : "text-muted-foreground hover:text-foreground",
-          ].join(" ")}
-        >
-          By Organization
-        </a>
-      </div>
 
       {/* All Users view */}
       {view === "all" && (
@@ -183,7 +180,7 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
             end={
               <a
                 href={archivedOnly ? `?view=all&search=${search}&role=${role}&org=${orgId}` : `?view=all&search=${search}&role=${role}&org=${orgId}&archived=1`}
-                className="text-sm text-muted-foreground hover:text-foreground transition-colors whitespace-nowrap"
+                className="text-body text-muted-foreground hover:text-foreground transition-colors whitespace-nowrap"
               >
                 {archivedOnly ? "Hide archived" : "Show archived"}
               </a>
@@ -240,23 +237,13 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
           />
 
           {totalPages > 1 && (
-            <div className="flex items-center justify-between px-1">
-              <p className="text-xs text-muted-foreground">
-                Page {page} of {totalPages} · {total.toLocaleString()} users
-              </p>
-              <div className="flex gap-2">
-                {page > 1 && (
-                  <a href={`?view=all&search=${search}&role=${role}&org=${orgId}&page=${page - 1}${archivedOnly ? "&archived=1" : ""}`} className="rounded-lg bg-muted px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted/80 transition-colors">
-                    ← Prev
-                  </a>
-                )}
-                {page < totalPages && (
-                  <a href={`?view=all&search=${search}&role=${role}&org=${orgId}&page=${page + 1}${archivedOnly ? "&archived=1" : ""}`} className="rounded-lg bg-muted px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted/80 transition-colors">
-                    Next →
-                  </a>
-                )}
-              </div>
-            </div>
+            <PaginationBar
+              page={page}
+              pageSize={25}
+              total={total}
+              itemLabel="users"
+              buildHref={(p) => `?view=all&search=${search}&role=${role}&org=${orgId}&page=${p}${archivedOnly ? "&archived=1" : ""}`}
+            />
           )}
         </>
       )}

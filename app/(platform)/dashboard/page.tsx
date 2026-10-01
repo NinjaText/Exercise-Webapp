@@ -1,4 +1,5 @@
 ﻿import { getCurrentUser } from "@/lib/current-user";
+import { getCapabilitiesForUser } from "@/lib/org-capabilities.server";
 import { prisma } from "@/lib/prisma";
 import { PageShell } from "@/components/shared/page-shell";
 import { TrainerDashboard } from "@/components/dashboard/trainer-dashboard";
@@ -7,6 +8,8 @@ import * as sessionService from "@/lib/services/session.service";
 import * as messageService from "@/lib/services/message.service";
 import * as programService from "@/lib/services/program.service";
 import { getClientIdsForTrainer } from "@/lib/services/client.service";
+import { getCoachingViewModel } from "@/lib/clubs/coaching-view";
+import { getTrainerCoachingRequests } from "@/lib/clubs/trainer-coaching";
 import { getDashboardInsights } from "@/lib/services/dashboard-insights.service";
 import { computeCurrentStreak } from "@/lib/utils/streak";
 import { getProgramSchedulingType } from "@/lib/utils/program-scheduling";
@@ -37,6 +40,7 @@ export default async function DashboardPage() {
       upcomingSessions,
       insights,
       inboxThreads,
+      coachingRequests,
     ] = await Promise.all([
       getClientIdsForTrainer(user.id),
       prisma.workoutPlan.count({
@@ -60,6 +64,8 @@ export default async function DashboardPage() {
       }),
       getDashboardInsights(user.id, now),
       messageService.getInboxThreads(user.id),
+      // null (and no coaching query) unless this is a club trainer.
+      getTrainerCoachingRequests(user),
     ]);
 
     // Resources have no schedule, so a lazily-created resource session must
@@ -86,13 +92,18 @@ export default async function DashboardPage() {
           clientMetrics={insights.clientMetrics}
           recentMessages={inboxThreads.slice(0, 5)}
           clientProgress={insights.clientProgress}
+          coachingRequests={coachingRequests}
         />
       </PageShell>
     );
   }
 
-  // Client dashboard
+  // Client dashboard. Uncoached club members have no inbox (messaging capability off).
   const calendarWindow = sessionService.getClientCalendarWindow(now);
+  const [{ messaging: showInbox }, coaching] = await Promise.all([
+    getCapabilitiesForUser(user),
+    getCoachingViewModel(user),
+  ]);
 
   const [
     calendarSessions,
@@ -109,7 +120,7 @@ export default async function DashboardPage() {
     prisma.sessionExerciseLog.count({
       where: { session: { clientId: user.id }, status: "COMPLETED" },
     }),
-    messageService.getInboxThreads(user.id),
+    showInbox ? messageService.getInboxThreads(user.id) : Promise.resolve([]),
     programService.getProgramsForClient(user.id),
   ]);
 
@@ -178,6 +189,8 @@ export default async function DashboardPage() {
         unreadTrainerMessage={unreadTrainerMessage}
         resources={resources}
         inboxThreads={inboxThreads}
+        showInbox={showInbox}
+        coaching={coaching}
       />
     </PageShell>
   );

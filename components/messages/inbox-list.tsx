@@ -139,6 +139,7 @@ export function InboxList({
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search messages..."
+            aria-label="Search conversations"
             className="pl-9"
           />
         </div>
@@ -146,7 +147,7 @@ export function InboxList({
 
       <div className="min-h-0 flex-1 overflow-y-auto">
         {filtered.length === 0 ? (
-          <p className="p-6 text-center text-sm text-muted-foreground">No conversations found.</p>
+          <p className="p-6 text-center text-body text-muted-foreground">No conversations found.</p>
         ) : (
           filtered.map((thread, i) => {
             const hasUnread = thread.unreadCount > 0;
@@ -159,18 +160,28 @@ export function InboxList({
               : getMessageCategory(thread.lastMessage);
 
             return (
-              <Link key={thread.otherUser.id} href={`/messages?thread=${thread.otherUser.id}`} scroll={false}>
+              <Link
+                key={thread.otherUser.id}
+                href={`/messages?thread=${thread.otherUser.id}`}
+                scroll={false}
+                aria-current={isSelected ? "page" : undefined}
+                className="block outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+              >
                 <div
                   className={cn(
-                    "group relative flex items-start gap-3 px-4 py-3 transition-colors",
-                    isSelected ? "bg-primary/5" : hasUnread ? "bg-primary/3 hover:bg-muted/40" : "hover:bg-muted/40",
-                    i !== 0 && "border-t border-border/50",
+                    "group relative flex items-start gap-3 px-4 py-3 transition-colors motion-reduce:transition-none",
+                    isSelected
+                      ? "bg-brand-soft before:absolute before:inset-y-2 before:left-0 before:w-0.5 before:rounded-full before:bg-primary"
+                      : hasUnread
+                        ? "bg-primary/3 hover:bg-surface-muted"
+                        : "hover:bg-surface-muted",
+                    i !== 0 && "border-t border-border",
                   )}
                 >
                   <div className="relative shrink-0">
-                    <Avatar className="h-10 w-10 ring-2 ring-white shadow-sm">
+                    <Avatar className="size-10">
                       <AvatarImage src={thread.otherUser.imageUrl || undefined} />
-                      <AvatarFallback className="bg-muted text-xs font-medium text-muted-foreground">
+                      <AvatarFallback className="bg-surface-muted text-caption font-medium text-foreground">
                         {initials}
                       </AvatarFallback>
                     </Avatar>
@@ -183,10 +194,10 @@ export function InboxList({
 
                   <div className="min-w-0 flex-1">
                     <div className="flex items-baseline justify-between gap-2">
-                      <p className={cn("truncate text-sm", hasUnread ? "font-semibold text-foreground" : "font-medium text-foreground/80")}>
+                      <p className={cn("truncate text-label", hasUnread ? "font-semibold text-foreground" : "font-medium text-foreground/80")}>
                         {fullName}
                       </p>
-                      <span className={cn("shrink-0 text-xs", hasUnread ? "font-medium text-primary" : "text-muted-foreground/60")}>
+                      <span className={cn("shrink-0 text-caption tabular-nums", hasUnread && "font-medium text-primary")}>
                         {formatRelativeTime(thread.lastMessage.createdAt)}
                       </span>
                     </div>
@@ -196,7 +207,7 @@ export function InboxList({
                           {MESSAGE_CATEGORY_LABEL[category]}
                         </Badge>
                       )}
-                      <p className={cn("truncate text-sm leading-snug", thread.lastMessage.deletedAt ? "italic text-muted-foreground/70" : hasUnread ? "font-medium text-foreground/80" : "text-muted-foreground")}>
+                      <p className={cn("truncate text-body", thread.lastMessage.deletedAt ? "italic text-muted-foreground/70" : hasUnread ? "font-medium text-foreground/80" : "text-muted-foreground")}>
                         {thread.lastMessage.deletedAt ? "Message deleted" : thread.lastMessage.content}
                       </p>
                     </div>

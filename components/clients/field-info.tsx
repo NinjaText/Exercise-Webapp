@@ -19,7 +19,7 @@ export function FieldInfo({ label, children }: { label: string; children: React.
         <TooltipTrigger
           type="button"
           aria-label={`About ${label}`}
-          className="ml-1 inline-flex align-middle text-muted-foreground/60 outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
+          className="ml-1 inline-flex align-middle text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
         >
           <Info className="h-3.5 w-3.5" />
         </TooltipTrigger>

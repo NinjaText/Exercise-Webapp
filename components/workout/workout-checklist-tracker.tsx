@@ -27,7 +27,14 @@ import {
 import { cn } from "@/lib/utils";
 import type { SetLogEntry, SetLogCache } from "./types";
 import { instructionsToBullets } from "./format-instructions";
-import { WORKOUT_STATE } from "./workout-tokens";
+import {
+  WORKOUT_STATE,
+  WORKOUT_TOUCH,
+  SET_FIELD,
+  SET_FIELD_LABEL,
+  SET_FIELD_INPUT,
+  SET_FIELD_STATIC,
+} from "./workout-tokens";
 import { ROLE_CLASSES } from "@/lib/ui/status";
 import { formatBodyRegion } from "@/lib/utils/formatting";
 import { VoiceMemoRecorder } from "@/components/voice-memo/VoiceMemoRecorder";
@@ -486,28 +493,27 @@ export function WorkoutChecklistTracker({
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <div className="mx-auto max-w-lg space-y-4 pb-24">
-      {/* Header + progress — pinned. The -mt-6/pt-9 pair bleeds into the scroll
-          container's own top padding (main has a fixed p-6) so the opaque
-          background reaches the true top of the viewport with no gap where
-          scrolled-past content could peek through above it. */}
-      <div className="sticky -top-6 z-20 rounded-md bg-background mx-3 px-3 py-4 shadow-[0_1px_0_0_rgb(0_0_0/0.06),0_6px_16px_-8px_rgb(0_0_0/0.12)] sm:mx-0">
+    <div className="flex w-full flex-col gap-4">
+      {/* Header + progress — pinned. The negative top offset matches <main>'s
+          gutter (p-4 / lg:p-6 / 2xl:p-8) so the opaque bar sits flush with the
+          top of the scroll area and scrolled-past content can't peek above it. */}
+      <div className="sticky -top-4 z-20 -mx-4 border-b border-border bg-canvas/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-canvas/80 sm:mx-0 sm:rounded-xl sm:rounded-t-none sm:border sm:bg-surface sm:shadow-xs lg:-top-6 2xl:-top-8">
         <div className="flex items-center gap-2.5">
-          <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${WORKOUT_STATE.completed.soft}`}>
-            <Check className={`h-3 w-3 ${WORKOUT_STATE.completed.text}`} />
+          <div className={`flex size-6 shrink-0 items-center justify-center rounded-full ${WORKOUT_STATE.completed.soft}`}>
+            <Check className={`size-3.5 ${WORKOUT_STATE.completed.text}`} aria-hidden />
           </div>
-          <span className="text-sm font-semibold shrink-0">Checklist</span>
-          <span className="text-xs font-medium text-muted-foreground shrink-0">
+          <span className="shrink-0 text-heading">Checklist</span>
+          <span className="shrink-0 text-caption tabular-nums">
             {doneCount}/{totalCount}
           </span>
           <div className="flex-1" />
-          <Button variant="ghost" size="sm" className="h-7 -mr-2 text-xs text-muted-foreground shrink-0" onClick={onSwitchMode}>
+          <Button variant="ghost" className={cn(WORKOUT_TOUCH, "-mr-2 shrink-0 px-3 text-muted-foreground")} onClick={onSwitchMode}>
             Switch to Session
           </Button>
         </div>
         <div className="mt-2 flex items-center gap-2">
           <Progress value={progress} className="h-1.5 flex-1 rounded-full" />
-          <span className="w-9 shrink-0 text-right text-[11px] font-medium text-muted-foreground">
+          <span className="w-9 shrink-0 text-right text-caption tabular-nums">
             {Math.round(progress)}%
           </span>
         </div>
@@ -526,11 +532,12 @@ export function WorkoutChecklistTracker({
         const isCircuit = isCircuitBlock(block.type);
 
         return (
-          <Card key={block.id} className="overflow-hidden border-0 shadow-sm ring-1 ring-border/50">
+          <Card key={block.id} className="gap-0 overflow-hidden py-0">
             {/* Block header */}
             <button
               type="button"
-              className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-muted/40 transition-colors"
+              aria-expanded={isBlockExpanded}
+              className="flex min-h-14 w-full items-center gap-3 px-5 py-3 text-left outline-none transition-colors hover:bg-surface-muted focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring motion-reduce:transition-none"
               onClick={() =>
                 setExpandedBlocks((prev) => {
                   const next = new Set(prev);
@@ -542,20 +549,20 @@ export function WorkoutChecklistTracker({
             >
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-base font-extrabold uppercase tracking-wide text-primary">{blockName}</span>
+                  <span className="text-heading text-foreground">{blockName}</span>
                   {isCircuit && block.rounds > 1 && (
-                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                    <Badge variant="secondary">
                       {block.rounds} sets
                     </Badge>
                   )}
                 </div>
-                <p className="text-xs text-muted-foreground mt-0.5">
+                <p className="mt-0.5 text-caption tabular-nums">
                   {blockDone}/{blockTotal} exercises done
                 </p>
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 {blockDone === blockTotal && blockTotal > 0 && (
-                  <Badge className={`${WORKOUT_STATE.completed.soft} ${WORKOUT_STATE.completed.text} border-0 text-[10px] px-1.5`}>Done</Badge>
+                  <Badge className={`${WORKOUT_STATE.completed.soft} ${WORKOUT_STATE.completed.text} border-0`}>Done</Badge>
                 )}
                 {isBlockExpanded ? (
                   <ChevronUp className="h-4 w-4 text-muted-foreground" />
@@ -567,7 +574,7 @@ export function WorkoutChecklistTracker({
 
             {/* Exercise rows */}
             {isBlockExpanded && (
-              <CardContent className="p-0 border-t divide-y divide-border/40">
+              <CardContent className="divide-y divide-border border-t border-border p-0">
                 {block.exercises.map((ex) => {
                   const isFullyDone =
                     additionalCompleted?.has(ex.id) ||
@@ -594,15 +601,16 @@ export function WorkoutChecklistTracker({
                       <div
                         role="button"
                         tabIndex={0}
+                        aria-expanded={isExOpen}
                         className={cn(
-                          "flex w-full items-center gap-3 px-4 py-3 text-left transition-colors cursor-pointer",
+                          "flex min-h-16 w-full cursor-pointer items-center gap-3 px-5 py-3 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring motion-reduce:transition-none",
                           isFullyDone
                             ? WORKOUT_STATE.completed.soft
                             : isPartial
                             ? WORKOUT_STATE.partial.soft
                             : isUpNext
                             ? "bg-primary/5 ring-1 ring-inset ring-primary/30"
-                            : "hover:bg-muted/30"
+                            : "hover:bg-surface-muted"
                         )}
                         onClick={() =>
                           setExpandedExercises((prev) => {
@@ -634,7 +642,7 @@ export function WorkoutChecklistTracker({
                           }}
                           disabled={isToggling}
                           className={cn(
-                            "flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 transition-colors",
+                            "relative flex size-7 shrink-0 items-center justify-center rounded-full border-2 transition-colors after:absolute after:-inset-2 after:content-[''] motion-reduce:transition-none",
                             isFullyDone
                               ? "border-success bg-success"
                               : isPartial
@@ -666,18 +674,18 @@ export function WorkoutChecklistTracker({
                         <div className="flex-1 min-w-0">
                           <p
                             className={cn(
-                              "flex items-center gap-1.5 text-[15px] font-semibold text-foreground",
+                              "flex items-center gap-1.5 text-body font-medium text-foreground",
                               isFullyDone && "text-muted-foreground"
                             )}
                           >
                             <span className="truncate">{ex.exercise.name}</span>
                             {isRunType && (
-                              <span className={`shrink-0 rounded-full ${WORKOUT_STATE.current.soft} ${WORKOUT_STATE.current.text} border ${WORKOUT_STATE.current.border} px-1.5 py-0 text-[10px] font-medium`}>
+                              <span className={`shrink-0 rounded-full ${WORKOUT_STATE.current.soft} ${WORKOUT_STATE.current.text} border ${WORKOUT_STATE.current.border} px-1.5 py-0 text-caption font-medium`}>
                                 {activityType === "INTERVAL_RUN" ? "Interval Run" : "Run"}
                               </span>
                             )}
                           </p>
-                          <p className="text-xs text-muted-foreground">
+                          <p className="text-caption">
                             {getPrescriptionText(ex, block)}
                             {isPartial && (
                               <span className={`ml-1.5 ${WORKOUT_STATE.partial.text} font-medium`}>· partial</span>
@@ -698,10 +706,10 @@ export function WorkoutChecklistTracker({
 
                       {/* Exercise body */}
                       {isExOpen && (
-                        <div className="px-4 pb-4 pt-3 bg-muted/20 space-y-4">
+                        <div className="space-y-4 bg-surface-muted/50 px-5 pt-3 pb-5">
                           {/* Meta line — one quiet line instead of a wall of pills */}
                           <div className="flex items-center justify-between gap-2">
-                            <p className="text-sm text-muted-foreground">
+                            <p className="text-body text-muted-foreground">
                               {isRunType
                                 ? [
                                     `${ex.sets.length} ${ex.sets.length === 1 ? "segment" : "segments"}`,
@@ -721,7 +729,7 @@ export function WorkoutChecklistTracker({
                                     .join(" · ")}
                             </p>
                             {ex.exercise.bodyRegion && ex.exercise.bodyRegion.length > 0 && (
-                              <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+                              <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-caption font-medium">
                                 {ex.exercise.bodyRegion.map(formatBodyRegion).join(", ")}
                               </span>
                             )}
@@ -741,12 +749,12 @@ export function WorkoutChecklistTracker({
                             ) : (
                               <button
                                 type="button"
-                                className="flex w-full items-center gap-2 rounded-xl border border-dashed border-border/60 bg-muted/30 px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-muted/50 transition-colors"
+                                className="flex min-h-11 w-full items-center gap-2 rounded-lg border border-dashed border-border-strong bg-surface px-3 text-label text-muted-foreground outline-none transition-colors hover:bg-surface-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none"
                                 onClick={() =>
                                   setExpandedVideos((prev) => new Set(prev).add(ex.id))
                                 }
                               >
-                                <PlayCircle className="h-4 w-4" />
+                                <PlayCircle className="size-4" aria-hidden />
                                 Watch Video
                               </button>
                             )
@@ -754,7 +762,7 @@ export function WorkoutChecklistTracker({
 
                           {/* Instructions (collapsed by default) */}
                           {ex.exercise.instructions && (
-                            <div className="rounded-xl bg-muted/60 px-3 py-2.5">
+                            <div className="rounded-lg bg-surface px-3 ring-1 ring-border">
                               <button
                                 type="button"
                                 onClick={() =>
@@ -765,13 +773,13 @@ export function WorkoutChecklistTracker({
                                     return next;
                                   })
                                 }
-                                className="flex w-full items-center justify-between text-xs font-semibold uppercase tracking-wider text-muted-foreground"
+                                className="flex min-h-11 w-full items-center justify-between rounded-sm text-label text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
                               >
                                 Instructions
                                 <ChevronDown className={`h-3.5 w-3.5 transition-transform ${expandedInstructions.has(ex.id) ? "rotate-180" : ""}`} />
                               </button>
                               {expandedInstructions.has(ex.id) && (
-                                <ul className="mt-1.5 space-y-1 text-sm leading-relaxed text-muted-foreground list-disc pl-4">
+                                <ul className="list-disc space-y-1 pb-3 pl-4 text-body text-muted-foreground">
                                   {instructionsToBullets(ex.exercise.instructions).map((line, idx) => (
                                     <li key={idx}>{line}</li>
                                   ))}
@@ -782,8 +790,8 @@ export function WorkoutChecklistTracker({
 
                           {/* Trainer notes */}
                           {ex.notes && (
-                            <div className="rounded-xl bg-muted/60 px-3 py-2.5">
-                              <p className={`text-sm ${WORKOUT_STATE.current.text}`}>
+                            <div className="rounded-lg bg-surface px-3 py-2.5 ring-1 ring-border">
+                              <p className={`text-body ${WORKOUT_STATE.current.text}`}>
                                 <span className="font-semibold">Tip:</span>{" "}
                                 <span className="italic">{ex.notes}</span>
                               </p>
@@ -791,9 +799,9 @@ export function WorkoutChecklistTracker({
                           )}
 
                           {/* Per-set logging table */}
-                          <div className="space-y-1.5">
+                          <div className="space-y-2">
                             <div className="flex items-center gap-3">
-                              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground shrink-0">
+                              <p className="shrink-0 text-label text-muted-foreground">
                                 Sets
                               </p>
                               <div className="ml-auto flex items-center gap-2">
@@ -818,13 +826,14 @@ export function WorkoutChecklistTracker({
                                           e.target.value === "" ? null : Number(e.target.value)
                                         );
                                       }}
-                                      className="h-6 w-12 px-1 text-xs text-center"
+                                      aria-label="Total sets done"
+                                      className={cn(SET_FIELD_INPUT, "w-14 px-1 text-center")}
                                     />
-                                    <span className="text-[11px] text-muted-foreground/70 whitespace-nowrap">total</span>
+                                    <span className="whitespace-nowrap text-caption">total</span>
                                   </div>
                                 )}
                                 {isFullyDone && (
-                                  <span className={`text-[11px] ${WORKOUT_STATE.completed.text} font-medium flex items-center gap-0.5`}>
+                                  <span className={`flex items-center gap-0.5 text-caption font-medium ${WORKOUT_STATE.completed.text}`}>
                                     <Check className="h-3 w-3" /> All done
                                   </span>
                                 )}
@@ -832,7 +841,7 @@ export function WorkoutChecklistTracker({
                             </div>
 
                             {setCount === 0 && (
-                              <p className="text-xs text-muted-foreground">No sets prescribed.</p>
+                              <p className="text-caption">No sets prescribed.</p>
                             )}
 
                             {Array.from(
@@ -874,7 +883,7 @@ export function WorkoutChecklistTracker({
                                     <div
                                       key={i}
                                       className={cn(
-                                        "flex items-center gap-2.5 rounded-lg px-3 py-1.5",
+                                        "flex min-h-10 items-center gap-2.5 rounded-lg px-3 py-2",
                                         skipped ? WORKOUT_STATE.partial.soft : WORKOUT_STATE.completed.soft
                                       )}
                                     >
@@ -886,13 +895,13 @@ export function WorkoutChecklistTracker({
                                       >
                                         <Check className="h-3 w-3 text-white" />
                                       </div>
-                                      <span className="text-sm text-foreground">
+                                      <span className="text-body text-foreground">
                                         {label ?? `Set ${i + 1}`}
                                         {isExtra && <span className="text-muted-foreground"> (extra)</span>}
                                       </span>
                                       <span
                                         className={cn(
-                                          "ml-auto text-sm",
+                                          "ml-auto text-body tabular-nums",
                                           skipped ? WORKOUT_STATE.partial.text : "text-muted-foreground"
                                         )}
                                       >
@@ -906,21 +915,21 @@ export function WorkoutChecklistTracker({
                                   <div
                                     key={i}
                                     className={cn(
-                                      "rounded-xl border p-3 transition-colors",
+                                      "rounded-lg border p-3 transition-colors",
                                       isExtra
-                                        ? "border-dashed border-muted-foreground/30 bg-background"
-                                        : "border-border bg-background"
+                                        ? "border-dashed border-border-strong bg-surface"
+                                        : "border-border bg-surface"
                                     )}
                                   >
                                     {/* Set header */}
-                                    <div className="flex items-center gap-2 mb-2">
-                                      <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+                                    <div className="mb-3 flex items-center gap-2">
+                                      <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-caption font-semibold tabular-nums text-primary">
                                         {i + 1}
                                       </div>
-                                      <span className="text-xs text-muted-foreground">
+                                      <span className="text-caption">
                                         {label ?? `Set ${i + 1}`}
                                         {isExtra && (
-                                          <span className="ml-1 text-[10px] text-muted-foreground/60">(extra)</span>
+                                          <span className="ml-1">(extra)</span>
                                         )}
                                         {!isRunType && setDef?.targetReps && ` · target ${setDef.targetReps} reps`}
                                         {!isRunType && setDef?.targetDuration && ` · target ${setDef.targetDuration}${setDef.targetDurationUnit === "MIN" ? "min" : "s"}`}
@@ -930,22 +939,23 @@ export function WorkoutChecklistTracker({
                                       {isLastExtra && (
                                         <button
                                           type="button"
-                                          className="ml-auto text-muted-foreground hover:text-destructive"
+                                          aria-label="Remove extra set"
+                                          className="-my-2 -mr-2 ml-auto flex size-11 items-center justify-center rounded-md text-muted-foreground outline-none hover:text-destructive focus-visible:ring-2 focus-visible:ring-ring sm:size-9"
                                           onClick={() => removeExtraSet(ex.id, i)}
                                         >
-                                          <X className="h-3.5 w-3.5" />
+                                          <X className="size-4" />
                                         </button>
                                       )}
                                     </div>
 
                                     {/* Inputs */}
-                                    <div className="flex flex-wrap gap-2 items-end">
+                                    <div className="flex flex-wrap items-end gap-2">
                                         {/* Reps: always show for extra sets; for prescribed show when target reps or no duration */}
                                         {!isRunType && (isExtra || setDef?.targetReps != null || !setDef?.targetDuration) && (
-                                          <div className="space-y-0.5">
-                                            <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+                                          <label className={SET_FIELD}>
+                                            <span className={SET_FIELD_LABEL}>
                                               Reps completed
-                                            </Label>
+                                            </span>
                                             <Input
                                               type="number"
                                               min={0}
@@ -954,15 +964,15 @@ export function WorkoutChecklistTracker({
                                               onChange={(e) =>
                                                 handleInputChange(ex.id, i, "actualReps", e.target.value)
                                               }
-                                              className="h-8 w-24 text-sm"
+                                              className={cn(SET_FIELD_INPUT, "w-24")}
                                             />
-                                          </div>
+                                          </label>
                                         )}
                                         {isRunType && (isExtra || setDef?.targetDistance != null) && (
-                                          <div className="space-y-0.5">
-                                            <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+                                          <label className={SET_FIELD}>
+                                            <span className={SET_FIELD_LABEL}>
                                               Distance (mi)
-                                            </Label>
+                                            </span>
                                             <Input
                                               type="number"
                                               min={0}
@@ -972,15 +982,15 @@ export function WorkoutChecklistTracker({
                                               onChange={(e) =>
                                                 handleInputChange(ex.id, i, "actualDistance", e.target.value)
                                               }
-                                              className="h-8 w-24 text-sm"
+                                              className={cn(SET_FIELD_INPUT, "w-24")}
                                             />
-                                          </div>
+                                          </label>
                                         )}
                                         {(isExtra || setDef?.targetDuration != null) && (
-                                          <div className="space-y-0.5">
-                                            <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+                                          <label className={SET_FIELD}>
+                                            <span className={SET_FIELD_LABEL}>
                                               Actual {setDef?.targetDurationUnit === "MIN" ? "min" : "secs"}
-                                            </Label>
+                                            </span>
                                             <Input
                                               type="number"
                                               min={0}
@@ -989,15 +999,15 @@ export function WorkoutChecklistTracker({
                                               onChange={(e) =>
                                                 handleInputChange(ex.id, i, "actualDuration", e.target.value)
                                               }
-                                              className="h-8 w-24 text-sm"
+                                              className={cn(SET_FIELD_INPUT, "w-24")}
                                             />
-                                          </div>
+                                          </label>
                                         )}
                                         {!isRunType && (isExtra || setDef?.targetWeight != null) && (
-                                          <div className="space-y-0.5">
-                                            <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+                                          <label className={SET_FIELD}>
+                                            <span className={SET_FIELD_LABEL}>
                                               Weight used
-                                            </Label>
+                                            </span>
                                             <Input
                                               type="number"
                                               min={0}
@@ -1006,14 +1016,14 @@ export function WorkoutChecklistTracker({
                                               onChange={(e) =>
                                                 handleInputChange(ex.id, i, "actualWeight", e.target.value)
                                               }
-                                              className="h-8 w-24 text-sm"
+                                              className={cn(SET_FIELD_INPUT, "w-24")}
                                             />
-                                          </div>
+                                          </label>
                                         )}
-                                        <div className="space-y-0.5">
-                                          <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+                                        <label className={SET_FIELD}>
+                                          <span className={SET_FIELD_LABEL}>
                                             RPE
-                                          </Label>
+                                          </span>
                                           <Input
                                             type="number"
                                             min={0}
@@ -1023,24 +1033,24 @@ export function WorkoutChecklistTracker({
                                             onChange={(e) =>
                                               handleInputChange(ex.id, i, "actualRPE", e.target.value)
                                             }
-                                            className="h-8 w-16 text-sm"
+                                            className={cn(SET_FIELD_INPUT, "w-16")}
                                           />
-                                        </div>
+                                        </label>
                                         {setDef?.restAfter != null && (
-                                          <div className="space-y-0.5">
-                                            <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+                                          <div className={SET_FIELD}>
+                                            <span className={SET_FIELD_LABEL}>
                                               Rest
-                                            </Label>
-                                            <p className="h-8 flex items-center text-sm text-muted-foreground">
+                                            </span>
+                                            <p className={SET_FIELD_STATIC}>
                                               {setDef.restAfter}s
                                             </p>
                                           </div>
                                         )}
 
-                                        <div className="flex gap-1.5 ml-auto">
+                                        <div className="ml-auto flex gap-2">
                                           <Button
                                             size="sm"
-                                            className="h-11 gap-1 text-xs"
+                                            className={cn(WORKOUT_TOUCH, "gap-1")}
                                             onClick={() => handleLogSet(block, ex, i)}
                                             disabled={isLogging}
                                           >
@@ -1054,7 +1064,7 @@ export function WorkoutChecklistTracker({
                                           <Button
                                             size="sm"
                                             variant="outline"
-                                            className="h-11 gap-1 text-xs text-warning-foreground border-warning-border hover:bg-warning-soft"
+                                            className={cn(WORKOUT_TOUCH, "gap-1 border-warning-border text-warning-foreground hover:bg-warning-soft")}
                                             onClick={() =>
                                               setPendingSkips((prev) => ({ ...prev, [inputKey(ex.id, i)]: "" }))
                                             }
@@ -1070,15 +1080,15 @@ export function WorkoutChecklistTracker({
                                       const choice = skipReasonChoice[skipKey];
                                       const canSkip = !!choice && (choice !== "Other" || pendingSkips[skipKey].trim().length > 0);
                                       return (
-                                        <div className="mt-2 rounded-lg border border-warning-border bg-warning-soft p-2.5 space-y-2">
-                                          <p className="text-[10px] font-semibold uppercase tracking-wider text-warning-foreground">
+                                        <div className="mt-3 space-y-2 rounded-lg border border-warning-border bg-warning-soft p-3">
+                                          <p className="text-label text-warning-foreground">
                                             Why?
                                           </p>
-                                          <div className="space-y-1.5">
+                                          <div className="space-y-0.5">
                                             {SKIP_REASONS.map((reason) => (
                                               <label
                                                 key={reason}
-                                                className="flex items-center gap-2 text-xs text-warning-foreground cursor-pointer"
+                                                className="flex min-h-11 cursor-pointer items-center gap-2.5 text-body text-warning-foreground sm:min-h-10"
                                               >
                                                 <input
                                                   type="radio"
@@ -1087,7 +1097,7 @@ export function WorkoutChecklistTracker({
                                                   onChange={() =>
                                                     setSkipReasonChoice((prev) => ({ ...prev, [skipKey]: reason }))
                                                   }
-                                                  className="accent-warning"
+                                                  className="size-4 accent-warning"
                                                 />
                                                 {reason}
                                               </label>
@@ -1095,7 +1105,7 @@ export function WorkoutChecklistTracker({
                                           </div>
                                           {choice === "Other" && (
                                             <Textarea
-                                              className="h-14 text-xs resize-none bg-white"
+                                              className="min-h-16 resize-none bg-surface"
                                               placeholder="Tell your trainer more…"
                                               value={pendingSkips[skipKey] ?? ""}
                                               onChange={(e) =>
@@ -1103,11 +1113,11 @@ export function WorkoutChecklistTracker({
                                               }
                                             />
                                           )}
-                                          <div className="flex gap-1.5">
+                                          <div className="flex gap-2">
                                             <Button
                                               size="sm"
                                               variant="outline"
-                                              className="h-7 text-xs border-warning-border text-warning-foreground hover:bg-warning-soft"
+                                              className={cn(WORKOUT_TOUCH, "border-warning-border text-warning-foreground hover:bg-warning-soft")}
                                               onClick={() => {
                                                 const reason = choice === "Other" ? pendingSkips[skipKey] : choice;
                                                 handleLogSet(block, ex, i, true, reason, skipKey);
@@ -1124,7 +1134,7 @@ export function WorkoutChecklistTracker({
                                             <Button
                                               size="sm"
                                               variant="ghost"
-                                              className="h-7 text-xs"
+                                              className={WORKOUT_TOUCH}
                                               onClick={() => {
                                                 setPendingSkips((prev) => {
                                                   const next = { ...prev };
@@ -1154,25 +1164,25 @@ export function WorkoutChecklistTracker({
                               type="button"
                               variant="outline"
                               size="sm"
-                              className="w-full h-8 text-xs border-dashed gap-1"
+                              className={cn(WORKOUT_TOUCH, "w-full gap-1 border-dashed")}
                               onClick={() => addExtraSet(ex.id)}
                             >
-                              <Plus className="h-3 w-3" />
+                              <Plus className="size-4" />
                               Add Set
                             </Button>
                           </div>
 
                           {/* Client note */}
-                          <div className={`space-y-1.5 rounded-xl ${ROLE_CLASSES.brand.soft} p-3`}>
-                            <Label htmlFor={`client-note-${ex.id}`} className={`text-xs font-semibold uppercase tracking-wider ${ROLE_CLASSES.brand.text}`}>
-                              Your Notes
+                          <div className={`space-y-1.5 rounded-lg ${ROLE_CLASSES.brand.soft} p-3`}>
+                            <Label htmlFor={`client-note-${ex.id}`} className={ROLE_CLASSES.brand.text}>
+                              Your notes
                             </Label>
                             <Textarea
                               id={`client-note-${ex.id}`}
                               placeholder="Anything you want your trainer to know about this exercise..."
                               value={clientNotes[ex.id] ?? ""}
                               onChange={(e) => handleClientNoteChange(ex.id, e.target.value)}
-                              className={`min-h-16 text-sm italic resize-none bg-background/70 ${ROLE_CLASSES.brand.border}`}
+                              className={`min-h-16 resize-none bg-surface ${ROLE_CLASSES.brand.border}`}
                             />
                           </div>
                         </div>
@@ -1189,7 +1199,7 @@ export function WorkoutChecklistTracker({
       {/* Finish button */}
       <Button
         size="lg"
-        className="h-11 w-full"
+        className="h-12 w-full sm:h-10"
         onClick={() => setShowEndDialog(true)}
       >
         <Trophy className="mr-2 h-4 w-4" />
@@ -1210,13 +1220,14 @@ export function WorkoutChecklistTracker({
           </DialogHeader>
           <div className="space-y-5 py-2">
             <div>
-              <Label className="font-semibold">
+              <Label htmlFor="checklist-rpe" className="font-semibold">
                 How hard was this session?{" "}
                 <span className="font-normal text-muted-foreground">RPE {rpe}/10</span>
               </Label>
               <div className="mt-3 flex items-center gap-3">
                 <span className="text-xs text-muted-foreground">Easy</span>
                 <input
+                  id="checklist-rpe"
                   type="range"
                   min={0}
                   max={10}
@@ -1238,11 +1249,12 @@ export function WorkoutChecklistTracker({
               </div>
             </div>
             <div className="space-y-1.5">
-              <Label className="font-semibold">
+              <Label htmlFor="checklist-notes" className="font-semibold">
                 Session Notes{" "}
                 <span className="font-normal text-muted-foreground">(optional)</span>
               </Label>
               <Textarea
+                id="checklist-notes"
                 placeholder="How did it feel?"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}

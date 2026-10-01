@@ -6,10 +6,11 @@ import { toast } from "sonner";
 import { createAssessmentAction } from "@/actions/assessment-actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardFooter } from "@/components/ui/card";
+import { FormField } from "@/components/shared/form-section";
 import { ASSESSMENT_TYPES } from "@/lib/utils/constants";
+import { NATIVE_SELECT_CLASS } from "@/lib/ui/native-select";
 import { Loader2 } from "lucide-react";
 
 interface Props {
@@ -65,28 +66,18 @@ export function NewAssessmentForm({ role, selfClientId, clients }: Props) {
   return (
     <form onSubmit={handleSubmit}>
       <Card>
-        <CardHeader>
-          <CardTitle>Record Assessment</CardTitle>
-          <CardDescription>
-            {role === "CLIENT"
-              ? "Track your own measurements and outcomes."
-              : "Record a clinical measurement for one of your clients."}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-5">
+        <CardContent className="flex flex-col gap-4">
           {/* Client selector — trainers only */}
           {role === "TRAINER" && (
-            <div className="space-y-2">
-              <Label>
-                Client <span className="text-destructive">*</span>
-              </Label>
+            <FormField label="Client" htmlFor="assessment-client" required>
               {clients.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
+                <p className="text-body text-muted-foreground">
                   No linked clients. Add clients from the Clients page first.
                 </p>
               ) : (
                 <select
-                  className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                  id="assessment-client"
+                  className={NATIVE_SELECT_CLASS}
                   value={clientId}
                   onChange={(e) => setClientId(e.target.value)}
                   required
@@ -99,16 +90,13 @@ export function NewAssessmentForm({ role, selfClientId, clients }: Props) {
                   ))}
                 </select>
               )}
-            </div>
+            </FormField>
           )}
 
-          {/* Assessment type */}
-          <div className="space-y-2">
-            <Label>
-              Assessment Type <span className="text-destructive">*</span>
-            </Label>
+          <FormField label="Assessment type" htmlFor="assessment-type" required>
             <select
-              className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              id="assessment-type"
+              className={NATIVE_SELECT_CLASS}
               value={assessmentType}
               onChange={(e) => setAssessmentType(e.target.value)}
               required
@@ -120,15 +108,12 @@ export function NewAssessmentForm({ role, selfClientId, clients }: Props) {
                 </option>
               ))}
             </select>
-          </div>
+          </FormField>
 
-          {/* Value + unit */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label>
-                Value <span className="text-destructive">*</span>
-              </Label>
+            <FormField label="Value" htmlFor="assessment-value" required>
               <Input
+                id="assessment-value"
                 type="number"
                 step="0.01"
                 value={value}
@@ -136,39 +121,37 @@ export function NewAssessmentForm({ role, selfClientId, clients }: Props) {
                 placeholder="Enter measurement"
                 required
               />
-            </div>
-            <div className="space-y-2">
-              <Label>Unit</Label>
+            </FormField>
+            <FormField label="Unit" htmlFor="assessment-unit">
               <Input
+                id="assessment-unit"
                 value={selectedType?.unit ?? "—"}
                 readOnly
-                className="bg-muted text-muted-foreground"
+                className="bg-surface-muted text-muted-foreground"
               />
-            </div>
+            </FormField>
           </div>
 
-          {/* Notes */}
-          <div className="space-y-2">
-            <Label>Notes (optional)</Label>
+          <FormField label="Notes (optional)" htmlFor="assessment-notes">
             <Textarea
+              id="assessment-notes"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               rows={3}
               placeholder="Any additional observations..."
             />
-          </div>
+          </FormField>
         </CardContent>
+        <CardFooter className="justify-end gap-2">
+          <Button type="button" variant="outline" onClick={() => router.back()}>
+            Cancel
+          </Button>
+          <Button type="submit" disabled={loading}>
+            {loading && <Loader2 className="size-4 animate-spin motion-reduce:animate-none" />}
+            Record Assessment
+          </Button>
+        </CardFooter>
       </Card>
-
-      <div className="mt-4 flex justify-end gap-3">
-        <Button type="button" variant="outline" onClick={() => router.back()}>
-          Cancel
-        </Button>
-        <Button type="submit" disabled={loading}>
-          {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          Record Assessment
-        </Button>
-      </div>
     </form>
   );
 }

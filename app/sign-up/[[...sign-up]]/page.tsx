@@ -1,15 +1,25 @@
 import { SignUp } from "@clerk/nextjs";
+import { AuthShell } from "@/components/auth/auth-shell";
+import { clerkAuthAppearance } from "@/lib/ui/clerk-appearance";
+import { getOrgBranding } from "@/lib/services/branding.service";
+import { toViewModel } from "@/lib/branding/types";
 
-export default function SignUpPage() {
+export default async function SignUpPage() {
+  const branding = toViewModel(await getOrgBranding(null));
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-muted to-info-soft px-4 py-12">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-foreground">Create your account</h1>
-          <p className="text-muted-foreground mt-1">Start your free trial today</p>
-        </div>
-        <SignUp forceRedirectUrl="/onboarding" />
-      </div>
-    </div>
+    <AuthShell
+      branding={branding}
+      headingMode="form"
+      headline="Create your account"
+      subhead="Start your free trial today."
+      bullets={[
+        "Build and assign exercise programs in minutes",
+        "Track client progress, check-ins and adherence",
+        "Message clients and keep everyone on plan",
+      ]}
+    >
+      <SignUp forceRedirectUrl="/onboarding" appearance={clerkAuthAppearance()} />
+    </AuthShell>
   );
 }

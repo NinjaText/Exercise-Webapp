@@ -25,3 +25,19 @@ export function formatStripeAmount(amountInMinorUnits: number, currency: string)
     return `${amountInMinorUnits} ${code}`;
   }
 }
+
+/**
+ * Parses a USD dollar string ("14.99", "$14.9", "14") into integer cents
+ * without float math (19.99 * 100 is 1998.9999…). Up to 2 decimals; returns
+ * null for anything else. Range checks are the caller's.
+ */
+export function parseDollarsToCents(input: string): number | null {
+  const match = /^\$?(\d{1,9})(?:\.(\d{1,2}))?$/.exec(input.trim());
+  if (!match) return null;
+  return Number(match[1]) * 100 + Number((match[2] ?? "").padEnd(2, "0"));
+}
+
+/** Integer cents to a plain dollar string for form inputs, e.g. 1499 -> "14.99". */
+export function centsToDollars(cents: number): string {
+  return `${Math.floor(cents / 100)}.${String(cents % 100).padStart(2, "0")}`;
+}

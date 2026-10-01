@@ -29,7 +29,7 @@ export default async function AdminExercisesPage({ searchParams }: PageProps) {
   });
 
   const kindTabs = (
-    <div className="flex gap-1">
+    <div className="flex gap-5">
       {(["training", "assessment"] as const).map((k) => {
         const sp = new URLSearchParams();
         if (search) sp.set("search", search);
@@ -40,10 +40,11 @@ export default async function AdminExercisesPage({ searchParams }: PageProps) {
           <Link
             key={k}
             href={href}
+            aria-current={activeKind === k ? "page" : undefined}
             className={cn(
-              "relative px-3 py-2 text-sm font-medium",
+              "relative inline-flex h-10 items-center rounded-sm px-0.5 text-sm font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background motion-reduce:transition-none",
               activeKind === k
-                ? "text-foreground after:absolute after:inset-x-0 after:-bottom-px after:h-0.5 after:bg-foreground"
+                ? "text-foreground after:absolute after:inset-x-0 after:-bottom-px after:h-0.5 after:bg-primary"
                 : "text-muted-foreground hover:text-foreground"
             )}
           >

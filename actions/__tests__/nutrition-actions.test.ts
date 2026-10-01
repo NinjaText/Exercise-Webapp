@@ -29,6 +29,10 @@ vi.mock('@/lib/services/notification.service', () => ({
   notifyUser: vi.fn(),
   NOTIFICATION_TYPES: { NUTRITION_COMMENT: 'NUTRITION_COMMENT', NUTRITION_REPLY: 'NUTRITION_REPLY' },
 }))
+vi.mock('@/lib/org-capabilities.server', async () => {
+  const { getOrgCapabilities } = await vi.importActual<typeof import('@/lib/org-capabilities')>('@/lib/org-capabilities')
+  return { getCapabilitiesForUser: vi.fn(async () => getOrgCapabilities(null)) }
+})
 vi.mock('@/lib/services/client.service', () => ({
   getClientIdsForTrainer: vi.fn(),
   getTrainerForClient: vi.fn(),
@@ -53,6 +57,8 @@ import { auth } from '@clerk/nextjs/server'
 import { prisma } from '@/lib/prisma'
 import { notifyUser } from '@/lib/services/notification.service'
 import { getClientIdsForTrainer, getTrainerForClient } from '@/lib/services/client.service'
+import { getCapabilitiesForUser } from '@/lib/org-capabilities.server'
+import { getOrgCapabilities } from '@/lib/org-capabilities'
 import * as nutritionAiService from '@/lib/services/nutrition-ai.service'
 import * as nutritionService from '@/lib/services/nutrition.service'
 import {
@@ -241,6 +247,19 @@ describe('nutrition comments — email payload', () => {
     expect(arg.type).toBe('NUTRITION_REPLY')
     expect(arg.userId).toBe('trainer1')
     expect(arg.email).toMatchObject({ isReply: true })
+  })
+
+  it('does not look up or notify a coach for a club member', async () => {
+    vi.mocked(getCapabilitiesForUser).mockResolvedValueOnce(getOrgCapabilities({ type: 'CLUB' }))
+    mockUserFindUnique.mockResolvedValueOnce({ ...client, id: 'c1' } as never)
+    mockGetTrainerForClient.mockResolvedValue({ id: 'staff1', clerkId: 'staff_clerk' } as never)
+    mockCreateNutritionComment.mockResolvedValue({ id: 'comment_4' } as never)
+
+    const result = await createNutritionCommentAction({ clientId: 'c1', date: '2026-09-22', body: 'Hi' })
+
+    expect(result.success).toBe(true)
+    expect(mockGetTrainerForClient).not.toHaveBeenCalled()
+    expect(notifyUser).not.toHaveBeenCalled()
   })
 
   it('sends nothing when the client has no trainer', async () => {

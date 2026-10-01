@@ -2,6 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
 import { prisma } from "@/lib/prisma";
+import { getCapabilitiesForUser } from "@/lib/org-capabilities.server";
 import { TIER_CONFIG, isValidTier } from "@/lib/stripe-config";
 
 export async function POST(req: Request) {
@@ -15,6 +16,10 @@ export async function POST(req: Request) {
 
   const user = await prisma.user.findUnique({ where: { clerkId: userId } });
   if (!user || user.role !== "TRAINER") {
+    return new NextResponse("Forbidden", { status: 403 });
+  }
+  // Club trainers never pay (trainerBilling off).
+  if (!(await getCapabilitiesForUser(user)).trainerBilling) {
     return new NextResponse("Forbidden", { status: 403 });
   }
 

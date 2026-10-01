@@ -30,6 +30,8 @@ import { TrainerMessageBanner, type TrainerMessagePreview } from "./trainer-mess
 import { WeekStrip } from "./week-strip";
 import { QuickResourcesList, type QuickResourceItem } from "./quick-resources-list";
 import { DashboardInboxCard } from "@/components/dashboard/dashboard-inbox-card";
+import { CoachingCard } from "@/components/dashboard/coaching-card";
+import type { CoachingViewModel } from "@/lib/clubs/coaching-view";
 import type { getInboxThreads } from "@/lib/services/message.service";
 
 // Re-exported from lib/utils/workout-format so the existing callers (and the
@@ -70,6 +72,10 @@ interface ClientDashboardProps {
   unreadTrainerMessage: TrainerMessagePreview | null;
   resources: QuickResourceItem[];
   inboxThreads: Awaited<ReturnType<typeof getInboxThreads>>;
+  /** False for orgs without messaging (clubs): no Inbox card, no trainer banner. */
+  showInbox?: boolean;
+  /** Club members only, and only when the club offers coaching; null/absent renders no card. */
+  coaching?: CoachingViewModel | null;
 }
 
 /**
@@ -88,6 +94,8 @@ export function ClientDashboard({
   unreadTrainerMessage,
   resources,
   inboxThreads,
+  showInbox = true,
+  coaching = null,
 }: ClientDashboardProps) {
   const today = new Date();
   const todayWorkout =
@@ -105,16 +113,19 @@ export function ClientDashboard({
   // With no Resources the card renders nothing, so the two-column split would
   // strand the Inbox at half width — drop to a single column instead.
   const hasResources = resources.length > 0;
+  const pairResourcesWithInbox = hasResources && showInbox;
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6">
       <PageHeader
         title={`Welcome back, ${firstName}`}
         description={format(today, "EEEE, MMMM d")}
         breadcrumb={[{ label: "Dashboard" }]}
       />
 
-      <TrainerMessageBanner message={unreadTrainerMessage} />
+      {showInbox && <TrainerMessageBanner message={unreadTrainerMessage} />}
+
+      {coaching && <CoachingCard coaching={coaching} />}
 
       {/* Lifetime totals — paired on phones, one row from tablet up */}
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
@@ -154,19 +165,19 @@ export function ClientDashboard({
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0">
               <StatusBadge status="TODAY" role="info" label="TODAY" />
-              <h3 className="mt-2 text-lg font-semibold text-foreground">
+              <h3 className="mt-2 text-title text-foreground">
                 {formatDayLabel(todayWorkout.workout)}
               </h3>
-              <p className="mt-1 text-sm text-muted-foreground">
+              <p className="mt-1 text-body text-muted-foreground">
                 {formatWorkoutMetaLine(
                   todayWorkout.workout?.estimatedMinutes,
                   countExercises(todayWorkout.workout)
                 )}
               </p>
             </div>
-            <Button size="lg" className="h-11 shrink-0 font-semibold sm:h-9" asChild>
+            <Button size="lg" className="h-11 w-full shrink-0 sm:h-10 sm:w-auto" asChild>
               <Link href={`/sessions/${todayWorkout.id}`}>
-                <Play className="mr-2 h-4 w-4 fill-current" />
+                <Play className="mr-2 size-4 fill-current" />
                 Start workout
               </Link>
             </Button>
@@ -175,23 +186,23 @@ export function ClientDashboard({
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0">
               <StatusBadge status="UPCOMING" role="neutral" label="UPCOMING" />
-              <p className="mt-2 text-sm font-medium text-muted-foreground">
+              <p className="mt-2 text-label text-muted-foreground">
                 {format(toLocalCalendarDate(nextFutureSession.scheduledDate), "EEEE, MMM d")}
               </p>
-              <h3 className="text-lg font-semibold text-foreground">
+              <h3 className="text-title text-foreground">
                 {formatDayLabel(nextFutureSession.workout)}
               </h3>
-              <p className="mt-1 text-sm text-muted-foreground">
+              <p className="mt-1 text-body text-muted-foreground">
                 {formatWorkoutMetaLine(
                   nextFutureSession.workout?.estimatedMinutes,
                   countExercises(nextFutureSession.workout)
                 )}
               </p>
             </div>
-            <Button size="lg" variant="outline" className="h-11 shrink-0 font-semibold sm:h-9" asChild>
+            <Button size="lg" variant="outline" className="h-11 w-full shrink-0 sm:h-10 sm:w-auto" asChild>
               <Link href={`/sessions/${nextFutureSession.id}`}>
                 Preview
-                <ChevronRight className="ml-2 h-4 w-4" />
+                <ChevronRight className="ml-2 size-4" />
               </Link>
             </Button>
           </div>
@@ -208,9 +219,9 @@ export function ClientDashboard({
       {/* What the client can pull on their own, next to what's waiting for them.
           Both cards take `h-full` so the column stretch gives them a matching
           height whichever one has more rows. */}
-      <div className={cn("grid gap-4", hasResources && "lg:grid-cols-2")}>
+      <div className={cn("grid gap-6", pairResourcesWithInbox && "lg:grid-cols-2")}>
         <QuickResourcesList resources={resources} className="h-full" />
-        <DashboardInboxCard threads={inboxThreads} className="h-full" />
+        {showInbox && <DashboardInboxCard threads={inboxThreads} className="h-full" />}
       </div>
 
       {/* Primary at-a-glance schedule — the month view lives at /calendar */}

@@ -20,6 +20,7 @@ export const SETTINGS_TABS: readonly SettingsTab[] = [
   { href: "/settings/audit-log", label: "Audit log", roles: ["TRAINER"] },
 ];
 
-export function getSettingsTabs(role: Role): SettingsTab[] {
-  return SETTINGS_TABS.filter((tab) => tab.roles.includes(role));
+/** `hidden` drops tabs the org turns off (lib/org-capabilities.ts → hiddenNavHrefs). */
+export function getSettingsTabs(role: Role, hidden: readonly string[] = []): SettingsTab[] {
+  return SETTINGS_TABS.filter((tab) => tab.roles.includes(role) && !hidden.includes(tab.href));
 }

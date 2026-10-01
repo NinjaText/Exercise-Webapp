@@ -1,5 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
+vi.mock('@/lib/org-capabilities.server', async () => {
+  const { getOrgCapabilities } = await vi.importActual<typeof import('@/lib/org-capabilities')>('@/lib/org-capabilities')
+  return { getCapabilitiesForUser: vi.fn(async () => getOrgCapabilities(null)), canCoachInteract: vi.fn(async () => true), filterCoachableClientIds: vi.fn(async (_t: unknown, ids: string[]) => ids) }
+})
 vi.mock('@clerk/nextjs/server', () => ({ auth: vi.fn(async () => ({ userId: 'clerk_t1' })) }))
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 vi.mock('@/lib/services/notification.service', () => ({
@@ -27,6 +31,8 @@ import { notifyUser } from '@/lib/services/notification.service'
 import { prisma } from '@/lib/prisma'
 import * as messageService from '@/lib/services/message.service'
 import { getClientIdsForTrainer } from '@/lib/services/client.service'
+import { getCapabilitiesForUser, canCoachInteract, filterCoachableClientIds } from '@/lib/org-capabilities.server'
+import { getOrgCapabilities, getUserCapabilities } from '@/lib/org-capabilities'
 import { sendMessageAction, replyToClientNoteAction, sendBroadcastMessageAction } from '../message-actions'
 
 const mockUserFind = vi.mocked(prisma.user.findUnique)
@@ -139,5 +145,133 @@ describe('sendBroadcastMessageAction', () => {
 
     expect(notifyUser).toHaveBeenCalledTimes(2)
     expect(res.success).toBe(true)
+  })
+})
+
+describe('messaging capability (club orgs)', () => {
+  const blocked = { success: false, error: "Messaging isn't available for your account." }
+
+  beforeEach(() => {
+    vi.mocked(getCapabilitiesForUser).mockResolvedValue(getOrgCapabilities({ type: 'CLUB' }))
+    mockGetClientIds.mockResolvedValue(['c1'])
+  })
+
+  it('refuses sendMessageAction for a club member without sending or notifying', async () => {
+    mockUserFind.mockResolvedValue({ id: 'c9', firstName: 'Club', lastName: 'Member', role: 'CLIENT', clerkOrgId: 'org_club' } as never)
+    expect(await sendMessageAction({ recipientId: 'staff', content: 'hello?' })).toEqual(blocked)
+    expect(getCapabilitiesForUser).toHaveBeenCalledWith(expect.objectContaining({ id: 'c9', clerkOrgId: 'org_club' }))
+    expect(mockSendMessage).not.toHaveBeenCalled()
+    expect(notifyUser).not.toHaveBeenCalled()
+  })
+
+  it('refuses reply and broadcast too', async () => {
+    expect(await replyToClientNoteAction('s1', 'be1', 'hi')).toEqual(blocked)
+    expect(await sendBroadcastMessageAction({ content: 'hi', sendToAll: true })).toEqual(blocked)
+    expect(mockSendMessage).not.toHaveBeenCalled()
+  })
+
+  it('trainer orgs are unaffected (regression)', async () => {
+    vi.mocked(getCapabilitiesForUser).mockResolvedValue(getOrgCapabilities(null))
+    const result = await sendMessageAction({ recipientId: 'c1', content: 'still works' })
+    expect(result.success).toBe(true)
+    expect(notifyUser).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('pair rule (trainer → client recipient)', () => {
+  const blocked = { success: false, error: "Messaging isn't available for your account." }
+  const clubTrainer = { ...dbTrainer, clerkOrgId: 'org_club' }
+  const noteLog = {
+    id: 'log1',
+    clientNote: 'Felt heavy today',
+    session: { clientId: 'm1', workout: { program: { trainerId: 't1' } } },
+  }
+
+  beforeEach(() => {
+    mockUserFind.mockResolvedValue(clubTrainer as never)
+    vi.mocked(getCapabilitiesForUser).mockResolvedValue(
+      getUserCapabilities({ orgType: 'CLUB', role: 'TRAINER', coachingActive: false })
+    )
+  })
+
+  it('refuses a club trainer → uncoached member', async () => {
+    vi.mocked(canCoachInteract).mockResolvedValueOnce(false)
+    expect(await sendMessageAction({ recipientId: 'm1', content: 'hi' })).toEqual(blocked)
+    expect(canCoachInteract).toHaveBeenCalledWith(expect.objectContaining({ id: 't1', clerkOrgId: 'org_club' }), 'm1')
+    expect(mockSendMessage).not.toHaveBeenCalled()
+    expect(notifyUser).not.toHaveBeenCalled()
+  })
+
+  it('allows a club trainer → coached member', async () => {
+    vi.mocked(canCoachInteract).mockResolvedValueOnce(true)
+    const res = await sendMessageAction({ recipientId: 'm1', content: 'hi' })
+    expect(res.success).toBe(true)
+    expect(mockSendMessage).toHaveBeenCalledOnce()
+  })
+
+  it('refuses a note reply to an uncoached member', async () => {
+    mockSessionExerciseLogFind.mockResolvedValue(noteLog as never)
+    mockBlockExerciseFind.mockResolvedValue({ exercise: { name: 'Back Squat' } } as never)
+    vi.mocked(canCoachInteract).mockResolvedValueOnce(false)
+    expect(await replyToClientNoteAction('s1', 'be1', 'hi')).toEqual(blocked)
+    expect(canCoachInteract).toHaveBeenCalledWith(expect.objectContaining({ id: 't1' }), 'm1')
+    expect(mockSendMessage).not.toHaveBeenCalled()
+  })
+
+  it('broadcasts only to members the trainer may message', async () => {
+    mockGetClientIds.mockResolvedValue(['m1', 'm2'])
+    vi.mocked(filterCoachableClientIds).mockResolvedValueOnce(['m2'])
+    const res = await sendBroadcastMessageAction({ content: 'hi', sendToAll: true })
+    expect(filterCoachableClientIds).toHaveBeenCalledWith(expect.objectContaining({ id: 't1' }), ['m1', 'm2'])
+    expect(res).toEqual({ success: true, sentCount: 1 })
+    expect(vi.mocked(notifyUser).mock.calls.map((c) => c[0].userId)).toEqual(['m2'])
+  })
+
+  it('fails a broadcast when no member is coached', async () => {
+    mockGetClientIds.mockResolvedValue(['m1'])
+    vi.mocked(filterCoachableClientIds).mockResolvedValueOnce([])
+    expect(await sendBroadcastMessageAction({ content: 'hi', sendToAll: true })).toEqual({
+      success: false,
+      error: 'No valid recipients',
+    })
+    expect(mockSendMessage).not.toHaveBeenCalled()
+  })
+
+  it('applies to a coached club member → their club trainer', async () => {
+    mockUserFind.mockResolvedValue({ id: 'm1', firstName: 'M', lastName: 'One', role: 'CLIENT', clerkOrgId: 'org_club' } as never)
+    vi.mocked(getCapabilitiesForUser).mockResolvedValue(
+      getUserCapabilities({ orgType: 'CLUB', role: 'CLIENT', coachingActive: true })
+    )
+    vi.mocked(canCoachInteract).mockResolvedValueOnce(true)
+    const res = await sendMessageAction({ recipientId: 't1', content: 'hi coach' })
+    expect(res.success).toBe(true)
+    expect(canCoachInteract).toHaveBeenCalledWith(expect.objectContaining({ id: 'm1', clerkOrgId: 'org_club' }), 't1')
+  })
+
+  it('refuses a club member → someone outside their club (same-org rule)', async () => {
+    mockUserFind.mockResolvedValue({ id: 'm1', firstName: 'M', lastName: 'One', role: 'CLIENT', clerkOrgId: 'org_club' } as never)
+    vi.mocked(getCapabilitiesForUser).mockResolvedValue(
+      getUserCapabilities({ orgType: 'CLUB', role: 'CLIENT', coachingActive: true })
+    )
+    vi.mocked(canCoachInteract).mockResolvedValueOnce(false)
+    expect(await sendMessageAction({ recipientId: 't_other', content: 'hi' })).toEqual(blocked)
+    expect(mockSendMessage).not.toHaveBeenCalled()
+    expect(notifyUser).not.toHaveBeenCalled()
+  })
+
+  it('trainer-org client → trainer skips the pair rule (regression)', async () => {
+    mockUserFind.mockResolvedValue({ id: 'c1', firstName: 'C', lastName: 'One', role: 'CLIENT', clerkOrgId: 'org_t' } as never)
+    vi.mocked(getCapabilitiesForUser).mockResolvedValue(getOrgCapabilities(null))
+    const res = await sendMessageAction({ recipientId: 't2', content: 'hi coach' })
+    expect(res.success).toBe(true)
+    expect(canCoachInteract).not.toHaveBeenCalled()
+  })
+
+  it('trainer-org trainer → client is unchanged (regression)', async () => {
+    mockUserFind.mockResolvedValue({ ...dbTrainer, clerkOrgId: 'org_t' } as never)
+    vi.mocked(getCapabilitiesForUser).mockResolvedValue(getOrgCapabilities(null))
+    const res = await sendMessageAction({ recipientId: 'c1', content: 'still works' })
+    expect(res.success).toBe(true)
+    expect(notifyUser).toHaveBeenCalledTimes(1)
   })
 })

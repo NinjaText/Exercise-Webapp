@@ -132,7 +132,7 @@ export function DeleteAccountSection({ role }: DeleteAccountSectionProps) {
             />
 
             {blockers.length > 0 && (
-              <ul className="space-y-1 rounded-lg border border-warning-border bg-warning-soft p-3 text-sm text-warning-foreground">
+              <ul className="flex flex-col gap-1 rounded-lg border border-warning-border bg-warning-soft p-3 text-body text-warning-foreground">
                 {blockers.map((b) => (
                   <li key={b.code}>
                     {b.message.charAt(0).toUpperCase() + b.message.slice(1)}

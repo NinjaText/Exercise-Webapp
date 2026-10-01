@@ -4,15 +4,14 @@ import { requireRole } from "@/lib/current-user";
 import { prisma } from "@/lib/prisma";
 import { getClientIdsForTrainer } from "@/lib/services/client.service";
 import { getClientPastSessions, computeAdherenceStats } from "@/lib/services/session.service";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { StatCard } from "@/components/shared/stat-card";
+import { SectionCard } from "@/components/shared/section-card";
 import { PageHeader } from "@/components/shared/page-header";
 import { PageShell } from "@/components/shared/page-shell";
 import { EmptyState } from "@/components/shared/empty-state";
 import { StatusBadge } from "@/components/shared/status-badge";
-import { ArrowLeft, Target, CheckCircle2, XCircle, Gauge, ClipboardList } from "lucide-react";
+import { Target, CheckCircle2, XCircle, Gauge, ClipboardList } from "lucide-react";
 import { format } from "date-fns";
 
 interface Props {
@@ -32,103 +31,93 @@ export default async function ClientAdherencePage({ params }: Props) {
   const { total, completed, missed, skipped, completionRate, avgRPE } =
     computeAdherenceStats(sessions);
 
+  const clientName = `${client.firstName} ${client.lastName}`;
+
   return (
     <PageShell>
-      <div className="space-y-4">
-        <Button variant="ghost" size="sm" asChild className="-ml-2">
-          <Link href={`/clients/${id}`}>
-            <ArrowLeft className="mr-1 h-4 w-4" />
-            Back
-          </Link>
-        </Button>
-        <PageHeader
-          title="Sessions"
-          description={`${client.firstName} ${client.lastName}`}
-          className="pb-0"
-        />
-      </div>
+      <PageHeader
+        title="Sessions"
+        description={clientName}
+        back={{ label: "Back to client", href: `/clients/${id}` }}
+        breadcrumb={[
+          { label: "Clients", href: "/clients" },
+          { label: clientName, href: `/clients/${id}` },
+          { label: "Sessions" },
+        ]}
+      />
 
-      {/* Stats */}
-      <div className="grid gap-6 sm:grid-cols-4">
-        <StatCard label="Completion Rate" value={`${completionRate}%`} icon={Target} />
-        <StatCard label="Completed" value={completed} icon={CheckCircle2} />
-        <StatCard label="Missed / Skipped" value={missed + skipped} icon={XCircle} />
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
-          label="Avg RPE"
-          value={avgRPE != null ? `${avgRPE}/10` : "—"}
-          icon={Gauge}
+          label="Completion rate"
+          value={`${completionRate}%`}
+          icon={Target}
+          role={completionRate >= 70 ? "success" : completionRate >= 40 ? "warning" : "danger"}
         />
+        <StatCard label="Completed" value={completed} icon={CheckCircle2} role="success" />
+        <StatCard
+          label="Missed / skipped"
+          value={missed + skipped}
+          icon={XCircle}
+          role={missed + skipped > 0 ? "warning" : "neutral"}
+        />
+        <StatCard label="Avg RPE" value={avgRPE != null ? `${avgRPE}/10` : "—"} icon={Gauge} />
       </div>
 
-      {/* Completion bar */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Overall Completion</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Progress value={completionRate} className="h-3" />
-          <p className="mt-2 text-sm text-muted-foreground">
-            {completed} of {total} sessions completed
-          </p>
-        </CardContent>
-      </Card>
+      <SectionCard title="Overall completion" icon={Target}>
+        <Progress value={completionRate} className="h-2" />
+        <p className="mt-3 text-body text-muted-foreground tabular-nums">
+          {completed} of {total} sessions completed
+        </p>
+      </SectionCard>
 
-      {/* Session history */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Sessions — click any row to review</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {sessions.length === 0 ? (
-            <EmptyState
-              icon={ClipboardList}
-              title="No sessions yet"
-              description="Sessions will appear here once this client has scheduled or completed workouts."
-            />
-          ) : (
-            <div className="space-y-2">
-              {sessions.map((session) => (
-                <Link
-                  key={session.id}
-                  href={`/clients/${id}/sessions/${session.id}`}
-                  className="flex items-center justify-between rounded-lg border border-border p-3 transition-colors hover:bg-muted/50"
-                >
-                  <div className="min-w-0">
-                    <p className="font-medium text-sm truncate">
-                      {session.workout.name}
+      <SectionCard
+        title="Session history"
+        icon={ClipboardList}
+        count={sessions.length}
+        description="Select a session to review it."
+      >
+        {sessions.length === 0 ? (
+          <EmptyState
+            size="compact"
+            icon={ClipboardList}
+            title="No sessions yet"
+            description="Sessions will appear here once this client has scheduled or completed workouts."
+          />
+        ) : (
+          <div className="space-y-2">
+            {sessions.map((session) => (
+              <Link
+                key={session.id}
+                href={`/clients/${id}/sessions/${session.id}`}
+                className="flex items-center justify-between gap-3 rounded-lg border border-border p-3 transition-colors outline-none hover:bg-surface-muted focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none"
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-label text-foreground">{session.workout.name}</p>
+                  <p className="text-caption">
+                    {format(new Date(session.scheduledDate), "MMM d, yyyy")}
+                    {session.workout.program?.name && <span> · {session.workout.program.name}</span>}
+                  </p>
+                  {session.originalScheduledDate && (
+                    <p className="mt-0.5 text-caption">
+                      Rescheduled from {format(new Date(session.originalScheduledDate), "MMM d, yyyy")}
+                      {session.rescheduledBy && ` by ${session.rescheduledBy}`}
                     </p>
-                    <p className="text-xs text-muted-foreground">
-                      {format(new Date(session.scheduledDate), "MMM d, yyyy")}
-                      {session.workout.program?.name && (
-                        <span className="ml-2 opacity-60">· {session.workout.program.name}</span>
-                      )}
-                    </p>
-                    {session.originalScheduledDate && (
-                      <p className="text-xs text-muted-foreground/70 mt-0.5">
-                        Rescheduled from {format(new Date(session.originalScheduledDate), "MMM d, yyyy")}
-                        {session.rescheduledBy && ` by ${session.rescheduledBy}`}
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0 ml-3">
-                    {session.overallRPE != null && (
-                      <span className="text-xs text-muted-foreground">RPE {session.overallRPE}/10</span>
-                    )}
-                    {session.scheduleVariance && (
-                      <StatusBadge
-                        status={session.scheduleVariance}
-                        size="sm"
-                        dot={false}
-                      />
-                    )}
-                    <StatusBadge status={session.status} size="sm" />
-                  </div>
-                </Link>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                  )}
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  {session.overallRPE != null && (
+                    <span className="text-caption tabular-nums">RPE {session.overallRPE}/10</span>
+                  )}
+                  {session.scheduleVariance && (
+                    <StatusBadge status={session.scheduleVariance} size="sm" dot={false} />
+                  )}
+                  <StatusBadge status={session.status} size="sm" />
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
+      </SectionCard>
     </PageShell>
   );
 }

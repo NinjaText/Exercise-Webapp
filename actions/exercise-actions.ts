@@ -1,5 +1,6 @@
 "use server";
 
+import { activeUserOnly } from "@/lib/auth/active-user";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
@@ -27,7 +28,7 @@ export async function createExerciseAction(input: {
     const { userId, orgId: sessionOrgId } = await auth();
     if (!userId) return { success: false as const, error: "Unauthorized" };
 
-    const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
+    const dbUser = activeUserOnly(await prisma.user.findUnique({ where: { clerkId: userId } }));
     if (!dbUser) return { success: false as const, error: "User not found" };
     if (dbUser.role !== "TRAINER") return { success: false as const, error: "Forbidden" };
 
@@ -77,7 +78,7 @@ export async function updateExerciseAction(
   const { userId } = await auth();
   if (!userId) return { success: false as const, error: "Unauthorized" };
 
-  const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
+  const dbUser = activeUserOnly(await prisma.user.findUnique({ where: { clerkId: userId } }));
   if (!dbUser) return { success: false as const, error: "User not found" };
   if (dbUser.role !== "TRAINER") return { success: false as const, error: "Forbidden" };
 
@@ -132,7 +133,7 @@ export async function addExerciseMediaAction(
   const { userId } = await auth();
   if (!userId) return { success: false as const, error: "Unauthorized" };
 
-  const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
+  const dbUser = activeUserOnly(await prisma.user.findUnique({ where: { clerkId: userId } }));
   if (!dbUser) return { success: false as const, error: "User not found" };
   if (dbUser.role !== "TRAINER") return { success: false as const, error: "Forbidden" };
 
@@ -161,7 +162,7 @@ export async function deleteExerciseMediaAction(
   const { userId } = await auth();
   if (!userId) return { success: false as const, error: "Unauthorized" };
 
-  const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
+  const dbUser = activeUserOnly(await prisma.user.findUnique({ where: { clerkId: userId } }));
   if (!dbUser) return { success: false as const, error: "User not found" };
   if (dbUser.role !== "TRAINER") return { success: false as const, error: "Forbidden" };
 
@@ -180,7 +181,7 @@ export async function deleteExerciseAction(exerciseId: string) {
   const { userId, orgId: sessionOrgId } = await auth();
   if (!userId) return { success: false as const, error: "Unauthorized" };
 
-  const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
+  const dbUser = activeUserOnly(await prisma.user.findUnique({ where: { clerkId: userId } }));
   if (!dbUser) return { success: false as const, error: "User not found" };
 
   const exercise = await prisma.exercise.findUnique({ where: { id: exerciseId } });
@@ -229,7 +230,7 @@ export async function bulkDeleteExercisesAction(exerciseIds: string[]) {
   const { userId, orgId: sessionOrgId } = await auth();
   if (!userId) return { success: false as const, error: "Unauthorized" };
 
-  const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
+  const dbUser = activeUserOnly(await prisma.user.findUnique({ where: { clerkId: userId } }));
   if (!dbUser) return { success: false as const, error: "User not found" };
 
   const superAdmin = await isSuperAdmin();
@@ -311,7 +312,7 @@ export async function toggleExerciseFavoriteAction(exerciseId: string, isFavorit
   const { userId } = await auth();
   if (!userId) return { success: false as const, error: "Unauthorized" };
 
-  const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
+  const dbUser = activeUserOnly(await prisma.user.findUnique({ where: { clerkId: userId } }));
   if (!dbUser) return { success: false as const, error: "User not found" };
 
   try {
@@ -335,7 +336,7 @@ export async function createOrganizationExerciseAction(input: {
   const { userId, orgId: sessionOrgId } = await auth();
   if (!userId) return { success: false as const, error: "Unauthorized" };
 
-  const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
+  const dbUser = activeUserOnly(await prisma.user.findUnique({ where: { clerkId: userId } }));
   if (!dbUser) return { success: false as const, error: "User not found" };
   if (dbUser.role !== "TRAINER") return { success: false as const, error: "Forbidden" };
 

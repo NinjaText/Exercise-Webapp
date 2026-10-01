@@ -63,12 +63,12 @@ function Row({
   children: React.ReactNode;
 }) {
   return (
-    <div className="grid gap-0.5 py-2.5 sm:grid-cols-[168px_1fr] sm:gap-4">
-      <dt className="text-sm font-medium text-muted-foreground">
+    <div className="grid gap-0.5 py-3 first:pt-0 last:pb-0 sm:grid-cols-[168px_1fr] sm:gap-4">
+      <dt className="text-label text-muted-foreground">
         {label}
         {info ? <FieldInfo label={label}>{info}</FieldInfo> : null}
       </dt>
-      <dd className="min-w-0 text-sm text-foreground">{children}</dd>
+      <dd className="min-w-0 text-body text-foreground">{children}</dd>
     </div>
   );
 }
@@ -113,12 +113,12 @@ export function ClinicalProfileCard({
   return (
     <SectionCard title="Clinical profile" icon={Stethoscope} action={action}>
       {!populated ? (
-        <p className="text-sm text-muted-foreground">
+        <p className="text-body text-muted-foreground">
           Nothing on file yet — this client skipped the intake questions at sign-up. Add
           what you know so it can inform their programming.
         </p>
       ) : (
-        <dl className="divide-y divide-border/50">
+        <dl className="divide-y divide-border">
           {profile!.primaryDiagnosis && (
             <Row
               label="Primary diagnosis"

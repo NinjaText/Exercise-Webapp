@@ -88,7 +88,7 @@ export function ClientProgressOverviewCard({ breakdown }: { breakdown: ClientPro
           <button
             type="button"
             onClick={() => openPicker("all")}
-            className="inline-flex items-center gap-1 rounded-sm text-sm font-medium text-primary hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+            className="inline-flex items-center gap-1 rounded-sm text-label text-primary hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
           >
             View report
             <ArrowRight className="size-3.5" aria-hidden />
@@ -121,8 +121,8 @@ export function ClientProgressOverviewCard({ breakdown }: { breakdown: ClientPro
               )}
             </svg>
             <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-2xl font-bold tabular-nums">{total}</span>
-              <span className="text-[10px] text-muted-foreground">Clients</span>
+              <span className="text-title tabular-nums text-foreground">{total}</span>
+              <span className="text-caption">Clients</span>
             </div>
           </div>
 
@@ -133,16 +133,16 @@ export function ClientProgressOverviewCard({ breakdown }: { breakdown: ClientPro
                 type="button"
                 onClick={() => openPicker(arc.key)}
                 aria-label={`View ${arc.label.toLowerCase()} clients`}
-                className="group flex w-full items-center justify-between gap-2 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                className="group flex w-full items-center justify-between gap-2 rounded-md px-2 py-1.5 text-body transition-colors hover:bg-surface-muted motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
               >
                 <span className="flex items-center gap-2 text-muted-foreground">
                   <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${arc.dot}`} />
                   {arc.label}
                 </span>
-                <span className="flex items-center gap-1 font-medium text-foreground">
+                <span className="flex items-center gap-1 font-medium tabular-nums text-foreground">
                   {arc.value} ({Math.round(arc.fraction * 100)}%)
                   <ChevronRight
-                    className="size-3.5 text-muted-foreground/50 transition-colors group-hover:text-foreground"
+                    className="size-3.5 text-muted-foreground transition-colors group-hover:text-foreground"
                     aria-hidden
                   />
                 </span>
@@ -151,7 +151,7 @@ export function ClientProgressOverviewCard({ breakdown }: { breakdown: ClientPro
           </div>
         </div>
       )}
-      <p className="mt-4 text-[11px] text-muted-foreground/60">
+      <p className="mt-4 text-caption">
         Based on workout completion and feedback
       </p>
 

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Inbox } from "lucide-react";
 import {
   TableBody,
   TableCell,
@@ -7,6 +8,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ClickableRow } from "@/components/shared/clickable-row";
+import { EmptyState } from "@/components/shared/empty-state";
 import { cn } from "@/lib/utils";
 
 export interface Column<T> {
@@ -35,9 +37,10 @@ export interface DataListProps<T> {
 }
 
 /**
- * The default list surface (spec §5). A table with hover rows, optional
- * row navigation, right-aligned numerics, sticky header and a built-in
- * empty state. Replaces DataTable.
+ * The default list surface (spec §2.3). A table with a muted header row,
+ * 44px rows (36px compact) with a subtle hover, optional row navigation,
+ * right-aligned numerics, sticky header and the shared EmptyState when
+ * there is no data. Replaces DataTable.
  *
  * Server-compatible. `rowHref` rows are plain anchors; `onRowClick` rows
  * render the client `ClickableRow`, so `onRowClick` is only usable from
@@ -69,7 +72,10 @@ export function DataList<T>({
   emptyMessage = "No data found",
   className,
 }: DataListProps<T>) {
-  const cellPad = density === "compact" ? "py-2" : "py-3";
+  // TableCell is 44px tall by default (spec §2.3); compact tightens it to 36px.
+  const cellSize = density === "compact" ? "h-9 py-1.5" : undefined;
+  // A little more breathing room at the card edges than between columns.
+  const edgePad = "first:pl-4 last:pr-4";
 
   const cellContent = (item: T, col: Column<T>) =>
     col.render ? col.render(item) : String((item as Record<string, unknown>)[col.key] ?? "");
@@ -78,7 +84,7 @@ export function DataList<T>({
     <div
       data-slot="data-list"
       data-density={density}
-      className={cn("rounded-xl bg-card ring-1 ring-border overflow-hidden", className)}
+      className={cn("overflow-hidden rounded-xl bg-card shadow-xs ring-1 ring-border", className)}
     >
       <div
         data-slot="table-container"
@@ -86,13 +92,13 @@ export function DataList<T>({
         style={maxHeight ? { maxHeight } : undefined}
       >
         <table className="w-full caption-bottom text-sm">
-          <TableHeader className={cn(stickyHeader && "sticky top-0 z-10 bg-card")}>
+          <TableHeader className={cn(stickyHeader && "sticky top-0 z-10 bg-surface-muted")}>
           <TableRow className="hover:bg-transparent">
             {columns.map((col) => (
               <TableHead
                 key={col.key}
                 className={cn(
-                  "h-10 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground",
+                  edgePad,
                   col.align === "right" && "text-right",
                   col.className
                 )}
@@ -106,9 +112,7 @@ export function DataList<T>({
           {data.length === 0 ? (
             <TableRow className="hover:bg-transparent">
               <TableCell colSpan={columns.length} className="p-0">
-                {emptyState ?? (
-                  <div className="py-12 text-center text-sm text-muted-foreground">{emptyMessage}</div>
-                )}
+                {emptyState ?? <EmptyState icon={Inbox} title={emptyMessage} size="compact" />}
               </TableCell>
             </TableRow>
           ) : (
@@ -118,7 +122,8 @@ export function DataList<T>({
                 <TableCell
                   key={col.key}
                   className={cn(
-                    cellPad,
+                    cellSize,
+                    edgePad,
                     col.align === "right" && "text-right tabular-nums",
                     col.className
                   )}

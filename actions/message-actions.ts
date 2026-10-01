@@ -1,5 +1,6 @@
 "use server";
 
+import { activeUserOnly } from "@/lib/auth/active-user";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
@@ -17,8 +18,32 @@ import { threadChannel, inboxChannel } from "@/lib/pusher-channels";
 import { notifyUser, NOTIFICATION_TYPES } from "@/lib/services/notification.service";
 import { appBaseUrl } from "@/lib/utils/app-url";
 import { format } from "date-fns";
+import {
+  canCoachInteract,
+  filterCoachableClientIds,
+  getCapabilitiesForUser,
+} from "@/lib/org-capabilities.server";
+import { MESSAGING_UNAVAILABLE } from "@/lib/org-capabilities";
 
 const MESSAGE_PREVIEW_MAX_LENGTH = 200;
+
+/** Uncoached club members have no inbox; enforce it here, not just by hiding the route. */
+async function messagingDisabled(user: {
+  id: string;
+  role: "TRAINER" | "CLIENT";
+  clerkOrgId: string | null;
+}): Promise<boolean> {
+  return !(await getCapabilitiesForUser(user)).messaging;
+}
+
+/** Trainers, and member-billed (club) clients, must pass the pair rule to reach `recipientId`. */
+async function pairRuleRefuses(
+  sender: { id: string; role: "TRAINER" | "CLIENT"; clerkOrgId: string | null },
+  recipientId: string
+): Promise<boolean> {
+  if (sender.role !== "TRAINER" && (await getCapabilitiesForUser(sender)).billing !== "member") return false;
+  return !(await canCoachInteract(sender, recipientId));
+}
 
 function messagePreview(content: string): string {
   return content.length > MESSAGE_PREVIEW_MAX_LENGTH
@@ -110,8 +135,9 @@ export async function sendMessageAction(input: {
   const { userId } = await auth();
   if (!userId) return { success: false as const, error: "Unauthorized" };
 
-  const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
+  const dbUser = activeUserOnly(await prisma.user.findUnique({ where: { clerkId: userId } }));
   if (!dbUser) return { success: false as const, error: "User not found" };
+  if (await messagingDisabled(dbUser)) return { success: false as const, error: MESSAGING_UNAVAILABLE };
 
   const parsed = sendMessageSchema.safeParse(input);
   if (!parsed.success) {
@@ -122,6 +148,13 @@ export async function sendMessageAction(input: {
   // setting this flag is silently downgraded to a normal message.
   if (parsed.data.isInternal && dbUser.role !== "TRAINER") {
     parsed.data.isInternal = false;
+  }
+
+  // Pair rule: a trainer may only message a client who has messaging, and a
+  // club (member-billed) client only their own club's trainer. Trainer-org
+  // clients keep today's rules.
+  if (await pairRuleRefuses(dbUser, parsed.data.recipientId)) {
+    return { success: false as const, error: MESSAGING_UNAVAILABLE };
   }
 
   try {
@@ -162,7 +195,7 @@ export async function editMessageAction(messageId: string, newContent: string) {
   const { userId } = await auth();
   if (!userId) return { success: false as const, error: "Unauthorized" };
 
-  const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
+  const dbUser = activeUserOnly(await prisma.user.findUnique({ where: { clerkId: userId } }));
   if (!dbUser) return { success: false as const, error: "User not found" };
 
   const parsed = editMessageSchema.safeParse({ messageId, content: newContent });
@@ -192,7 +225,7 @@ export async function deleteMessageAction(messageId: string) {
   const { userId } = await auth();
   if (!userId) return { success: false as const, error: "Unauthorized" };
 
-  const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
+  const dbUser = activeUserOnly(await prisma.user.findUnique({ where: { clerkId: userId } }));
   if (!dbUser) return { success: false as const, error: "User not found" };
 
   if (!messageId) return { success: false as const, error: "Message is required" };
@@ -224,8 +257,9 @@ export async function replyToClientNoteAction(
   const { userId } = await auth();
   if (!userId) return { success: false as const, error: "Unauthorized" };
 
-  const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
+  const dbUser = activeUserOnly(await prisma.user.findUnique({ where: { clerkId: userId } }));
   if (!dbUser) return { success: false as const, error: "User not found" };
+  if (await messagingDisabled(dbUser)) return { success: false as const, error: MESSAGING_UNAVAILABLE };
 
   const parsed = replyToClientNoteSchema.safeParse({ sessionId, blockExerciseId, content });
   if (!parsed.success) {
@@ -265,6 +299,10 @@ export async function replyToClientNoteAction(
 
     if (!log.clientNote) {
       return { success: false as const, error: "There is no client note to reply to" };
+    }
+
+    if (!(await canCoachInteract(dbUser, log.session.clientId))) {
+      return { success: false as const, error: MESSAGING_UNAVAILABLE };
     }
 
     const message = await messageService.sendMessage({
@@ -308,7 +346,7 @@ export async function markMessagesReadAction(senderId: string) {
   const { userId } = await auth();
   if (!userId) return { success: false as const, error: "Unauthorized" };
 
-  const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
+  const dbUser = activeUserOnly(await prisma.user.findUnique({ where: { clerkId: userId } }));
   if (!dbUser) return { success: false as const, error: "User not found" };
 
   try {
@@ -334,8 +372,9 @@ export async function sendBroadcastMessageAction(input: {
   const { userId } = await auth();
   if (!userId) return { success: false as const, error: "Unauthorized" };
 
-  const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
+  const dbUser = activeUserOnly(await prisma.user.findUnique({ where: { clerkId: userId } }));
   if (!dbUser) return { success: false as const, error: "User not found" };
+  if (await messagingDisabled(dbUser)) return { success: false as const, error: MESSAGING_UNAVAILABLE };
   if (dbUser.role !== "TRAINER") {
     return { success: false as const, error: "Only trainers can broadcast messages" };
   }
@@ -349,9 +388,11 @@ export async function sendBroadcastMessageAction(input: {
     const rosterIds = await getClientIdsForTrainer(dbUser.id);
     const rosterSet = new Set(rosterIds);
 
-    const recipientIds = parsed.data.sendToAll
+    const requestedIds = parsed.data.sendToAll
       ? rosterIds
       : (parsed.data.recipientIds ?? []).filter((id) => rosterSet.has(id));
+    // Pair rule: uncoached club members are silently skipped.
+    const recipientIds = await filterCoachableClientIds(dbUser, requestedIds);
 
     if (recipientIds.length === 0) {
       return { success: false as const, error: "No valid recipients" };

@@ -28,6 +28,7 @@ export function AdminProgramEditorWrapper({ program, exercises }: Props) {
       program={program}
       exercises={exercises}
       onSave={handleSave}
+      stickyOffset="none"
       redirectTo={`/admin/programs/${program.id}`}
     />
   );

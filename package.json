@@ -25,6 +25,7 @@
     "db:backfill-message-is-internal": "npx tsx lib/db/scripts/backfill-message-is-internal.ts",
     "db:backfill-program-scheduling-type": "npx tsx lib/db/scripts/backfill-program-scheduling-type.ts",
     "db:migrate-org-profiles": "npx tsx lib/db/scripts/migrate-org-profiles-to-db.ts",
+    "db:backfill-club-null-fields": "npx tsx lib/db/scripts/backfill-club-null-fields.ts",
     "tag-exercises": "npx ts-node --compiler-options '{\"module\":\"CommonJS\"}' lib/db/seed/tag-exercises-ai.ts",
     "postinstall": "prisma generate"
   },
@@ -80,6 +81,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@tailwindcss/node": "4.2.1",
     "@tailwindcss/postcss": "^4",
     "@types/culori": "^4.0.1",
     "@types/node": "^20",

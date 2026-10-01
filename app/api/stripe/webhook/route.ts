@@ -6,6 +6,19 @@ import {
   syncSubscriptionFromStripe,
   activateSubscriptionFromCheckout,
 } from "@/lib/services/stripe-billing.service";
+import {
+  MEMBER_PURCHASE_TYPE,
+  activateMemberFromCheckout,
+  syncMemberSubscriptionFromStripe,
+  markMemberCanceled,
+  markMemberPastDue,
+} from "@/lib/services/member-billing.service";
+import {
+  COACHING_PURCHASE_TYPE,
+  activateCoachingFromCheckout,
+  syncCoachingFromStripe,
+  markCoachingPastDue,
+} from "@/lib/services/coaching.service";
 import { fulfillProgramPurchase } from "@/lib/services/program-purchase.service";
 import { notifyUser, NOTIFICATION_TYPES } from "@/lib/services/notification.service";
 import { sendEmail } from "@/lib/email/send";
@@ -66,6 +79,10 @@ export async function POST(req: Request) {
                 .catch(() => {});
             }
           });
+        } else if (session.metadata?.purchaseType === COACHING_PURCHASE_TYPE) {
+          await activateCoachingFromCheckout(session);
+        } else if (session.metadata?.purchaseType === MEMBER_PURCHASE_TYPE) {
+          await activateMemberFromCheckout(session);
         } else {
           await activateSubscriptionFromCheckout(session);
         }
@@ -74,11 +91,18 @@ export async function POST(req: Request) {
       case "customer.subscription.created":
       case "customer.subscription.updated": {
         const sub = event.data.object as Stripe.Subscription;
+        // Coaching shares the member's Stripe customer, so it must be routed
+        // first: membership and trainer billing never see its subscriptions.
+        if (await syncCoachingFromStripe(sub)) break;
+        // Club member? Members and trainers never share a Stripe customer.
+        if (await syncMemberSubscriptionFromStripe(sub.customer as string, sub)) break;
         await syncSubscriptionFromStripe(sub.customer as string, sub);
         break;
       }
       case "customer.subscription.deleted": {
         const sub = event.data.object as Stripe.Subscription;
+        if (await syncCoachingFromStripe(sub)) break;
+        if (await markMemberCanceled(sub.customer as string, sub.id)) break;
         // A trainer who deleted their account no longer has a
         // TrainerSubscription row. `update` would throw P2025 -> 500 -> days of
         // Stripe retries, so check first and ignore events for customers we no
@@ -116,6 +140,11 @@ export async function POST(req: Request) {
       }
       case "invoice.payment_failed": {
         const invoice = event.data.object as Stripe.Invoice;
+        const invoiceSub = invoice.parent?.subscription_details?.subscription;
+        const invoiceSubId = typeof invoiceSub === "string" ? invoiceSub : (invoiceSub?.id ?? null);
+        const invoiceSubMetadata = invoice.parent?.subscription_details?.metadata;
+        if (invoiceSubId && (await markCoachingPastDue(invoiceSubId, invoiceSubMetadata))) break;
+        if (await markMemberPastDue(invoice.customer as string, invoiceSubId)) break;
         // Same guard as above: tolerate a trainer who deleted their account.
         const pastDueRow = await prisma.trainerSubscription.findUnique({
           where: { stripeCustomerId: invoice.customer as string },

@@ -1,5 +1,9 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
+vi.mock('@/lib/org-capabilities.server', async () => {
+  const { getOrgCapabilities } = await vi.importActual<typeof import('@/lib/org-capabilities')>('@/lib/org-capabilities')
+  return { getCapabilitiesForUser: vi.fn(async () => getOrgCapabilities(null)), canCoachInteract: vi.fn(async () => true), filterCoachableClientIds: vi.fn(async (_t: unknown, ids: string[]) => ids) }
+})
 vi.mock('@clerk/nextjs/server', () => ({ auth: vi.fn() }))
 vi.mock('@/lib/prisma', () => ({
   prisma: {
@@ -43,6 +47,8 @@ import {
   markVoiceMemoRead,
   getWorkoutVoiceMemos,
 } from '../voice-memo-actions'
+import { getCapabilitiesForUser, canCoachInteract } from '@/lib/org-capabilities.server'
+import { getOrgCapabilities, getUserCapabilities } from '@/lib/org-capabilities'
 
 const mockAuth = vi.mocked(auth)
 const mockUserFind = vi.mocked(prisma.user.findUnique)
@@ -234,5 +240,122 @@ describe('getWorkoutVoiceMemos', () => {
     const result = await getWorkoutVoiceMemos(WORKOUT_ID)
     expect(result.success).toBe(true)
     expect(result.data).toEqual({ trainer: null, client: null })
+  })
+})
+
+describe('messaging capability (club orgs)', () => {
+  const blocked = { success: false, error: "Messaging isn't available for your account." }
+
+  it('refuses to presign or confirm a voice note for a club member', async () => {
+    vi.mocked(getCapabilitiesForUser).mockResolvedValue(getOrgCapabilities({ type: 'CLUB' }))
+    mockAuth.mockResolvedValue({ userId: CLERK_ID } as never)
+    mockUserFind.mockResolvedValue({ ...dbClient, clerkOrgId: 'org_club' } as never)
+
+    expect(await generateVoiceMemoPresignedUrl(WORKOUT_ID, 'webm')).toEqual(blocked)
+    expect(await confirmVoiceMemoUpload(WORKOUT_ID, 'voice-memos/pending/123e4567-e89b-12d3-a456-426614174000.webm', 10)).toEqual(blocked)
+    expect(mockGetSignedUrl).not.toHaveBeenCalled()
+    expect(mockMemoCreate).not.toHaveBeenCalled()
+    vi.mocked(getCapabilitiesForUser).mockResolvedValue(getOrgCapabilities(null))
+  })
+})
+
+describe('pair rule (trainer → program client)', () => {
+  const blocked = { success: false, error: "Messaging isn't available for your account." }
+  const PENDING = 'voice-memos/pending/123e4567-e89b-12d3-a456-426614174000.webm'
+  const clubTrainer = { ...dbTrainer, clerkOrgId: 'org_club' }
+
+  beforeEach(() => {
+    mockAuth.mockResolvedValue({ userId: CLERK_ID } as never)
+    mockUserFind.mockResolvedValue(clubTrainer as never)
+    mockWorkoutFind.mockResolvedValue(workoutBase as never)
+    mockGetSignedUrl.mockResolvedValue('https://signed.url')
+    mockMemoFindFirst.mockResolvedValue(null)
+    mockMemoCreate.mockResolvedValue({ id: 'memo_1' } as never)
+    vi.mocked(getCapabilitiesForUser).mockResolvedValue(
+      getUserCapabilities({ orgType: 'CLUB', role: 'TRAINER', coachingActive: false })
+    )
+  })
+
+  afterEach(() => {
+    vi.mocked(getCapabilitiesForUser).mockResolvedValue(getOrgCapabilities(null))
+    vi.mocked(canCoachInteract).mockResolvedValue(true)
+  })
+
+  it('refuses a club trainer → uncoached member at both steps', async () => {
+    vi.mocked(canCoachInteract).mockResolvedValue(false)
+    expect(await generateVoiceMemoPresignedUrl(WORKOUT_ID, 'webm')).toEqual(blocked)
+    expect(await confirmVoiceMemoUpload(WORKOUT_ID, PENDING, 10)).toEqual(blocked)
+    expect(canCoachInteract).toHaveBeenCalledWith(expect.objectContaining({ id: TRAINER_DB_ID }), CLIENT_DB_ID)
+    expect(mockGetSignedUrl).not.toHaveBeenCalled()
+    expect(mockMemoCreate).not.toHaveBeenCalled()
+  })
+
+  it('allows a club trainer → coached member', async () => {
+    vi.mocked(canCoachInteract).mockResolvedValue(true)
+    expect((await generateVoiceMemoPresignedUrl(WORKOUT_ID, 'webm')).success).toBe(true)
+    expect((await confirmVoiceMemoUpload(WORKOUT_ID, PENDING, 10)).success).toBe(true)
+    expect(mockMemoCreate).toHaveBeenCalledOnce()
+  })
+
+  it('trainer-org trainer → program client is unchanged (regression)', async () => {
+    mockUserFind.mockResolvedValue({ ...dbTrainer, clerkOrgId: 'org_t' } as never)
+    vi.mocked(getCapabilitiesForUser).mockResolvedValue(getOrgCapabilities(null))
+    expect((await generateVoiceMemoPresignedUrl(WORKOUT_ID, 'webm')).success).toBe(true)
+    expect((await confirmVoiceMemoUpload(WORKOUT_ID, PENDING, 10)).success).toBe(true)
+    expect(canCoachInteract).toHaveBeenCalledWith(expect.objectContaining({ clerkOrgId: 'org_t' }), CLIENT_DB_ID)
+    expect(mockMemoCreate).toHaveBeenCalledOnce()
+  })
+})
+
+describe('pair rule (club member → program trainer)', () => {
+  const blocked = { success: false, error: "Messaging isn't available for your account." }
+  const PENDING = 'voice-memos/pending/123e4567-e89b-12d3-a456-426614174000.webm'
+  const clubMember = { ...dbClient, clerkOrgId: 'org_club' }
+  const completed = { ...workoutBase, sessions: [{ id: 's1', clientId: CLIENT_DB_ID, status: 'COMPLETED' }] }
+
+  beforeEach(() => {
+    mockAuth.mockResolvedValue({ userId: CLERK_ID } as never)
+    mockUserFind.mockResolvedValue(clubMember as never)
+    mockWorkoutFind.mockResolvedValue(completed as never)
+    mockGetSignedUrl.mockResolvedValue('https://signed.url')
+    mockMemoFindFirst.mockResolvedValue(null)
+    mockMemoCreate.mockResolvedValue({ id: 'memo_1', authorRole: 'CLIENT' } as never)
+    vi.mocked(getCapabilitiesForUser).mockResolvedValue(
+      getUserCapabilities({ orgType: 'CLUB', role: 'CLIENT', coachingActive: true })
+    )
+  })
+
+  afterEach(() => {
+    vi.mocked(getCapabilitiesForUser).mockResolvedValue(getOrgCapabilities(null))
+    vi.mocked(canCoachInteract).mockResolvedValue(true)
+  })
+
+  it('refuses a coached member → a trainer outside their club at both steps', async () => {
+    vi.mocked(canCoachInteract).mockResolvedValue(false)
+    expect(await generateVoiceMemoPresignedUrl(WORKOUT_ID, 'webm')).toEqual(blocked)
+    expect(await confirmVoiceMemoUpload(WORKOUT_ID, PENDING, 10)).toEqual(blocked)
+    expect(canCoachInteract).toHaveBeenCalledWith(expect.objectContaining({ id: CLIENT_DB_ID }), TRAINER_DB_ID)
+    expect(mockGetSignedUrl).not.toHaveBeenCalled()
+    expect(mockMemoCreate).not.toHaveBeenCalled()
+  })
+
+  it('allows a coached member → their club trainer', async () => {
+    vi.mocked(canCoachInteract).mockResolvedValue(true)
+    expect((await generateVoiceMemoPresignedUrl(WORKOUT_ID, 'webm')).success).toBe(true)
+    expect((await confirmVoiceMemoUpload(WORKOUT_ID, PENDING, 10)).success).toBe(true)
+    expect(mockMemoCreate).toHaveBeenCalledOnce()
+  })
+
+  it('refuses a program with no trainer (fails closed)', async () => {
+    mockWorkoutFind.mockResolvedValue({ ...completed, program: { ...completed.program, trainerId: null } } as never)
+    expect(await generateVoiceMemoPresignedUrl(WORKOUT_ID, 'webm')).toEqual(blocked)
+  })
+
+  it('trainer-org client → trainer skips the pair rule (regression)', async () => {
+    mockUserFind.mockResolvedValue({ ...dbClient, clerkOrgId: 'org_t' } as never)
+    vi.mocked(getCapabilitiesForUser).mockResolvedValue(getOrgCapabilities(null))
+    expect((await generateVoiceMemoPresignedUrl(WORKOUT_ID, 'webm')).success).toBe(true)
+    expect((await confirmVoiceMemoUpload(WORKOUT_ID, PENDING, 10)).success).toBe(true)
+    expect(canCoachInteract).not.toHaveBeenCalled()
   })
 })

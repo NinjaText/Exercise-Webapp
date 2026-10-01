@@ -36,6 +36,7 @@ export function GlobalProgramEditorWrapper({ program, exercises, clinics }: Prop
       exercises={exercises}
       clinics={clinics}
       onSave={handleSave}
+      stickyOffset="none"
       redirectTo="/admin/global-programs"
     />
   );

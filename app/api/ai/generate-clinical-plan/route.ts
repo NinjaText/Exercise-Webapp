@@ -1,3 +1,4 @@
+import { activeUserOnly } from "@/lib/auth/active-user"
 import { auth } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
@@ -11,7 +12,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } })
+  const dbUser = activeUserOnly(await prisma.user.findUnique({ where: { clerkId: userId } }))
   if (!dbUser || dbUser.role !== 'TRAINER') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }

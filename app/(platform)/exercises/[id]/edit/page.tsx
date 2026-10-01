@@ -22,7 +22,7 @@ export default async function EditExercisePage({ params }: Props) {
   return (
     <PageShell width="narrow">
       <PageHeader
-        back={{ label: "Back to Exercise", href: `/exercises/${id}` }}
+        back={{ label: "Back to exercise", href: `/exercises/${id}` }}
         breadcrumb={[
           { label: "Exercises", href: "/exercises" },
           { label: exercise.name, href: `/exercises/${id}` },

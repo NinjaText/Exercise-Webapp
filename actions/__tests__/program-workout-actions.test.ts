@@ -58,6 +58,17 @@ describe('deleteWorkoutFromProgramAction', () => {
     })
   })
 
+  it('refuses a deactivated trainer (e.g. a removed club trainer) even if the workout is theirs', async () => {
+    mockAuth.mockResolvedValue({ userId: CLERK_ID } as never)
+    mockUserFind.mockResolvedValue({ ...dbTrainer, isActive: false, clerkOrgId: null } as never)
+    mockWorkoutFind.mockResolvedValue(workoutWithProgram as never)
+    expect(await deleteWorkoutFromProgramAction(WORKOUT_ID)).toEqual({
+      success: false,
+      error: 'Unauthorized',
+    })
+    expect(mockWorkoutDelete).not.toHaveBeenCalled()
+  })
+
   it('returns Forbidden when workout belongs to a different trainer', async () => {
     mockAuth.mockResolvedValue({ userId: CLERK_ID } as never)
     mockUserFind.mockResolvedValue(dbTrainer as never)

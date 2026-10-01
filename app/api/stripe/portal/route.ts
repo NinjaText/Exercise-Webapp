@@ -2,6 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
 import { prisma } from "@/lib/prisma";
+import { getCapabilitiesForUser } from "@/lib/org-capabilities.server";
 
 export async function POST() {
   const { userId } = await auth();
@@ -9,6 +10,10 @@ export async function POST() {
 
   const user = await prisma.user.findUnique({ where: { clerkId: userId } });
   if (!user || user.role !== "TRAINER") {
+    return new NextResponse("Forbidden", { status: 403 });
+  }
+  // Club trainers never pay (trainerBilling off).
+  if (!(await getCapabilitiesForUser(user)).trainerBilling) {
     return new NextResponse("Forbidden", { status: 403 });
   }
 

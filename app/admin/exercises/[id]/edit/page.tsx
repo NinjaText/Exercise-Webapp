@@ -19,7 +19,7 @@ export default async function AdminEditExercisePage({ params }: Props) {
   return (
     <PageShell width="narrow">
       <PageHeader
-        back={{ label: "Back to Exercises", href: "/admin/exercises" }}
+        back={{ label: "Back to exercises", href: "/admin/exercises" }}
         breadcrumb={[
           { label: "Admin", href: "/admin" },
           { label: "Exercise Library", href: "/admin/exercises" },

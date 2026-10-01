@@ -23,6 +23,8 @@ import type {
   ClientProgressBreakdown,
   PriorityAlert,
 } from "@/lib/services/dashboard-insights.service";
+import { CoachingRequestsCard } from "@/components/dashboard/coaching-requests-card";
+import type { CoachingRequestItem } from "@/lib/clubs/trainer-coaching";
 import type { getInboxThreads } from "@/lib/services/message.service";
 
 /** The `?focus=` values the hero tiles use to drive same-page behaviour. */
@@ -46,6 +48,7 @@ export interface TrainerDashboardClientProps {
   clientMetrics: Record<string, ClientMetrics>;
   recentMessages: Awaited<ReturnType<typeof getInboxThreads>>;
   clientProgress: ClientProgressBreakdown;
+  coachingRequests?: CoachingRequestItem[] | null;
 }
 
 /**
@@ -86,6 +89,7 @@ export function TrainerDashboardClient({
   clientMetrics,
   recentMessages,
   clientProgress,
+  coachingRequests = null,
 }: TrainerDashboardClientProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -172,10 +176,12 @@ export function TrainerDashboardClient({
         />
       </div>
 
+      {coachingRequests && <CoachingRequestsCard requests={coachingRequests} />}
+
       {/* Today's Priorities + This Week's Workouts – side by side, and always
           the same height as each other regardless of how much either has to
           show, so the row doesn't end with one card taller than the other. */}
-      <div className="grid items-stretch gap-4 xl:grid-cols-2">
+      <div className="grid items-stretch gap-6 xl:grid-cols-2">
         <div ref={prioritiesRef} className="h-full scroll-mt-20">
           <TodaysPrioritiesCard priorities={priorities} expandSignal={prioritiesExpandSignal} />
         </div>
@@ -191,7 +197,7 @@ export function TrainerDashboardClient({
       </div>
 
       {/* Inbox / AI Insights / Client Progress – one glance at everything else */}
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 md:[&>:last-child]:col-span-2 xl:[&>:last-child]:col-span-1">
+      <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3 md:[&>:last-child]:col-span-2 xl:[&>:last-child]:col-span-1">
         <DashboardInboxCard threads={recentMessages} />
         <AiInsightsCard />
         <ClientProgressOverviewCard breakdown={clientProgress} />

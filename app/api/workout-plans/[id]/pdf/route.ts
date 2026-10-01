@@ -1,3 +1,4 @@
+import { activeUserOnly } from "@/lib/auth/active-user"
 import React from "react";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
@@ -26,7 +27,7 @@ export async function GET(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
+  const dbUser = activeUserOnly(await prisma.user.findUnique({ where: { clerkId: userId } }));
   if (!dbUser) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }

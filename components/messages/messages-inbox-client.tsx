@@ -9,6 +9,15 @@ import { getPusherClient } from "@/lib/pusher-client";
 import { inboxChannel } from "@/lib/pusher-channels";
 import { getDisplayName, getInitials } from "@/lib/utils/display-name";
 
+interface PresenceMember {
+  id: string;
+}
+interface PresenceMembers {
+  each: (callback: (member: PresenceMember) => void) => void;
+}
+interface PusherChannel {
+  bind: <T>(event: string, callback: (data: T) => void) => void;
+}
 
 interface Thread {
   otherUser: {
@@ -41,9 +50,9 @@ export function MessagesInboxClient({
     const pusher = getPusherClient();
 
     // Subscribe to own inbox channel — receives new-message events
-    const myInbox = pusher.subscribe(inboxChannel(currentUserId)) as any;
+    const myInbox = pusher.subscribe(inboxChannel(currentUserId)) as unknown as PusherChannel;
 
-    myInbox.bind(
+    myInbox.bind<{ senderId: string; content: string; createdAt: string }>(
       "new-message",
       (data: { senderId: string; content: string; createdAt: string }) => {
         if (data.senderId === currentUserId) return;
@@ -65,21 +74,21 @@ export function MessagesInboxClient({
     // Subscribe to each contact's presence channel for online dots
     const contactIds = initialThreads.map((t) => t.otherUser.id);
     contactIds.forEach((contactId) => {
-      const ch = pusher.subscribe(inboxChannel(contactId)) as any;
+      const ch = pusher.subscribe(inboxChannel(contactId)) as unknown as PusherChannel;
 
-      ch.bind("pusher:subscription_succeeded", (members: any) => {
+      ch.bind<PresenceMembers>("pusher:subscription_succeeded", (members) => {
         const ids: string[] = [];
-        members.each((m: any) => ids.push(m.id));
+        members.each((m) => ids.push(m.id));
         if (ids.length > 0) {
           setOnlineUsers((prev) => new Set([...prev, ...ids]));
         }
       });
 
-      ch.bind("pusher:member_added", (member: any) => {
+      ch.bind<PresenceMember>("pusher:member_added", (member) => {
         setOnlineUsers((prev) => new Set([...prev, member.id]));
       });
 
-      ch.bind("pusher:member_removed", (member: any) => {
+      ch.bind<PresenceMember>("pusher:member_removed", (member) => {
         setOnlineUsers((prev) => {
           const next = new Set(prev);
           next.delete(member.id);
@@ -92,10 +101,12 @@ export function MessagesInboxClient({
       pusher.unsubscribe(inboxChannel(currentUserId));
       contactIds.forEach((id) => pusher.unsubscribe(inboxChannel(id)));
     };
+    // Subscriptions are keyed to the user; the contact list is the initial snapshot.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUserId]);
 
   return (
-    <div className="h-full overflow-y-auto rounded-xl bg-card ring-1 ring-border">
+    <div className="h-full overflow-y-auto rounded-xl bg-card shadow-xs ring-1 ring-border">
       {threads.map((thread, i) => {
         const hasUnread = thread.unreadCount > 0;
         const fullName = getDisplayName(thread.otherUser);
@@ -103,18 +114,22 @@ export function MessagesInboxClient({
         const isOnline = onlineUsers.has(thread.otherUser.id);
 
         return (
-          <Link key={thread.otherUser.id} href={`/messages/${thread.otherUser.id}`}>
+          <Link
+            key={thread.otherUser.id}
+            href={`/messages/${thread.otherUser.id}`}
+            className="block outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+          >
             <div
-              className={`group relative flex items-center gap-4 px-5 py-4 transition-all duration-150 hover:bg-muted/40 ${
+              className={`group relative flex items-center gap-3 px-5 py-4 transition-colors hover:bg-surface-muted motion-reduce:transition-none ${
                 hasUnread ? "bg-primary/3" : ""
-              } ${i !== 0 ? "border-t border-border/50" : ""}`}
+              } ${i !== 0 ? "border-t border-border" : ""}`}
             >
 
               <div className="relative shrink-0">
-                <Avatar className="h-11 w-11 ring-2 ring-white shadow-sm">
+                <Avatar className="size-10">
                   <AvatarImage src={thread.otherUser.imageUrl || undefined} />
                   <AvatarFallback
-                    className="bg-muted text-muted-foreground text-sm font-medium"
+                    className="bg-surface-muted text-caption font-medium text-foreground"
                   >
                     {initials}
                   </AvatarFallback>
@@ -129,7 +144,7 @@ export function MessagesInboxClient({
               <div className="min-w-0 flex-1">
                 <div className="flex items-baseline justify-between gap-3">
                   <p
-                    className={`truncate text-sm transition-colors group-hover:text-primary ${
+                    className={`truncate text-label ${
                       hasUnread
                         ? "font-semibold text-foreground"
                         : "font-medium text-foreground/80"
@@ -138,15 +153,15 @@ export function MessagesInboxClient({
                     {fullName}
                   </p>
                   <span
-                    className={`shrink-0 text-xs ${
-                      hasUnread ? "font-medium text-primary" : "text-muted-foreground/60"
+                    className={`shrink-0 text-caption tabular-nums ${
+                      hasUnread ? "font-medium text-primary" : ""
                     }`}
                   >
                     {formatRelativeTime(thread.lastMessage.createdAt)}
                   </span>
                 </div>
                 <p
-                  className={`mt-0.5 truncate text-sm leading-snug ${
+                  className={`mt-0.5 truncate text-body ${
                     thread.lastMessage.deletedAt
                       ? "italic text-muted-foreground/70"
                       : hasUnread

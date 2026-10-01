@@ -20,7 +20,8 @@ export interface StatusBadgeProps {
 }
 
 /**
- * The one status chip. Colors come from lib/ui/status.ts, never from callers.
+ * The one status chip (spec §2.3): a 22px pill (20px for sm) on a soft tinted
+ * background. Colors come from lib/ui/status.ts, never from callers.
  */
 export function StatusBadge({
   status,
@@ -39,7 +40,7 @@ export function StatusBadge({
       data-role={resolvedRole}
       className={cn(
         "inline-flex w-fit shrink-0 items-center gap-1.5 rounded-full border font-medium whitespace-nowrap",
-        size === "sm" ? "h-5 px-2 text-[11px]" : "h-6 px-2.5 text-xs",
+        size === "sm" ? "h-5 px-2 text-[11px]" : "h-5.5 px-2.5 text-xs",
         classes.soft,
         classes.text,
         classes.border,

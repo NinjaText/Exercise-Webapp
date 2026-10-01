@@ -3,7 +3,8 @@ import { getCurrentUser } from "@/lib/current-user";
 import { notFound, redirect } from "next/navigation";
 import { format } from "date-fns";
 import { toLocalCalendarDate } from "@/lib/utils/calendar-date";
-import { Card, CardContent } from "@/components/ui/card";
+import { Mic } from "lucide-react";
+import { SectionCard } from "@/components/shared/section-card";
 import { WorkoutModeWrapper } from "@/components/workout/workout-mode-wrapper";
 import { getWorkoutVoiceMemos } from "@/actions/voice-memo-actions";
 import { VoiceMemoPlayer } from "@/components/voice-memo/VoiceMemoPlayer";
@@ -89,7 +90,7 @@ export default async function SessionPage({
   const description = `${session.workout.program.name} · ${format(toLocalCalendarDate(session.scheduledDate), "MMM d, yyyy")}`;
 
   return (
-    <PageShell width="full">
+    <PageShell width="narrow">
       <PageHeader
         back={{ label: "Back to dashboard", href: "/dashboard" }}
         breadcrumb={[{ label: "Dashboard", href: "/dashboard" }, { label: workoutName }]}
@@ -97,11 +98,7 @@ export default async function SessionPage({
         description={description}
       />
       {(trainerMemo || clientMemo) && (
-        <Card>
-          <CardContent className="space-y-2 p-4 sm:p-6">
-            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-              Voice Notes
-            </p>
+        <SectionCard title="Voice notes" icon={Mic} size="compact" contentClassName="space-y-2">
             {trainerMemo && (
               <VoiceMemoPlayer
                 memo={trainerMemo}
@@ -125,10 +122,10 @@ export default async function SessionPage({
                 }
               />
             )}
-          </CardContent>
-        </Card>
+        </SectionCard>
       )}
       <WorkoutModeWrapper
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- the wrapper takes the raw include and each tracker narrows it
         session={session as any}
         initialMode={mode === "checklist" || mode === "session" ? mode : undefined}
       />

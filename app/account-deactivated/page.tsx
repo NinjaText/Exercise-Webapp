@@ -1,29 +1,32 @@
+import { connection } from "next/server";
 import { SignOutButton } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ShieldOff } from "lucide-react";
+import { AuthShell } from "@/components/auth/auth-shell";
+import { getCurrentBranding, getOrgBranding } from "@/lib/services/branding.service";
+import { toViewModel } from "@/lib/branding/types";
 
-export default function AccountDeactivatedPage() {
+export default async function AccountDeactivatedPage() {
+  // Per-request page: opt out of prerendering before the (catch-guarded) lookup.
+  await connection();
+  // A branding lookup failure must never break this page: fall back to defaults.
+  const resolved = await getCurrentBranding().catch(() => getOrgBranding(null));
+  const branding = toViewModel(resolved);
+
   return (
-    <div className="flex items-center justify-center min-h-screen p-4">
-      <Card className="max-w-md w-full">
-        <CardHeader className="text-center">
-          <div className="flex justify-center mb-4">
-            <ShieldOff className="h-12 w-12 text-muted-foreground" />
-          </div>
-          <CardTitle>Account Deactivated</CardTitle>
-        </CardHeader>
-        <CardContent className="text-center space-y-4">
-          <p className="text-muted-foreground text-sm">
-            Your account has been deactivated and no longer has access to the
-            platform. If you believe this is a mistake, contact your trainer
-            or an administrator.
-          </p>
-          <SignOutButton>
-            <Button variant="outline">Sign out</Button>
-          </SignOutButton>
-        </CardContent>
-      </Card>
-    </div>
+    <AuthShell
+      branding={branding}
+      headline="Account deactivated"
+      subhead="Your account no longer has access to the platform."
+    >
+      <div className="flex flex-col items-start gap-6">
+        <p className="text-body text-muted-foreground">
+          If you believe this is a mistake, contact your trainer or an administrator
+          for help.
+        </p>
+        <SignOutButton>
+          <Button variant="outline">Sign out</Button>
+        </SignOutButton>
+      </div>
+    </AuthShell>
   );
 }

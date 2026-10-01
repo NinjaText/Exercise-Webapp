@@ -1,0 +1,242 @@
+import { describe, it, expect, vi, beforeEach } from "vitest";
+
+vi.mock("@/lib/current-user", () => ({ requireSuperAdmin: vi.fn(async () => ({ id: "admin1", role: "TRAINER", email: "a@x.com", firstName: "A", lastName: "D", clerkOrgId: null })) }));
+vi.mock("@/lib/services/audit-log.service", () => ({ logUserAudit: vi.fn(), diffFields: vi.fn(() => undefined) }));
+vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+vi.mock("@/lib/prisma", () => ({
+  prisma: {
+    memberSubscription: { findUnique: vi.fn(), updateMany: vi.fn() },
+    organization: { findUnique: vi.fn() },
+  },
+}));
+vi.mock("@/lib/services/club-trainer.service", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/services/club-trainer.service")>("@/lib/services/club-trainer.service");
+  return {
+    ...actual,
+    assertTrainerEmailFree: vi.fn(async () => {}),
+    getClubTrainer: vi.fn(),
+    getPendingTrainerInvite: vi.fn(),
+    inviteClubTrainer: vi.fn(async () => {}),
+    removeClubTrainer: vi.fn(async () => {}),
+  };
+});
+vi.mock("@clerk/nextjs/server", () => ({ clerkClient: vi.fn() }));
+vi.mock("@/lib/stripe", () => ({ stripe: {} }));
+vi.mock("@/lib/services/club.service", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/services/club.service")>("@/lib/services/club.service");
+  return { ...actual, createClub: vi.fn(), updateClub: vi.fn(), setOrgType: vi.fn() };
+});
+
+import { prisma } from "@/lib/prisma";
+import { requireSuperAdmin } from "@/lib/current-user";
+import { logUserAudit, diffFields } from "@/lib/services/audit-log.service";
+import { createClub, updateClub, setOrgType, ClubError } from "@/lib/services/club.service";
+import {
+  assertTrainerEmailFree, getClubTrainer, getPendingTrainerInvite, inviteClubTrainer, removeClubTrainer,
+} from "@/lib/services/club-trainer.service";
+import {
+  createClubAction, updateClubAction, extendMemberTrialAction, setOrgTypeAction, replaceClubTrainerAction, resendClubTrainerInviteAction,
+} from "../admin-club-actions";
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  vi.mocked(prisma.memberSubscription.updateMany).mockResolvedValue({ count: 1 } as any);
+});
+
+const form = { name: "Pine", joinSlug: "pine", joinCode: "PINE24", trialDays: "14", membershipAmount: "14.99", starterProgramIds: ["p1"], trainerEmail: "coach@pine.com" };
+
+describe("admin club actions", () => {
+  it("requires super admin", async () => {
+    vi.mocked(requireSuperAdmin).mockRejectedValueOnce(new Error("NEXT_REDIRECT"));
+    await expect(createClubAction(form)).rejects.toThrow("NEXT_REDIRECT");
+    expect(createClub).not.toHaveBeenCalled();
+  });
+
+  it("creates a club and audits it", async () => {
+    vi.mocked(createClub).mockResolvedValue({ clerkOrgId: "org_new", name: "Pine" } as any);
+    expect(await createClubAction(form)).toEqual({ ok: true, clerkOrgId: "org_new" });
+    expect(createClub).toHaveBeenCalledWith(
+      expect.objectContaining({ trainerEmail: "coach@pine.com", membershipAmountCents: 1499, coachingAmountCents: null })
+    );
+    expect(logUserAudit).toHaveBeenCalledTimes(2);
+    const events = await Promise.all(vi.mocked(logUserAudit).mock.calls.map(([, build]) => build()));
+    expect(events.map((e) => e.action)).toEqual(["CLUB_CREATED", "CLUB_TRAINER_INVITED"]);
+  });
+
+  it("audits the created club's amounts and price ids", async () => {
+    vi.mocked(createClub).mockResolvedValue({
+      clerkOrgId: "org_new", name: "Pine", joinSlug: "pine", stripePriceId: "price_m", coachingStripePriceId: "price_c",
+    } as any);
+    await createClubAction({ ...form, coachingAmount: "30" });
+    const created = await vi.mocked(logUserAudit).mock.calls[0][1]();
+    expect(created.metadata).toMatchObject({
+      membershipAmountCents: 1499, coachingAmountCents: 3000, stripePriceId: "price_m", coachingStripePriceId: "price_c",
+    });
+  });
+
+  it("audits an update with the amounts and diffs old/new price ids against the saved row", async () => {
+    const before = { clerkOrgId: "org_1", name: "Pine", stripePriceId: "price_old" };
+    const after = { clerkOrgId: "org_1", name: "Pine", stripePriceId: "price_new" };
+    vi.mocked(prisma.organization.findUnique).mockResolvedValue(before as any);
+    vi.mocked(updateClub).mockResolvedValue(after as any);
+    const { trainerEmail: _t, ...updateForm } = form;
+    expect(await updateClubAction("org_1", { ...updateForm, membershipAmount: "19.99" })).toEqual({ ok: true });
+    const event = await vi.mocked(logUserAudit).mock.calls[0][1]();
+    expect(event.action).toBe("CLUB_UPDATED");
+    expect(event.metadata).toMatchObject({ membershipAmountCents: 1999, coachingAmountCents: null });
+    expect(diffFields).toHaveBeenCalledWith(before, after, expect.arrayContaining(["stripePriceId", "coachingStripePriceId"]));
+  });
+
+  it("refuses a create without a trainer email", async () => {
+    const { trainerEmail: _t, ...noEmail } = form;
+    expect((await createClubAction(noEmail)).ok).toBe(false);
+    expect(createClub).not.toHaveBeenCalled();
+  });
+
+  it("turns ClubError into a user-facing error", async () => {
+    vi.mocked(createClub).mockRejectedValue(new ClubError("slug_taken", "That join link is already used by another club."));
+    expect(await createClubAction(form)).toEqual({ ok: false, error: "That join link is already used by another club." });
+  });
+
+  it("extends a trial from the later of now and the current end", async () => {
+    const end = new Date(Date.now() + 2 * 86400_000);
+    vi.mocked(prisma.memberSubscription.findUnique).mockResolvedValue({ userId: "u1", status: "TRIALING", trialEndsAt: end, stripeSubscriptionId: null } as any);
+    expect((await extendMemberTrialAction("u1", 7)).ok).toBe(true);
+    const args = vi.mocked(prisma.memberSubscription.updateMany).mock.calls[0][0] as any;
+    expect(args.where).toEqual({
+      userId: "u1",
+      trialEndsAt: end,
+      OR: [{ status: "TRIALING" }, { status: "CANCELED", OR: [{ stripeSubscriptionId: null }, { stripeSubscriptionId: { isSet: false } }] }],
+    });
+    expect(args.data.status).toBe("TRIALING");
+    expect(args.data.remindersSent).toEqual([]);
+    expect(args.data.trialEndsAt.getTime()).toBe(end.getTime() + 7 * 86400_000);
+  });
+
+  it("returns an error and skips the audit when the row changed underneath", async () => {
+    vi.mocked(prisma.memberSubscription.findUnique).mockResolvedValue({ userId: "u1", status: "TRIALING", trialEndsAt: new Date(), stripeSubscriptionId: null } as any);
+    vi.mocked(prisma.memberSubscription.updateMany).mockResolvedValue({ count: 0 } as any);
+    expect(await extendMemberTrialAction("u1", 7)).toEqual({ ok: false, error: "This member's billing changed — refresh and try again." });
+    expect(logUserAudit).not.toHaveBeenCalled();
+  });
+
+  it("extends a canceled member with no Stripe subscription", async () => {
+    vi.mocked(prisma.memberSubscription.findUnique).mockResolvedValue({ userId: "u1", status: "CANCELED", trialEndsAt: new Date(Date.now() - 86400_000), stripeSubscriptionId: null } as any);
+    expect((await extendMemberTrialAction("u1", 7)).ok).toBe(true);
+    expect(prisma.memberSubscription.updateMany).toHaveBeenCalled();
+  });
+
+  it("returns ok:false when the database throws", async () => {
+    vi.mocked(prisma.memberSubscription.findUnique).mockRejectedValue(new Error("db down"));
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    expect((await extendMemberTrialAction("u1", 7)).ok).toBe(false);
+  });
+
+  it("refuses an invalid org type without calling the service", async () => {
+    expect(await setOrgTypeAction("org_1", "ADMIN" as any)).toEqual({ ok: false, error: "Invalid org type." });
+    expect(setOrgType).not.toHaveBeenCalled();
+  });
+
+  it("refuses to extend a paying member or a bad day count", async () => {
+    vi.mocked(prisma.memberSubscription.findUnique).mockResolvedValue({ userId: "u1", status: "ACTIVE", trialEndsAt: new Date(), stripeSubscriptionId: "sub_1" } as any);
+    expect((await extendMemberTrialAction("u1", 7)).ok).toBe(false);
+    expect((await extendMemberTrialAction("u1", 0)).ok).toBe(false);
+    expect((await extendMemberTrialAction("u1", 91)).ok).toBe(false);
+    expect(prisma.memberSubscription.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("surfaces the has_clients guard on type change", async () => {
+    vi.mocked(setOrgType).mockRejectedValue(new ClubError("has_clients", "Org type can't change once it has clients."));
+    expect(await setOrgTypeAction("org_1", "TRAINER")).toEqual({ ok: false, error: "Org type can't change once it has clients." });
+  });
+});
+
+describe("club trainer admin actions", () => {
+  beforeEach(() => {
+    vi.mocked(prisma.organization.findUnique).mockResolvedValue({ clerkOrgId: "org1", name: "Pine", type: "CLUB" } as any);
+    vi.mocked(getClubTrainer).mockResolvedValue({ id: "t1", email: "old@x.com", clerkId: "c1" } as any);
+    vi.mocked(getPendingTrainerInvite).mockResolvedValue(null);
+  });
+  const actions = async () => (await Promise.all(vi.mocked(logUserAudit).mock.calls.map(([, build]) => build()))).map((e) => e.action);
+
+  it.each([
+    ["replace", () => replaceClubTrainerAction("org1", "new@x.com")],
+    ["resend", () => resendClubTrainerInviteAction("org1")],
+  ])("%s requires super admin", async (_n, run) => {
+    vi.mocked(requireSuperAdmin).mockRejectedValueOnce(new Error("NEXT_REDIRECT"));
+    await expect(run()).rejects.toThrow("NEXT_REDIRECT");
+    expect(removeClubTrainer).not.toHaveBeenCalled();
+    expect(inviteClubTrainer).not.toHaveBeenCalled();
+  });
+
+  it("replace validates the email before removing the current trainer", async () => {
+    expect(await replaceClubTrainerAction("org1", "not-an-email")).toEqual({ ok: false, error: "Enter a valid club trainer email." });
+    vi.mocked(assertTrainerEmailFree).mockRejectedValueOnce(new ClubError("trainer_email_taken", "That email already has an account."));
+    expect(await replaceClubTrainerAction("org1", "taken@x.com")).toEqual({ ok: false, error: "That email already has an account." });
+    expect(removeClubTrainer).not.toHaveBeenCalled();
+    expect(logUserAudit).not.toHaveBeenCalled();
+  });
+
+  it("replace removes then invites and audits both", async () => {
+    expect(await replaceClubTrainerAction("org1", " New@X.com ")).toEqual({ ok: true });
+    expect(removeClubTrainer).toHaveBeenCalledWith("org1");
+    expect(inviteClubTrainer).toHaveBeenCalledWith("org1", "new@x.com");
+    expect(vi.mocked(removeClubTrainer).mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(inviteClubTrainer).mock.invocationCallOrder[0]);
+    expect(await actions()).toEqual(["CLUB_TRAINER_REMOVED", "CLUB_TRAINER_INVITED"]);
+  });
+
+  it("replace on a trainer-less club only invites", async () => {
+    vi.mocked(getClubTrainer).mockResolvedValue(null);
+    expect((await replaceClubTrainerAction("org1", "new@x.com")).ok).toBe(true);
+    expect(removeClubTrainer).not.toHaveBeenCalled();
+    expect(await actions()).toEqual(["CLUB_TRAINER_INVITED"]);
+  });
+
+  it("replace surfaces an invite failure after the removal clearly and keeps the removal audit", async () => {
+    vi.mocked(inviteClubTrainer).mockRejectedValueOnce(new ClubError("trainer_invite_failed", "Couldn't send the club trainer invitation. Please try again."));
+    const res = await replaceClubTrainerAction("org1", "new@x.com");
+    expect(res.ok).toBe(false);
+    expect((res as any).error).toMatch(/previous trainer was removed/);
+    expect((res as any).error).toMatch(/Couldn't send/);
+    expect(await actions()).toEqual(["CLUB_TRAINER_REMOVED"]);
+  });
+
+  it("replace audits the removal with an error note and stops when the DB update failed after the Clerk delete", async () => {
+    vi.mocked(removeClubTrainer).mockRejectedValueOnce(new ClubError("trainer_remove_failed", "Removed in Clerk, record not updated."));
+    const res = await replaceClubTrainerAction("org1", "new@x.com");
+    expect(res).toEqual({ ok: false, error: "Removed in Clerk, record not updated. No invitation was sent." });
+    expect(inviteClubTrainer).not.toHaveBeenCalled();
+    const events = await Promise.all(vi.mocked(logUserAudit).mock.calls.map(([, build]) => build()));
+    expect(events.map((e) => e.action)).toEqual(["CLUB_TRAINER_REMOVED"]);
+    expect(events[0].metadata).toMatchObject({ error: "Removed in Clerk, record not updated." });
+  });
+
+  it("replace refuses a non-club org", async () => {
+    vi.mocked(prisma.organization.findUnique).mockResolvedValue({ clerkOrgId: "org1", type: "TRAINER" } as any);
+    expect((await replaceClubTrainerAction("org1", "new@x.com")).ok).toBe(false);
+    expect(removeClubTrainer).not.toHaveBeenCalled();
+  });
+
+  it("resend re-invites the pending email and audits", async () => {
+    vi.mocked(getClubTrainer).mockResolvedValue(null);
+    vi.mocked(getPendingTrainerInvite).mockResolvedValue({ email: "wait@x.com", createdAt: new Date() });
+    expect(await resendClubTrainerInviteAction("org1")).toEqual({ ok: true });
+    expect(inviteClubTrainer).toHaveBeenCalledWith("org1", "wait@x.com");
+    expect(await actions()).toEqual(["CLUB_TRAINER_INVITED"]);
+  });
+
+  it("resend refuses with an active trainer or no pending invite", async () => {
+    expect((await resendClubTrainerInviteAction("org1")).ok).toBe(false);
+    vi.mocked(getClubTrainer).mockResolvedValue(null);
+    expect((await resendClubTrainerInviteAction("org1")).ok).toBe(false);
+    expect(inviteClubTrainer).not.toHaveBeenCalled();
+  });
+
+  it("resend surfaces a ClubError", async () => {
+    vi.mocked(getClubTrainer).mockResolvedValue(null);
+    vi.mocked(getPendingTrainerInvite).mockResolvedValue({ email: "wait@x.com", createdAt: new Date() });
+    vi.mocked(inviteClubTrainer).mockRejectedValueOnce(new ClubError("trainer_invite_failed", "Couldn't send."));
+    expect(await resendClubTrainerInviteAction("org1")).toEqual({ ok: false, error: "Couldn't send." });
+    expect(logUserAudit).not.toHaveBeenCalled();
+  });
+});

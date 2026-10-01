@@ -32,7 +32,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { GripVertical, Plus, Trash2, Play, X, ChevronDown, ChevronRight, Sparkles, Loader2 } from "lucide-react";
+import { GripVertical, Plus, Trash2, Play, X, ChevronDown, ChevronRight, Sparkles, Loader2, CalendarPlus } from "lucide-react";
+import { EmptyState } from "@/components/shared/empty-state";
 import { ExercisePickerDialog } from "./exercise-picker-dialog";
 import { SetEditor } from "./set-editor";
 import {
@@ -510,7 +511,7 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
       );
       const firstName = getExerciseName(
         exs[0].exerciseId,
-        (exs[0] as any)._exerciseName
+        (exs[0] as { _exerciseName?: string })._exerciseName
       );
       const label = exs.length === 1 ? `"${firstName}"` : `${exs.length} exercises`;
       copy({ type: "exercises", data: exs, label });
@@ -687,15 +688,15 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between bg-card p-4 rounded-lg border">
-        <div>
-          <h2 className="text-xl font-semibold tracking-tight">Workouts</h2>
-          <p className="text-sm text-muted-foreground">
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-3 rounded-xl bg-card p-5 shadow-xs ring-1 ring-border sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <h2 className="text-heading text-foreground">Workouts</h2>
+          <p className="mt-1 text-body text-muted-foreground">
             Organize your program into weeks, with up to 7 days each. Drag blocks or exercises to reorder.
           </p>
         </div>
-        <div className="flex items-center gap-1 rounded-lg border bg-muted/40 p-0.5 w-fit">
+        <div className="flex w-fit shrink-0 items-center gap-1 rounded-lg bg-muted p-1">
           {(["focus", "all"] as const).map((mode) => (
             <button
               key={mode}
@@ -703,9 +704,9 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
               onClick={() => setViewMode(mode)}
               aria-pressed={viewMode === mode}
               className={cn(
-                "rounded-md px-3 py-1 text-xs font-medium transition-colors",
+                "h-8 rounded-md px-3 text-label transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none",
                 viewMode === mode
-                  ? "bg-background text-foreground shadow-sm"
+                  ? "bg-surface text-foreground shadow-xs"
                   : "text-muted-foreground hover:text-foreground"
               )}
             >
@@ -716,8 +717,8 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
       </div>
 
       {selection.level === "exercises" && selection.exerciseIdxs.size > 0 && (
-        <div className="flex items-center justify-between gap-3 rounded-lg border border-info-border bg-info-soft px-4 py-3">
-          <p className="text-sm font-medium text-info-foreground">
+        <div className="sticky top-0 z-20 flex items-center justify-between gap-3 rounded-lg border border-info-border bg-info-soft px-4 py-3 shadow-sm">
+          <p className="text-label text-info-foreground">
             {selection.exerciseIdxs.size} exercise{selection.exerciseIdxs.size === 1 ? "" : "s"} selected
           </p>
           <Button
@@ -761,22 +762,27 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
       </Dialog>
 
       {weekGroups.length === 0 && (
-        <div className="rounded-lg border-2 border-dashed p-10 text-center text-muted-foreground">
-          <p className="mb-3 text-sm">No weeks yet. Start by adding your first week.</p>
-          <Button type="button" variant="secondary" onClick={addWeek}>
-            <Plus className="mr-2 h-4 w-4" /> Add Week
-          </Button>
-        </div>
+        <EmptyState
+          icon={CalendarPlus}
+          title="No weeks yet"
+          description="Start by adding your first week."
+          className="rounded-xl border border-dashed border-border-strong bg-card"
+          action={
+            <Button type="button" variant="outline" onClick={addWeek}>
+              <Plus className="size-4" /> Add Week
+            </Button>
+          }
+        />
       )}
 
       {weekGroups.map(({ weekIndex, dayIdxs }, weekPos) => {
         const isCollapsed = collapsedWeeks.has(weekIndex);
         return (
-          <div key={weekIndex} className="rounded-xl border-2 bg-muted/10">
-            <div className="flex items-center justify-between p-4">
+          <div key={weekIndex} className="rounded-xl bg-surface-muted/70 ring-1 ring-border">
+            <div className="flex items-center justify-between px-4 py-3">
               <button
                 type="button"
-                className="flex items-center gap-2 text-left"
+                className="flex items-center gap-2 rounded-md text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 onClick={() => toggleWeek(weekIndex)}
               >
                 {isCollapsed ? (
@@ -784,7 +790,7 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
                 ) : (
                   <ChevronDown className="h-4 w-4 text-muted-foreground" />
                 )}
-                <h3 className="text-lg font-bold tracking-tight">
+                <h3 className="text-heading text-foreground">
                   Week {weekPos + 1}
                 </h3>
                 <Badge variant="secondary">
@@ -798,6 +804,7 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
                 onClick={() => removeWeek(weekIndex)}
                 className="text-destructive"
                 title="Remove week"
+                aria-label={`Remove week ${weekPos + 1}`}
               >
                 <Trash2 className="h-4 w-4" />
               </Button>
@@ -818,7 +825,7 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
         <Card
           key={wi}
           className={cn(
-            "border-2 transition-shadow",
+            "transition-shadow motion-reduce:transition-none",
             selection.level === "workout" && selection.workoutIdx === wi
               ? "ring-2 ring-ring"
               : ""
@@ -840,7 +847,7 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
                 type="button"
                 variant="ghost"
                 size="icon"
-                className="h-7 w-7 shrink-0"
+                className="size-8 shrink-0"
                 onClick={() => toggleDay(weekIndex, workout.dayIndex)}
                 title={isDayCollapsed ? "Expand day" : "Collapse day"}
               >
@@ -855,7 +862,8 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
                 onChange={(e) =>
                   updateWorkoutField(wi, "name", e.target.value)
                 }
-                className="text-lg font-bold max-w-xs"
+                aria-label="Workout name"
+                className="max-w-xs font-semibold md:text-base"
               />
               <Input
                 type="number"
@@ -868,6 +876,7 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
                   )
                 }
                 placeholder="Est. min"
+                aria-label="Estimated minutes"
                 className="w-24"
               />
               {isDayCollapsed && (
@@ -882,6 +891,7 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
               size="icon"
               onClick={() => removeWorkout(wi)}
               className="text-destructive"
+              aria-label="Remove workout"
             >
               <Trash2 className="h-4 w-4" />
             </Button>
@@ -904,7 +914,7 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
                     {(dragHandleProps) => (
                       <div
                         className={cn(
-                          "border rounded-lg p-4 bg-muted/30 transition-shadow",
+                          "rounded-lg border border-border bg-surface-muted/60 p-4 transition-shadow motion-reduce:transition-none",
                           selection.level === "block" &&
                           selection.workoutIdx === wi &&
                           selection.blockIdx === bi
@@ -1045,13 +1055,13 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
                                     return open ? (
                                     <div
                                       className={cn(
-                                        "border rounded-md p-3 group",
+                                        "group rounded-md border border-border p-3",
                                         selection.level === "exercises" &&
                                         selection.workoutIdx === wi &&
                                         selection.blockIdx === bi &&
                                         selection.exerciseIdxs.has(ei)
                                           ? "bg-info-soft"
-                                          : "bg-background"
+                                          : "bg-surface"
                                       )}
                                     >
                                       <div className="flex items-center gap-2 mb-2">
@@ -1160,7 +1170,7 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
                                             onClick={() =>
                                               removeExercise(wi, bi, ei)
                                             }
-                                            className="text-destructive h-7 w-7"
+                                            className="size-8 text-destructive"
                                             title="Remove exercise"
                                           >
                                             <Trash2 className="h-3 w-3" />
@@ -1241,7 +1251,7 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
               variant="secondary"
               size="sm"
               onClick={() => addBlock(wi)}
-              className="w-full border-dashed border-2"
+              className="w-full border border-dashed border-border-strong"
             >
               <Plus className="mr-1 h-3.5 w-3.5" /> Add Block
             </Button>
@@ -1257,7 +1267,7 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
                   size="sm"
                   disabled={dayIdxs.length >= MAX_DAYS_PER_WEEK}
                   onClick={() => addDayToWeek(weekIndex)}
-                  className="w-full border-dashed border-2"
+                  className="w-full border-dashed bg-surface"
                 >
                   <Plus className="mr-1 h-3.5 w-3.5" />
                   {dayIdxs.length >= MAX_DAYS_PER_WEEK
@@ -1275,7 +1285,7 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
           type="button"
           variant="secondary"
           onClick={addWeek}
-          className="w-full border-dashed border-2 bg-background hover:bg-muted"
+          className="w-full border border-dashed border-border-strong bg-surface hover:bg-surface-muted"
         >
           <Plus className="mr-2 h-4 w-4" /> Add Week
         </Button>

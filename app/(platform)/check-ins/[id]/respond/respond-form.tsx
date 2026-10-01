@@ -4,11 +4,13 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
+import { PageShell } from "@/components/shared/page-shell";
+import { PageHeader } from "@/components/shared/page-header";
+import { StatusBadge } from "@/components/shared/status-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { submitCheckInResponseAction } from "@/actions/checkin-actions";
-import { ArrowLeft, Send } from "lucide-react";
+import { Send } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 
@@ -48,11 +50,12 @@ function ScaleSelector({
           key={n}
           type="button"
           onClick={() => onChange(n)}
+          aria-pressed={value === n}
           className={cn(
-            "h-10 w-10 rounded-lg border text-sm font-semibold transition-all",
+            "size-10 rounded-lg border text-label tabular-nums outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50 motion-reduce:transition-none",
             value === n
               ? "border-transparent bg-primary text-primary-foreground shadow-none"
-              : "border-border bg-muted/40 text-muted-foreground hover:border-border hover:bg-muted hover:text-foreground"
+              : "border-input bg-surface text-foreground hover:border-border-strong hover:bg-surface-muted"
           )}
         >
           {n}
@@ -81,11 +84,12 @@ function BooleanSelector({
           key={label}
           type="button"
           onClick={() => onChange(val)}
+          aria-pressed={value === val}
           className={cn(
-            "min-w-[80px] rounded-lg border px-5 py-2.5 text-sm font-semibold transition-all",
+            "h-10 min-w-20 rounded-lg border px-5 text-label outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50 motion-reduce:transition-none",
             value === val
               ? "border-transparent bg-primary text-primary-foreground shadow-none"
-              : "border-border bg-muted/40 text-muted-foreground hover:border-border hover:bg-muted hover:text-foreground"
+              : "border-input bg-surface text-foreground hover:border-border-strong hover:bg-surface-muted"
           )}
         >
           {label}
@@ -113,11 +117,12 @@ function MultipleChoiceSelector({
           key={opt}
           type="button"
           onClick={() => onChange(opt)}
+          aria-pressed={value === opt}
           className={cn(
-            "rounded-lg border px-4 py-2 text-sm font-medium transition-all",
+            "min-h-10 rounded-lg border px-4 py-2 text-label outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50 motion-reduce:transition-none",
             value === opt
               ? "border-transparent bg-primary text-primary-foreground shadow-none"
-              : "border-border bg-muted/40 text-muted-foreground hover:border-border hover:bg-muted hover:text-foreground"
+              : "border-input bg-surface text-foreground hover:border-border-strong hover:bg-surface-muted"
           )}
         >
           {opt}
@@ -182,45 +187,35 @@ export function RespondForm({ assignment, questions }: Props) {
   }
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" asChild>
-          <Link href="/check-ins">
-            <ArrowLeft className="h-4 w-4" />
-          </Link>
-        </Button>
-        <div className="flex-1">
-          <div className="flex items-center gap-3">
-            <h2 className="text-2xl font-bold tracking-tight">
-              {assignment.templateName}
-            </h2>
-            <Badge className="bg-info-soft text-info-foreground border-0 text-xs">
-              {frequencyLabel(assignment.frequency)}
-            </Badge>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            Answer each question as honestly as you can.
-          </p>
-        </div>
-      </div>
+    <PageShell width="narrow">
+      <PageHeader
+        title={assignment.templateName}
+        description="Answer each question as honestly as you can."
+        back={{ label: "Back to check-ins", href: "/check-ins" }}
+        breadcrumb={[{ label: "Check-ins", href: "/check-ins" }, { label: assignment.templateName }]}
+        meta={
+          <StatusBadge
+            status={assignment.frequency}
+            label={frequencyLabel(assignment.frequency)}
+            role="info"
+            dot={false}
+          />
+        }
+      />
 
       {/* Questions */}
-      <div className="space-y-4">
+      <div className="flex flex-col gap-4">
         {questions.map((q, idx) => (
-          <Card
-            key={q.id}
-            className="ring-1 ring-border shadow-none"
-          >
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-start gap-2 text-base font-semibold leading-snug">
-                <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-bold text-muted-foreground">
+          <Card key={q.id}>
+            <CardHeader>
+              <CardTitle className="flex items-start gap-2 text-heading">
+                <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-surface-muted text-caption font-semibold tabular-nums text-foreground ring-1 ring-border">
                   {idx + 1}
                 </span>
                 <span>{q.questionText}</span>
                 {q.isRequired && (
-                  <span className="ml-auto text-sm font-normal text-destructive shrink-0">
-                    *
+                  <span className="ml-auto shrink-0 text-body font-normal text-danger-foreground">
+                    *<span className="sr-only">Required</span>
                   </span>
                 )}
               </CardTitle>
@@ -228,6 +223,7 @@ export function RespondForm({ assignment, questions }: Props) {
             <CardContent>
               {q.questionType === "TEXT" && (
                 <Textarea
+                  aria-label={q.questionText}
                   placeholder="Type your answer here..."
                   rows={3}
                   value={(answers[q.id] as string) ?? ""}
@@ -236,13 +232,13 @@ export function RespondForm({ assignment, questions }: Props) {
               )}
 
               {q.questionType === "SCALE" && (
-                <div className="space-y-2">
+                <div className="flex flex-col gap-2">
                   <ScaleSelector
                     value={(answers[q.id] as number | null) ?? null}
                     onChange={(v) => setAnswer(q.id, v)}
                   />
                   {answers[q.id] !== undefined && (
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-body text-muted-foreground">
                       Selected:{" "}
                       <span className="font-semibold text-foreground">
                         {String(answers[q.id])} / 10
@@ -276,19 +272,15 @@ export function RespondForm({ assignment, questions }: Props) {
       </div>
 
       {/* Submit */}
-      <div className="flex items-center justify-end gap-3 pb-8">
+      <div className="flex items-center justify-end gap-2 border-t border-border pt-6">
         <Button variant="outline" asChild>
           <Link href="/check-ins">Cancel</Link>
         </Button>
-        <Button
-          onClick={handleSubmit}
-          disabled={submitting}
-          className="gap-2"
-        >
-          <Send className="h-4 w-4" />
+        <Button onClick={handleSubmit} disabled={submitting}>
+          <Send />
           {submitting ? "Submitting..." : "Submit Check-in"}
         </Button>
       </div>
-    </div>
+    </PageShell>
   );
 }

@@ -3,16 +3,19 @@
 import { useState } from "react";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { FormField } from "@/components/shared/form-section";
+import { cn } from "@/lib/utils";
+import { NATIVE_SELECT_CLASS } from "@/lib/ui/native-select";
 import { DIFFICULTY_LEVELS, FITNESS_GOALS } from "@/lib/utils/constants";
 import { generateProgramAction } from "@/actions/program-actions";
 import { toast } from "sonner";
@@ -183,64 +186,64 @@ export function AiGenerateProgramDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl flex flex-col p-0 max-h-[90vh] overflow-hidden">
-        <DialogHeader className="px-4 pt-6 pb-4 border-b shrink-0 sm:px-6">
+      <DialogContent className="flex max-h-[90dvh] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl">
+        <DialogHeader className="shrink-0 border-b border-border px-4 pt-5 pb-4 sm:px-6">
           <DialogTitle className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-brand" />
-            Generate Program with AI
+            <Sparkles className="size-4 text-brand" aria-hidden />
+            Generate program with AI
           </DialogTitle>
-          <p className="text-xs text-muted-foreground mt-1">
+          <DialogDescription>
             Program starts{" "}
             <span className="font-medium text-foreground">
               {format(initialDate, "EEEE, MMMM d, yyyy")}
             </span>
-          </p>
+          </DialogDescription>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto min-h-0">
-          <div className="px-4 py-5 space-y-5 sm:px-6">
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <div className="flex flex-col gap-5 px-4 py-5 sm:px-6">
             {/* Program Goals */}
-            <div className="space-y-2">
-              <Label>Program Goals *</Label>
-              <div className="flex flex-wrap gap-2">
+            <FormField label="Program goals" required>
+              <div role="group" aria-label="Program goals" className="flex flex-wrap gap-2">
                 {FITNESS_GOALS.map((goal) => (
                   <Button
                     key={goal}
                     type="button"
                     variant={selectedGoals.includes(goal) ? "default" : "outline"}
                     size="sm"
+                    aria-pressed={selectedGoals.includes(goal)}
                     onClick={() => toggleGoal(goal)}
                   >
                     {goal}
                   </Button>
                 ))}
               </div>
-            </div>
+            </FormField>
 
             {/* Difficulty */}
-            <div className="space-y-2">
-              <Label>Difficulty Level</Label>
-              <div className="flex gap-2">
+            <FormField label="Difficulty level">
+              <div role="group" aria-label="Difficulty level" className="flex flex-wrap gap-2">
                 {DIFFICULTY_LEVELS.map((d) => (
                   <Button
                     key={d.value}
                     type="button"
                     variant={difficulty === d.value ? "default" : "outline"}
                     size="sm"
+                    aria-pressed={difficulty === d.value}
                     onClick={() => setDifficulty(d.value)}
                   >
                     {d.label}
                   </Button>
                 ))}
               </div>
-            </div>
+            </FormField>
 
             {/* Duration + Days Per Week */}
             <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label>Session Duration (minutes)</Label>
+              <FormField label="Session duration (minutes)" htmlFor="ai-generate-duration">
                 <select
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  id="ai-generate-duration"
+                  className={NATIVE_SELECT_CLASS}
                   value={duration}
                   onChange={(e) => setDuration(Number(e.target.value))}
                 >
@@ -248,11 +251,11 @@ export function AiGenerateProgramDialog({
                     <option key={m} value={m}>{m} minutes</option>
                   ))}
                 </select>
-              </div>
-              <div className="space-y-2">
-                <Label>Days Per Week</Label>
+              </FormField>
+              <FormField label="Days per week" htmlFor="ai-generate-days">
                 <select
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  id="ai-generate-days"
+                  className={NATIVE_SELECT_CLASS}
                   value={daysPerWeek}
                   onChange={(e) => setDaysPerWeek(Number(e.target.value))}
                 >
@@ -260,15 +263,15 @@ export function AiGenerateProgramDialog({
                     <option key={d} value={d}>{d} {d === 1 ? "day" : "days"}</option>
                   ))}
                 </select>
-              </div>
+              </FormField>
             </div>
 
             {/* Circuit Structure */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label>Circuit Structure</Label>
-                  <p className="text-xs text-muted-foreground mt-0.5">
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-label text-foreground">Circuit structure</p>
+                  <p className="mt-0.5 text-caption">
                     Total:{" "}
                     <span className="font-medium text-foreground">
                       {totalExercises} exercises
@@ -283,49 +286,53 @@ export function AiGenerateProgramDialog({
                   onClick={addCircuit}
                   className="shrink-0"
                 >
-                  <Plus className="h-4 w-4 mr-1" />
-                  Add Circuit
+                  <Plus className="size-4" />
+                  Add circuit
                 </Button>
               </div>
-              <div className="space-y-2">
+              <div className="flex flex-col gap-2">
                 {circuits.map((circuit, index) => (
                   <div
                     key={circuit.id}
-                    className="flex items-center gap-2 rounded-lg border bg-muted/30 p-3"
+                    className="flex items-center gap-2 rounded-lg border border-border bg-surface-muted p-3"
                   >
                     {/* Reorder buttons */}
-                    <div className="flex flex-col shrink-0">
+                    <div className="flex shrink-0 flex-col">
                       <button
                         type="button"
                         disabled={index === 0}
                         onClick={() => moveCircuit(circuit.id, "up")}
-                        className="h-4 w-4 flex items-center justify-center text-muted-foreground hover:text-foreground disabled:opacity-20 disabled:cursor-not-allowed"
+                        aria-label={`Move circuit ${index + 1} up`}
+                        className="flex size-4 items-center justify-center rounded-sm text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-20"
                       >
-                        <ChevronUp className="h-3 w-3" />
+                        <ChevronUp className="size-3" />
                       </button>
                       <button
                         type="button"
                         disabled={index === circuits.length - 1}
                         onClick={() => moveCircuit(circuit.id, "down")}
-                        className="h-4 w-4 flex items-center justify-center text-muted-foreground hover:text-foreground disabled:opacity-20 disabled:cursor-not-allowed"
+                        aria-label={`Move circuit ${index + 1} down`}
+                        className="flex size-4 items-center justify-center rounded-sm text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-20"
                       >
-                        <ChevronDown className="h-3 w-3" />
+                        <ChevronDown className="size-3" />
                       </button>
                     </div>
 
-                    <span className="text-xs font-medium text-muted-foreground w-5 shrink-0">
+                    <span className="w-5 shrink-0 text-caption font-medium">
                       {index + 1}
                     </span>
                     <Input
                       value={circuit.name}
                       onChange={(e) => updateCircuit(circuit.id, { name: e.target.value })}
                       placeholder="Circuit name"
-                      className="h-8 text-sm flex-1 min-w-0"
+                      aria-label={`Circuit ${index + 1} name`}
+                      className="h-8 min-w-0 flex-1 text-body"
                     />
                     <select
                       value={circuit.focusType}
                       onChange={(e) => updateCircuit(circuit.id, { focusType: e.target.value })}
-                      className="h-8 rounded-md border border-input bg-background px-2 py-1 text-sm flex-1 min-w-0"
+                      aria-label={`Circuit ${index + 1} focus`}
+                      className={cn(NATIVE_SELECT_CLASS, "h-8 min-w-0 flex-1 px-2")}
                     >
                       {CIRCUIT_FOCUS_OPTIONS.map((opt) => (
                         <option key={opt.value} value={opt.value}>
@@ -333,7 +340,7 @@ export function AiGenerateProgramDialog({
                         </option>
                       ))}
                     </select>
-                    <div className="flex items-center gap-1 shrink-0">
+                    <div className="flex shrink-0 items-center gap-1">
                       <Input
                         type="number"
                         min={1}
@@ -344,11 +351,12 @@ export function AiGenerateProgramDialog({
                             exerciseCount: Math.max(1, Math.min(12, Number(e.target.value))),
                           })
                         }
-                        className="h-8 w-14 text-sm text-center"
+                        aria-label={`Circuit ${index + 1} exercise count`}
+                        className="h-8 w-14 text-center text-body"
                       />
-                      <span className="text-xs text-muted-foreground whitespace-nowrap">ex.</span>
+                      <span className="whitespace-nowrap text-caption">ex.</span>
                     </div>
-                    <div className="flex items-center gap-1 shrink-0">
+                    <div className="flex shrink-0 items-center gap-1">
                       <Input
                         type="number"
                         min={1}
@@ -360,12 +368,13 @@ export function AiGenerateProgramDialog({
                           })
                         }
                         disabled={circuit.focusType === "WARMUP" || circuit.focusType === "COOLDOWN"}
-                        className="h-8 w-14 text-sm text-center disabled:opacity-50"
+                        aria-label={`Circuit ${index + 1} sets`}
+                        className="h-8 w-14 text-center text-body disabled:opacity-50"
                         title="Sets / Cycles"
                       />
-                      <span className="text-xs text-muted-foreground whitespace-nowrap">sets</span>
+                      <span className="whitespace-nowrap text-caption">sets</span>
                     </div>
-                    <div className="flex items-center gap-1 shrink-0">
+                    <div className="flex shrink-0 items-center gap-1">
                       <Input
                         type="number"
                         min={0}
@@ -378,19 +387,21 @@ export function AiGenerateProgramDialog({
                           })
                         }
                         disabled={circuit.rounds <= 1}
-                        className="h-8 w-14 text-sm text-center disabled:opacity-50"
+                        aria-label={`Circuit ${index + 1} rest between sets (seconds)`}
+                        className="h-8 w-14 text-center text-body disabled:opacity-50"
                         title="Rest between sets (seconds)"
                       />
-                      <span className="text-xs text-muted-foreground whitespace-nowrap">s rest</span>
+                      <span className="whitespace-nowrap text-caption">s rest</span>
                     </div>
                     <Button
                       type="button"
                       variant="ghost"
                       size="icon"
-                      className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive"
+                      className="size-8 shrink-0 text-muted-foreground hover:text-destructive"
                       onClick={() => removeCircuit(circuit.id)}
+                      aria-label={`Remove circuit ${index + 1}`}
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <Trash2 className="size-4" />
                     </Button>
                   </div>
                 ))}
@@ -398,68 +409,62 @@ export function AiGenerateProgramDialog({
             </div>
 
             {/* Training Days */}
-            <div className="space-y-2">
-              <Label>Training Days</Label>
-              <div className="flex flex-wrap gap-2">
+            <FormField
+              label="Training days"
+              hint={`Select exactly ${daysPerWeek} day${daysPerWeek === 1 ? "" : "s"}.`}
+            >
+              <div role="group" aria-label="Training days" className="flex flex-wrap gap-2">
                 {weekDays.map((day) => (
                   <Button
                     key={day}
                     type="button"
                     variant={selectedWeekdays.includes(day) ? "default" : "outline"}
                     size="sm"
+                    aria-pressed={selectedWeekdays.includes(day)}
                     onClick={() => toggleWeekday(day)}
                   >
                     {day.slice(0, 3)}
                   </Button>
                 ))}
               </div>
-              <p className="text-xs text-muted-foreground">
-                Select exactly {daysPerWeek} day{daysPerWeek === 1 ? "" : "s"}.
-              </p>
-            </div>
+            </FormField>
 
             {/* Subjective */}
-            <div className="space-y-2">
-              <Label>Client Subjective</Label>
+            <FormField label="Client subjective" htmlFor="ai-generate-subjective">
               <Textarea
+                id="ai-generate-subjective"
                 rows={4}
                 placeholder="Paste the full subjective report (pain behavior, aggravating factors, functional limits, goals, etc.)"
                 value={subjective}
                 onChange={(e) => setSubjective(e.target.value)}
               />
-            </div>
+            </FormField>
 
             {/* Trainer prompt */}
-            <div className="space-y-2">
-              <Label>
-                Program Instructions{" "}
-                <span className="text-muted-foreground font-normal">(optional)</span>
-              </Label>
+            <FormField label="Program instructions (optional)" htmlFor="ai-generate-prompt">
               <Textarea
+                id="ai-generate-prompt"
                 rows={2}
                 placeholder='e.g. "Act as a DPT and create a 1-week PT progression for this subjective."'
                 value={trainerPrompt}
                 onChange={(e) => setTrainerPrompt(e.target.value)}
               />
-            </div>
+            </FormField>
 
             {/* Notes */}
-            <div className="space-y-2">
-              <Label>
-                Additional Notes{" "}
-                <span className="text-muted-foreground font-normal">(optional)</span>
-              </Label>
+            <FormField label="Additional notes (optional)" htmlFor="ai-generate-notes">
               <Textarea
+                id="ai-generate-notes"
                 rows={2}
                 placeholder="Any specific requirements, modifications, or goals..."
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
               />
-            </div>
+            </FormField>
           </div>
         </div>
 
-        <DialogFooter className="px-4 py-4 border-t shrink-0 sm:px-6">
+        <DialogFooter className="shrink-0 border-t border-border bg-surface-muted px-4 py-4 sm:px-6">
           <Button
             variant="outline"
             onClick={() => onOpenChange(false)}
@@ -467,20 +472,16 @@ export function AiGenerateProgramDialog({
           >
             Cancel
           </Button>
-          <Button
-            onClick={handleGenerate}
-            disabled={loading}
-            className="bg-brand hover:bg-brand/90 text-white"
-          >
+          <Button onClick={handleGenerate} disabled={loading}>
             {loading ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Loader2 className="size-4 animate-spin" />
                 Generating...
               </>
             ) : (
               <>
-                <Sparkles className="mr-2 h-4 w-4" />
-                Generate Program
+                <Sparkles className="size-4" />
+                Generate program
               </>
             )}
           </Button>

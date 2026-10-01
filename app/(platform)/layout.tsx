@@ -10,10 +10,14 @@ import { SearchProvider } from "@/components/search/search-provider";
 import { CommandPalette } from "@/components/search/command-palette";
 import { BreadcrumbProvider } from "@/components/layout/breadcrumb-context";
 import { MobileTabBar } from "@/components/layout/mobile-tab-bar";
+import { MemberTrialBanner } from "@/components/billing/member-trial-banner";
 import { BrandStyle } from "@/components/branding/brand-style";
 import { getCurrentBranding, getOrgBranding } from "@/lib/services/branding.service";
 import { toViewModel } from "@/lib/branding/types";
 import { brandIconsMetadata, brandViewport } from "@/lib/branding/metadata";
+import { evaluateAccess, evaluateMemberAccess, memberTrialBannerDays } from "@/lib/billing/access";
+import { hiddenNavHrefs } from "@/lib/org-capabilities";
+import { getCapabilitiesForUser } from "@/lib/org-capabilities.server";
 
 // Both deduped with the layout's own read via React.cache in branding.service.
 export async function generateMetadata(): Promise<Metadata> {
@@ -43,28 +47,38 @@ export default async function PlatformLayout({ children }: { children: React.Rea
     if (orgId) redirect("/onboarding/client");
     redirect("/onboarding");
   }
+  // Deactivated accounts (e.g. a removed club trainer) never reach the billing gate.
+  if (user.isActive === false) redirect("/account-deactivated");
   if (!user.onboarded) {
     if (user.role === "CLIENT") redirect("/onboarding/client");
+    // A TRAINER in a member-billed org is an invited club trainer: never the
+    // trainer-org signup (which would create a second org and a trial).
+    if ((await getCapabilitiesForUser(user)).billing === "member") redirect("/onboarding/club-trainer");
     redirect("/onboarding");
   }
 
-  // Billing gate: redirect trainers who have no active subscription
-  if (user.role === "TRAINER") {
-    const sub = await prisma.trainerSubscription.findUnique({
-      where: { trainerId: user.id },
-    });
+  // Billing gate. Who pays depends on the org: trainers in trainer orgs,
+  // each member in club orgs. The club trainer (a TRAINER inside a
+  // member-billed org) is never gated. Per-user caps: `billing` depends only on the org, the
+  // feature flags also on role and (club members) coaching status.
+  const caps = await getCapabilitiesForUser(user);
+  const now = new Date();
+  let memberTrialDays: number | null = null;
 
-    const now = new Date();
-    const isTrialExpired =
-      !sub ||
-      sub.status === "CANCELED" ||
-      (sub.status === "TRIALING" && sub.trialEndsAt < now);
-    const isPaymentFailed =
-      sub?.status === "PAST_DUE" || sub?.status === "UNPAID";
-
-    if (isTrialExpired) redirect("/billing?reason=trial_expired");
-    if (isPaymentFailed) redirect("/billing?reason=payment_failed");
+  if (user.role === "TRAINER" && caps.billing === "trainer") {
+    const sub = await prisma.trainerSubscription.findUnique({ where: { trainerId: user.id } });
+    const verdict = evaluateAccess(sub, now);
+    if (verdict !== "ok") redirect(`/billing?reason=${verdict}`);
   }
+
+  if (user.role === "CLIENT" && caps.billing === "member") {
+    const sub = await prisma.memberSubscription.findUnique({ where: { userId: user.id } });
+    const verdict = evaluateMemberAccess(sub, now);
+    if (verdict !== "ok") redirect(`/billing?reason=${verdict}`);
+    memberTrialDays = memberTrialBannerDays(sub, now);
+  }
+
+  const hiddenHrefs = hiddenNavHrefs(caps);
 
   const [
     unreadChatCount,
@@ -100,7 +114,7 @@ export default async function PlatformLayout({ children }: { children: React.Rea
   return (
     <SearchProvider>
       <BreadcrumbProvider>
-        <div data-app-shell className="flex h-dvh overflow-hidden bg-[oklch(0.97_0.005_247)]">
+        <div data-app-shell className="flex h-dvh overflow-hidden bg-canvas">
           <BrandStyle branding={branding} />
           <Sidebar
             role={user.role}
@@ -110,23 +124,29 @@ export default async function PlatformLayout({ children }: { children: React.Rea
             userEmail={user.email}
             userImageUrl={user.imageUrl}
             isAdmin={adminAccess}
+            hiddenHrefs={hiddenHrefs}
             branding={brandingVm}
           />
-          <div className="flex flex-1 flex-col overflow-hidden">
+          <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
             <Header
               user={user}
               unreadMessageCount={unreadMessageCount}
               unreadNotificationCount={unreadNotificationCount}
               initialNotifications={initialNotifications}
               branding={brandingVm}
+              hiddenHrefs={hiddenHrefs}
             />
-            <main className="flex-1 overflow-y-auto p-4 pb-[calc(1rem_+_var(--tab-bar-height)_+_var(--safe-bottom))] sm:p-6 sm:pb-[calc(1.5rem_+_var(--tab-bar-height)_+_var(--safe-bottom))] lg:pb-6">
+            {/* Spec §2.1 gutter: 16 mobile / 24 ≥1024 / 32 ≥1536. Below lg the bottom
+                padding also clears the fixed tab bar and the safe area. */}
+            <main className="flex-1 overflow-y-auto p-4 pb-[calc(1rem_+_var(--tab-bar-height)_+_var(--safe-bottom))] lg:p-6 2xl:p-8">
+              {memberTrialDays !== null && <MemberTrialBanner daysLeft={memberTrialDays} />}
               <div className="page-enter">{children}</div>
             </main>
             <MobileTabBar
               role={user.role}
               unreadMessageCount={unreadMessageCount}
               isAdmin={adminAccess}
+              hiddenHrefs={hiddenHrefs}
             />
           </div>
           <CommandPalette role={user.role} />

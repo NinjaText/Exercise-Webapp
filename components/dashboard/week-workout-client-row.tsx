@@ -61,26 +61,26 @@ export function WeekWorkoutClientRow({ row }: { row: WeekWorkoutClientRowData })
     // A container, not a viewport, query: this row sits in a half-width card
     // on laptops and a full-width one on phones, so its own width decides
     // whether the week strip and next-session date still fit.
-    <div className="@container rounded-xl border border-border/60 bg-muted/20 p-2.5 transition-colors hover:bg-muted/40">
+    <div className="@container rounded-lg border border-border bg-surface-muted/50 p-3 transition-colors hover:bg-surface-muted motion-reduce:transition-none">
       <div className="flex items-center gap-3">
         <Link
           href={`/clients/${client.id}`}
-          className="flex min-w-0 flex-1 items-center gap-3 rounded-lg outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+          className="flex min-w-0 flex-1 items-center gap-3 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium text-muted-foreground">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-surface text-xs font-medium text-muted-foreground ring-1 ring-border">
             {initials}
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block truncate text-sm font-semibold hover:underline">
+            <span className="block truncate text-label text-foreground hover:underline">
               {displayName}
             </span>
-            <span className="flex min-w-0 items-baseline gap-1 text-xs text-muted-foreground">
+            <span className="flex min-w-0 items-baseline gap-1 text-caption">
               <span className="truncate">{programName}</span>
               {otherProgramCount > 0 && (
                 <span className="shrink-0 font-medium">+{otherProgramCount}</span>
               )}
             </span>
-            <span className="block truncate text-[11px] text-muted-foreground/70">
+            <span className="block truncate text-caption">
               {metrics?.lastCompletedAt
                 ? `Active ${formatDaysAgoLong(metrics.lastCompletedAt)}`
                 : "No completed workouts yet"}
@@ -95,7 +95,7 @@ export function WeekWorkoutClientRow({ row }: { row: WeekWorkoutClientRowData })
               title={`${format(day.date, "EEE d MMM")} — ${dayDotLabels[day.status]}`}
               className="flex w-4 flex-col items-center gap-1"
             >
-              <span className="text-[9px] font-medium leading-none text-muted-foreground/70">
+              <span className="text-[10px] font-medium leading-none text-muted-foreground">
                 {DAY_INITIALS[i]}
               </span>
               <span className={`h-2.5 w-2.5 rounded-full border ${dayDotStyles[day.status]}`} />
@@ -106,7 +106,7 @@ export function WeekWorkoutClientRow({ row }: { row: WeekWorkoutClientRowData })
         <div className="flex shrink-0 flex-col items-end gap-1">
           <div className="flex items-center gap-2">
             {nextSessionDate && (
-              <span className="hidden text-xs text-muted-foreground @xl:inline">
+              <span className="hidden text-caption tabular-nums @xl:inline">
                 Next: {format(nextSessionDate, "EEE, MMM d")}
               </span>
             )}
@@ -115,7 +115,7 @@ export function WeekWorkoutClientRow({ row }: { row: WeekWorkoutClientRowData })
             )}
           </div>
           {metrics && metrics.streak > 1 && (
-            <span className="flex items-center gap-0.5 text-[11px] font-medium text-warning-foreground">
+            <span className="flex items-center gap-0.5 text-caption font-medium text-warning-foreground">
               <Flame className="h-3 w-3" />
               {metrics.streak} streak
             </span>

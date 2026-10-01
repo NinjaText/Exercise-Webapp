@@ -64,6 +64,11 @@ export const AUDIT_ACTION_CATALOG = {
   CHECK_IN_REVIEWED: { label: "Reviewed check-in", category: "ENGAGEMENT", tone: "info" },
   FEEDBACK_SUBMITTED: { label: "Submitted exercise feedback", category: "ENGAGEMENT", tone: "info" },
   FEEDBACK_RESPONDED: { label: "Replied to feedback", category: "ENGAGEMENT", tone: "info" },
+  COACHING_REQUESTED: { label: "Requested coaching", category: "ENGAGEMENT", tone: "info" },
+  COACHING_ACCEPTED: { label: "Accepted coaching request", category: "ENGAGEMENT", tone: "success" },
+  COACHING_DECLINED: { label: "Declined coaching request", category: "ENGAGEMENT", tone: "warning" },
+  COACHING_WITHDRAWN: { label: "Withdrew coaching", category: "ENGAGEMENT", tone: "warning" },
+  COACHING_ENDED: { label: "Ended coaching", category: "ENGAGEMENT", tone: "danger" },
 
   MEAL_LOGGED: { label: "Logged meal", category: "HEALTH", tone: "info" },
   MEAL_DELETED: { label: "Deleted meal", category: "HEALTH", tone: "danger" },
@@ -74,6 +79,13 @@ export const AUDIT_ACTION_CATALOG = {
   CLINIC_SETTINGS_UPDATED: { label: "Updated clinic settings", category: "ORGANIZATION", tone: "info" },
   BRANDING_UPDATED: { label: "Updated branding", category: "ORGANIZATION", tone: "info" },
   BRANDING_RESET: { label: "Reset branding to defaults", category: "ORGANIZATION", tone: "warning" },
+  CLUB_CREATED: { label: "Created club", category: "ORGANIZATION", tone: "success" },
+  CLUB_UPDATED: { label: "Updated club", category: "ORGANIZATION", tone: "info" },
+  CLUB_TRAINER_INVITED: { label: "Invited club trainer", category: "USERS", tone: "info" },
+  CLUB_TRAINER_REMOVED: { label: "Removed club trainer", category: "USERS", tone: "warning" },
+  CLUB_TRAINER_ONBOARDED: { label: "Club trainer completed onboarding", category: "USERS", tone: "success" },
+  ORG_TYPE_CHANGED: { label: "Changed org type", category: "ORGANIZATION", tone: "warning" },
+  MEMBER_TRIAL_EXTENDED: { label: "Extended member trial", category: "USERS", tone: "info" },
 } as const satisfies Record<string, AuditActionMeta>;
 
 export type AuditAction = keyof typeof AUDIT_ACTION_CATALOG;

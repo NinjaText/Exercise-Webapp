@@ -12,26 +12,32 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   return (
     <BreadcrumbProvider>
-      <div data-app-shell className="flex h-dvh overflow-hidden bg-[oklch(0.97_0.005_247)]">
+      <div data-app-shell className="flex h-dvh overflow-hidden bg-canvas">
         <AdminSidebar
           userName={`${user.firstName} ${user.lastName}`}
           userEmail={user.email}
         />
-        <div className="flex flex-1 flex-col overflow-hidden">
-          {/* Top bar */}
-          <header className="flex h-16 items-center gap-3 border-b border-border bg-card px-4 sm:px-6">
-            <AdminMobileNav
-              userName={`${user.firstName} ${user.lastName}`}
-              userEmail={user.email}
-              userImageUrl={user.imageUrl}
-            />
-            <StatusBadge status="admin" role="brand" label="Super Admin" size="sm" />
-            <AdminTopBar />
-            <p className="hidden text-[11px] text-muted-foreground font-mono sm:block">
-              {new Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
-            </p>
+        <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+          {/* Top bar: same 56px bar and gutter as the platform shell. */}
+          <header
+            className="shrink-0 border-b border-border bg-surface"
+            style={{ paddingTop: "var(--safe-top)" }}
+          >
+            <div className="flex h-14 items-center gap-2 px-4 sm:gap-3 lg:px-6 2xl:px-8">
+              <AdminMobileNav
+                userName={`${user.firstName} ${user.lastName}`}
+                userEmail={user.email}
+                userImageUrl={user.imageUrl}
+              />
+              <StatusBadge status="admin" role="brand" label="Super Admin" size="sm" />
+              <AdminTopBar />
+              <p className="hidden text-caption tabular-nums sm:block">
+                {new Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
+              </p>
+            </div>
           </header>
-          <main className="flex-1 overflow-y-auto p-4 sm:p-6">
+          {/* Spec §2.1 gutter: 16 mobile / 24 ≥1024 / 32 ≥1536 (no tab bar in admin). */}
+          <main className="flex-1 overflow-y-auto p-4 lg:p-6 2xl:p-8">
             <div className="page-enter">{children}</div>
           </main>
         </div>

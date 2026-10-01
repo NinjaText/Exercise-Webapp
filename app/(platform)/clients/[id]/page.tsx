@@ -2,6 +2,9 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { auth } from "@clerk/nextjs/server";
 import { requireRole } from "@/lib/current-user";
+import { getCapabilitiesForUser } from "@/lib/org-capabilities.server";
+import { getClientCoachingPanel } from "@/lib/clubs/trainer-coaching";
+import { ClientCoachingPanel } from "@/components/clients/client-coaching-panel";
 import { getClientDetail, getClientIdsForTrainer } from "@/lib/services/client.service";
 import * as sessionService from "@/lib/services/session.service";
 import * as programService from "@/lib/services/program.service";
@@ -56,7 +59,7 @@ interface Props {
 export default async function ClientDetailPage({ params, searchParams }: Props) {
   const { id } = await params;
   const { tab } = (await searchParams) ?? {};
-  const initialTab = resolveInitialTab(tab);
+  const requestedTab = resolveInitialTab(tab);
   const [user, { orgId: sessionOrgId }] = await Promise.all([
     requireRole("TRAINER"),
     auth(),
@@ -70,14 +73,25 @@ export default async function ClientDetailPage({ params, searchParams }: Props) 
 
   // Fetch V2 sessions, programs, exercise library, adherence history, and the
   // trainer↔client message thread for the tabs on this page.
-  const [v2Sessions, assignedPrograms, exerciseLibrary, pastSessions, threadItems, organizationProfile] =
+  // An uncoached club member has no inbox or check-ins; hide those controls
+  // (the server actions already refuse). Trainer-org clients keep everything.
+  const clientCaps = await getCapabilitiesForUser({
+    id: client.id,
+    role: "CLIENT",
+    clerkOrgId: client.clerkOrgId,
+  });
+  const canMessage = clientCaps.messaging;
+  const initialTab = requestedTab === "messages" && !canMessage ? "calendar" : requestedTab;
+  const [v2Sessions, assignedPrograms, exerciseLibrary, pastSessions, threadItems, organizationProfile, coachingPanel] =
     await Promise.all([
       sessionService.getSessionsForClient(client.id),
       programService.getProgramsForClient(client.id),
       getExercisesForPicker(organizationOrgId),
       sessionService.getClientPastSessions(client.id),
-      getThreadItems(user.id, client.id, { includeInternal: true }),
+      canMessage ? getThreadItems(user.id, client.id, { includeInternal: true }) : Promise.resolve([]),
       getOrganizationProfile().catch(() => null),
+      // null (and no coaching query) unless this is a club trainer.
+      getClientCoachingPanel(user, client.id),
     ]);
 
   const adherence = sessionService.computeAdherenceStats(pastSessions);
@@ -125,12 +139,14 @@ export default async function ClientDetailPage({ params, searchParams }: Props) 
           }
           secondaryActions={
             <>
-              <Button variant="outline" asChild>
-                <Link href={`/messages/${client.id}`}>
-                  <MessageSquare className="size-4" />
-                  Message
-                </Link>
-              </Button>
+              {canMessage && (
+                <Button variant="outline" asChild>
+                  <Link href={`/messages/${client.id}`}>
+                    <MessageSquare className="size-4" />
+                    Message
+                  </Link>
+                </Button>
+              )}
               <ClientProgressTrigger clientId={id} clientName={displayName} />
             </>
           }
@@ -142,14 +158,9 @@ export default async function ClientDetailPage({ params, searchParams }: Props) 
             { label: "Outcomes", href: `/clients/${id}/outcomes`, icon: BarChart3 },
             { label: "Photos & notes", href: `/clients/${id}/progress`, icon: Camera },
           ]}
-          tabs={
-            <TabsList variant="line">
-              <TabsTrigger value="calendar">Calendar</TabsTrigger>
-              <TabsTrigger value="programs">Programs ({assignedPrograms.length})</TabsTrigger>
-              <TabsTrigger value="messages">Messages</TabsTrigger>
-            </TabsList>
-          }
         />
+
+        {coachingPanel && <ClientCoachingPanel coaching={coachingPanel} />}
 
         <ClientAdherenceSummary
           clientId={id}
@@ -179,6 +190,17 @@ export default async function ClientDetailPage({ params, searchParams }: Props) 
           }
         />
 
+        {/* The tabs switch only the work area below; the coaching, adherence and
+            clinical summaries above stay put, so the tab strip sits here rather
+            than under the page title. */}
+        <div className="border-b border-border">
+          <TabsList variant="line">
+            <TabsTrigger value="calendar">Calendar</TabsTrigger>
+            <TabsTrigger value="programs">Programs ({assignedPrograms.length})</TabsTrigger>
+            {canMessage && <TabsTrigger value="messages">Messages</TabsTrigger>}
+          </TabsList>
+        </div>
+
         <TabsContent value="calendar">
           <ClientCalendar
             clientId={client.id}
@@ -196,8 +218,9 @@ export default async function ClientDetailPage({ params, searchParams }: Props) 
           </SectionCard>
         </TabsContent>
 
+        {canMessage && (
         <TabsContent value="messages">
-          <Card className="overflow-hidden p-0 ring-1 ring-border shadow-none">
+          <Card className="gap-0 py-0">
             <div className="h-[70dvh] max-h-[640px]">
               <MessageThread
                 items={threadItems}
@@ -208,6 +231,7 @@ export default async function ClientDetailPage({ params, searchParams }: Props) 
             </div>
           </Card>
         </TabsContent>
+        )}
       </Tabs>
     </PageShell>
   );

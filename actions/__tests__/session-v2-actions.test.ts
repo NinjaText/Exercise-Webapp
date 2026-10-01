@@ -20,9 +20,16 @@ vi.mock('@/lib/services/notification.service', () => ({
   },
 }))
 vi.mock('@/lib/email/send', () => ({ sendEmail: vi.fn().mockResolvedValue(true) }))
+vi.mock('@/lib/org-capabilities.server', async () => {
+  const { getOrgCapabilities } = await vi.importActual<typeof import('@/lib/org-capabilities')>('@/lib/org-capabilities')
+  return { getCapabilitiesForUser: vi.fn(async () => getOrgCapabilities(null)) }
+})
 
 import { auth } from '@clerk/nextjs/server'
 import { prisma } from '@/lib/prisma'
+import { notifyUser } from '@/lib/services/notification.service'
+import { getCapabilitiesForUser } from '@/lib/org-capabilities.server'
+import { getOrgCapabilities, getUserCapabilities } from '@/lib/org-capabilities'
 import { completeSessionV2Action, updateSetLogV2Action, markExerciseDoneAction, updateExerciseActualSetsAction } from '../session-v2-actions'
 
 const mockAuth = vi.mocked(auth)
@@ -122,6 +129,64 @@ describe('completeSessionV2Action', () => {
       where: { id: 'session_1', clientId: 'client_1' },
       data: expect.objectContaining({ scheduleVariance: 'ON_TIME' }),
     })
+  })
+})
+
+describe('completeSessionV2Action coach notifications', () => {
+  const trainer = { id: 'trainer_1', firstName: 'Tom', lastName: 'Coach', email: 't@x.com' }
+  const fullSession = {
+    workout: { name: 'Leg Day', program: { id: 'prog_1', name: 'Strength', trainer } },
+    exerciseLogs: [],
+  }
+
+  function arrange(orgType: 'TRAINER' | 'CLUB') {
+    vi.setSystemTime(new Date('2026-08-20T15:00:00.000Z'))
+    mockAuth.mockResolvedValue({ userId: 'clerk_1' } as never)
+    mockUserFind.mockResolvedValue({ ...dbClient, clerkOrgId: 'org_1' } as never)
+    mockSessionFind
+      .mockResolvedValueOnce({ scheduledDate: new Date('2026-08-20T00:00:00.000Z'), workout: { name: 'Leg Day' } } as never)
+      .mockResolvedValue(fullSession as never)
+    mockSessionUpdate.mockResolvedValue({} as never)
+    vi.mocked(getCapabilitiesForUser).mockResolvedValue(getOrgCapabilities({ type: orgType }))
+  }
+
+  it('still notifies the program trainer for trainer-org clients (regression)', async () => {
+    arrange('TRAINER')
+    const result = await completeSessionV2Action('session_1')
+    expect(result.success).toBe(true)
+    expect(getCapabilitiesForUser).toHaveBeenCalledWith(expect.objectContaining({ id: 'client_1', clerkOrgId: 'org_1' }))
+    expect(notifyUser).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: 'trainer_1', type: 'SESSION_COMPLETED', recipientEmail: 't@x.com' })
+    )
+  })
+
+  it('does not notify the platform staff trainer for club members', async () => {
+    arrange('CLUB')
+    const result = await completeSessionV2Action('session_1')
+    expect(result.success).toBe(true)
+    expect(notifyUser).not.toHaveBeenCalled()
+    // Only the completion read — the notify helpers never load the session.
+    expect(mockSessionFind).toHaveBeenCalledTimes(1)
+  })
+
+  it('notifies the club trainer for a coached club member', async () => {
+    arrange('CLUB')
+    vi.mocked(getCapabilitiesForUser).mockResolvedValue(
+      getUserCapabilities({ orgType: 'CLUB', role: 'CLIENT', coachingActive: true })
+    )
+    const result = await completeSessionV2Action('session_1')
+    expect(result.success).toBe(true)
+    expect(notifyUser).toHaveBeenCalledWith(expect.objectContaining({ userId: 'trainer_1', type: 'SESSION_COMPLETED' }))
+  })
+
+  it('completes the session even if the capability lookup fails', async () => {
+    arrange('TRAINER')
+    vi.mocked(getCapabilitiesForUser).mockRejectedValueOnce(new Error('db down'))
+    const err = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const result = await completeSessionV2Action('session_1')
+    expect(result.success).toBe(true)
+    expect(notifyUser).not.toHaveBeenCalled()
+    err.mockRestore()
   })
 })
 

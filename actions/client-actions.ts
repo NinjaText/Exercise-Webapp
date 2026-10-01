@@ -5,6 +5,8 @@ import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { getClientIdsForTrainer } from "@/lib/services/client.service";
 import { logAudit, deriveActorType, diffFields, AUDIT_ACTIONS } from "@/lib/services/audit-log.service";
+import { getCapabilitiesForUser } from "@/lib/org-capabilities.server";
+import { cancelCoachingForEndedMembership } from "@/lib/services/coaching.service";
 import {
   updateClientProfileSchema,
   type UpdateClientProfileInput,
@@ -23,6 +25,17 @@ export async function archiveClientAction(clientId: string) {
     await assertOwnsClient(trainer.id, clientId);
 
     await prisma.user.update({ where: { id: clientId }, data: { isActive: false } });
+
+    // A deactivated club member can't use coaching, so stop billing for it.
+    // Best-effort: the deactivation already happened. Their membership
+    // subscription is deliberately left alone (see the club hand-off doc).
+    if ((await getCapabilitiesForUser(trainer)).billing === "member") {
+      try {
+        await cancelCoachingForEndedMembership(clientId);
+      } catch (e) {
+        console.error(`[archive-client] could not cancel coaching for ${clientId}:`, e);
+      }
+    }
 
     try {
       await logAudit({

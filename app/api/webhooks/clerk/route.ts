@@ -7,9 +7,17 @@ import { NextResponse } from "next/server";
 import { revalidateTag } from "next/cache";
 import { brandingTag } from "@/lib/services/branding.service";
 import { logAudit, deriveActorType, AUDIT_ACTIONS } from "@/lib/services/audit-log.service";
+import { getOrgCapabilities } from "@/lib/org-capabilities";
+import { ensureMemberSubscription } from "@/lib/services/club-member.service";
 import { applyPendingAssignmentsForNewClient } from "@/lib/services/pending-program-assignment.service";
 import { deleteUserData, findDeletionBlockers } from "@/lib/services/user-deletion.service";
+import { cancelMemberBillingForDeletion } from "@/lib/services/member-billing.service";
+import { ensureClubTrainerUser, revokeRefusedTrainerMembership } from "@/lib/services/club-trainer.service";
+import { ClubError } from "@/lib/services/club-error";
 import type { InviteClientMetadata } from "@/actions/invite-client-action";
+
+/** Client invites carry profile details; club trainer invites carry `invitedRole`. */
+type MembershipInviteMetadata = InviteClientMetadata & { invitedRole?: "TRAINER" };
 
 /**
  * Recovers the profile details a trainer entered when sending the invitation.
@@ -25,9 +33,9 @@ async function resolveInviteMetadata(
   membershipPublicMetadata: unknown,
   orgId: string,
   email: string
-): Promise<InviteClientMetadata> {
-  const fromEvent = (membershipPublicMetadata ?? {}) as InviteClientMetadata;
-  if (fromEvent.invitedFirstName || fromEvent.invitedLastName || fromEvent.invitedPhone) {
+): Promise<MembershipInviteMetadata> {
+  const fromEvent = (membershipPublicMetadata ?? {}) as MembershipInviteMetadata;
+  if (fromEvent.invitedFirstName || fromEvent.invitedLastName || fromEvent.invitedPhone || fromEvent.invitedRole) {
     return fromEvent;
   }
 
@@ -41,7 +49,7 @@ async function resolveInviteMetadata(
     const match = invitations.data.find(
       (invitation) => invitation.emailAddress.toLowerCase() === email.toLowerCase()
     );
-    return (match?.publicMetadata ?? {}) as InviteClientMetadata;
+    return (match?.publicMetadata ?? {}) as MembershipInviteMetadata;
   } catch (error) {
     console.error("Failed to look up organization invitation metadata:", error);
     return {};
@@ -101,10 +109,14 @@ export async function POST(req: Request) {
             );
             return new NextResponse("Blocked: manual cleanup required", { status: 200 });
           }
+          // Club members: cancel membership + coaching billing before the
+          // rows holding the subscription ids go. A Stripe failure throws
+          // here, before any data is deleted, and the 500 below retries it.
+          await cancelMemberBillingForDeletion(user.id);
           await deleteUserData(user.id);
         } catch (error) {
-          // A genuine failure (DB blip, timeout) — worth retrying, so signal
-          // a non-2xx and let Svix redeliver.
+          // A genuine failure (DB blip, timeout, Stripe down) — worth
+          // retrying, so signal a non-2xx and let Svix redeliver.
           console.error("[clerk-webhook] user.deleted cleanup failed for", id, error);
           return new NextResponse("Cleanup failed", { status: 500 });
         }
@@ -146,9 +158,37 @@ export async function POST(req: Request) {
         (e) => e.id === clerkUser.primaryEmailAddressId
       )?.emailAddress ?? clerkUser.emailAddresses[0]?.emailAddress;
 
-    if (primaryEmail) {
-      const inviteMetadata = await resolveInviteMetadata(public_metadata, orgId, primaryEmail);
+    const inviteMetadata = primaryEmail
+      ? await resolveInviteMetadata(public_metadata, orgId, primaryEmail)
+      : {};
+    // A trainer org ignores invitedRole; only a member-billed (club) org has
+    // an invited club trainer.
+    const clubForTrainer =
+      inviteMetadata.invitedRole === "TRAINER"
+        ? await prisma.organization.findUnique({ where: { clerkOrgId: orgId } })
+        : null;
 
+    if (primaryEmail && clubForTrainer && getOrgCapabilities(clubForTrainer).billing === "member") {
+      // Club trainer: TRAINER row (never CLIENT), no trial, no pending
+      // assignments. An existing account is never moved: log and ack.
+      try {
+        await ensureClubTrainerUser(clerkUserId, clubForTrainer);
+      } catch (error) {
+        if (!(error instanceof ClubError)) throw error;
+        console.warn("[clerk-webhook] club trainer invite skipped:", {
+          clerkUserId,
+          orgId,
+          code: error.code,
+        });
+        // The refused account must not keep the invite's org:admin seat.
+        // Best-effort: the ack below must not depend on it.
+        try {
+          await revokeRefusedTrainerMembership(clerkUserId, orgId);
+        } catch (revokeError) {
+          console.error("[clerk-webhook] failed to remove refused trainer membership:", revokeError);
+        }
+      }
+    } else if (primaryEmail) {
       const upserted = await prisma.user.upsert({
         where: { clerkId: clerkUserId },
         update: {
@@ -177,6 +217,18 @@ export async function POST(req: Request) {
       // Best-effort: a failure here must not fail the webhook, or Clerk will
       // retry and re-run the account creation above.
       if (upserted.role === "CLIENT") {
+        // Club orgs: make sure the member has a trial even if they reached the
+        // org some way other than /join/[slug]/complete. Idempotent — never
+        // resets an existing trial. Best-effort like the block below.
+        try {
+          const org = await prisma.organization.findUnique({ where: { clerkOrgId: orgId } });
+          if (org && getOrgCapabilities(org).billing === "member") {
+            await ensureMemberSubscription(upserted.id, org);
+          }
+        } catch (error) {
+          console.error("Failed to ensure member subscription:", error);
+        }
+
         try {
           const trainer = await prisma.user.findFirst({
             where: { clerkOrgId: orgId, role: "TRAINER" },

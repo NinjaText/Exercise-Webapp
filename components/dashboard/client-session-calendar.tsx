@@ -13,7 +13,7 @@ import {
   addMonths,
   subMonths,
 } from "date-fns";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { SectionCard } from "@/components/shared/section-card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Calendar, ChevronLeft, ChevronRight } from "lucide-react";
@@ -66,91 +66,92 @@ export function ClientSessionCalendar({ sessions, selectedDate, onSelectDate }: 
       .sort((a, b) => toLocalCalendarDate(a.scheduledDate).getTime() - toLocalCalendarDate(b.scheduledDate).getTime());
   }, [sessions]);
 
-  return (
-    <Card id="sessions">
-      <CardHeader className="flex flex-row items-center justify-between pb-3">
-        <div className="flex items-center gap-2">
-          <Calendar className="h-4 w-4 text-primary" />
-          <CardTitle className="text-base font-semibold">My Schedule</CardTitle>
-        </div>
-        <div className="hidden sm:flex items-center gap-1">
-          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setCurrentMonth((m) => subMonths(m, 1))}>
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <span className="text-sm font-medium w-28 text-center">{format(currentMonth, "MMMM yyyy")}</span>
-          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setCurrentMonth((m) => addMonths(m, 1))}>
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        {/* Mobile: upcoming list is the primary schedule view on small screens */}
-        <div className="sm:hidden divide-y divide-border rounded-lg border border-border overflow-hidden">
-          {upcomingList.length === 0 ? (
-            <p className="p-4 text-center text-sm text-muted-foreground">No upcoming sessions</p>
-          ) : (
-            upcomingList.map((s) => {
-              const date = toLocalCalendarDate(s.scheduledDate);
-              const isSelected = selectedDate ? isSameDay(date, selectedDate) : false;
-              return (
-                <button
-                  key={s.id}
-                  type="button"
-                  onClick={() => onSelectDate(isSelected ? null : date)}
-                  className={cn(
-                    "flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left transition-colors",
-                    isSelected ? "bg-primary text-primary-foreground" : "hover:bg-muted/60"
-                  )}
-                >
-                  <div className="min-w-0">
-                    <p className={cn("text-xs font-medium", isSelected ? "text-primary-foreground/80" : "text-muted-foreground")}>
-                      {format(date, "EEE, MMM d")}
-                    </p>
-                    <p className="truncate text-sm font-semibold">{s.workout?.name ?? "Workout"}</p>
-                  </div>
-                  <Badge
-                    className={cn(
-                      "shrink-0 border-0 text-[10px]",
-                      isSelected ? "bg-primary-foreground/20 text-primary-foreground" : getSessionStatusBadge(s.status)
-                    )}
-                  >
-                    {getSessionStatusLabel(s.status)}
-                  </Badge>
-                </button>
-              );
-            })
-          )}
-        </div>
+  const monthNav = (
+    <div className="hidden items-center gap-1 sm:flex">
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        aria-label="Previous month"
+        onClick={() => setCurrentMonth((m) => subMonths(m, 1))}
+      >
+        <ChevronLeft className="size-4" />
+      </Button>
+      <span className="w-32 text-center text-label tabular-nums" aria-live="polite">
+        {format(currentMonth, "MMMM yyyy")}
+      </span>
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        aria-label="Next month"
+        onClick={() => setCurrentMonth((m) => addMonths(m, 1))}
+      >
+        <ChevronRight className="size-4" />
+      </Button>
+    </div>
+  );
 
-        {/* Desktop: calendar grid with grid lines */}
-        <div className="hidden sm:block rounded-lg border border-border overflow-hidden">
-          {/* Day-of-week headers */}
-          <div className="grid grid-cols-7 bg-muted/40 border-b border-border">
-            {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d, idx) => (
-              <div
-                key={d}
+  return (
+    <SectionCard title="My schedule" icon={Calendar} action={monthNav} contentClassName="space-y-4">
+      {/* Mobile: upcoming list is the primary schedule view on small screens */}
+      <div className="divide-y divide-border overflow-hidden rounded-lg border border-border sm:hidden">
+        {upcomingList.length === 0 ? (
+          <p className="p-4 text-center text-body text-muted-foreground">No upcoming sessions</p>
+        ) : (
+          upcomingList.map((s) => {
+            const date = toLocalCalendarDate(s.scheduledDate);
+            const isSelected = selectedDate ? isSameDay(date, selectedDate) : false;
+            return (
+              <button
+                key={s.id}
+                type="button"
+                aria-pressed={isSelected}
+                onClick={() => onSelectDate(isSelected ? null : date)}
                 className={cn(
-                  "text-[10px] font-semibold uppercase tracking-wide text-muted-foreground py-1.5 text-center",
-                  idx < 6 && "border-r border-border"
+                  "flex min-h-14 w-full items-center justify-between gap-3 px-4 py-2.5 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring motion-reduce:transition-none",
+                  isSelected ? "bg-primary text-primary-foreground" : "hover:bg-surface-muted"
                 )}
               >
-                {d}
-              </div>
-            ))}
-          </div>
+                <div className="min-w-0">
+                  <p className={cn("text-caption", isSelected && "text-primary-foreground/80")}>
+                    {format(date, "EEE, MMM d")}
+                  </p>
+                  <p className="truncate text-body font-medium">{s.workout?.name ?? "Workout"}</p>
+                </div>
+                <Badge
+                  className={cn(
+                    "shrink-0 border-0",
+                    isSelected ? "bg-primary-foreground/20 text-primary-foreground" : getSessionStatusBadge(s.status)
+                  )}
+                >
+                  {getSessionStatusLabel(s.status)}
+                </Badge>
+              </button>
+            );
+          })
+        )}
+      </div>
 
-          {/* Day cells */}
-          <div className="grid grid-cols-7">
-            {Array.from({ length: paddedStart }).map((_, i) => (
-              <div
-                key={`pad-${i}`}
-                className={cn(
-                  "min-h-[44px] border-b border-border",
-                  i % 7 < 6 && "border-r border-border"
-                )}
-              />
-            ))}
-            {days.map((day) => {
+      {/* Tablet and up: month grid with hairline cell borders */}
+      <div className="hidden overflow-hidden rounded-lg border border-border sm:block">
+        <div className="grid grid-cols-7 border-b border-border bg-surface-muted">
+          {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d, idx) => (
+            <div
+              key={d}
+              className={cn("py-2 text-center text-caption font-medium", idx < 6 && "border-r border-border")}
+            >
+              {d}
+            </div>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-7">
+          {Array.from({ length: paddedStart }).map((_, i) => (
+            <div
+              key={`pad-${i}`}
+              className={cn("min-h-16 border-b border-border bg-surface-muted/40", i % 7 < 6 && "border-r")}
+            />
+          ))}
+          {days.map((day) => {
             const daySessions = getSessionsForDay(day);
             const hasSession = daySessions.length > 0;
             const isSelected = selectedDate ? isSameDay(day, selectedDate) : false;
@@ -160,26 +161,35 @@ export function ClientSessionCalendar({ sessions, selectedDate, onSelectDate }: 
               <button
                 key={day.toISOString()}
                 type="button"
+                aria-pressed={isSelected}
+                aria-label={`${format(day, "EEEE, MMMM d")}${hasSession ? ` — ${daySessions.map((s) => getSessionStatusLabel(s.status)).join(", ")}` : ""}`}
                 onClick={() => onSelectDate(isSelected ? null : day)}
                 className={cn(
-                  "relative flex flex-col items-center justify-start p-1 py-1.5 transition-colors min-h-[44px] cursor-pointer",
-                  "border-b border-border",
-                  (paddedStart + days.indexOf(day)) % 7 < 6 && "border-r border-border",
-                  !isSelected && "hover:bg-muted/60",
-                  isSelected && "bg-primary text-primary-foreground",
-                  isCurrentDay && !isSelected && "ring-2 ring-primary ring-inset rounded-[4px]"
+                  "relative flex min-h-16 cursor-pointer flex-col items-center justify-start gap-1.5 border-b border-border p-1.5 outline-none transition-colors focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring motion-reduce:transition-none",
+                  (paddedStart + days.indexOf(day)) % 7 < 6 && "border-r",
+                  !isSelected && "hover:bg-surface-muted",
+                  isSelected && "bg-primary text-primary-foreground"
                 )}
               >
-                <span className={cn("text-xs font-medium", isSelected ? "text-primary-foreground" : "text-foreground")}>
+                <span
+                  className={cn(
+                    "flex size-7 items-center justify-center rounded-full text-label tabular-nums",
+                    isSelected
+                      ? "text-primary-foreground"
+                      : isCurrentDay
+                        ? "bg-primary/10 font-semibold text-primary"
+                        : "text-foreground"
+                  )}
+                >
                   {format(day, "d")}
                 </span>
                 {hasSession && (
-                  <div className="flex gap-1 mt-1">
+                  <div className="flex gap-1">
                     {daySessions.slice(0, 3).map((s) => (
                       <div
                         key={s.id}
                         className={cn(
-                          "h-2 w-2 rounded-full ring-1 ring-white/60",
+                          "size-2 rounded-full",
                           isSelected ? "bg-primary-foreground/80" : getSessionStatusDot(s.status)
                         )}
                       />
@@ -189,19 +199,17 @@ export function ClientSessionCalendar({ sessions, selectedDate, onSelectDate }: 
               </button>
             );
           })}
-          </div>   {/* closes grid grid-cols-7 (day cells) */}
-        </div>     {/* closes rounded-lg border wrapper */}
-
-        {/* Legend */}
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 pt-1">
-          {SESSION_STATUS_LEGEND.map((entry) => (
-            <div key={entry.status} className="flex items-center gap-1.5">
-              <div className={cn("h-2 w-2 rounded-full", entry.dot)} />
-              <span className="text-[10px] text-muted-foreground">{entry.label}</span>
-            </div>
-          ))}
         </div>
-      </CardContent>
-    </Card>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+        {SESSION_STATUS_LEGEND.map((entry) => (
+          <div key={entry.status} className="flex items-center gap-1.5">
+            <div className={cn("size-2 rounded-full", entry.dot)} />
+            <span className="text-caption">{entry.label}</span>
+          </div>
+        ))}
+      </div>
+    </SectionCard>
   );
 }

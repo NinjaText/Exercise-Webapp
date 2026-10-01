@@ -73,7 +73,7 @@ export function VoiceMemoPlayer({ memo, authorName }: VoiceMemoPlayerProps) {
   }
 
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-border/60 bg-card px-4 py-3 shadow-sm">
+    <div className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 shadow-xs">
       <div
         className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
           isTrainer ? "bg-success-soft" : "bg-info-soft"

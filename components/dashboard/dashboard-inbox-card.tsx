@@ -43,15 +43,18 @@ export function DashboardInboxCard({
       action={{ label: "View all", href: "/messages" }}
       className={className}
     >
-      <div className="mb-3 flex flex-wrap gap-1">
+      <div className="mb-4 flex flex-wrap gap-1">
         {TABS.map((t) => (
           <button
             key={t.key}
             type="button"
             onClick={() => setTab(t.key)}
+            aria-pressed={tab === t.key}
             className={cn(
-              "rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors",
-              tab === t.key ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/70"
+              "h-8 rounded-full px-3 text-caption font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none",
+              tab === t.key
+                ? "bg-primary text-primary-foreground"
+                : "bg-surface-muted text-muted-foreground hover:bg-muted hover:text-foreground"
             )}
           >
             {t.label}
@@ -62,15 +65,15 @@ export function DashboardInboxCard({
       {filtered.length === 0 ? (
         <EmptyState size="compact" icon={InboxIcon} title="No messages yet" />
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-2">
           {filtered.map((thread) => (
             <Link
               key={thread.otherUser.id}
               href={`/messages?thread=${thread.otherUser.id}`}
-              className="block rounded-xl border border-border/60 p-3 transition-colors hover:bg-muted/30"
+              className="block rounded-lg border border-border p-3 transition-colors outline-none hover:bg-surface-muted focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none"
             >
               <div className="flex items-start justify-between gap-2">
-                <p className="truncate text-sm font-medium">
+                <p className="truncate text-label text-foreground">
                   {thread.otherUser.firstName} {thread.otherUser.lastName}
                 </p>
                 {thread.unreadCount > 0 && (
@@ -83,10 +86,10 @@ export function DashboardInboxCard({
                   />
                 )}
               </div>
-              <p className="mt-1 line-clamp-2 text-xs text-muted-foreground/80">
+              <p className="mt-1 line-clamp-2 text-caption">
                 {thread.lastMessage.deletedAt ? "Message deleted" : thread.lastMessage.content}
               </p>
-              <p className="mt-1.5 text-[10px] text-muted-foreground/50">
+              <p className="mt-1.5 text-caption tabular-nums">
                 {formatRelativeTime(thread.lastMessage.createdAt)}
               </p>
             </Link>

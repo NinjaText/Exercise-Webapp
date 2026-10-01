@@ -3,7 +3,11 @@ import { getCurrentUser } from "@/lib/current-user";
 import * as checkinService from "@/lib/services/checkin.service";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { PageShell } from "@/components/shared/page-shell";
+import { PageHeader } from "@/components/shared/page-header";
+import { SectionCard } from "@/components/shared/section-card";
+import { EmptyState } from "@/components/shared/empty-state";
+import { StatusBadge } from "@/components/shared/status-badge";
 import {
   ClipboardList,
   Plus,
@@ -28,6 +32,9 @@ function frequencyLabel(frequency: string): string {
   return map[frequency] ?? frequency;
 }
 
+/** A row inside an edge-to-edge SectionCard list. */
+const LIST_ROW = "flex items-center gap-4 px-5 py-4";
+
 // ─── Trainer view ──────────────────────────────────────────────────────────
 
 async function TrainerView({ trainerId }: { trainerId: string }) {
@@ -43,79 +50,63 @@ async function TrainerView({ trainerId }: { trainerId: string }) {
     lastName: p.lastName,
   }));
 
+  const unreviewed = responses.filter((r) => !r.isReviewed).length;
+
   return (
-    <div className="space-y-8">
+    <>
       {/* ── Templates section ── */}
-      <section className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold">Templates</h3>
-          <Button
-            size="sm"
-            className="gap-2"
-            asChild
-          >
-            <Link href="/check-ins/new">
-              <Plus className="h-4 w-4" />
-              New Template
-            </Link>
-          </Button>
-        </div>
+      <section aria-labelledby="checkin-templates" className="flex flex-col gap-4">
+        <h2 id="checkin-templates" className="text-heading text-foreground">
+          Templates
+        </h2>
 
         {templates.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-border p-12 text-center">
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-muted">
-              <ClipboardList className="h-7 w-7 text-muted-foreground/50" />
-            </div>
-            <h3 className="mt-4 text-base font-semibold">No templates yet</h3>
-            <p className="mx-auto mt-2 max-w-sm text-sm text-muted-foreground">
-              Create a check-in template to start collecting weekly updates from
-              your clients.
-            </p>
-            <Button
-              size="sm"
-              className="mt-4 gap-2"
-              asChild
-            >
-              <Link href="/check-ins/new">
-                <Plus className="h-4 w-4" />
-                Create First Template
-              </Link>
-            </Button>
-          </div>
+          <Card className="py-0">
+            <EmptyState
+              icon={ClipboardList}
+              title="No templates yet"
+              description="Create a check-in template to start collecting weekly updates from your clients."
+              actionLabel="Create First Template"
+              actionHref="/check-ins/new"
+            />
+          </Card>
         ) : (
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {templates.map((t) => (
-              <Card
-                key={t.id}
-                className="group ring-1 ring-border shadow-none transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm hover:ring-border-strong"
-              >
-                <CardContent className="p-5">
+              <Card key={t.id} className="gap-0 py-0">
+                <CardContent className="flex h-full flex-col gap-4 p-5">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
-                      <p className="truncate font-semibold leading-tight">
-                        {t.name}
-                      </p>
+                      <p className="truncate text-heading text-foreground">{t.name}</p>
                       {t.description && (
-                        <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
+                        <p className="mt-1 line-clamp-2 text-body text-muted-foreground">
                           {t.description}
                         </p>
                       )}
                     </div>
-                    <Badge
-                      variant="outline"
-                      className="shrink-0 border-border/60 text-[10px] text-muted-foreground"
-                    >
-                      {frequencyLabel(t.frequency)}
-                    </Badge>
+                    <StatusBadge
+                      status={t.frequency}
+                      label={frequencyLabel(t.frequency)}
+                      role="neutral"
+                      dot={false}
+                      size="sm"
+                    />
                   </div>
 
-                  <div className="mt-4 flex items-center gap-4 text-xs text-muted-foreground">
-                    <span>{t.questionCount} questions</span>
-                    <span>{t.assignmentCount} assigned</span>
-                    <span>{t.responseCount} responses</span>
-                  </div>
+                  <dl className="mt-auto grid grid-cols-3 gap-2 rounded-lg bg-surface-muted px-3 py-2.5">
+                    {[
+                      ["Questions", t.questionCount],
+                      ["Assigned", t.assignmentCount],
+                      ["Responses", t.responseCount],
+                    ].map(([label, value]) => (
+                      <div key={label} className="flex flex-col">
+                        <dt className="text-caption">{label}</dt>
+                        <dd className="text-label tabular-nums text-foreground">{value}</dd>
+                      </div>
+                    ))}
+                  </dl>
 
-                  <div className="mt-4 flex items-center gap-2">
+                  <div className="flex items-center gap-2">
                     <AssignCheckInDialog
                       templateId={t.id}
                       templateName={t.name}
@@ -130,82 +121,71 @@ async function TrainerView({ trainerId }: { trainerId: string }) {
       </section>
 
       {/* ── Recent responses section ── */}
-      <section className="space-y-4">
-        <h3 className="text-lg font-semibold">Recent Responses</h3>
-
+      <SectionCard
+        title="Recent Responses"
+        icon={MessageSquare}
+        count={responses.length > 0 ? responses.length : undefined}
+        description={unreviewed > 0 ? `${unreviewed} waiting for your review` : undefined}
+        contentClassName="px-0 pb-0"
+      >
         {responses.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-border p-12 text-center">
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-muted">
-              <MessageSquare className="h-7 w-7 text-muted-foreground/50" />
-            </div>
-            <h3 className="mt-4 text-base font-semibold">
-              No responses yet
-            </h3>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Client responses will appear here once they complete their
-              check-ins.
-            </p>
-          </div>
+          <EmptyState
+            size="compact"
+            icon={MessageSquare}
+            title="No responses yet"
+            description="Client responses will appear here once they complete their check-ins."
+          />
         ) : (
-          <div className="space-y-2.5">
+          <ul className="divide-y divide-border border-t border-border">
             {responses.map((r) => {
               const isUnreviewed = !r.isReviewed;
               return (
-                <Card
-                  key={r.id}
-                  className={`group relative ring-1 shadow-none transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm hover:ring-border-strong ${
-                    isUnreviewed
-                      ? "ring-warning-border bg-warning-soft"
-                      : "ring-border"
-                  }`}
-                >
-                  <CardContent className="flex items-center gap-4 px-5 py-4">
-                    <div
-                      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
-                        isUnreviewed ? "bg-warning-soft" : "bg-muted"
-                      }`}
-                    >
-                      {isUnreviewed ? (
-                        <AlertCircle className="h-4.5 w-4.5 text-warning" />
-                      ) : (
-                        <CheckCircle2 className="h-4.5 w-4.5 text-success" />
-                      )}
-                    </div>
+                <li key={r.id} className={LIST_ROW}>
+                  <div
+                    className={`flex size-9 shrink-0 items-center justify-center rounded-lg ${
+                      isUnreviewed ? "bg-warning-soft text-warning-foreground" : "bg-success-soft text-success-foreground"
+                    }`}
+                  >
+                    {isUnreviewed ? (
+                      <AlertCircle className="size-4" aria-hidden />
+                    ) : (
+                      <CheckCircle2 className="size-4" aria-hidden />
+                    )}
+                  </div>
 
-                    <div className="min-w-0 flex-1">
-                      <p className="font-semibold leading-tight">
-                        {r.client.firstName} {r.client.lastName}
-                      </p>
-                      <p className="mt-0.5 text-xs text-muted-foreground">
-                        {r.assignment.template.name} &middot;{" "}
-                        {formatDateTime(r.submittedAt)}
-                      </p>
-                    </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-label text-foreground">
+                      {r.client.firstName} {r.client.lastName}
+                    </p>
+                    <p className="mt-0.5 truncate text-caption">
+                      {r.assignment.template.name} &middot; {formatDateTime(r.submittedAt)}
+                    </p>
+                  </div>
 
-                    <div className="flex shrink-0 items-center gap-2">
-                      {isUnreviewed && (
-                        <Badge
-                          variant="outline"
-                          className="border-warning-border text-[10px] text-warning-foreground"
-                        >
-                          Needs Review
-                        </Badge>
-                      )}
-                      <Button variant="ghost" size="sm" asChild>
-                        <Link href={`/check-ins/${r.id}`}>
-                          <Eye className="h-4 w-4" />
-                          Review
-                        </Link>
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
+                  <div className="flex shrink-0 items-center gap-2">
+                    {isUnreviewed && (
+                      <StatusBadge
+                        status="needs-review"
+                        label="Needs Review"
+                        role="warning"
+                        size="sm"
+                        className="hidden sm:inline-flex"
+                      />
+                    )}
+                    <Button variant="outline" size="sm" asChild>
+                      <Link href={`/check-ins/${r.id}`}>
+                        <Eye />
+                        Review
+                      </Link>
+                    </Button>
+                  </div>
+                </li>
               );
             })}
-          </div>
+          </ul>
         )}
-      </section>
-    </div>
+      </SectionCard>
+    </>
   );
 }
 
@@ -218,122 +198,88 @@ async function ClientView({ clientId }: { clientId: string }) {
   ]);
 
   const pendingIds = new Set(pending.map((p) => p.id));
+  const upcoming = allAssignments.filter((a) => !pendingIds.has(a.id));
 
   return (
-    <div className="space-y-8">
+    <>
       {/* ── Pending check-ins ── */}
-      <section className="space-y-4">
-        <h3 className="text-lg font-semibold">
-          Due Check-ins
-          {pending.length > 0 && (
-            <Badge className="ml-2 bg-warning-soft text-warning-foreground border-0 text-xs">
-              {pending.length}
-            </Badge>
-          )}
-        </h3>
-
+      <SectionCard
+        title="Due Check-ins"
+        icon={Clock}
+        count={pending.length > 0 ? pending.length : undefined}
+        contentClassName="px-0 pb-0"
+      >
         {pending.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-border p-12 text-center">
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-muted">
-              <CheckCircle2 className="h-7 w-7 text-success/60" />
-            </div>
-            <h3 className="mt-4 text-base font-semibold">
-              All caught up!
-            </h3>
-            <p className="mt-2 text-sm text-muted-foreground">
-              No check-ins are due right now. Great work staying on track.
-            </p>
-          </div>
+          <EmptyState
+            size="compact"
+            icon={CheckCircle2}
+            title="All caught up!"
+            description="No check-ins are due right now. Great work staying on track."
+          />
         ) : (
-          <div className="space-y-2.5">
+          <ul className="divide-y divide-border border-t border-border">
             {pending.map((assignment) => (
-              <Card
-                key={assignment.id}
-                className="group ring-1 ring-warning-border bg-warning-soft shadow-none transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm"
-              >
-                <CardContent className="flex items-center gap-4 px-5 py-4">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-warning-soft">
-                    <ClipboardList className="h-5 w-5 text-warning" />
+              <li key={assignment.id} className={`${LIST_ROW} flex-wrap sm:flex-nowrap`}>
+                <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-warning-soft text-warning-foreground">
+                  <ClipboardList className="size-4" aria-hidden />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-label text-foreground">{assignment.template.name}</p>
+                  <div className="mt-1 flex flex-wrap items-center gap-2">
+                    <StatusBadge
+                      status={assignment.template.frequency}
+                      label={frequencyLabel(assignment.template.frequency)}
+                      role="neutral"
+                      dot={false}
+                      size="sm"
+                    />
+                    <span className="flex items-center gap-1 text-caption text-warning-foreground">
+                      <Clock className="size-3" aria-hidden />
+                      Due {formatDate(assignment.nextDueDate)}
+                    </span>
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="font-semibold leading-tight">
-                      {assignment.template.name}
-                    </p>
-                    <div className="mt-0.5 flex items-center gap-2">
-                      <Badge
-                        variant="outline"
-                        className="border-border/60 text-[10px] text-muted-foreground"
-                      >
-                        {frequencyLabel(assignment.template.frequency)}
-                      </Badge>
-                      <span className="flex items-center gap-1 text-xs text-warning-foreground">
-                        <Clock className="h-3 w-3" />
-                        Due {formatDate(assignment.nextDueDate)}
-                      </span>
-                    </div>
-                  </div>
-                  <Button
-                    size="sm"
-                    className="shrink-0 gap-2"
-                    asChild
-                  >
-                    <Link href={`/check-ins/${assignment.id}/respond`}>
-                      Complete Check-in
-                    </Link>
-                  </Button>
-                </CardContent>
-              </Card>
+                </div>
+                <Button size="sm" className="w-full shrink-0 sm:w-auto" asChild>
+                  <Link href={`/check-ins/${assignment.id}/respond`}>Complete Check-in</Link>
+                </Button>
+              </li>
             ))}
-          </div>
+          </ul>
         )}
-      </section>
+      </SectionCard>
 
       {/* ── All assignments (upcoming) ── */}
       {allAssignments.length > 0 && (
-        <section className="space-y-4">
-          <h3 className="text-lg font-semibold">All Check-ins</h3>
-          <div className="space-y-2">
-            {allAssignments
-              .filter((a) => !pendingIds.has(a.id))
-              .map((assignment) => {
+        <SectionCard title="All Check-ins" icon={ClipboardList} contentClassName="px-0 pb-0">
+          {upcoming.length === 0 ? (
+            <p className="border-t border-border px-5 py-4 text-body text-muted-foreground">
+              Every check-in you have is due now.
+            </p>
+          ) : (
+            <ul className="divide-y divide-border border-t border-border">
+              {upcoming.map((assignment) => {
                 const lastResponse = assignment.responses[0];
                 return (
-                  <Card
-                    key={assignment.id}
-                    className="group ring-1 ring-border shadow-none transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm hover:ring-border-strong"
-                  >
-                    <CardContent className="flex items-center gap-4 px-5 py-4">
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-muted">
-                        <ClipboardList className="h-4.5 w-4.5 text-muted-foreground/60" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="font-semibold leading-tight">
-                          {assignment.template.name}
-                        </p>
-                        <div className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
-                          <span>
-                            {frequencyLabel(assignment.template.frequency)}
-                          </span>
-                          {lastResponse && (
-                            <span>
-                              &middot; Last submitted{" "}
-                              {formatDate(lastResponse.submittedAt)}
-                            </span>
-                          )}
-                          <span>
-                            &middot; Next due{" "}
-                            {formatDate(assignment.nextDueDate)}
-                          </span>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
+                  <li key={assignment.id} className={LIST_ROW}>
+                    <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-surface-muted text-muted-foreground">
+                      <ClipboardList className="size-4" aria-hidden />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-label text-foreground">{assignment.template.name}</p>
+                      <p className="mt-0.5 text-caption">
+                        {frequencyLabel(assignment.template.frequency)}
+                        {lastResponse && <> &middot; Last submitted {formatDate(lastResponse.submittedAt)}</>}
+                        {" "}&middot; Next due {formatDate(assignment.nextDueDate)}
+                      </p>
+                    </div>
+                  </li>
                 );
               })}
-          </div>
-        </section>
+            </ul>
+          )}
+        </SectionCard>
       )}
-    </div>
+    </>
   );
 }
 
@@ -341,37 +287,30 @@ async function ClientView({ clientId }: { clientId: string }) {
 
 export default async function CheckInsPage() {
   const user = await getCurrentUser();
+  const isTrainer = user.role === "TRAINER";
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0">
-          <h2 className="text-2xl font-bold tracking-tight">Check-ins</h2>
-          <p className="text-muted-foreground">
-            {user.role === "TRAINER"
-              ? "Manage weekly check-in templates and review client responses."
-              : "Complete your scheduled check-ins and track your progress."}
-          </p>
-        </div>
-        {user.role === "TRAINER" && (
-          <Button
-            className="gap-2"
-            asChild
-          >
-            <Link href="/check-ins/new">
-              <Plus className="h-4 w-4" />
-              New Template
-            </Link>
-          </Button>
-        )}
-      </div>
+    <PageShell>
+      <PageHeader
+        title="Check-ins"
+        description={
+          isTrainer
+            ? "Manage weekly check-in templates and review client responses."
+            : "Complete your scheduled check-ins and track your progress."
+        }
+        primaryAction={
+          isTrainer ? (
+            <Button asChild>
+              <Link href="/check-ins/new">
+                <Plus />
+                New Template
+              </Link>
+            </Button>
+          ) : undefined
+        }
+      />
 
-      {user.role === "TRAINER" ? (
-        <TrainerView trainerId={user.id} />
-      ) : (
-        <ClientView clientId={user.id} />
-      )}
-    </div>
+      {isTrainer ? <TrainerView trainerId={user.id} /> : <ClientView clientId={user.id} />}
+    </PageShell>
   );
 }

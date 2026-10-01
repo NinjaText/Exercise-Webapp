@@ -1,18 +1,35 @@
 import Link from "next/link";
+import { connection } from "next/server";
 import { Button } from "@/components/ui/button";
+import { AuthShell } from "@/components/auth/auth-shell";
+import { BrandStyle } from "@/components/branding/brand-style";
+import { getCurrentBranding } from "@/lib/services/branding.service";
+import { resolveBranding } from "@/lib/branding/resolve";
+import { toViewModel } from "@/lib/branding/types";
 
-export default function BillingCancelPage() {
+export default async function BillingCancelPage() {
+  // Per-request page: opt out of prerendering before the (catch-guarded) lookup.
+  await connection();
+  // A branding lookup failure must never break this page: fall back to defaults.
+  const branding = await getCurrentBranding().catch(() => resolveBranding(null));
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[oklch(0.97_0.005_247)] px-4">
-      <div className="w-full max-w-md space-y-4 text-center">
-        <h1 className="text-2xl font-bold text-foreground">No problem</h1>
-        <p className="text-muted-foreground">
-          You can choose a plan whenever you&apos;re ready.
-        </p>
-        <Button asChild>
-          <Link href="/billing">View Plans</Link>
-        </Button>
-      </div>
-    </div>
+    <>
+      <BrandStyle branding={branding} />
+      <AuthShell
+        branding={toViewModel(branding)}
+        headline="No problem"
+        subhead="You can choose a plan whenever you're ready."
+      >
+        <div className="flex flex-col items-start gap-6">
+          <p className="text-body text-muted-foreground">
+            Compare the plans again and pick up where you left off.
+          </p>
+          <Button asChild size="lg" className="h-11">
+            <Link href="/billing">View Plans</Link>
+          </Button>
+        </div>
+      </AuthShell>
+    </>
   );
 }

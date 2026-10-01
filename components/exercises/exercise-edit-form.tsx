@@ -133,9 +133,9 @@ export function ExerciseEditForm({ exercise }: Props) {
 
   return (
     <form onSubmit={handleSubmit}>
-      <SectionCard title={`Edit: ${exercise.name}`} contentClassName="space-y-6">
+      <SectionCard title={`Edit: ${exercise.name}`} contentClassName="flex flex-col gap-6">
           {/* Name */}
-          <div className="space-y-2">
+          <div className="flex flex-col gap-2">
             <Label htmlFor="name">Exercise Name *</Label>
             <Input
               id="name"
@@ -146,7 +146,7 @@ export function ExerciseEditForm({ exercise }: Props) {
           </div>
 
           {/* Body Region — multi-select chips */}
-          <div className="space-y-2">
+          <div className="flex flex-col gap-2">
             <Label>
               Body Region *
               {selectedRegions.length > 0 && (
@@ -179,7 +179,7 @@ export function ExerciseEditForm({ exercise }: Props) {
           </div>
 
           {/* Description */}
-          <div className="space-y-2">
+          <div className="flex flex-col gap-2">
             <Label htmlFor="description">Description</Label>
             <Textarea
               id="description"
@@ -192,7 +192,7 @@ export function ExerciseEditForm({ exercise }: Props) {
 
           {/* Difficulty + Status */}
           <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
+            <div className="flex flex-col gap-2">
               <Label htmlFor="difficultyLevel">Difficulty *</Label>
               <select
                 id="difficultyLevel"
@@ -207,7 +207,7 @@ export function ExerciseEditForm({ exercise }: Props) {
                 ))}
               </select>
             </div>
-            <div className="space-y-2">
+            <div className="flex flex-col gap-2">
               <Label htmlFor="isActive">Status</Label>
               <select
                 id="isActive"
@@ -243,7 +243,7 @@ export function ExerciseEditForm({ exercise }: Props) {
           </div>
 
           {/* Equipment */}
-          <div className="space-y-3">
+          <div className="flex flex-col gap-3">
             <Label>Equipment Required</Label>
 
             <div className="flex flex-wrap gap-2">
@@ -308,7 +308,7 @@ export function ExerciseEditForm({ exercise }: Props) {
           </div>
 
           {/* Instructions */}
-          <div className="space-y-2">
+          <div className="flex flex-col gap-2">
             <Label htmlFor="instructions">Instructions</Label>
             <Textarea
               id="instructions"
@@ -320,7 +320,7 @@ export function ExerciseEditForm({ exercise }: Props) {
           </div>
 
           {/* Contraindications */}
-          <div className="space-y-2">
+          <div className="flex flex-col gap-2">
             <Label htmlFor="contraindications">Contraindications (comma separated)</Label>
             <Input
               id="contraindications"
@@ -339,7 +339,7 @@ export function ExerciseEditForm({ exercise }: Props) {
               </p>
             </div>
 
-            <div className="space-y-2">
+            <div className="flex flex-col gap-2">
               <Label htmlFor="videoUrl">YouTube URL</Label>
               <Input
                 id="videoUrl"
@@ -383,7 +383,7 @@ export function ExerciseEditForm({ exercise }: Props) {
               </p>
             </div>
 
-            <div className="space-y-2">
+            <div className="flex flex-col gap-2">
               <Label htmlFor="imageUrl">Image URL</Label>
               <Input
                 id="imageUrl"
@@ -412,7 +412,7 @@ export function ExerciseEditForm({ exercise }: Props) {
                 <button
                   type="button"
                   onClick={() => setImageUrl("")}
-                  className="absolute right-2 top-2 rounded-full bg-white p-1 shadow-md"
+                  className="absolute right-2 top-2 rounded-full bg-surface p-1 shadow-sm ring-1 ring-border"
                 >
                   <X className="h-3.5 w-3.5 text-muted-foreground" />
                 </button>
@@ -475,7 +475,7 @@ export function ExerciseEditForm({ exercise }: Props) {
           </div>
 
           {/* Actions */}
-          <div className="flex justify-end gap-3 pt-2">
+          <div className="flex justify-end gap-2 border-t border-border pt-5">
             <Button type="button" variant="outline" onClick={() => router.back()}>
               Cancel
             </Button>

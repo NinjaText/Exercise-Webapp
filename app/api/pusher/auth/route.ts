@@ -1,3 +1,4 @@
+import { activeUserOnly } from "@/lib/auth/active-user"
 import { auth } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
@@ -7,7 +8,7 @@ export async function POST(req: Request) {
   const { userId } = await auth()
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } })
+  const dbUser = activeUserOnly(await prisma.user.findUnique({ where: { clerkId: userId } }))
   if (!dbUser) return NextResponse.json({ error: 'User not found' }, { status: 401 })
 
   const params = new URLSearchParams(await req.text())

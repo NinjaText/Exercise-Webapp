@@ -1,4 +1,6 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
+vi.mock("@/actions/coaching-actions", () => ({ requestCoachingAction: vi.fn(), withdrawCoachingRequestAction: vi.fn() }));
 import { renderToStaticMarkup } from "react-dom/server";
 import { addDays } from "date-fns";
 import { ClientDashboard } from "../client-dashboard";
@@ -61,7 +63,7 @@ const baseProps: DashboardProps = {
 
 /** Counts real `<Button variant="default">` renders (unique cva fragment), never a hand-rolled `<button>` like the inbox tabs, which also carry `bg-primary text-primary-foreground` for their active state. */
 function countPrimaryButtons(html: string): number {
-  return (html.match(/bg-primary text-primary-foreground \[a\]:hover:bg-primary\/80/g) ?? []).length;
+  return (html.match(/bg-primary text-primary-foreground shadow-xs hover:bg-primary\/90 aria-expanded:bg-primary\/90/g) ?? []).length;
 }
 
 describe("ClientDashboard static render", () => {
@@ -82,7 +84,8 @@ describe("ClientDashboard static render", () => {
       <ClientDashboard {...baseProps} upcomingSessions={[makeSession()]} />
     );
 
-    expect(html).toMatch(/>5<\/p>\s*<p[^>]*>Workouts completed<\/p>/);
+    // StatCard renders the label (caption) above the value (spec §2.3).
+    expect(html).toMatch(/>Workouts completed<\/p>\s*<p[^>]*>5<\/p>/);
   });
 
   it("sanity: the filled-button class fragment appears at least once across fixtures", () => {
@@ -184,5 +187,43 @@ describe("ClientDashboard static render", () => {
     expect(html).toContain("Nothing scheduled right now");
     expect(countPrimaryButtons(html)).toBe(0);
     expect((html.match(/data-slot="section-card"/g) ?? []).length).toBe(4);
+  });
+
+  it("hides the Inbox card and trainer banner when messaging is off (club members)", () => {
+    const html = renderToStaticMarkup(
+      <ClientDashboard
+        {...baseProps}
+        showInbox={false}
+        unreadTrainerMessage={{
+          trainerId: "t1", trainerName: "Coach", preview: "hi", sentAt: new Date(), unreadCount: 1,
+        }}
+      />
+    );
+
+    expect(html).not.toContain("Inbox");
+    expect(html).not.toContain("/messages");
+    // Resources get the full width instead of sharing a row with nothing.
+    expect(html).not.toContain("lg:grid-cols-2");
+    expect(html).toContain("Morning Mobility");
+  });
+
+  it("keeps the Inbox by default (trainer-org clients unchanged)", () => {
+    const html = renderToStaticMarkup(<ClientDashboard {...baseProps} />);
+    expect(html).toContain("Inbox");
+    expect(html).toContain('href="/messages"');
+  });
+});
+
+describe("ClientDashboard coaching card", () => {
+  it("renders nothing coaching-related without a view-model", () => {
+    expect(renderToStaticMarkup(<ClientDashboard {...baseProps} />)).not.toContain("Coaching");
+    expect(renderToStaticMarkup(<ClientDashboard {...baseProps} coaching={null} />)).not.toContain("Coaching");
+  });
+
+  it("renders the card when coaching is offered", () => {
+    const html = renderToStaticMarkup(
+      <ClientDashboard {...baseProps} coaching={{ status: null, priceLabel: "$49.00 / month" }} />
+    );
+    expect(html).toContain("Request coaching");
   });
 });

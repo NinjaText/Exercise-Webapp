@@ -1,5 +1,6 @@
 "use server";
 
+import { activeUserOnly } from "@/lib/auth/active-user";
 import { auth, clerkClient } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { requireSuperAdmin } from "@/lib/current-user";
@@ -35,7 +36,7 @@ async function resolveCaller(clerkOrgId?: string): Promise<ActionResult<CallerCo
     };
   }
 
-  const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
+  const dbUser = activeUserOnly(await prisma.user.findUnique({ where: { clerkId: userId } }));
   if (!dbUser) return { success: false, error: "User not found" };
   if (dbUser.role !== "TRAINER") return { success: false, error: "Forbidden" };
   if (!dbUser.clerkOrgId) return { success: false, error: "Organization not set up" };

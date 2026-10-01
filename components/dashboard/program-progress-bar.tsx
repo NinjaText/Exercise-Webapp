@@ -46,7 +46,7 @@ export function ProgramProgressBar({ summary }: { summary: ProgramProgressSummar
         <span className="shrink-0 text-2xl font-bold text-primary">{percent}%</span>
       </div>
       <Progress value={percent} className="h-2.5" />
-      <p className="mt-3 text-xs text-muted-foreground/70">
+      <p className="mt-3 text-xs text-muted-foreground">
         {completedSessions} of {totalSessions} workouts complete
       </p>
     </SectionCard>

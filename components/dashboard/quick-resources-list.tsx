@@ -66,14 +66,14 @@ function ResourceRow({ resource }: { resource: QuickResourceItem }) {
   return (
     <Link
       href={`/programs/${resource.id}`}
-      className="flex items-center gap-3 rounded-xl border border-border/60 p-2.5 transition-colors hover:border-primary/40 hover:bg-muted/30"
+      className="flex items-center gap-3 rounded-lg border border-border p-3 transition-colors outline-none hover:border-border-strong hover:bg-surface-muted focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none"
     >
       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-soft text-brand-foreground">
         <Icon className="size-4.5" />
       </span>
       <span className="min-w-0">
-        <span className="block truncate text-sm font-semibold">{resource.name}</span>
-        <span className="block truncate text-xs text-muted-foreground">
+        <span className="block truncate text-label text-foreground">{resource.name}</span>
+        <span className="block truncate text-caption">
           {label} · {meta}
         </span>
       </span>

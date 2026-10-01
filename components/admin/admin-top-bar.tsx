@@ -15,7 +15,7 @@ export function AdminTopBar() {
       {crumbs.length > 0 ? (
         <Breadcrumbs crumbs={crumbs} />
       ) : (
-        <span className="text-sm font-semibold tracking-tight">INMOTUS RX</span>
+        <span className="truncate text-label text-foreground">INMOTUS RX</span>
       )}
     </div>
   );

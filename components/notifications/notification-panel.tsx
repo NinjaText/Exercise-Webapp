@@ -87,7 +87,7 @@ export function NotificationPanel({
     <Popover open={open} onOpenChange={setOpen}>
       {/* PopoverTrigger from @base-ui/react renders a native button — no asChild needed */}
       <PopoverTrigger
-        className="relative inline-flex h-9 w-9 items-center justify-center rounded-md text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+        className="relative inline-flex h-11 w-11 items-center lg:h-9 lg:w-9 justify-center rounded-md text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         aria-label="Open notifications"
       >
         <Bell className="h-4.5 w-4.5 text-muted-foreground" />
@@ -101,11 +101,11 @@ export function NotificationPanel({
       <PopoverContent
         align="end"
         sideOffset={8}
-        className="w-80 rounded-xl border border-border p-0 shadow-xl bg-card"
+        className="w-80 rounded-xl border border-border bg-card p-0 shadow-md"
       >
         {/* Panel header */}
         <div className="flex items-center justify-between px-4 py-3">
-          <h3 className="text-sm font-semibold text-foreground">
+          <h3 className="text-heading text-foreground">
             Notifications
           </h3>
           {unreadCount > 0 && (

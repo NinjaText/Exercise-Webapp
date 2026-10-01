@@ -89,7 +89,7 @@ export function AssignCheckInDialog({
           </DialogHeader>
 
           <div className="space-y-4 py-2">
-            <div className="rounded-lg bg-muted/40 border border-border/60 px-4 py-3">
+            <div className="rounded-lg border border-border bg-surface-muted px-4 py-3">
               <p className="text-xs text-muted-foreground">Template</p>
               <p className="mt-0.5 font-semibold">{templateName}</p>
             </div>

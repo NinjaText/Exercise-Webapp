@@ -5,6 +5,7 @@ import {
   normalizeStatus,
   ROLE_CLASSES,
   STATUS_ROLES,
+  COACHING_BADGE,
 } from "../status";
 
 describe("normalizeStatus", () => {
@@ -91,5 +92,16 @@ describe("ROLE_CLASSES", () => {
       expect(ROLE_CLASSES[role].dot).toBe(`bg-${role}`);
       expect(ROLE_CLASSES[role].border).toBe(`border-${role}-border`);
     }
+  });
+});
+
+describe("COACHING_BADGE", () => {
+  it("maps each coaching status to its trainer-facing label and role", () => {
+    expect(COACHING_BADGE).toEqual({
+      REQUESTED: { label: "Coaching requested", role: "warning" },
+      ACCEPTED: { label: "Awaiting payment", role: "info" },
+      ACTIVE: { label: "Coaching", role: "success" },
+      PAST_DUE: { label: "Coaching paused", role: "danger" },
+    });
   });
 });

@@ -1,4 +1,5 @@
 import { requireRole } from "@/lib/current-user";
+import { requireCapability } from "@/lib/org-capabilities.server";
 import { prisma } from "@/lib/prisma";
 import { differenceInDays, format } from "date-fns";
 import { Check } from "lucide-react";
@@ -28,6 +29,8 @@ function Fact({ label, children }: { label: string; children: React.ReactNode })
 
 export default async function BillingSettingsPage() {
   const user = await requireRole("TRAINER");
+  // Club trainers never pay (trainerBilling off).
+  await requireCapability("trainerBilling");
 
   const sub = await prisma.trainerSubscription.findUnique({
     where: { trainerId: user.id },
@@ -98,7 +101,7 @@ export default async function BillingSettingsPage() {
           description="Every plan includes the full product. Plans differ only in how many clients you can coach."
           bare
         >
-          <PricingCards />
+          <PricingCards headingLevel={3} />
         </SettingsPanel>
       )}
 

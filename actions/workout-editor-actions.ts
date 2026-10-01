@@ -1,5 +1,6 @@
 "use server";
 
+import { activeUserOnly } from "@/lib/auth/active-user";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
@@ -17,7 +18,7 @@ async function getTrainerAndVerifyBlockExercise(blockExerciseId: string) {
   const { userId } = await auth();
   if (!userId) return null;
 
-  const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
+  const dbUser = activeUserOnly(await prisma.user.findUnique({ where: { clerkId: userId } }));
   if (!dbUser || dbUser.role !== "TRAINER") return null;
 
   const be = await prisma.blockExerciseV2.findUnique({
@@ -41,7 +42,7 @@ async function getTrainerAndVerifyBlock(blockId: string) {
   const { userId } = await auth();
   if (!userId) return null;
 
-  const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
+  const dbUser = activeUserOnly(await prisma.user.findUnique({ where: { clerkId: userId } }));
   if (!dbUser || dbUser.role !== "TRAINER") return null;
 
   const block = await prisma.workoutBlockV2.findUnique({
@@ -200,7 +201,7 @@ export async function moveWorkoutAction(
   if (!Number.isInteger(newWeekIndex) || newWeekIndex < 0)
     return { success: false as const, error: "Invalid week" };
 
-  const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
+  const dbUser = activeUserOnly(await prisma.user.findUnique({ where: { clerkId: userId } }));
   if (!dbUser || dbUser.role !== "TRAINER")
     return { success: false as const, error: "Unauthorized" };
 

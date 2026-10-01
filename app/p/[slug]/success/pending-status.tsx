@@ -22,7 +22,7 @@ export function PendingStatus() {
   }, [router]);
 
   return (
-    <Card>
+    <Card className="gap-6 py-6 shadow-md">
       <CardHeader className="items-center text-center">
         <Loader2 className="mb-2 size-8 animate-spin text-primary" />
         <CardTitle>Setting up your program…</CardTitle>

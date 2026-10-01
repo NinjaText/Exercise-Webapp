@@ -1,15 +1,14 @@
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import { requireRole } from "@/lib/current-user";
 import { getAssessments } from "@/lib/services/outcome.service";
 import { getClientIdsForTrainer } from "@/lib/services/client.service";
 import { prisma } from "@/lib/prisma";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/shared/page-header";
 import { PageShell } from "@/components/shared/page-shell";
+import { SectionCard } from "@/components/shared/section-card";
 import { EmptyState } from "@/components/shared/empty-state";
-import { ArrowLeft, ClipboardList } from "lucide-react";
+import { ClipboardList } from "lucide-react";
 import { formatDate } from "@/lib/utils/formatting";
 
 interface Props {
@@ -35,55 +34,54 @@ export default async function ClientOutcomesPage({ params }: Props) {
     return acc;
   }, {});
 
+  const clientName = `${client.firstName} ${client.lastName}`;
+
   return (
     <PageShell>
-      <div className="space-y-4">
-        <Button variant="ghost" size="sm" asChild className="-ml-2">
-          <Link href={`/clients/${id}`}>
-            <ArrowLeft className="mr-1 h-4 w-4" />
-            Back
-          </Link>
-        </Button>
-        <PageHeader
-          title="Outcomes"
-          description={`${client.firstName} ${client.lastName}`}
-          className="pb-0"
-        />
-      </div>
+      <PageHeader
+        title="Outcomes"
+        description={clientName}
+        back={{ label: "Back to client", href: `/clients/${id}` }}
+        breadcrumb={[
+          { label: "Clients", href: "/clients" },
+          { label: clientName, href: `/clients/${id}` },
+          { label: "Outcomes" },
+        ]}
+      />
 
       {assessments.length === 0 ? (
         <Card>
-          <CardContent>
-            <EmptyState
-              icon={ClipboardList}
-              title="No assessments yet"
-              description="Recorded outcome measures and assessments for this client will appear here."
-            />
-          </CardContent>
+          <EmptyState
+            icon={ClipboardList}
+            title="No assessments yet"
+            description="Recorded outcome measures and assessments for this client will appear here."
+          />
         </Card>
       ) : (
-        Object.entries(grouped).map(([type, items]) => (
-          <Card key={type}>
-            <CardHeader>
-              <CardTitle className="text-base capitalize">{type.replace(/_/g, " ")}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
+        <div className="grid gap-6 xl:grid-cols-2">
+          {Object.entries(grouped).map(([type, items]) => (
+            <SectionCard
+              key={type}
+              title={type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
+              icon={ClipboardList}
+              count={items.length}
+            >
+              <ul className="divide-y divide-border">
                 {items.map((a) => (
-                  <div key={a.id} className="flex items-center justify-between rounded-lg border border-border/60 p-3">
-                    <div>
-                      <p className="text-sm font-medium">
+                  <li key={a.id} className="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0">
+                    <div className="min-w-0">
+                      <p className="text-label text-foreground tabular-nums">
                         {a.value} {a.unit}
                       </p>
-                      {a.notes && <p className="text-xs text-muted-foreground">{a.notes}</p>}
+                      {a.notes && <p className="text-caption">{a.notes}</p>}
                     </div>
-                    <p className="text-xs text-muted-foreground/60">{formatDate(a.createdAt)}</p>
-                  </div>
+                    <p className="shrink-0 text-caption tabular-nums">{formatDate(a.createdAt)}</p>
+                  </li>
                 ))}
-              </div>
-            </CardContent>
-          </Card>
-        ))
+              </ul>
+            </SectionCard>
+          ))}
+        </div>
       )}
     </PageShell>
   );

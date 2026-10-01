@@ -455,7 +455,7 @@ export function ProgramRow({
 
       <SchedulingPill kind={kind} />
       <ChevronRight
-        className={cn("h-4 w-4 shrink-0", selected ? "text-primary" : "text-muted-foreground/50")}
+        className={cn("h-4 w-4 shrink-0", selected ? "text-primary" : "text-muted-foreground")}
         aria-hidden="true"
       />
     </button>

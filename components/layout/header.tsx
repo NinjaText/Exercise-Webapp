@@ -7,6 +7,7 @@ import { Menu, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
 import { Sidebar } from "./sidebar";
+import { SIDEBAR_DRAWER_CLASS } from "./sidebar-primitives";
 import { NotificationPanel } from "@/components/notifications/notification-panel";
 import { useSearch } from "@/components/search/search-provider";
 import { Breadcrumbs, useBreadcrumb } from "./breadcrumb-context";
@@ -20,6 +21,8 @@ interface HeaderProps {
   initialNotifications: Notification[];
   /** Client-safe branding subset (never tokens/CSS). */
   branding: BrandingViewModel;
+  /** Hrefs the org's capabilities hide (club orgs). */
+  hiddenHrefs?: string[];
 }
 
 export function Header({
@@ -28,6 +31,7 @@ export function Header({
   unreadNotificationCount,
   initialNotifications,
   branding,
+  hiddenHrefs = [],
 }: HeaderProps) {
   const pathname = usePathname();
   const { crumbs } = useBreadcrumb();
@@ -35,62 +39,67 @@ export function Header({
 
   return (
     <header
-      className="flex min-h-16 items-center gap-4 border-b border-border bg-card px-4 sm:px-6"
+      className="shrink-0 border-b border-border bg-surface"
       style={{ paddingTop: "var(--safe-top)" }}
     >
-      {/* Mobile menu */}
-      <Sheet>
-        <SheetTrigger
-          className="inline-flex shrink-0 items-center justify-center rounded-lg border border-transparent text-sm font-medium transition-all outline-none select-none hover:bg-muted hover:text-foreground size-8 lg:hidden"
+      <div className="flex h-14 items-center gap-2 px-4 sm:gap-3 lg:px-6 2xl:px-8">
+        {/* Mobile menu */}
+        <Sheet>
+          <SheetTrigger
+            aria-label="Open navigation"
+            className="-ml-2.5 inline-flex size-11 shrink-0 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors select-none hover:bg-surface-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none lg:hidden"
+          >
+            <Menu className="size-5" aria-hidden />
+          </SheetTrigger>
+          <SheetContent side="left" className={SIDEBAR_DRAWER_CLASS}>
+            <SheetTitle className="sr-only">Navigation</SheetTitle>
+            <Sidebar
+              role={user.role}
+              currentPath={pathname}
+              unreadMessageCount={unreadMessageCount}
+              userName={`${user.firstName} ${user.lastName}`}
+              userEmail={user.email}
+              userImageUrl={user.imageUrl}
+              mobileMode
+              hiddenHrefs={hiddenHrefs}
+              branding={branding}
+            />
+          </SheetContent>
+        </Sheet>
+
+        <div className="flex min-w-0 flex-1 items-center">
+          {crumbs.length > 0 ? (
+            <Breadcrumbs crumbs={crumbs} />
+          ) : (
+            <span className="truncate text-label text-foreground">{branding.displayName}</span>
+          )}
+        </div>
+
+        {/* Search */}
+        <Button
+          variant="outline"
+          size="sm"
+          className="hidden w-56 justify-start gap-2 bg-surface-muted font-normal text-muted-foreground hover:text-foreground sm:flex"
+          onClick={() => openSearch(true)}
         >
-          <Menu className="h-5 w-5" />
-        </SheetTrigger>
-        <SheetContent side="left" className="w-64 p-0">
-          <SheetTitle className="sr-only">Navigation</SheetTitle>
-          <Sidebar
-            role={user.role}
-            currentPath={pathname}
-            unreadMessageCount={unreadMessageCount}
-            userName={`${user.firstName} ${user.lastName}`}
-            userEmail={user.email}
-            userImageUrl={user.imageUrl}
-            mobileMode
-            branding={branding}
-          />
-        </SheetContent>
-      </Sheet>
+          <Search className="size-3.5" aria-hidden />
+          <span className="flex-1 text-left text-label font-normal">Search...</span>
+          <kbd className="pointer-events-none rounded border border-border bg-surface px-1.5 text-[10px] font-medium text-muted-foreground">
+            ⌘K
+          </kbd>
+        </Button>
 
-      <div className="flex min-w-0 flex-1 items-center">
-        {crumbs.length > 0 ? (
-          <Breadcrumbs crumbs={crumbs} />
-        ) : (
-          <span className="text-sm font-semibold tracking-tight">{branding.displayName}</span>
-        )}
+        {/* Notifications */}
+        <NotificationPanel
+          initialNotifications={initialNotifications}
+          initialUnreadCount={unreadNotificationCount}
+        />
+
+        {/* User button (always visible top-right; contains sign out) */}
+        <div className="flex size-11 shrink-0 items-center justify-center lg:size-9">
+          <UserButton signInUrl="/sign-in" appearance={clerkAppearance} />
+        </div>
       </div>
-
-      {/* Search */}
-      <Button
-        variant="outline"
-        size="sm"
-        className="hidden gap-2 text-muted-foreground sm:flex"
-        onClick={() => openSearch(true)}
-      >
-        <Search className="h-3.5 w-3.5" />
-        <span className="text-xs">Search...</span>
-        <kbd className="pointer-events-none ml-2 hidden rounded border border-border bg-muted px-1.5 text-[10px] font-medium text-muted-foreground sm:inline-block">
-          ⌘K
-        </kbd>
-      </Button>
-
-      {/* Notifications */}
-      <NotificationPanel
-        initialNotifications={initialNotifications}
-        initialUnreadCount={unreadNotificationCount}
-      />
-
-      {/* User button (always visible top-right; contains sign out) */}
-      <UserButton signInUrl="/sign-in" appearance={clerkAppearance} />
-
     </header>
   );
 }

@@ -102,15 +102,15 @@ export function ExerciseForm() {
 
   return (
     <form onSubmit={handleSubmit}>
-      <SectionCard title="Create New Exercise" contentClassName="space-y-6">
+      <SectionCard title="New exercise" contentClassName="flex flex-col gap-6">
         {/* Name */}
-        <div className="space-y-2">
+        <div className="flex flex-col gap-2">
           <Label htmlFor="name">Exercise Name *</Label>
           <Input id="name" name="name" required placeholder="e.g., Wall Squat" />
         </div>
 
         {/* Description */}
-        <div className="space-y-2">
+        <div className="flex flex-col gap-2">
           <Label htmlFor="description">Description</Label>
           <Textarea
             id="description"
@@ -121,7 +121,7 @@ export function ExerciseForm() {
         </div>
 
         {/* Body Regions — multi-select chips */}
-        <div className="space-y-2">
+        <div className="flex flex-col gap-2">
           <Label>
             Body Region *
             {selectedRegions.length > 0 && (
@@ -154,7 +154,7 @@ export function ExerciseForm() {
         </div>
 
         {/* Difficulty — chip buttons */}
-        <div className="space-y-2">
+        <div className="flex flex-col gap-2">
           <Label>Difficulty *</Label>
           <div className="flex gap-2">
             {DIFFICULTY_LEVELS.map((d) => (
@@ -176,7 +176,7 @@ export function ExerciseForm() {
         </div>
 
         {/* Equipment — preset chips + custom input */}
-        <div className="space-y-3">
+        <div className="flex flex-col gap-3">
           <Label>Equipment Required</Label>
 
           {/* Preset options */}
@@ -248,7 +248,7 @@ export function ExerciseForm() {
         </div>
 
         {/* Instructions */}
-        <div className="space-y-2">
+        <div className="flex flex-col gap-2">
           <Label htmlFor="instructions">Instructions</Label>
           <Textarea
             id="instructions"
@@ -259,7 +259,7 @@ export function ExerciseForm() {
         </div>
 
         {/* Contraindications */}
-        <div className="space-y-2">
+        <div className="flex flex-col gap-2">
           <Label htmlFor="contraindications">Contraindications</Label>
           <Input
             id="contraindications"
@@ -290,7 +290,7 @@ export function ExerciseForm() {
         </div>
 
         {/* YouTube URL only */}
-        <div className="space-y-2">
+        <div className="flex flex-col gap-2">
           <Label htmlFor="videoUrl">Video Demo (YouTube URL)</Label>
           <div className="relative">
             <Input
@@ -319,7 +319,7 @@ export function ExerciseForm() {
           )}
         </div>
 
-        <div className="flex justify-end gap-3 pt-2">
+        <div className="flex justify-end gap-2 border-t border-border pt-5">
           <Button type="button" variant="outline" onClick={() => router.back()}>
             Cancel
           </Button>

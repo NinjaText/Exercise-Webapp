@@ -22,6 +22,8 @@ import { AccountabilityScoreCard } from "@/components/nutrition/accountability-s
 import { DailySummaryCard } from "@/components/nutrition/ai-summary-card";
 import { WeeklyReviewCard } from "@/components/nutrition/weekly-review-card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 
 function getTodayLabel(): string {
   return new Date().toLocaleDateString("en-US", {
@@ -107,7 +109,12 @@ async function ClientNutritionView({
           }
         />
 
-        <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+        <div
+          className={cn(
+            "grid grid-cols-2 gap-4",
+            summary.adherencePct !== null && "sm:grid-cols-3",
+          )}
+        >
           {summary.adherencePct !== null && (
             <StatCard
               label="Adherence"
@@ -127,7 +134,8 @@ async function ClientNutritionView({
           <StatCard label="Water" value={`${waterOz} oz`} icon={Droplet} role="info" size="compact" />
         </div>
 
-        <TabsContent value="today" className="space-y-5 pt-1">
+        <TabsContent value="today" className="flex flex-col gap-6">
+          <div className="grid gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
           <SectionCard title="Macros" icon={Flame}>
             <MacroProgressBars
               calories={{ consumed: summary.consumed.calories, target: summary.target.calories }}
@@ -145,6 +153,7 @@ async function ClientNutritionView({
               targetMl={summary.target.waterMl}
             />
           </SectionCard>
+          </div>
 
           <SectionCard
             title="Meals"
@@ -163,12 +172,12 @@ async function ClientNutritionView({
 
           {isSingleDay && <DayNotesCard clientId={clientId} date={start} comments={mealsComments} />}
 
-          <div className="rounded-xl p-4 ring-1 ring-border">
+          <Card className="px-5">
             <DailySummaryCard clientId={clientId} date={today} />
-          </div>
+          </Card>
         </TabsContent>
 
-        <TabsContent value="insights" className="space-y-5 pt-1">
+        <TabsContent value="insights" className="flex flex-col gap-6">
           <SectionCard title="Accountability" icon={ClipboardCheck}>
             <AccountabilityScoreCard
               dailyScore={daily.score}
@@ -181,9 +190,9 @@ async function ClientNutritionView({
             <TrendRangeToggle history7={history7} history30={history30} streak={streak} />
           </SectionCard>
 
-          <div className="rounded-xl p-4 ring-1 ring-border">
+          <Card className="px-5">
             <WeeklyReviewCard clientId={clientId} referenceDate={today} title="My Weekly Review" />
-          </div>
+          </Card>
         </TabsContent>
       </Tabs>
     </PageShell>

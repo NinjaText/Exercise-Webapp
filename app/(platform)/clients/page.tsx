@@ -1,6 +1,8 @@
 import { Suspense } from "react";
 import { requireRole } from "@/lib/current-user";
 import { getClientsForTrainer } from "@/lib/services/client.service";
+import { getTrainerCoachingStatuses } from "@/lib/clubs/trainer-coaching";
+import { COACHING_BADGE } from "@/lib/ui/status";
 import { getOrgInvitations } from "@/lib/services/invitation.service";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -27,7 +29,8 @@ interface Props {
 
 type ClientRow = Awaited<ReturnType<typeof getClientsForTrainer>>[number];
 
-const clientColumns: Column<ClientRow>[] = [
+function buildClientColumns(coaching: Record<string, string> | null): Column<ClientRow>[] {
+  const columns: Column<ClientRow>[] = [
   {
     key: "name",
     header: "Client",
@@ -35,16 +38,16 @@ const clientColumns: Column<ClientRow>[] = [
       <div className="flex items-center gap-3">
         <Avatar className="size-8">
           <AvatarImage src={c.imageUrl || undefined} />
-          <AvatarFallback className="bg-primary/10 text-xs font-semibold text-primary">
+          <AvatarFallback className="bg-brand-soft text-xs font-semibold text-brand-foreground">
             {getInitials(c)}
           </AvatarFallback>
         </Avatar>
         <div className="min-w-0">
-          <p className={cn("truncate text-sm font-medium", c.isActive === false && "text-muted-foreground")}>
+          <p className={cn("truncate text-label text-foreground", c.isActive === false && "text-muted-foreground")}>
             {getDisplayName(c)}
           </p>
           {getDisplayName(c) !== c.email && (
-            <p className="truncate text-xs text-muted-foreground">{c.email}</p>
+            <p className="truncate text-caption">{c.email}</p>
           )}
         </div>
       </div>
@@ -55,6 +58,20 @@ const clientColumns: Column<ClientRow>[] = [
     header: "Status",
     render: (c) => <StatusBadge status={c.isActive === false ? "INACTIVE" : "ACTIVE"} size="sm" />,
   },
+  ...(coaching
+    ? [
+        {
+          key: "coaching",
+          header: "Coaching",
+          render: (c: ClientRow) => {
+            const badge = COACHING_BADGE[coaching[c.id]];
+            return badge ? (
+              <StatusBadge status={coaching[c.id]} label={badge.label} role={badge.role} size="sm" />
+            ) : null;
+          },
+        },
+      ]
+    : []),
   {
     key: "joined",
     header: "Joined",
@@ -71,15 +88,19 @@ const clientColumns: Column<ClientRow>[] = [
       </div>
     ),
   },
-];
+  ];
+  return columns;
+}
 
 export default async function ClientsPage({ searchParams }: Props) {
   const user = await requireRole("TRAINER");
   const { q, archived } = await searchParams;
   const showArchived = archived === "1";
-  const [allClients, invitations] = await Promise.all([
+  const [allClients, invitations, coaching] = await Promise.all([
     getClientsForTrainer(user.id),
     user.clerkOrgId ? getOrgInvitations(user.clerkOrgId) : Promise.resolve([]),
+    // null (and no coaching query) unless this is a club trainer.
+    getTrainerCoachingStatuses(user),
   ]);
 
   const scopedClients = allClients.filter((p) => showArchived ? p.isActive === false : p.isActive !== false);
@@ -124,7 +145,7 @@ export default async function ClientsPage({ searchParams }: Props) {
           </PageToolbar>
 
           <DataList
-            columns={clientColumns}
+            columns={buildClientColumns(coaching)}
             data={clients}
             keyExtractor={(c) => c.id}
             rowHref={(c) => `/clients/${c.id}`}

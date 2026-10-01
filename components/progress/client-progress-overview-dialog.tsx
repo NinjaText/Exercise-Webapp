@@ -159,7 +159,7 @@ export function ClientProgressOverviewDialog({
               <PainCard pain={report.pain} />
             </div>
 
-            <Card>
+            <Card className="py-0">
               <CardContent className="p-4 sm:p-5">
                 <PainTrendChart points={report.painPoints} weeks={weeks} onWeeksChange={setWeeks} />
               </CardContent>
@@ -197,7 +197,7 @@ function CompletionCard({ completion }: { completion: ClientProgressReport["comp
   const length = (percent / 100) * CIRCUMFERENCE;
 
   return (
-    <Card>
+    <Card className="py-0">
       <CardContent className="p-4 sm:p-5">
         <p className="mb-4 text-base font-semibold">Workout Completion</p>
         {scheduled === 0 ? (
@@ -244,7 +244,7 @@ function CompletionCard({ completion }: { completion: ClientProgressReport["comp
 
 function PainCard({ pain }: { pain: ClientProgressReport["pain"] }) {
   return (
-    <Card>
+    <Card className="py-0">
       <CardContent className="p-4 sm:p-5">
         <p className="mb-4 text-base font-semibold">Pain Level</p>
         {pain.latest === null ? (
@@ -289,7 +289,7 @@ function RecentActivityCard({
   clientId: string;
 }) {
   return (
-    <Card>
+    <Card className="py-0">
       <CardContent className="p-4 sm:p-5">
         <div className="mb-3 flex items-center justify-between">
           <p className="text-base font-semibold">Recent Activity</p>
@@ -340,7 +340,7 @@ function ClientNotesCard({
   // so no "View all" link here. Show up to 3 of the already-fetched merged notes.
   const shown = notes.slice(0, 3);
   return (
-    <Card>
+    <Card className="py-0">
       <CardContent className="p-4 sm:p-5">
         <div className="mb-3 flex items-center justify-between">
           <p className="text-base font-semibold">Client Notes</p>
