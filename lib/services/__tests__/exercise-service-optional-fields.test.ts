@@ -1,11 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 vi.mock('@/lib/prisma', () => ({
-  prisma: { exercise: { create: vi.fn() } },
+  prisma: { exercise: { create: vi.fn(), findMany: vi.fn(async () => []) } },
 }))
 vi.mock('@/lib/utils/video', () => ({
   buildYouTubeSearchUrl: vi.fn(() => 'https://www.youtube.com/results?search_query=x'),
   extractYouTubeId: vi.fn(() => null),
+  isYouTubeUrl: vi.fn(() => false),
   getYouTubeThumbnail: vi.fn(),
 }))
 

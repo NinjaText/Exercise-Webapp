@@ -45,3 +45,6 @@ next-env.d.ts
 
 # superpowers brainstorming companion
 /.superpowers/
+
+# dedupe-exercises.ts plan + backups (contain live user data)
+/scripts/exercise-dedupe/

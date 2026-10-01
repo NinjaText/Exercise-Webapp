@@ -209,8 +209,6 @@ export default async function ExercisesPage({ searchParams }: Props) {
         <>
           <ExerciseGrid
             exercises={exercises}
-            activeSource={activeSource}
-            organizationOrgId={organizationOrgId}
             favoriteIds={favoriteIdSet}
           />
           <PaginationBar page={page} pageSize={PAGE_SIZE} total={total} buildHref={pageUrl} itemLabel="exercises" />
