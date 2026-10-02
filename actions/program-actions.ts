@@ -51,6 +51,7 @@ import type { WeekPlan } from "@/lib/ai/types/program-generation";
 import { logAudit, diffFields, deriveActorType, AUDIT_ACTIONS } from "@/lib/services/audit-log.service";
 import { getClientIdsForTrainer } from "@/lib/services/client.service";
 import { getProgramSchedulingType } from "@/lib/utils/program-scheduling";
+import { canonicalEquipmentList } from "@/lib/utils/equipment-vocabulary";
 
 async function getTrainerUser() {
   const { userId } = await auth();
@@ -1034,11 +1035,7 @@ export async function getDistinctEquipmentAction(): Promise<{ success: true; dat
       where: { isActive: true },
       select: { equipmentRequired: true },
     })
-    const all = exercises.flatMap(e => e.equipmentRequired)
-    const distinct = [...new Set(all)]
-      .filter(e => e && e.toLowerCase() !== 'none' && e.trim() !== '')
-      .sort()
-    return { success: true, data: distinct }
+    return { success: true, data: canonicalEquipmentList(exercises.flatMap(e => e.equipmentRequired)) }
   } catch {
     return { success: false, error: 'Failed to load equipment list' }
   }

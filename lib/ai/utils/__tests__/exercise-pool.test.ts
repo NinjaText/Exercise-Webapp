@@ -177,6 +177,23 @@ describe('filterByEquipment — normalization', () => {
   it('a selection of just "none" means bodyweight only', () => {
     expect(filterByEquipment([dumbbellsPlural, bench], ['none'])).toEqual([])
   })
+
+  it('matches variant spellings to the canonical picker option', () => {
+    const light = { id: 'e', equipmentRequired: ['light dumbbell (1-2 lb)'] }
+    const wall = { id: 'f', equipmentRequired: ['wall (for balance)'] }
+    expect(filterByEquipment([light, wall, bench], ['Dumbbells', 'Wall']).map(e => e.id)).toEqual(['e', 'f'])
+  })
+
+  it('treats "x or y" as satisfied by either alternative', () => {
+    const cableOrBand = { id: 'g', equipmentRequired: ['cable or band'] }
+    expect(filterByEquipment([cableOrBand], ['Resistance Band']).map(e => e.id)).toEqual(['g'])
+    expect(filterByEquipment([cableOrBand], ['Chair'])).toEqual([])
+  })
+
+  it('ignores junk values that are not equipment', () => {
+    const junk = { id: 'h', equipmentRequired: ['ee'] }
+    expect(filterByEquipment([junk], ['none']).map(e => e.id)).toEqual(['h'])
+  })
 })
 
 describe('orderPoolByDifficultyPreference', () => {

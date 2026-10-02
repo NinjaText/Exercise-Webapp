@@ -15,6 +15,7 @@ export async function createExerciseAction(input: {
   name: string;
   description?: string;
   bodyRegion: string[];
+  musclesTargeted?: string[];
   equipmentRequired: string[];
   difficultyLevel: string;
   contraindications: string[];
@@ -329,6 +330,7 @@ export async function createOrganizationExerciseAction(input: {
   name: string;
   description?: string;
   bodyRegion?: string[];
+  musclesTargeted?: string[];
   difficultyLevel?: string;
   videoUrl?: string;
   exercisePhases?: string[];
@@ -347,6 +349,10 @@ export async function createOrganizationExerciseAction(input: {
       name: input.name.trim(),
       description: input.description?.trim() || undefined,
       bodyRegion: (input.bodyRegion ?? []) as BodyRegion[],
+      musclesTargeted: (input.musclesTargeted ?? [])
+        .map((m) => m.trim().slice(0, 200))
+        .filter(Boolean)
+        .slice(0, 50),
       difficultyLevel: input.difficultyLevel
         ? (input.difficultyLevel as DifficultyLevel)
         : undefined,

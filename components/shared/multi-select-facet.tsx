@@ -15,13 +15,15 @@ import {
 import { cn } from "@/lib/utils";
 
 interface MultiSelectFacetProps {
-  label: string;
+  /** Omit to render without a heading (when the caller supplies its own). */
+  label?: string;
   icon?: React.ReactNode;
   allLabel: string;
   values: string[];
   options: readonly { value: string; label: string }[];
   onChange: (values: string[]) => void;
   searchPlaceholder?: string;
+  triggerClassName?: string;
 }
 
 /** A searchable, multi-select filter dropdown — checked items stay visible as removable chips below. */
@@ -33,6 +35,7 @@ export function MultiSelectFacet({
   options,
   onChange,
   searchPlaceholder = "Search...",
+  triggerClassName,
 }: MultiSelectFacetProps) {
   const [open, setOpen] = useState(false);
 
@@ -49,14 +52,16 @@ export function MultiSelectFacet({
 
   return (
     <div className="space-y-1.5">
-      <p className="flex items-center gap-1.5 text-sm font-medium">
-        {icon}
-        {label}
-      </p>
+      {label && (
+        <p className="flex items-center gap-1.5 text-sm font-medium">
+          {icon}
+          {label}
+        </p>
+      )}
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger
           render={
-            <Button type="button" variant="outline" role="combobox" className="w-full justify-between font-normal" />
+            <Button type="button" variant="outline" role="combobox" className={cn("w-full justify-between font-normal", triggerClassName)} />
           }
         >
           <span className="truncate">{triggerLabel}</span>

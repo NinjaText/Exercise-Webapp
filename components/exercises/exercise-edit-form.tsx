@@ -8,11 +8,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { SectionCard } from "@/components/shared/section-card";
-import { BODY_REGIONS, DIFFICULTY_LEVELS, COMMON_EQUIPMENT } from "@/lib/utils/constants";
+import { BODY_REGIONS, DIFFICULTY_LEVELS, COMMON_EQUIPMENT, musclesToGroups, applyMuscleGroupSelection } from "@/lib/utils/constants";
 import { updateExerciseAction, addExerciseMediaAction, deleteExerciseMediaAction } from "@/actions/exercise-actions";
 import { toast } from "sonner";
 import { CheckCircle2, Loader2, Play, Trash2, X, Plus, ClipboardCheck } from "lucide-react";
 import { ExerciseVideoPlayer } from "@/components/exercises/exercise-video-player";
+import { MuscleGroupChips } from "@/components/exercises/muscle-group-chips";
 import { cn } from "@/lib/utils";
 
 interface MediaItem {
@@ -28,6 +29,7 @@ interface Exercise {
   name: string;
   description: string | null;
   bodyRegion: string[];
+  musclesTargeted: string[];
   difficultyLevel: string | null;
   equipmentRequired: string[];
   contraindications: string[];
@@ -51,6 +53,7 @@ export function ExerciseEditForm({ exercise }: Props) {
   const [name, setName] = useState(exercise.name);
   const [description, setDescription] = useState(exercise.description ?? "");
   const [selectedRegions, setSelectedRegions] = useState<string[]>(exercise.bodyRegion);
+  const [muscleGroups, setMuscleGroups] = useState<string[]>(() => musclesToGroups(exercise.musclesTargeted));
   const [difficultyLevel, setDifficultyLevel] = useState(exercise.difficultyLevel ?? "");
   const [isActive, setIsActive] = useState(String(exercise.isActive));
   const [isAssessment, setIsAssessment] = useState(exercise.isAssessment);
@@ -81,6 +84,7 @@ export function ExerciseEditForm({ exercise }: Props) {
       name: name.trim(),
       description: description.trim() || undefined,
       bodyRegion: selectedRegions,
+      musclesTargeted: applyMuscleGroupSelection(exercise.musclesTargeted, muscleGroups),
       difficultyLevel,
       equipmentRequired: selectedEquipment,
       contraindications: contraindications
@@ -177,6 +181,8 @@ export function ExerciseEditForm({ exercise }: Props) {
               })}
             </div>
           </div>
+
+          <MuscleGroupChips value={muscleGroups} onChange={setMuscleGroups} />
 
           {/* Description */}
           <div className="flex flex-col gap-2">

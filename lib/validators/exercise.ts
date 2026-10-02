@@ -5,6 +5,7 @@ export const createExerciseSchema = z.object({
   description: z.string().max(2000).optional(),
   bodyRegion: z.array(z.enum(["LOWER_BODY", "UPPER_BODY", "CORE", "FULL_BODY", "BALANCE", "FLEXIBILITY"])).min(1, "Select at least one body region"),
   equipmentRequired: z.array(z.string()).default([]),
+  musclesTargeted: z.array(z.string().trim().min(1).max(200)).max(50).optional(),
   difficultyLevel: z.enum(["BEGINNER", "INTERMEDIATE", "ADVANCED"]),
   contraindications: z.array(z.string()).default([]),
   instructions: z.string().max(5000).optional(),

@@ -28,6 +28,9 @@ import {
 import { cn } from "@/lib/utils";
 import { UniversalVideoPlayer } from "@/components/exercises/universal-video-player";
 import { YouTubeVideoSearch } from "@/components/exercises/youtube-video-search";
+import { MultiSelectFacet } from "@/components/shared/multi-select-facet";
+import { MUSCLE_GROUPS, musclesToGroups, applyMuscleGroupSelection } from "@/lib/utils/constants";
+import { MuscleGroupChips } from "@/components/exercises/muscle-group-chips";
 import { ExerciseContextSelector } from "@/components/exercises/exercise-context-selector";
 import type { ExerciseContext } from "@/lib/utils/exercise-context";
 import { createOrganizationExerciseAction } from "@/actions/exercise-actions";
@@ -92,9 +95,11 @@ interface FilterBarProps {
   setPhase: (v: string) => void;
   bodyRegions: string[];
   setRegions: (v: string[]) => void;
+  muscleGroups: string[];
+  setMuscleGroups: (v: string[]) => void;
 }
 
-function FilterBar({ search, setSearch, phase, setPhase, bodyRegions, setRegions }: FilterBarProps) {
+function FilterBar({ search, setSearch, phase, setPhase, bodyRegions, setRegions, muscleGroups, setMuscleGroups }: FilterBarProps) {
   function toggleRegion(value: string) {
     setRegions(bodyRegions.includes(value) ? bodyRegions.filter((r) => r !== value) : [...bodyRegions, value]);
   }
@@ -135,6 +140,17 @@ function FilterBar({ search, setSearch, phase, setPhase, bodyRegions, setRegions
           ))}
         </div>
       </div>
+      <div>
+        <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">Muscle Group</p>
+        <MultiSelectFacet
+          allLabel="All muscle groups"
+          values={muscleGroups}
+          options={MUSCLE_GROUPS}
+          onChange={setMuscleGroups}
+          searchPlaceholder="Search muscles..."
+          triggerClassName="h-8 text-sm"
+        />
+      </div>
     </div>
   );
 }
@@ -145,6 +161,8 @@ interface ExerciseListProps {
   setPhase: (v: string) => void;
   bodyRegions: string[];
   setRegions: (v: string[]) => void;
+  muscleGroups: string[];
+  setMuscleGroups: (v: string[]) => void;
   selectedIds: Set<string>;
   onToggle: (ex: Exercise) => void;
   onPreview: (ex: Exercise) => void;
@@ -156,6 +174,8 @@ function ExerciseList({
   setPhase,
   bodyRegions,
   setRegions,
+  muscleGroups,
+  setMuscleGroups,
   selectedIds,
   onToggle,
   onPreview,
@@ -227,9 +247,9 @@ function ExerciseList({
         {list.length === 0 && (
           <div className="text-center py-10">
             <p className="text-sm text-muted-foreground">No exercises found.</p>
-            {(phase !== "all" || bodyRegions.length > 0) && (
+            {(phase !== "all" || bodyRegions.length > 0 || muscleGroups.length > 0) && (
               <Button variant="ghost" size="sm" className="mt-2 text-xs"
-                onClick={() => { setPhase("all"); setRegions([]); }}>
+                onClick={() => { setPhase("all"); setRegions([]); setMuscleGroups([]); }}>
                 Clear filters
               </Button>
             )}
@@ -278,6 +298,8 @@ interface ExerciseFormShape {
   name: string;
   description: string;
   bodyRegion: string[];
+  /** Raw stored muscle names (AI output or chip labels); edited as groups via MuscleGroupChips. */
+  musclesTargeted: string[];
   difficultyLevel: string;
   exercisePhases: string[];
   videoUrl: string;
@@ -288,6 +310,7 @@ function emptyFormShape(): ExerciseFormShape {
     name: "",
     description: "",
     bodyRegion: [],
+    musclesTargeted: [],
     difficultyLevel: "",
     exercisePhases: [],
     videoUrl: "",
@@ -356,6 +379,12 @@ function CreateExerciseFields({
           })}
         </div>
       </div>
+
+      <MuscleGroupChips
+        compact
+        value={musclesToGroups(form.musclesTargeted)}
+        onChange={(groups) => setForm((f) => ({ ...f, musclesTargeted: applyMuscleGroupSelection(f.musclesTargeted, groups) }))}
+      />
 
       <div className="space-y-1.5">
         <Label className="text-xs font-semibold">Difficulty</Label>
@@ -567,6 +596,7 @@ export function ExercisePickerDialog({
   const [selectedExerciseIds, setSelectedExerciseIds] = useState<Set<string>>(new Set());
   const [phase, setPhase]       = useState<string>("all");
   const [bodyRegions, setRegions] = useState<string[]>([]);
+  const [muscleGroups, setMuscleGroups] = useState<string[]>([]);
   const [videoPreview, setVideoPreview] = useState<Exercise | null>(null);
   const [videoUrlPreview, setVideoUrlPreview] = useState<{ videoId: string; url: string; title: string } | null>(null);
   const [view, setView] = useState<"list" | "create">("list");
@@ -613,6 +643,7 @@ export function ExercisePickerDialog({
         if (!phases.includes(phase)) return false;
       }
       if (bodyRegions.length > 0 && !ex.bodyRegion.some((r) => bodyRegions.includes(r))) return false;
+      if (muscleGroups.length > 0 && !musclesToGroups(ex.musclesTargeted ?? []).some((g) => muscleGroups.includes(g))) return false;
       return true;
     });
   }
@@ -631,7 +662,7 @@ export function ExercisePickerDialog({
     [universalExercises, myOrganizationExercises, showUniversal, showOrganization, organizationOrganizationId]
   );
 
-  const filteredExercises = useMemo(() => applyFilters(mergedExercises), [mergedExercises, search, phase, bodyRegions]);
+  const filteredExercises = useMemo(() => applyFilters(mergedExercises), [mergedExercises, search, phase, bodyRegions, muscleGroups]);
 
   // ── AI search ────────────────────────────────────────────────────────────
 
@@ -707,6 +738,7 @@ export function ExercisePickerDialog({
           name: d.exerciseName ?? "",
           description: d.description ?? "",
           bodyRegion: d.bodyRegion ?? [],
+          musclesTargeted: d.musclesTargeted ?? [],
           difficultyLevel: d.difficultyLevel ?? "",
           exercisePhases: d.exercisePhases ?? [],
           videoUrl: d.videoUrl ?? url,
@@ -802,6 +834,7 @@ export function ExercisePickerDialog({
           name: d.name,
           description: d.description || undefined,
           bodyRegion: d.bodyRegion.length ? d.bodyRegion : undefined,
+          musclesTargeted: d.musclesTargeted,
           difficultyLevel: d.difficultyLevel || undefined,
           exercisePhases: d.exercisePhases,
           videoUrl: d.videoUrl || undefined,
@@ -816,6 +849,7 @@ export function ExercisePickerDialog({
             id: result.data.id,
             name: result.data.name,
             bodyRegion: result.data.bodyRegion,
+            musclesTargeted: result.data.musclesTargeted,
             difficultyLevel: result.data.difficultyLevel || "",
             exercisePhases: result.data.exercisePhases ?? [],
             videoUrl: result.data.videoUrl ?? null,
@@ -1028,6 +1062,8 @@ export function ExercisePickerDialog({
                 setPhase={setPhase}
                 bodyRegions={bodyRegions}
                 setRegions={setRegions}
+                muscleGroups={muscleGroups}
+                setMuscleGroups={setMuscleGroups}
               />
               <ExerciseList
                 list={filteredExercises}
@@ -1035,6 +1071,8 @@ export function ExercisePickerDialog({
                 setPhase={setPhase}
                 bodyRegions={bodyRegions}
                 setRegions={setRegions}
+                muscleGroups={muscleGroups}
+                setMuscleGroups={setMuscleGroups}
                 selectedIds={selectedExerciseIds}
                 onToggle={toggleExerciseSelection}
                 onPreview={setVideoPreview}

@@ -1,3 +1,5 @@
+import { canonicalEquipment } from '@/lib/utils/equipment-vocabulary'
+
 interface ExerciseWithContraindications {
   id: string
   name: string
@@ -273,21 +275,6 @@ interface ExerciseWithEquipment {
   equipmentRequired: string[]
 }
 
-/** Lowercases, trims, and strips an "(optional)" qualifier for comparison. */
-export function normalizeEquipmentName(name: string): string {
-  return name
-    .toLowerCase()
-    .replace(/\s*\((optional|for balance|for safety|for support)\)\s*/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-}
-
-function isOptionalEquipment(name: string): boolean {
-  return /\(optional\)/i.test(name) || /\boptional\b/i.test(name)
-}
-
-const NO_EQUIPMENT_VALUES = new Set(['', 'none', 'bodyweight', 'body weight', 'no equipment'])
-
 const NAME_IMPLIED_EQUIPMENT: { pattern: RegExp; equipment: string }[] = [
   { pattern: /\bdumbbells?\b|\bdb\b/i, equipment: 'dumbbells' },
   { pattern: /\bbarbell\b/i, equipment: 'barbell' },
@@ -301,7 +288,8 @@ const NAME_IMPLIED_EQUIPMENT: { pattern: RegExp; equipment: string }[] = [
   { pattern: /\bpull-?up\b|\bchin-?up\b|\bhanging\b/i, equipment: 'pull-up bar' },
   { pattern: /\bbench\b/i, equipment: 'bench' },
   { pattern: /\bbox jump\b|\bstep-?ups?\b/i, equipment: 'step or box' },
-  { pattern: /\bstability ball\b|\bswiss ball\b|\bbosu\b/i, equipment: 'stability ball' },
+  { pattern: /\bstability ball\b|\bswiss ball\b/i, equipment: 'stability ball' },
+  { pattern: /\bbosu\b/i, equipment: 'BOSU ball' },
   { pattern: /\bslider\b/i, equipment: 'slider' },
 ]
 
@@ -316,30 +304,24 @@ export function inferEquipmentFromName(name: string): string[] {
 
 /**
  * Keeps only exercises whose required equipment is fully covered by the
- * trainer's selection. Comparison is case-insensitive (the library stores
- * "Dumbbells", "dumbbell" and "dumbbells" as separate values) and items the
- * library marks "(optional)" don't disqualify an exercise. A selection of
- * just "none" means bodyweight only.
+ * trainer's selection. Both sides are compared as canonical labels (see
+ * equipment-vocabulary), so "dumbbell", "Dumbbells" and "light dumbbell
+ * (1-2 lb)" are one item, "(optional)" items don't disqualify an exercise,
+ * and "cable or band" is satisfied by either. A selection of just "none"
+ * means bodyweight only.
  */
 export function filterByEquipment<T extends ExerciseWithEquipment & { name?: string }>(
   exercises: T[],
   availableEquipment: string[]
 ): T[] {
   if (availableEquipment.length === 0) return exercises
-  const available = new Set(
-    availableEquipment.map(normalizeEquipmentName).filter(e => !NO_EQUIPMENT_VALUES.has(e))
-  )
+  const available = new Set(availableEquipment.flatMap(canonicalEquipment))
   return exercises.filter(exercise => {
-    const tagged = exercise.equipmentRequired
-      .filter(e => e && !NO_EQUIPMENT_VALUES.has(normalizeEquipmentName(e)) && !isOptionalEquipment(e))
-      .map(normalizeEquipmentName)
-    const implied = exercise.name ? inferEquipmentFromName(exercise.name).map(normalizeEquipmentName) : []
-    const required = [...new Set([...tagged, ...implied])]
-    if (required.length === 0) return true
-    return required.every(req =>
-      available.has(req) ||
-      // "dumbbell" vs "dumbbells", "light dumbbell", "cable or band"
-      [...available].some(a => req.includes(a) || a.includes(req))
-    )
+    const implied = exercise.name ? inferEquipmentFromName(exercise.name) : []
+    // Each requirement is a set of alternatives; one of them must be available.
+    const requirements = [...exercise.equipmentRequired, ...implied]
+      .map(canonicalEquipment)
+      .filter(alternatives => alternatives.length > 0)
+    return requirements.every(alternatives => alternatives.some(a => available.has(a)))
   })
 }

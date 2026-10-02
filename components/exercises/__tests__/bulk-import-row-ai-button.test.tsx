@@ -19,7 +19,7 @@ function row(over: Partial<ExerciseRow> = {}): ExerciseRow {
     bodyRegion: [],
     difficultyLevel: "",
     exercisePhases: [],
-    musclesTargeted: "",
+    musclesTargeted: [],
     equipmentRequired: [],
     contraindications: "",
     commonMistakes: "",
