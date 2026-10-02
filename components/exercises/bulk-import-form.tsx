@@ -9,7 +9,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { Progress } from "@/components/ui/progress";
 import { Checkbox } from "@/components/ui/checkbox";
-import { BODY_REGIONS, DIFFICULTY_LEVELS, COMMON_EQUIPMENT } from "@/lib/utils/constants";
+import { BODY_REGIONS, DIFFICULTY_LEVELS, COMMON_EQUIPMENT, musclesToGroups, applyMuscleGroupSelection } from "@/lib/utils/constants";
+import { MuscleGroupChips } from "@/components/exercises/muscle-group-chips";
 import { bulkCreateExercisesAction, type BulkExerciseInput } from "@/actions/bulk-exercise-actions";
 import { isYouTubeUrl, isYouTubePlaylistUrl } from "@/lib/utils/video";
 import type { ExerciseContext } from "@/lib/utils/exercise-context";
@@ -154,7 +155,8 @@ export interface ExerciseRow {
   bodyRegion: string[];
   difficultyLevel: string;
   exercisePhases: string[];
-  musclesTargeted: string;
+  /** Raw muscle names (AI output or chip labels); edited as groups via MuscleGroupChips. */
+  musclesTargeted: string[];
   equipmentRequired: string[];
   contraindications: string;
   commonMistakes: string;
@@ -177,7 +179,7 @@ function makeRow(videoUrl: string, videoFileName: string, imageUrl = ""): Exerci
     bodyRegion: [],
     difficultyLevel: "",
     exercisePhases: [],
-    musclesTargeted: "",
+    musclesTargeted: [],
     equipmentRequired: [],
     contraindications: "",
     commonMistakes: "",
@@ -252,7 +254,7 @@ export function BulkImportForm() {
         newRow.bodyRegion = d.bodyRegion ?? [];
         newRow.difficultyLevel = d.difficultyLevel ?? "";
         newRow.exercisePhases = d.exercisePhases ?? [];
-        newRow.musclesTargeted = (d.musclesTargeted ?? []).join(", ");
+        newRow.musclesTargeted = d.musclesTargeted ?? [];
         newRow.equipmentRequired = d.equipmentRequired ?? [];
         newRow.contraindications = (d.contraindications ?? []).join(", ");
         newRow.commonMistakes = d.commonMistakes ?? "";
@@ -473,7 +475,7 @@ export function BulkImportForm() {
         bodyRegion: d.bodyRegion ?? [],
         difficultyLevel: d.difficultyLevel ?? "",
         exercisePhases: d.exercisePhases ?? [],
-        musclesTargeted: (d.musclesTargeted ?? []).join(", "),
+        musclesTargeted: d.musclesTargeted ?? [],
         equipmentRequired: d.equipmentRequired ?? [],
         contraindications: (d.contraindications ?? []).join(", "),
         commonMistakes: d.commonMistakes ?? "",
@@ -504,7 +506,7 @@ export function BulkImportForm() {
       difficultyLevel: r.difficultyLevel,
       exercisePhases: r.exercisePhases,
       isAssessment: r.isAssessment,
-      musclesTargeted: r.musclesTargeted.split(",").map((s) => s.trim()).filter(Boolean),
+      musclesTargeted: r.musclesTargeted,
       equipmentRequired: r.equipmentRequired,
       contraindications: r.contraindications.split(",").map((s) => s.trim()).filter(Boolean),
       commonMistakes: r.commonMistakes || undefined,
@@ -1085,10 +1087,11 @@ export function ExerciseRowCard({ row, index, onUpdate, onRemove, onGenerate, on
             <Textarea rows={3} value={row.instructions} onChange={(e) => onUpdate({ instructions: e.target.value })} placeholder="Step-by-step client instructions" />
           </div>
 
-          <div className="space-y-1.5">
-            <Label className="text-xs font-medium">Muscles Targeted <span className="font-normal text-muted-foreground">(comma separated)</span></Label>
-            <Input value={row.musclesTargeted} onChange={(e) => onUpdate({ musclesTargeted: e.target.value })} placeholder="e.g. Quadriceps, Glutes, Hamstrings" />
-          </div>
+          <MuscleGroupChips
+            compact
+            value={musclesToGroups(row.musclesTargeted)}
+            onChange={(groups) => onUpdate({ musclesTargeted: applyMuscleGroupSelection(row.musclesTargeted, groups) })}
+          />
 
           <div className="space-y-1.5">
             <Label className="text-xs font-medium">Equipment Required</Label>

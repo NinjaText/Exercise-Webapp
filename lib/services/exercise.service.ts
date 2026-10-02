@@ -46,6 +46,7 @@ export async function getExercises(filters: ExerciseFilters = {}) {
       difficultyLevel: true,
       exercisePhases: true,
       equipmentRequired: true,
+      musclesTargeted: true,
       description: true,
       imageUrl: true,
       videoUrl: true,
@@ -260,6 +261,7 @@ export async function createExercise(data: {
   name: string;
   description?: string;
   bodyRegion?: BodyRegion[];
+  musclesTargeted?: string[];
   equipmentRequired: string[];
   difficultyLevel?: DifficultyLevel;
   contraindications: string[];
@@ -295,6 +297,7 @@ export async function createExercise(data: {
       name: data.name,
       description: data.description,
       bodyRegion: data.bodyRegion ?? [],
+      musclesTargeted: data.musclesTargeted ?? [],
       equipmentRequired: data.equipmentRequired,
       difficultyLevel: data.difficultyLevel ?? null,
       contraindications: data.contraindications,
@@ -317,6 +320,7 @@ export async function updateExercise(
     name: string;
     description: string;
     bodyRegion: BodyRegion[];
+    musclesTargeted: string[];
     equipmentRequired: string[];
     difficultyLevel: DifficultyLevel;
     contraindications: string[];

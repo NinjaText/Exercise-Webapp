@@ -1,3 +1,5 @@
+import { canonicalEquipment } from './equipment-vocabulary'
+
 /** Sentinel the equipment picker uses for "bodyweight only". */
 export const NO_EQUIPMENT_OPTION = 'none'
 
@@ -6,10 +8,10 @@ export const NO_EQUIPMENT_OPTION = 'none'
  * vocabulary so the program form can pre-select the matching picker options.
  *
  * Client profiles record equipment from the fixed onboarding list
- * (COMMON_EQUIPMENT), which can differ in casing from the distinct values found
- * on exercises — so matching is case-insensitive and the library's spelling
- * wins. An unmatched item is kept verbatim rather than dropped, so the trainer
- * can still see (and remove) what the client reported. "None" collapses to the
+ * (COMMON_EQUIPMENT), which can differ in spelling from the picker's options
+ * — so both are compared as canonical labels and the picker's spelling wins.
+ * An unmatched item is kept verbatim rather than dropped, so the trainer can
+ * still see (and remove) what the client reported. "None" collapses to the
  * picker's bodyweight-only sentinel, which is mutually exclusive with real
  * equipment.
  */
@@ -20,7 +22,7 @@ export function mapClientEquipmentToOptions(
   const reported = (clientEquipment ?? []).map((item) => item.trim()).filter(Boolean)
   if (reported.length === 0) return []
 
-  const bySpelling = new Map(libraryOptions.map((option) => [option.toLowerCase(), option]))
+  const options = new Set(libraryOptions)
 
   const realItems: string[] = []
   let reportedNone = false
@@ -31,7 +33,8 @@ export function mapClientEquipmentToOptions(
       reportedNone = true
       continue
     }
-    realItems.push(bySpelling.get(key) ?? item)
+    const matched = canonicalEquipment(item).filter((label) => options.has(label))
+    realItems.push(...(matched.length > 0 ? matched : [item]))
   }
 
   if (realItems.length > 0) return [...new Set(realItems)]

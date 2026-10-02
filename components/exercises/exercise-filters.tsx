@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { MultiSelectFacet } from "@/components/shared/multi-select-facet";
-import { BODY_REGIONS, DIFFICULTY_LEVELS } from "@/lib/utils/constants";
+import { BODY_REGIONS, DIFFICULTY_LEVELS, MUSCLE_GROUPS } from "@/lib/utils/constants";
 import { Search, SlidersHorizontal, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -19,7 +19,7 @@ const EXERCISE_PHASES = [
   { value: "COOLDOWN", label: "Cool-down" },
 ] as const;
 
-const FILTER_KEYS = ["exercisePhase", "bodyRegion", "equipment", "difficultyLevel", "hasVideo", "favorite"] as const;
+const FILTER_KEYS = ["exercisePhase", "bodyRegion", "muscleGroup", "equipment", "difficultyLevel", "hasVideo", "favorite"] as const;
 
 function toList(value: string): string[] {
   return value ? value.split(",").filter(Boolean) : [];
@@ -65,6 +65,7 @@ export function ExerciseFilters({ equipmentOptions }: { equipmentOptions: string
     search: searchParams.get("search") || "",
     exercisePhase: searchParams.get("exercisePhase") || "",
     bodyRegion: searchParams.get("bodyRegion") || "",
+    muscleGroup: searchParams.get("muscleGroup") || "",
     equipment: searchParams.get("equipment") || "",
     difficultyLevel: searchParams.get("difficultyLevel") || "",
     hasVideo: searchParams.get("hasVideo") || "",
@@ -164,6 +165,15 @@ export function ExerciseFilters({ equipmentOptions }: { equipmentOptions: string
               options={BODY_REGIONS}
               onChange={(vals) => pushParams({ bodyRegion: vals.join(",") })}
               searchPlaceholder="Search body areas..."
+            />
+            <MultiSelectFacet
+              label="Muscle Group"
+              icon={<SlidersHorizontal className="h-3.5 w-3.5 text-muted-foreground" />}
+              allLabel="All Muscle Groups"
+              values={toList(current.muscleGroup)}
+              options={MUSCLE_GROUPS}
+              onChange={(vals) => pushParams({ muscleGroup: vals.join(",") })}
+              searchPlaceholder="Search muscles..."
             />
             <MultiSelectFacet
               label="Equipment"

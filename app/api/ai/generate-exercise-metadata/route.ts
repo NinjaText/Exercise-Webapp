@@ -10,6 +10,9 @@ import { extractYouTubeId } from "@/lib/utils/video";
 import { isSuperAdmin } from "@/lib/current-user";
 
 import { resolveExerciseAudience, type ExerciseAudience } from "@/lib/utils/exercise-context";
+import { MUSCLE_GROUPS } from "@/lib/utils/constants";
+
+const MUSCLE_GROUP_LABELS = MUSCLE_GROUPS.map((g) => g.label) as [string, ...string[]];
 
 // Per-audience wording. "BOTH" is used when the trainer tags a batch as suitable
 // for rehab AND performance clients — metadata must then serve both populations.
@@ -55,7 +58,7 @@ function buildMetadataFields(audience: ExerciseAudience) {
     exercisePhases: z.array(z.enum(["WARMUP", "ACTIVATION", "STRENGTHENING", "MOBILITY", "COOLDOWN"]))
       .min(1)
       .describe("Workout phase(s) this exercise fits — an exercise can belong to more than one, e.g. mobility and strength. Return every phase that genuinely applies."),
-    musclesTargeted: z.array(z.string()).describe("Primary muscles worked, e.g. ['Quadriceps', 'Glutes']"),
+    musclesTargeted: z.array(z.enum(MUSCLE_GROUP_LABELS)).describe("Primary muscle groups worked, from the standard list, e.g. ['Quadriceps', 'Glutes']. Return every group that is a primary mover, not minor stabilizers."),
     equipmentRequired: z.array(z.enum(["None", "Resistance Band", "Dumbbells", "Yoga Mat", "Stability Ball", "Foam Roller", "Chair", "Wall", "Towel", "Step/Stair"])).describe("Equipment needed from the standard list"),
     contraindications: z.array(z.string()).describe(copy.contraindications),
     commonMistakes: z.string().describe("2-3 common form errors clients make and concise corrections"),

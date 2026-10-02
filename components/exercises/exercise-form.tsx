@@ -8,7 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { SectionCard } from "@/components/shared/section-card";
-import { BODY_REGIONS, DIFFICULTY_LEVELS, COMMON_EQUIPMENT } from "@/lib/utils/constants";
+import { BODY_REGIONS, DIFFICULTY_LEVELS, COMMON_EQUIPMENT, applyMuscleGroupSelection } from "@/lib/utils/constants";
+import { MuscleGroupChips } from "@/components/exercises/muscle-group-chips";
 import { createExerciseAction } from "@/actions/exercise-actions";
 import { toast } from "sonner";
 import { Loader2, Plus, X, CheckCircle2, ClipboardCheck } from "lucide-react";
@@ -20,6 +21,7 @@ export function ExerciseForm() {
 
   // Multi-select body regions — first selected becomes primary bodyRegion
   const [selectedRegions, setSelectedRegions] = useState<string[]>([]);
+  const [muscleGroups, setMuscleGroups] = useState<string[]>([]);
 
   const [selectedDifficulty, setSelectedDifficulty] = useState("");
 
@@ -77,6 +79,7 @@ export function ExerciseForm() {
       name: formData.get("name") as string,
       description: (formData.get("description") as string) || undefined,
       bodyRegion: selectedRegions,
+      musclesTargeted: applyMuscleGroupSelection([], muscleGroups),
       difficultyLevel: selectedDifficulty,
       equipmentRequired: selectedEquipment,
       contraindications:
@@ -152,6 +155,8 @@ export function ExerciseForm() {
             })}
           </div>
         </div>
+
+        <MuscleGroupChips value={muscleGroups} onChange={setMuscleGroups} />
 
         {/* Difficulty — chip buttons */}
         <div className="flex flex-col gap-2">

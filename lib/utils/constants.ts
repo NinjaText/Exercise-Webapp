@@ -59,7 +59,7 @@ export const MUSCLE_GROUPS = [
   { value: "CORE", label: "Core", aliases: ["core", "Core", "core stabilizers", "Core Stabilizers", "Core Muscles"] },
   { value: "LOWER_BACK", label: "Lower Back", aliases: ["erector spinae", "Erector Spinae", "lumbar extensors", "lumbar erectors", "Lower Back", "multifidus", "lumbar multifidus", "quadratus lumborum", "spinal extensors", "Spinal Erectors"] },
   { value: "CHEST", label: "Chest", aliases: ["pectoralis major", "Pectoralis Major", "pectoralis minor", "Pectoralis Minor", "pectorals", "Pectorals", "pectoral muscles", "Chest"] },
-  { value: "LATS", label: "Lats", aliases: ["latissimus dorsi", "Latissimus Dorsi", "lats"] },
+  { value: "LATS", label: "Lats", aliases: ["latissimus dorsi", "Latissimus Dorsi", "lats", "Lats"] },
   { value: "TRAPEZIUS", label: "Trapezius", aliases: ["upper trapezius", "Upper Trapezius", "middle trapezius", "Middle Trapezius", "lower trapezius", "Lower Trapezius", "trapezius", "Trapezius", "mid traps"] },
   { value: "RHOMBOIDS", label: "Rhomboids", aliases: ["rhomboids", "Rhomboids"] },
   { value: "SERRATUS_ANTERIOR", label: "Serratus Anterior", aliases: ["serratus anterior", "Serratus Anterior"] },
@@ -67,9 +67,9 @@ export const MUSCLE_GROUPS = [
   { value: "ROTATOR_CUFF", label: "Rotator Cuff", aliases: ["rotator cuff", "Rotator Cuff", "infraspinatus", "Infraspinatus", "supraspinatus", "Supraspinatus", "subscapularis", "Subscapularis", "teres minor", "Teres Minor"] },
   { value: "BICEPS", label: "Biceps", aliases: ["biceps", "Biceps", "biceps brachii", "brachialis", "brachioradialis"] },
   { value: "TRICEPS", label: "Triceps", aliases: ["triceps", "Triceps", "triceps brachii"] },
-  { value: "FOREARMS", label: "Forearms", aliases: ["forearm muscles", "wrist flexors", "Wrist Flexors", "wrist extensors", "flexor carpi radialis", "flexor carpi ulnaris", "extensor carpi radialis brevis", "extensor carpi radialis longus", "grip"] },
-  { value: "ANKLE_FOOT", label: "Ankle & Foot", aliases: ["ankle stabilizers", "ankle proprioceptors", "peroneals", "peroneal muscles", "tibialis anterior", "tibialis posterior", "foot intrinsics", "intrinsic foot muscles"] },
-  { value: "NECK", label: "Neck", aliases: ["sternocleidomastoid", "deep cervical flexors", "cervical extensors", "Cervical Extensors", "Cervical Flexors", "cervical rotators", "levator scapulae", "Levator Scapulae", "scalenes", "Neck Muscles"] },
+  { value: "FOREARMS", label: "Forearms", aliases: ["Forearms", "forearms", "forearm muscles", "wrist flexors", "Wrist Flexors", "wrist extensors", "flexor carpi radialis", "flexor carpi ulnaris", "extensor carpi radialis brevis", "extensor carpi radialis longus", "grip"] },
+  { value: "ANKLE_FOOT", label: "Ankle & Foot", aliases: ["Ankle & Foot", "ankle stabilizers", "ankle proprioceptors", "peroneals", "peroneal muscles", "tibialis anterior", "tibialis posterior", "foot intrinsics", "intrinsic foot muscles"] },
+  { value: "NECK", label: "Neck", aliases: ["Neck", "neck", "sternocleidomastoid", "deep cervical flexors", "cervical extensors", "Cervical Extensors", "Cervical Flexors", "cervical rotators", "levator scapulae", "Levator Scapulae", "scalenes", "Neck Muscles"] },
 ] as const;
 
 const MUSCLE_ALIAS_BY_VALUE: Record<string, readonly string[]> = Object.fromEntries(
@@ -93,6 +93,48 @@ export function expandMuscleGroups(codes: string[]): string[] {
     }
   }
   return [...expanded];
+}
+
+const MUSCLE_GROUP_BY_ALIAS: Map<string, string> = new Map(
+  MUSCLE_GROUPS.flatMap((group) =>
+    group.aliases.map((alias) => [alias.toLowerCase(), group.value] as const)
+  )
+);
+
+function groupForMuscle(muscle: string): string | undefined {
+  return MUSCLE_GROUP_BY_ALIAS.get(muscle.trim().toLowerCase());
+}
+
+/**
+ * Collapses stored `musclesTargeted` strings into the canonical muscle-group
+ * codes they belong to (case-insensitive), in MUSCLE_GROUPS order. Strings that
+ * map to no group are ignored.
+ */
+export function musclesToGroups(muscles: readonly string[]): string[] {
+  const found = new Set(muscles.map(groupForMuscle).filter(Boolean));
+  return MUSCLE_GROUPS.filter((group) => found.has(group.value)).map((group) => group.value);
+}
+
+/**
+ * Applies a muscle-group chip selection to an exercise's stored muscles without
+ * losing detail: names belonging to deselected groups are dropped, names for
+ * still-selected groups and names that map to no group are kept, and each newly
+ * selected group with no stored name gets its canonical label appended.
+ */
+export function applyMuscleGroupSelection(
+  muscles: readonly string[],
+  selectedGroups: readonly string[]
+): string[] {
+  const selected = new Set(selectedGroups);
+  const kept = muscles.filter((muscle) => {
+    const group = groupForMuscle(muscle);
+    return !group || selected.has(group);
+  });
+  const covered = new Set(musclesToGroups(kept));
+  const added = MUSCLE_GROUPS
+    .filter((group) => selected.has(group.value) && !covered.has(group.value))
+    .map((group) => group.label);
+  return [...kept, ...added];
 }
 
 export const PLAN_STATUSES = [
