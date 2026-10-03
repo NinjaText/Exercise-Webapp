@@ -3,11 +3,10 @@
 import { usePathname } from "next/navigation";
 import { UserButton } from "@clerk/nextjs";
 import { clerkAppearance } from "@/lib/ui/clerk-appearance";
-import { Menu, Search } from "lucide-react";
+import { Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
 import { Sidebar } from "./sidebar";
-import { SIDEBAR_DRAWER_CLASS } from "./sidebar-primitives";
+import { MobileNavDrawer } from "./mobile-nav-drawer";
 import { NotificationPanel } from "@/components/notifications/notification-panel";
 import { useSearch } from "@/components/search/search-provider";
 import { Breadcrumbs, useBreadcrumb } from "./breadcrumb-context";
@@ -44,28 +43,19 @@ export function Header({
     >
       <div className="flex h-14 items-center gap-2 px-4 sm:gap-3 lg:px-6 2xl:px-8">
         {/* Mobile menu */}
-        <Sheet>
-          <SheetTrigger
-            aria-label="Open navigation"
-            className="-ml-2.5 inline-flex size-11 shrink-0 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors select-none hover:bg-surface-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none lg:hidden"
-          >
-            <Menu className="size-5" aria-hidden />
-          </SheetTrigger>
-          <SheetContent side="left" className={SIDEBAR_DRAWER_CLASS}>
-            <SheetTitle className="sr-only">Navigation</SheetTitle>
-            <Sidebar
-              role={user.role}
-              currentPath={pathname}
-              unreadMessageCount={unreadMessageCount}
-              userName={`${user.firstName} ${user.lastName}`}
-              userEmail={user.email}
-              userImageUrl={user.imageUrl}
-              mobileMode
-              hiddenHrefs={hiddenHrefs}
-              branding={branding}
-            />
-          </SheetContent>
-        </Sheet>
+        <MobileNavDrawer>
+          <Sidebar
+            role={user.role}
+            currentPath={pathname}
+            unreadMessageCount={unreadMessageCount}
+            userName={`${user.firstName} ${user.lastName}`}
+            userEmail={user.email}
+            userImageUrl={user.imageUrl}
+            mobileMode
+            hiddenHrefs={hiddenHrefs}
+            branding={branding}
+          />
+        </MobileNavDrawer>
 
         <div className="flex min-w-0 flex-1 items-center">
           {crumbs.length > 0 ? (

@@ -46,13 +46,13 @@ describe("Sidebar shell (spec §2.2)", () => {
     expect(anchor(html, "/clients")).toContain("h-8");
   });
 
-  it("marks the most specific match active with a pill and accent marker", () => {
+  it("marks the most specific match active with a pill and no edge marker", () => {
     mockPathname = "/clients/abc";
     const html = renderTrainer();
     const active = anchor(html, "/clients");
     expect(active).toContain('aria-current="page"');
     expect(active).toContain("bg-sidebar-accent");
-    expect(active).toContain("before:bg-sidebar-primary");
+    expect(active).not.toContain("before:");
     expect(anchor(html, "/dashboard")).not.toContain('aria-current="page"');
   });
 
