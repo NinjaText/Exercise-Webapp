@@ -47,6 +47,7 @@
     "@react-pdf/renderer": "^4.3.2",
     "@types/react-big-calendar": "^1.16.3",
     "ai": "^6.0.143",
+    "barcode-detector": "^3.2.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",

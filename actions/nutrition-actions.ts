@@ -10,7 +10,7 @@ import {
   CopyObjectCommand,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, unstable_cache } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getR2Client, R2_BUCKET_NAME, R2_PUBLIC_URL } from "@/lib/r2";
 import { pusherServer } from "@/lib/pusher";
@@ -21,6 +21,8 @@ import { logUserAudit, AUDIT_ACTIONS } from "@/lib/services/audit-log.service";
 import { getClientIdsForTrainer, getTrainerForClient } from "@/lib/services/client.service";
 import * as nutritionService from "@/lib/services/nutrition.service";
 import * as nutritionAiService from "@/lib/services/nutrition-ai.service";
+import { lookupFoodByBarcode } from "@/lib/services/food-barcode.service";
+import { normalizeBarcode, type BarcodeLookupResult } from "@/lib/nutrition/food-barcode";
 import {
   upsertNutritionTargetSchema,
   addWaterLogSchema,
@@ -30,6 +32,7 @@ import {
   analyzeMealPhotoSchema,
   reestimateMealPhotoItemSchema,
   estimateMealMacrosBatchSchema,
+  lookupFoodBarcodeSchema,
   bulkCreateNutritionLogSchema,
   updateMealGroupSchema,
   generateDailySummarySchema,
@@ -394,6 +397,32 @@ export async function estimateMealMacrosBatchAction(
   } catch (err) {
     console.error("[nutrition] estimateMealMacrosBatch error:", err);
     return { success: false, error: "Failed to estimate macros" };
+  }
+}
+
+// Product label data rarely changes, so repeat scans of the same code skip the API calls.
+const cachedFoodBarcodeLookup = unstable_cache(lookupFoodByBarcode, ["food-barcode-lookup"], {
+  revalidate: 60 * 60 * 24,
+});
+
+export async function lookupFoodBarcodeAction(input: unknown): Promise<ActionResult<BarcodeLookupResult>> {
+  const parsed = lookupFoodBarcodeSchema.safeParse(input);
+  if (!parsed.success) return { success: false, error: "Invalid input" };
+
+  const user = await getAuthedUser();
+  if (!user) return { success: false, error: "Unauthorized" };
+  if (user.role !== "CLIENT" && user.role !== "TRAINER") {
+    return { success: false, error: "Forbidden" };
+  }
+
+  const barcode = normalizeBarcode(parsed.data.barcode, parsed.data.format);
+  if (!barcode) return { success: false, error: "That doesn't look like a valid product barcode" };
+
+  try {
+    return { success: true, data: await cachedFoodBarcodeLookup(barcode) };
+  } catch (err) {
+    console.error("[nutrition] lookupFoodBarcode error:", err);
+    return { success: false, error: "Couldn't look up that product right now. Try again in a moment." };
   }
 }
 

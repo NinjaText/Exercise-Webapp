@@ -15,20 +15,24 @@ import { Badge } from "@/components/ui/badge";
 /** Shell width and surface, shared by both sidebars. `mobileMode` = inside the drawer. */
 export function sidebarAsideClass(mobileMode: boolean) {
   return cn(
-    "w-64 shrink-0 flex-col bg-sidebar-gradient text-sidebar-foreground",
-    // The drawer variant needs an explicit full height or the column collapses.
-    mobileMode ? "flex h-full" : "hidden border-r border-sidebar-border/60 lg:flex",
+    "shrink-0 flex-col bg-sidebar-gradient text-sidebar-foreground",
+    // The drawer variant fills the Sheet; it needs an explicit full height or the column collapses.
+    mobileMode ? "flex h-full w-full" : "hidden w-64 border-r border-sidebar-border/60 lg:flex",
   );
 }
 
-/** Drawer (Sheet) classes so the left drawer matches the sidebar surface and width. */
+/**
+ * Drawer (Sheet) classes so the left drawer matches the sidebar surface. 288px
+ * (capped at 85vw) like standard mobile nav drawers; the close button sits in
+ * the identity row, below the status bar inside the native shell.
+ */
 export const SIDEBAR_DRAWER_CLASS =
-  "gap-0 border-sidebar-border bg-sidebar p-0 data-[side=left]:w-64 data-[side=left]:max-w-[85vw] [&_[data-slot=sheet-close]]:text-sidebar-foreground/70 [&_[data-slot=sheet-close]]:hover:bg-sidebar-accent [&_[data-slot=sheet-close]]:hover:text-sidebar-foreground";
+  "gap-0 border-sidebar-border bg-sidebar p-0 data-[side=left]:w-72 data-[side=left]:max-w-[85vw] [&_[data-slot=sheet-close]]:top-[calc(0.75rem+var(--safe-top))] [&_[data-slot=sheet-close]]:size-9 [&_[data-slot=sheet-close]]:text-sidebar-foreground/70 [&_[data-slot=sheet-close]]:hover:bg-sidebar-accent [&_[data-slot=sheet-close]]:hover:text-sidebar-foreground";
 
 /** The top identity row (org lockup / Super Admin lockup). 56px, aligned with the top bar. */
 export function SidebarIdentityRow({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex h-14 shrink-0 items-center gap-3 border-b border-sidebar-border/60 px-4 in-data-[slot=sheet-content]:pr-14">
+    <div className="flex h-14 shrink-0 items-center gap-3 border-b border-sidebar-border/60 px-4 in-data-[slot=sheet-content]:box-content in-data-[slot=sheet-content]:pt-(--safe-top) in-data-[slot=sheet-content]:pr-14">
       {children}
     </div>
   );
@@ -62,24 +66,28 @@ interface SidebarNavLinkProps {
   badge?: React.ReactNode;
 }
 
-/** A 32px nav row. Active = filled pill + an accent marker on the left edge. */
+/**
+ * A 32px nav row (44px touch target inside the mobile drawer). Active = filled
+ * pill + accent-coloured icon.
+ */
 export function SidebarNavLink({ href, label, icon: Icon, active = false, badge }: SidebarNavLinkProps) {
   return (
     <Link
       href={href}
       aria-current={active ? "page" : undefined}
       className={cn(
-        "group relative flex h-8 items-center gap-2.5 rounded-md px-2.5 text-label outline-none transition-colors motion-reduce:transition-none",
+        "group flex h-8 items-center gap-2.5 rounded-md px-2.5 text-label outline-none transition-colors motion-reduce:transition-none",
+        "in-data-[slot=sheet-content]:h-11 in-data-[slot=sheet-content]:gap-3 in-data-[slot=sheet-content]:px-3 in-data-[slot=sheet-content]:text-body",
         "focus-visible:ring-2 focus-visible:ring-sidebar-primary",
         active
-          ? "bg-sidebar-accent text-sidebar-foreground before:absolute before:inset-y-1.5 before:left-0 before:w-0.5 before:rounded-full before:bg-sidebar-primary"
+          ? "bg-sidebar-accent text-sidebar-foreground"
           : "text-sidebar-foreground/70 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground",
       )}
     >
       <Icon
         aria-hidden
         className={cn(
-          "size-4 shrink-0",
+          "size-4 shrink-0 in-data-[slot=sheet-content]:size-[1.125rem]",
           active ? "text-sidebar-primary" : "text-sidebar-foreground/60 group-hover:text-sidebar-foreground/80",
         )}
       />
@@ -124,7 +132,7 @@ export function SidebarUserBlock({
   footer?: React.ReactNode;
 }) {
   return (
-    <div className="shrink-0 border-t border-sidebar-border/60 p-3">
+    <div className="shrink-0 border-t border-sidebar-border/60 p-3 in-data-[slot=sheet-content]:pb-[calc(0.75rem+var(--safe-bottom))]">
       <div className="flex items-center gap-3 rounded-lg px-2 py-2">
         {menu}
         <div className="min-w-0 flex-1">

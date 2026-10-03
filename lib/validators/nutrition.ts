@@ -63,6 +63,11 @@ export const reestimateMealPhotoItemSchema = z.object({
   components: z.array(z.string().max(100)).max(12).optional(),
 })
 
+export const lookupFoodBarcodeSchema = z.object({
+  barcode: z.string().trim().min(1).max(32),
+  format: z.string().max(20).optional(),
+})
+
 export const estimateMealMacrosBatchSchema = z.object({
   items: z
     .array(
