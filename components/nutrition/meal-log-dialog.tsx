@@ -2,7 +2,7 @@
 
 import { useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
-import { Plus, Loader2, Camera, X, Sparkles, RefreshCw } from "lucide-react";
+import { Plus, Loader2, Camera, X, Sparkles, RefreshCw, ScanBarcode } from "lucide-react";
 import {
   analyzeMealPhotoAction,
   reestimateMealPhotoItemAction,
@@ -10,6 +10,7 @@ import {
   createNutritionLogsBulkAction,
 } from "@/actions/nutrition-actions";
 import { useMealPhotoUpload } from "@/hooks/use-meal-photo-upload";
+import { useIsPhone } from "@/hooks/use-is-phone";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,6 +31,7 @@ import {
   type FoodItemDraft,
   type EditableFoodField,
 } from "./food-item-row-list";
+import { BarcodeScanForm } from "./barcode-scan-form";
 
 const MEAL_TYPES = [
   { value: "BREAKFAST", label: "Breakfast" },
@@ -82,15 +84,25 @@ function MealTypePicker({
 
 export function MealLogDialog({ clientId, date, defaultMealType }: MealLogDialogProps) {
   const [open, setOpen] = useState(false);
-  const [mode, setMode] = useState<"manual" | "ai">("manual");
+  const [mode, setMode] = useState<"manual" | "ai" | "scan">("manual");
   const [mealType, setMealType] = useState<MealType>(defaultMealType ?? "BREAKFAST");
+  // Product name carried over when a scanned barcode had no nutrition data.
+  const [manualPrefill, setManualPrefill] = useState<string | null>(null);
+  // Barcode scanning is phone-only for now.
+  const isPhone = useIsPhone();
 
   function handleOpenChange(next: boolean) {
     setOpen(next);
     if (!next) {
       setMode("manual");
       setMealType(defaultMealType ?? "BREAKFAST");
+      setManualPrefill(null);
     }
+  }
+
+  function switchMode(next: "manual" | "ai" | "scan") {
+    setManualPrefill(null);
+    setMode(next);
   }
 
   return (
@@ -103,13 +115,17 @@ export function MealLogDialog({ clientId, date, defaultMealType }: MealLogDialog
       <DialogContent className="sm:max-w-md max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Log a Meal</DialogTitle>
-          <DialogDescription>Add food to your daily timeline, manually or from a photo.</DialogDescription>
+          <DialogDescription>
+            {isPhone
+              ? "Add food manually, from a photo, or by scanning a barcode."
+              : "Add food to your daily timeline, manually or from a photo."}
+          </DialogDescription>
         </DialogHeader>
 
         <div className="mt-3 flex gap-2">
           <button
             type="button"
-            onClick={() => setMode("manual")}
+            onClick={() => switchMode("manual")}
             className={cn(
               "flex-1 rounded-lg py-2 text-xs font-semibold transition-all",
               mode === "manual" ? "bg-primary text-primary-foreground" : "ring-1 ring-border/50 text-muted-foreground"
@@ -119,7 +135,7 @@ export function MealLogDialog({ clientId, date, defaultMealType }: MealLogDialog
           </button>
           <button
             type="button"
-            onClick={() => setMode("ai")}
+            onClick={() => switchMode("ai")}
             className={cn(
               "flex-1 items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-semibold transition-all inline-flex",
               mode === "ai" ? "bg-primary text-primary-foreground" : "ring-1 ring-border/50 text-muted-foreground"
@@ -128,17 +144,45 @@ export function MealLogDialog({ clientId, date, defaultMealType }: MealLogDialog
             <Sparkles className="h-3.5 w-3.5" />
             AI Photo
           </button>
+          {isPhone && (
+            <button
+              type="button"
+              onClick={() => switchMode("scan")}
+              className={cn(
+                "flex-1 items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-semibold transition-all inline-flex",
+                mode === "scan" ? "bg-primary text-primary-foreground" : "ring-1 ring-border/50 text-muted-foreground"
+              )}
+            >
+              <ScanBarcode className="h-3.5 w-3.5" />
+              Scan
+            </button>
+          )}
         </div>
 
         <MealTypePicker mealType={mealType} onChange={setMealType} disabled={false} />
 
         {mode === "manual" ? (
           <ManualMealForm
+            key={manualPrefill ?? ""}
+            initialDescription={manualPrefill ?? undefined}
             clientId={clientId}
             date={date}
             mealType={mealType}
             onSaved={() => handleOpenChange(false)}
             onCancel={() => handleOpenChange(false)}
+          />
+        ) : mode === "scan" && isPhone ? (
+          <BarcodeScanForm
+            clientId={clientId}
+            date={date}
+            mealType={mealType}
+            onSaved={() => handleOpenChange(false)}
+            onCancel={() => handleOpenChange(false)}
+            onEnterManually={(name) => {
+              setMode("manual");
+              setManualPrefill(name);
+            }}
+            onUsePhoto={() => switchMode("ai")}
           />
         ) : (
           <AiPhotoMealForm
@@ -162,7 +206,9 @@ function ManualMealForm({
   mealType,
   onSaved,
   onCancel,
+  initialDescription,
 }: {
+  initialDescription?: string;
   clientId: string;
   date: Date;
   mealType: MealType;
@@ -174,7 +220,9 @@ function ManualMealForm({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { upload, uploadState } = useMealPhotoUpload();
 
-  const [items, setItems] = useState<FoodItemDraft[]>([emptyFoodItemDraft()]);
+  const [items, setItems] = useState<FoodItemDraft[]>(() => [
+    { ...emptyFoodItemDraft(), description: initialDescription ?? "" },
+  ]);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
 

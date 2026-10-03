@@ -10,7 +10,11 @@ vi.mock('@/lib/prisma', () => ({
     nutritionLog: { findUnique: vi.fn(), findMany: vi.fn() },
   },
 }))
-vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
+vi.mock('next/cache', () => ({
+  revalidatePath: vi.fn(),
+  unstable_cache: <T,>(fn: T) => fn,
+}))
+vi.mock('@/lib/services/food-barcode.service', () => ({ lookupFoodByBarcode: vi.fn() }))
 vi.mock('@aws-sdk/client-s3', () => ({
   S3Client: vi.fn(),
   PutObjectCommand: vi.fn(),
@@ -61,10 +65,12 @@ import { getCapabilitiesForUser } from '@/lib/org-capabilities.server'
 import { getOrgCapabilities } from '@/lib/org-capabilities'
 import * as nutritionAiService from '@/lib/services/nutrition-ai.service'
 import * as nutritionService from '@/lib/services/nutrition.service'
+import { lookupFoodByBarcode } from '@/lib/services/food-barcode.service'
 import {
   estimateMealMacrosBatchAction,
   updateMealGroupAction,
   createNutritionCommentAction,
+  lookupFoodBarcodeAction,
 } from '../nutrition-actions'
 
 const mockAuth = vi.mocked(auth)
@@ -74,6 +80,7 @@ const mockGetClientIdsForTrainer = vi.mocked(getClientIdsForTrainer)
 const mockGetTrainerForClient = vi.mocked(getTrainerForClient)
 const mockUpdateMealGroup = vi.mocked(nutritionService.updateMealGroup)
 const mockCreateNutritionComment = vi.mocked(nutritionService.createNutritionComment)
+const mockLookupFoodByBarcode = vi.mocked(lookupFoodByBarcode)
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -271,5 +278,37 @@ describe('nutrition comments — email payload', () => {
     await createNutritionCommentAction({ clientId: 'c1', date: '2026-09-22', body: 'Hi' })
 
     expect(notifyUser).not.toHaveBeenCalled()
+  })
+})
+
+describe('lookupFoodBarcodeAction', () => {
+  it('rejects unauthenticated callers', async () => {
+    mockAuth.mockResolvedValue({ userId: null } as never)
+    const result = await lookupFoodBarcodeAction({ barcode: '5000159407236' })
+    expect(result.success).toBe(false)
+    expect(mockLookupFoodByBarcode).not.toHaveBeenCalled()
+  })
+
+  it('rejects an invalid barcode without calling the lookup', async () => {
+    mockUserFindUnique.mockResolvedValue(client as never)
+    const result = await lookupFoodBarcodeAction({ barcode: '5000159407237' })
+    expect(result).toEqual({ success: false, error: expect.stringMatching(/valid product barcode/) })
+    expect(mockLookupFoodByBarcode).not.toHaveBeenCalled()
+  })
+
+  it('looks up the normalized code and returns the result', async () => {
+    mockUserFindUnique.mockResolvedValue(client as never)
+    mockLookupFoodByBarcode.mockResolvedValue({ status: 'not_found', name: null })
+    const result = await lookupFoodBarcodeAction({ barcode: '049000028911', format: 'upc_a' })
+    expect(mockLookupFoodByBarcode).toHaveBeenCalledWith('0049000028911')
+    expect(result).toEqual({ success: true, data: { status: 'not_found', name: null } })
+  })
+
+  it('returns a retryable error when the lookup throws', async () => {
+    mockUserFindUnique.mockResolvedValue(trainer as never)
+    mockLookupFoodByBarcode.mockRejectedValue(new Error('down'))
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const result = await lookupFoodBarcodeAction({ barcode: '5000159407236' })
+    expect(result).toEqual({ success: false, error: expect.stringMatching(/Try again/) })
   })
 })
