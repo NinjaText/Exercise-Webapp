@@ -317,7 +317,7 @@ function CustomToolbar({
           className="flex size-8 items-center justify-center pointer-coarse:size-11 border-r border-border text-muted-foreground transition-colors hover:bg-surface-muted hover:text-foreground outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring motion-reduce:transition-none"
         >
           <ChevronLeft className="size-3.5" />
-        </Button>
+        </button>
         <button
           type="button"
           onClick={() => onNavigate("TODAY")}
@@ -332,7 +332,7 @@ function CustomToolbar({
           className="flex size-8 items-center justify-center pointer-coarse:size-11 border-l border-border text-muted-foreground transition-colors hover:bg-surface-muted hover:text-foreground outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring motion-reduce:transition-none"
         >
           <ChevronRight className="size-3.5" />
-        </Button>
+        </button>
       </div>
 
       {/* Title */}

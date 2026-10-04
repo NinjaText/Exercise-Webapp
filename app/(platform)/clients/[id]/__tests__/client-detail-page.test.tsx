@@ -37,7 +37,7 @@ vi.mock("@/components/clients/clinical-profile-card", () => ({ ClinicalProfileCa
 vi.mock("@/components/clients/client-profile-dialog", () => ({ ClientProfileEditButton: () => null }));
 vi.mock("@/components/messages/message-thread", () => ({ MessageThread: () => null }));
 const phone = vi.hoisted(() => ({ isPhone: true }));
-vi.mock("@/hooks/use-is-phone", () => ({ useIsPhone: () => phone.isPhone }));
+vi.mock("@/hooks/use-is-phone", () => ({ useIsPhoneViewport: () => phone.isPhone }));
 // Menu items need an open Base UI menu; render them as plain elements so
 // their classes and targets can be inspected.
 vi.mock("@/components/ui/dropdown-menu", () => ({

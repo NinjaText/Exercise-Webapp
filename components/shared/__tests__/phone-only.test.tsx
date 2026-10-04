@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 
 const phone = vi.hoisted(() => ({ isPhone: false }));
-vi.mock("@/hooks/use-is-phone", () => ({ useIsPhone: () => phone.isPhone }));
+vi.mock("@/hooks/use-is-phone", () => ({ useIsPhoneViewport: () => phone.isPhone }));
 
 import { PhoneOnly } from "../phone-only";
 

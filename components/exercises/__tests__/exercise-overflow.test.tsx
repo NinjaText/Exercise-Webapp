@@ -18,7 +18,7 @@ const row = {
   bodyRegion: [],
   difficultyLevel: "",
   exercisePhases: [],
-  musclesTargeted: "",
+  musclesTargeted: [],
   equipmentRequired: [],
   contraindications: "",
   commonMistakes: "",

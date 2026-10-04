@@ -1,6 +1,6 @@
 "use client";
 
-import { useIsPhone } from "@/hooks/use-is-phone";
+import { useIsPhoneViewport } from "@/hooks/use-is-phone";
 
 /**
  * Renders its children only on phone-width viewports (below `sm`). Unlike an
@@ -9,5 +9,5 @@ import { useIsPhone } from "@/hooks/use-is-phone";
  * use it only where content mounts after interaction (e.g. inside a menu).
  */
 export function PhoneOnly({ children }: { children: React.ReactNode }) {
-  return useIsPhone() ? <>{children}</> : null;
+  return useIsPhoneViewport() ? <>{children}</> : null;
 }

@@ -25,7 +25,7 @@ describe("withNativeAuthAppearance", () => {
     expect(a.variables).toBe(base.variables);
     expect(a.elements.card).toBe("c");
     expect(a.elements.socialButtonsBlockButton).toEqual({ display: "none" });
-    expect(a.elements.dividerRow).toEqual({ display: "none" });
+    expect((a.elements as Record<string, unknown>).dividerRow).toEqual({ display: "none" });
   });
 });
 
