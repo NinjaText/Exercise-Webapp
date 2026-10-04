@@ -1,13 +1,13 @@
 import { notFound } from "next/navigation";
 import { cookies } from "next/headers";
-import { SignUp } from "@clerk/nextjs";
 import { getClubBySlug } from "@/lib/services/club.service";
 import { getClubTrainer } from "@/lib/services/club-trainer.service";
 import { getOrgBranding } from "@/lib/services/branding.service";
 import { toViewModel } from "@/lib/branding/types";
 import { BrandStyle } from "@/components/branding/brand-style";
 import { AuthShell } from "@/components/auth/auth-shell";
-import { clerkAuthAppearance } from "@/lib/ui/clerk-appearance";
+import { NativeAwareSignUp } from "@/components/auth/native-aware-auth";
+import { getNativeInfo } from "@/lib/native/server";
 import { JOIN_COOKIE, verifyJoinToken } from "@/lib/clubs/join-token";
 import { JoinCodeForm } from "./join-code-form";
 import { ClubNotOpen } from "./club-not-open";
@@ -32,6 +32,7 @@ export default async function JoinClubPage({ params }: { params: Promise<{ slug:
 
   // verifyJoinToken throws when CLERK_SECRET_KEY is missing: fail closed (500).
   const verified = verifyJoinToken((await cookies()).get(JOIN_COOKIE)?.value, club.clerkOrgId);
+  const { isNative } = await getNativeInfo();
   const completeUrl = `/join/${slug}/complete`;
 
   return (
@@ -44,11 +45,12 @@ export default async function JoinClubPage({ params }: { params: Promise<{ slug:
           headline={`Join ${branding.displayName}`}
           subhead="Create your account to start your free trial."
         >
-          <SignUp
+          {/* Email-only inside the native app (Apple 4.8; Google blocks OAuth in web views). */}
+          <NativeAwareSignUp
+            nativeFromServer={isNative}
             routing="hash"
             forceRedirectUrl={completeUrl}
             signInForceRedirectUrl={completeUrl}
-            appearance={clerkAuthAppearance()}
           />
         </AuthShell>
       ) : (

@@ -1,5 +1,4 @@
 import { auth } from "@clerk/nextjs/server";
-import { SignUp } from "@clerk/nextjs";
 import { redirect } from "next/navigation";
 import type { User } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
@@ -16,7 +15,8 @@ import { resolveBranding } from "@/lib/branding/resolve";
 import { toViewModel } from "@/lib/branding/types";
 import { BrandStyle } from "@/components/branding/brand-style";
 import { AuthShell } from "@/components/auth/auth-shell";
-import { clerkAuthAppearance } from "@/lib/ui/clerk-appearance";
+import { NativeAwareSignUp } from "@/components/auth/native-aware-auth";
+import { getNativeInfo } from "@/lib/native/server";
 import { ClubTrainerOnboardingForm } from "@/components/onboarding/club-trainer-onboarding-form";
 
 /**
@@ -56,7 +56,11 @@ export default async function ClubTrainerOnboardingPage() {
         headline="Welcome, coach."
         subhead="Create your account to accept your club's invitation."
       >
-        <SignUp routing="hash" forceRedirectUrl="/onboarding/club-trainer" appearance={clerkAuthAppearance()} />
+        <NativeAwareSignUp
+          nativeFromServer={(await getNativeInfo()).isNative}
+          routing="hash"
+          forceRedirectUrl="/onboarding/club-trainer"
+        />
       </AuthShell>
     );
   }

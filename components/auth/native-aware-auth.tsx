@@ -10,6 +10,8 @@ interface NativeAwareAuthProps {
   /** Clerk's routing mode for invite-link onboarding flows (path routing needs a `path` prop we don't use). */
   routing?: "hash";
   forceRedirectUrl?: string;
+  /** Where to go when the visitor switches to sign-in from the sign-up form. */
+  signInForceRedirectUrl?: string;
 }
 
 /**
@@ -35,12 +37,14 @@ export function NativeAwareSignUp({
   nativeFromServer,
   routing,
   forceRedirectUrl = "/onboarding",
+  signInForceRedirectUrl,
 }: NativeAwareAuthProps) {
   const { isNative } = useNative();
   return (
     <SignUp
       routing={routing}
       forceRedirectUrl={forceRedirectUrl}
+      signInForceRedirectUrl={signInForceRedirectUrl}
       appearance={withNativeAuthAppearance(clerkAuthAppearance(), nativeFromServer || isNative)}
     />
   );
