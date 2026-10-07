@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getOrgCapabilities } from "@/lib/org-capabilities";
 import { appBaseUrl } from "@/lib/utils/app-url";
 import { ClubError } from "@/lib/services/club-error";
+import { nullOrUnset } from "@/lib/db/mongo-null";
 
 /**
  * Club trainer lifecycle (spec §5). Each club has one invited TRAINER who owns
@@ -146,11 +147,12 @@ export async function transferClubOwnership(
   }
 
   let templates = 0;
-  if (org.starterProgramIds.length > 0) {
+  const clubProgramIds = [...org.starterProgramIds, ...(org.resourceProgramIds ?? [])];
+  if (clubProgramIds.length > 0) {
     const res = await prisma.program.updateMany({
       where: {
-        id: { in: org.starterProgramIds },
-        isTemplate: true,
+        id: { in: clubProgramIds },
+        ...nullOrUnset("clientId"),
         isGlobal: false,
         trainerId: { not: null },
         NOT: { trainerId: toTrainerId },

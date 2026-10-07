@@ -175,7 +175,7 @@ describe("transferClubOwnership", () => {
     expect(prisma.program.updateMany).toHaveBeenNthCalledWith(2, {
       where: {
         id: { in: ["s1", "s2"] },
-        isTemplate: true,
+        OR: [{ clientId: null }, { clientId: { isSet: false } }],
         isGlobal: false,
         trainerId: { not: null },
         NOT: { trainerId: "t2" },

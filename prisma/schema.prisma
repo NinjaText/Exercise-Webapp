@@ -231,6 +231,8 @@ model Organization {
   stripePriceId         String?
   /// Club-only. Ordered Global Program ids; members get them one after another.
   starterProgramIds     String[] @default([]) @db.ObjectId
+  /// Club-only. Resource (on-demand) program ids; every member gets all of them at once.
+  resourceProgramIds    String[] @default([]) @db.ObjectId
   /// Club-only. Recurring Stripe price for the coaching add-on; null → coaching not offered.
   coachingStripePriceId String?
 

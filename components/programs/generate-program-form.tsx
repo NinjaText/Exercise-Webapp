@@ -121,6 +121,9 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
   // number into the other. A Resource previously always generated exactly
   // 1 session, so that stays the default here.
   const [onDemandSessionCount, setOnDemandSessionCount] = useState(1);
+  // Same split for weeks: a Resource defaults to a single week, but a trainer
+  // can build a multi-week one (e.g. a 4-week mobility series).
+  const [onDemandWeeks, setOnDemandWeeks] = useState(1);
   const [selectedWeekdays, setSelectedWeekdays] = useState<string[]>([
     "Monday",
     "Wednesday",
@@ -135,10 +138,11 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
     { id: "3", name: "Cool Down", focusType: "COOLDOWN", exerciseCount: 3, rounds: 1, restBetweenRounds: null },
   ]);
 
-  // A Resource has no schedule — no start date, no weekdays, always one "week".
-  // But it may bundle several standalone sessions, so the day count is the
-  // trainer's choice rather than a forced 1.
-  const effectiveDurationWeeks = isOnDemand ? 1 : durationWeeks;
+  // A Resource has no schedule — no start date, no weekdays. Its weeks and days
+  // only shape how many workouts it contains; the client still picks when to
+  // do each one.
+  const effectiveDurationWeeks = isOnDemand ? onDemandWeeks : durationWeeks;
+  const setEffectiveDurationWeeks = isOnDemand ? setOnDemandWeeks : setDurationWeeks;
   const effectiveDaysPerWeek = isOnDemand ? onDemandSessionCount : daysPerWeek;
 
   useEffect(() => {
@@ -489,11 +493,11 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
                   </select>
                 </FormField>
                 <FormField
-                  label={isOnDemand ? "Number of days" : "Days per week"}
+                  label={isOnDemand && effectiveDurationWeeks === 1 ? "Number of days" : "Days per week"}
                   htmlFor="generate-days"
                   hint={
                     isOnDemand
-                      ? "How many separate days this resource contains. It stays unscheduled — the client picks when to do each one."
+                      ? "How many separate days each week of this resource contains. It stays unscheduled — the client picks when to do each one."
                       : undefined
                   }
                 >
@@ -521,19 +525,18 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
                 </FormField>
               </div>
 
-              {/* Program Duration — cosmetic for a resource, which has no schedule */}
-              {!isOnDemand && (
+              {/* Program Duration — for a resource this only sets how many weeks of workouts it contains */}
               <FormField label="Program duration">
                 <div role="group" aria-label="Program duration" className="flex flex-wrap items-center gap-2">
                   {[1, 2, 4, 6, 8, 12].map(w => (
                     <Button
                       key={w}
                       type="button"
-                      variant={durationWeeks === w ? 'default' : 'outline'}
+                      variant={effectiveDurationWeeks === w ? 'default' : 'outline'}
                       size="sm"
-                      onClick={() => setDurationWeeks(w)}
+                      onClick={() => setEffectiveDurationWeeks(w)}
                     >
-                      {w === 1 && daysPerWeek === 1 ? "1 day" : w === 1 ? "1 wk" : `${w} wks`}
+                      {w === 1 && effectiveDaysPerWeek === 1 ? "1 day" : w === 1 ? "1 wk" : `${w} wks`}
                     </Button>
                   ))}
                   <div className="ml-1 flex items-center gap-1.5">
@@ -542,10 +545,10 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
                       aria-label="Program duration in weeks"
                       min={1}
                       max={52}
-                      value={durationWeeks}
+                      value={effectiveDurationWeeks}
                       onChange={(e) => {
                         const v = parseInt(e.target.value);
-                        if (!isNaN(v) && v >= 1) setDurationWeeks(v);
+                        if (!isNaN(v) && v >= 1) setEffectiveDurationWeeks(v);
                       }}
                       className="h-8 w-16 text-center text-body"
                     />
@@ -553,7 +556,6 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
                   </div>
                 </div>
               </FormField>
-              )}
 
               {/* Program Goals */}
               <FormField label="Program goals" required>

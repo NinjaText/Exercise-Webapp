@@ -27,13 +27,14 @@ vi.mock("@/lib/prisma", () => ({
 vi.mock("@/lib/services/program.service", () => ({
   duplicateProgram: vi.fn(async () => ({ id: "copy1" })),
   assignProgram: vi.fn(async () => ({})),
+  assignOnDemandProgram: vi.fn(async () => ({ id: "copy1" })),
 }));
 vi.mock("@/lib/services/club-trainer.service", () => ({
   getClubTrainer: vi.fn(async () => ({ id: "staff1" })),
 }));
 
 import { prisma } from "@/lib/prisma";
-import { duplicateProgram, assignProgram } from "@/lib/services/program.service";
+import { duplicateProgram, assignProgram, assignOnDemandProgram } from "@/lib/services/program.service";
 import { getClubTrainer } from "@/lib/services/club-trainer.service";
 import {
   enrollClubMember, ensureMemberSubscription, assignNextStarterProgram, sweepClubStarterPrograms,
@@ -223,6 +224,43 @@ describe("assignNextStarterProgram", () => {
     expect(duplicateProgram).not.toHaveBeenCalled();
     expect(prisma.memberSubscription.update).toHaveBeenCalledWith({ where: { userId: "u1" }, data: { starterStatus: "PENDING" } });
     expect(prisma.memberSubscription.update).not.toHaveBeenCalledWith({ where: { userId: "u1" }, data: { starterStatus: "FAILED" } });
+  });
+
+  describe("club resources", () => {
+    const withResources = { ...club, resourceProgramIds: ["r1", "r2"] };
+    beforeEach(() => {
+      vi.mocked(prisma.organization.findUnique).mockResolvedValue(withResources);
+    });
+
+    it("gives a new member every resource at once, then their first starter", async () => {
+      vi.mocked(prisma.program.findMany).mockResolvedValue([]);
+      expect(await assignNextStarterProgram("u1")).toBe("assigned");
+      expect(duplicateProgram).toHaveBeenCalledWith("r1", "staff1", false);
+      expect(duplicateProgram).toHaveBeenCalledWith("r2", "staff1", false);
+      expect(assignOnDemandProgram).toHaveBeenCalledTimes(2);
+      expect(assignOnDemandProgram).toHaveBeenCalledWith("copy1", "u1");
+      expect(duplicateProgram).toHaveBeenCalledWith("t1", "staff1", false);
+    });
+
+    it("only copies resources the member doesn't have yet", async () => {
+      vi.mocked(prisma.program.findMany)
+        .mockResolvedValueOnce([{ sourceTemplateId: "r1" }] as any)
+        .mockResolvedValue([{ id: "c1", sourceTemplateId: "t1" }] as any);
+      vi.mocked(prisma.workoutSessionV2.count).mockResolvedValue(2);
+      expect(await assignNextStarterProgram("u1")).toBe("in_progress");
+      expect(duplicateProgram).toHaveBeenCalledTimes(1);
+      expect(duplicateProgram).toHaveBeenCalledWith("r2", "staff1", false);
+    });
+
+    it("a failing resource doesn't block the starter and its copy is cleaned up", async () => {
+      vi.spyOn(console, "error").mockImplementation(() => {});
+      vi.mocked(prisma.program.findMany).mockResolvedValue([]);
+      vi.mocked(prisma.program.delete).mockResolvedValue({} as any);
+      vi.mocked(assignOnDemandProgram).mockRejectedValueOnce(new Error("assign failed"));
+      expect(await assignNextStarterProgram("u1")).toBe("assigned");
+      expect(prisma.program.delete).toHaveBeenCalledWith({ where: { id: "copy1" } });
+      expect(assignProgram).toHaveBeenCalledWith("copy1", "u1", expect.any(Date));
+    });
   });
 
   it("skips users who are not in a club", async () => {

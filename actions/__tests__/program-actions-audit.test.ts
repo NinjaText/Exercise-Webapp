@@ -313,16 +313,13 @@ describe('toggleProgramPublicAction', () => {
     expect(mockToggleProgramPublic).not.toHaveBeenCalled()
   })
 
-  it('rejects a non-template program', async () => {
+  it('allows any library program with no client, whatever its old isTemplate flag', async () => {
     mockProgramFindUnique.mockResolvedValue({ ...ownedTemplate, isTemplate: false } as never)
 
     const result = await toggleProgramPublicAction('prog_1', true)
 
-    expect(result).toEqual({
-      success: false,
-      error: 'Only templates with no client assigned can be made public',
-    })
-    expect(mockToggleProgramPublic).not.toHaveBeenCalled()
+    expect(result).toEqual({ success: true })
+    expect(mockToggleProgramPublic).toHaveBeenCalled()
   })
 
   it('rejects a program that has a client assigned', async () => {
@@ -332,7 +329,7 @@ describe('toggleProgramPublicAction', () => {
 
     expect(result).toEqual({
       success: false,
-      error: 'Only templates with no client assigned can be made public',
+      error: 'Only programs with no client assigned can be made public',
     })
     expect(mockToggleProgramPublic).not.toHaveBeenCalled()
   })

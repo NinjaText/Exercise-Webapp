@@ -120,13 +120,13 @@ describe('getGlobalPrograms', () => {
 })
 
 describe('toggleProgramPublic', () => {
-  it('flips isPublic on a template program with no client attached', async () => {
+  it('flips isPublic on a program with no client attached', async () => {
     mockUpdate.mockResolvedValue({ id: 'prog_1', isPublic: true } as any)
 
     await toggleProgramPublic('prog_1', true)
 
     expect(mockUpdate).toHaveBeenCalledWith({
-      where: { id: 'prog_1', isTemplate: true, clientId: null },
+      where: { id: 'prog_1', OR: [{ clientId: null }, { clientId: { isSet: false } }] },
       data: { isPublic: true },
     })
   })

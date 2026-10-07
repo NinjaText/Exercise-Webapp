@@ -141,7 +141,6 @@ const VIEW_OPTIONS = [
   { value: "all", label: "All" },
   { value: "recent", label: "Recent" },
   { value: "favorites", label: "Favorites" },
-  { value: "templates", label: "Templates" },
   { value: "archived", label: "Archived" },
 ] as const;
 
@@ -467,7 +466,6 @@ function LibraryProgramRow({
               {program.name}
             </Link>
             <div className="mt-0.5 flex flex-wrap items-center gap-1">
-              {program.isTemplate && <StatusBadge status="TEMPLATE" size="sm" dot={false} />}
               {updatableSet.has(program.id) && (
                 <Badge variant="outline" className="text-[10px] font-medium">Update available</Badge>
               )}
@@ -1103,7 +1101,7 @@ export function ProgramListClient({
   const [togglingFavoriteId, setTogglingFavoriteId] = useState<string | null>(null);
 
   // Library-tab-only: quick View dropdown, the Filters panel, and Collections.
-  const [chipFilter, setChipFilter] = useState<"all" | "recent" | "favorites" | "templates" | "archived">("all");
+  const [chipFilter, setChipFilter] = useState<"all" | "recent" | "favorites" | "archived">("all");
   const [selectedCollectionId, setSelectedCollectionId] = useState<string | null>(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [sportFilter, setSportFilter] = useState<Set<string>>(new Set());
@@ -1303,8 +1301,6 @@ export function ProgramListClient({
         return true; // recency handled separately via updatedAt window below
       case "favorites":
         return !!p.isFavorite;
-      case "templates":
-        return true;
       default:
         return true;
     }
@@ -1357,7 +1353,6 @@ export function ProgramListClient({
           if (search && !matchesSearch(p, search)) return false;
           if (!matchesChip(p)) return false;
           if (!matchesRecentWindow(p.updatedAt)) return false;
-          if (chipFilter === "templates" && !p.isTemplate) return false;
           if (!matchesSchedulingPill(p, schedulingPill)) return false;
           if (!matchesFacets(p)) return false;
           if (selectedCollectionId && !(p.collectionIds ?? []).includes(selectedCollectionId)) return false;

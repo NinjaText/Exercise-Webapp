@@ -254,12 +254,12 @@ export function ProgramDetailView({
     } else toast.error(r.error);
   }
 
-  const isTemplate = program.isTemplate as boolean;
   const pdfUrl = `/api/programs/${program.id as string}/pdf`;
 
   const shareOverflow = [
     { label: "Duplicate", icon: Copy, onSelect: handleDuplicate },
-    ...(isTemplate && !clientId
+    // Any of the trainer's own programs with no client is a reusable template.
+    ...(!clientId && !adminMode && !program.isGlobal
       ? [{ label: "Sell this program", icon: Tag, onSelect: () => setSellOpen(true) }]
       : []),
     { label: "Download PDF", icon: Download, onSelect: () => void handleDownloadPdf() },
@@ -335,7 +335,6 @@ export function ProgramDetailView({
           meta={
             <>
               <StatusBadge status={program.status as string} size="sm" />
-              {isTemplate && <StatusBadge status="TEMPLATE" size="sm" dot={false} />}
               {client && (
                 <span>
                   Assigned to {client.firstName} {client.lastName}

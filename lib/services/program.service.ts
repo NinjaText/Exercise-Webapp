@@ -11,6 +11,7 @@ export {
   type ProgramSchedulingTypeValue,
 } from "@/lib/utils/program-scheduling";
 import { getProgramSchedulingType } from "@/lib/utils/program-scheduling";
+import { nullOrUnset } from "@/lib/db/mongo-null";
 
 export function computeDurationWeeksFromWorkouts(
   workouts: { weekIndex: number }[]
@@ -629,7 +630,8 @@ export async function getProgramsForClient(clientId: string) {
 
 export async function getTemplates(trainerId: string) {
   return prisma.program.findMany({
-    where: { trainerId, isTemplate: true, status: { not: "ARCHIVED" } },
+    // A template is any program with no client — there is no separate flag to set.
+    where: { trainerId, ...nullOrUnset("clientId"), status: { not: "ARCHIVED" } },
     include: programListInclude,
     orderBy: { updatedAt: "desc" },
   });
@@ -662,7 +664,7 @@ export async function getGlobalPrograms(clerkOrgId?: string, excludeTrainerId?: 
 
 export async function toggleProgramPublic(id: string, isPublic: boolean) {
   return prisma.program.update({
-    where: { id, isTemplate: true, clientId: null },
+    where: { id, ...nullOrUnset("clientId") },
     data: { isPublic },
   });
 }

@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ArrowDown, ArrowUp, ListOrdered, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Layers, ListOrdered, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { InputGroup, InputGroupAddon, InputGroupInput, InputGroupText } from "@/components/ui/input-group";
@@ -22,6 +22,8 @@ export type ClubFormValues = {
   /** USD per month; empty = coaching not offered (unless `priceNotes.coaching` is set, then empty = keep). */
   coachingAmount: string;
   starterProgramIds: string[];
+  /** Resources (on-demand); unordered, every member gets all of them at once. */
+  resourceProgramIds: string[];
   /** Create only; the edit form never sends it. */
   trainerEmail: string;
 };
@@ -34,7 +36,10 @@ export type ClubFormValues = {
 export type ClubPriceNotes = { membership?: string; coaching?: string };
 
 type Props = {
+  /** Scheduled programs for the starter picker. */
   globalPrograms: { id: string; name: string }[];
+  /** Resources (on-demand) for the resource picker. */
+  resourcePrograms: { id: string; name: string }[];
 } & (
   | { mode: "create" }
   | { mode: "edit"; clerkOrgId: string; initial: ClubFormValues; priceNotes?: ClubPriceNotes }
@@ -57,6 +62,7 @@ const EMPTY: ClubFormValues = {
   membershipAmount: "",
   coachingAmount: "",
   starterProgramIds: [],
+  resourceProgramIds: [],
   trainerEmail: "",
 };
 
@@ -88,7 +94,7 @@ export function ClubForm(props: Props) {
   const [pending, startTransition] = useTransition();
   const initial = props.mode === "edit" ? props.initial : EMPTY;
   const [values, setValues] = useState<ClubFormValues>(initial);
-  const { globalPrograms } = props;
+  const { globalPrograms, resourcePrograms } = props;
   const notes: ClubPriceNotes = props.mode === "edit" ? (props.priceNotes ?? {}) : {};
   const dirty = props.mode === "edit" && JSON.stringify(values) !== JSON.stringify(initial);
 
@@ -97,6 +103,8 @@ export function ClubForm(props: Props) {
 
   const nameOf = (id: string) => globalPrograms.find((p) => p.id === id)?.name ?? id;
   const available = globalPrograms.filter((p) => !values.starterProgramIds.includes(p.id));
+  const resourceNameOf = (id: string) => resourcePrograms.find((p) => p.id === id)?.name ?? id;
+  const availableResources = resourcePrograms.filter((p) => !values.resourceProgramIds.includes(p.id));
 
   const move = (index: number, delta: -1 | 1) => {
     const next = [...values.starterProgramIds];
@@ -288,6 +296,58 @@ export function ClubForm(props: Props) {
             </SelectTrigger>
             <SelectContent>
               {available.map((p) => (
+                <SelectItem key={p.id} value={p.id}>
+                  {p.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </SectionCard>
+
+      <SectionCard
+        title="Resources"
+        count={values.resourceProgramIds.length}
+        description="Anytime routines like warm-ups, mobility and recovery. Every member gets all of these as soon as they join, alongside their starter programs. Optional."
+      >
+        <div className="flex flex-col gap-3">
+          {values.resourceProgramIds.length > 0 ? (
+            <ul className="divide-y divide-border overflow-hidden rounded-lg border border-border">
+              {values.resourceProgramIds.map((id) => (
+                <li key={id} className="flex items-center gap-3 bg-surface py-2 pr-2 pl-3">
+                  <Layers className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+                  <span className="min-w-0 flex-1 truncate text-body text-foreground">{resourceNameOf(id)}</span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label="Remove"
+                    className="shrink-0 text-muted-foreground hover:text-danger-foreground"
+                    onClick={() => set("resourceProgramIds", values.resourceProgramIds.filter((x) => x !== id))}
+                  >
+                    <X className="size-4" />
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <div className="flex items-center gap-3 rounded-lg border border-dashed border-border px-4 py-5">
+              <Layers className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+              <p className="text-body text-muted-foreground">No resources yet.</p>
+            </div>
+          )}
+          <Select
+            value={null}
+            onValueChange={(v) => v && set("resourceProgramIds", [...values.resourceProgramIds, v as string])}
+            disabled={availableResources.length === 0}
+          >
+            <SelectTrigger aria-label="Add resource">
+              <SelectValue>
+                {() => (availableResources.length === 0 ? "No more resources to add" : "Add a resource…")}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {availableResources.map((p) => (
                 <SelectItem key={p.id} value={p.id}>
                   {p.name}
                 </SelectItem>
