@@ -174,6 +174,17 @@ describe('filterByEquipment — normalization', () => {
     expect(filterByEquipment([optionalBand, bench], ['none']).map(e => e.id)).toEqual(['c'])
   })
 
+  it('any selected machine satisfies an exercise whose name implies a machine', () => {
+    const legPress = { id: 'g', name: 'Seated Leg Press Machine', equipmentRequired: [] as string[] }
+    expect(filterByEquipment([legPress], ['Leg Press']).map(e => e.id)).toEqual(['g'])
+    expect(filterByEquipment([legPress], ['Dumbbells'])).toEqual([])
+  })
+
+  it('a gym-catalogue spelling matches the library label', () => {
+    const cable = { id: 'h', equipmentRequired: ['cable machine'] }
+    expect(filterByEquipment([cable], ['Cable']).map(e => e.id)).toEqual(['h'])
+  })
+
   it('a selection of just "none" means bodyweight only', () => {
     expect(filterByEquipment([dumbbellsPlural, bench], ['none'])).toEqual([])
   })

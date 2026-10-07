@@ -177,6 +177,7 @@ model User {
 
   pendingProgramAssignments PendingProgramAssignment[] @relation("PendingProgramAssignments")
   dismissedInsights         DismissedInsight[]         @relation("DismissedInsights")
+  equipmentProfiles         EquipmentProfile[]         @relation("EquipmentProfiles")
 }
 
 model AuditLog {
@@ -281,9 +282,28 @@ model ClientProfile {
   surgeryHistory           String?
   occupation               String?
   priorInjuries            String[]
+  /// Name of the preset or saved profile `availableEquipment` was filled from
+  /// ("Home Gym", "My Garage"); null when hand-picked. Display only — the AI
+  /// always reads `availableEquipment`.
+  equipmentSetupName       String?
   updatedAt                DateTime  @updatedAt
 
   @@map("patientProfile")
+}
+
+/// A user's own named equipment list ("My Garage", "Downtown Studio"), shown
+/// next to the built-in presets in lib/utils/equipment-catalog.ts. Trainers and
+/// clients each see only their own.
+model EquipmentProfile {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  ownerId   String   @db.ObjectId
+  owner     User     @relation("EquipmentProfiles", fields: [ownerId], references: [id], onDelete: Cascade)
+  name      String
+  items     String[] @default([])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([ownerId])
 }
 
 model Exercise {

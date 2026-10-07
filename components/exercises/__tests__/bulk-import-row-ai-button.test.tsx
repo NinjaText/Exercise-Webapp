@@ -50,7 +50,6 @@ function render(r: ExerciseRow) {
       onUpdate={noop}
       onRemove={noop}
       onGenerate={noop}
-      onToggleEquipment={noop}
       onToggleBodyRegion={noop}
     />
   );

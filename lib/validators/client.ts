@@ -26,6 +26,9 @@ const optionalText = (max: number, label: string) =>
 
 const textList = z.array(z.string().trim().min(1)).max(50).optional();
 
+/** Equipment can be a whole gym ("Full Gym" alone is ~60 items), so it gets a higher cap. */
+const equipmentList = z.array(z.string().trim().min(1).max(80)).max(200).optional();
+
 /**
  * Everything a trainer may set on a client's intake record, spanning both the
  * `User` row (the personal fields) and `ClientProfile` (the rest).
@@ -64,7 +67,8 @@ export const updateClientProfileSchema = z.object({
   functionalChallenges: optionalText(2000, "Functional challenges"),
 
   // --- Equipment, goals & preferences ---
-  availableEquipment: textList,
+  availableEquipment: equipmentList,
+  equipmentSetupName: optionalText(60, "Equipment setup name"),
   fitnessGoals: textList,
   preferredDurationMinutes: z
     .number()

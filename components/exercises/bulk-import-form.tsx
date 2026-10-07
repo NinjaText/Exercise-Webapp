@@ -9,7 +9,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { Progress } from "@/components/ui/progress";
 import { Checkbox } from "@/components/ui/checkbox";
-import { BODY_REGIONS, DIFFICULTY_LEVELS, COMMON_EQUIPMENT, musclesToGroups, applyMuscleGroupSelection } from "@/lib/utils/constants";
+import { BODY_REGIONS, DIFFICULTY_LEVELS, musclesToGroups, applyMuscleGroupSelection } from "@/lib/utils/constants";
+import { EquipmentPicker } from "@/components/equipment/equipment-picker";
 import { MuscleGroupChips } from "@/components/exercises/muscle-group-chips";
 import { bulkCreateExercisesAction, type BulkExerciseInput } from "@/actions/bulk-exercise-actions";
 import { isYouTubeUrl, isYouTubePlaylistUrl } from "@/lib/utils/video";
@@ -446,16 +447,6 @@ export function BulkImportForm() {
     );
   }
 
-  function toggleEquipment(rowId: string, item: string) {
-    setRows((prev) =>
-      prev.map((r) => {
-        if (r.rowId !== rowId) return r;
-        const has = r.equipmentRequired.includes(item);
-        return { ...r, equipmentRequired: has ? r.equipmentRequired.filter((e) => e !== item) : [...r.equipmentRequired, item] };
-      })
-    );
-  }
-
   async function generateMetadata(rowId: string) {
     const row = rows.find((r) => r.rowId === rowId);
     if (!row?.name.trim()) { toast.error("Enter an exercise name first"); return; }
@@ -869,7 +860,6 @@ export function BulkImportForm() {
                 onUpdate={(patch) => updateRow(row.rowId, patch)}
                 onRemove={() => removeRow(row.rowId)}
                 onGenerate={() => generateMetadata(row.rowId)}
-                onToggleEquipment={(item) => toggleEquipment(row.rowId, item)}
                 onToggleBodyRegion={(region) => toggleBodyRegion(row.rowId, region)}
               />
             ))}
@@ -912,11 +902,10 @@ interface RowProps {
   onUpdate: (patch: Partial<ExerciseRow>) => void;
   onRemove: () => void;
   onGenerate: () => void;
-  onToggleEquipment: (item: string) => void;
   onToggleBodyRegion: (region: string) => void;
 }
 
-export function ExerciseRowCard({ row, index, onUpdate, onRemove, onGenerate, onToggleEquipment, onToggleBodyRegion }: RowProps) {
+export function ExerciseRowCard({ row, index, onUpdate, onRemove, onGenerate, onToggleBodyRegion }: RowProps) {
   const isReady = !!(row.name.trim() && row.bodyRegion.length > 0 && row.difficultyLevel);
   const isYT = isYouTubeUrl(row.videoUrl);
 
@@ -1095,23 +1084,13 @@ export function ExerciseRowCard({ row, index, onUpdate, onRemove, onGenerate, on
 
           <div className="space-y-1.5">
             <Label className="text-xs font-medium">Equipment Required</Label>
-            <div className="flex flex-wrap gap-1.5">
-              {COMMON_EQUIPMENT.map((eq) => (
-                <button
-                  key={eq}
-                  type="button"
-                  onClick={() => onToggleEquipment(eq)}
-                  className={[
-                    "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
-                    row.equipmentRequired.includes(eq)
-                      ? "border-primary bg-primary text-primary-foreground"
-                      : "border-border bg-background text-muted-foreground hover:border-primary/50 hover:text-foreground",
-                  ].join(" ")}
-                >
-                  {eq}
-                </button>
-              ))}
-            </div>
+            {/* An exercise lists what it needs (empty = bodyweight), so no setups here. */}
+            <EquipmentPicker
+              value={row.equipmentRequired}
+              showSetups={false}
+              allowSave={false}
+              onChange={(equipmentRequired) => onUpdate({ equipmentRequired })}
+            />
           </div>
 
           <div className="space-y-1.5">

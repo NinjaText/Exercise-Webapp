@@ -18,7 +18,8 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { COMMON_EQUIPMENT as EQUIPMENT_OPTIONS, FITNESS_GOALS as FITNESS_GOAL_OPTIONS } from "@/lib/utils/constants";
+import { FITNESS_GOALS as FITNESS_GOAL_OPTIONS } from "@/lib/utils/constants";
+import { EquipmentPicker } from "@/components/equipment/equipment-picker";
 import { Loader2, Sparkles } from "lucide-react";
 import type { GeneratedWorkout } from "@/lib/ai/schemas/workout-output";
 import type { ClientProfile } from "@prisma/client";
@@ -154,24 +155,7 @@ export function WorkoutGeneratorForm({
               name="availableEquipment"
               render={({ field }) => (
                 <FormItem>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                    {EQUIPMENT_OPTIONS.map((option) => (
-                      <div key={option} className="flex items-center space-x-2">
-                        <Checkbox
-                          checked={field.value?.includes(option)}
-                          onCheckedChange={(checked) => {
-                            const current = field.value ?? [];
-                            field.onChange(
-                              checked
-                                ? [...current, option]
-                                : current.filter((v) => v !== option)
-                            );
-                          }}
-                        />
-                        <label className="text-sm">{option}</label>
-                      </div>
-                    ))}
-                  </div>
+                  <EquipmentPicker value={field.value ?? []} onChange={(items) => field.onChange(items)} />
                   <FormMessage />
                 </FormItem>
               )}

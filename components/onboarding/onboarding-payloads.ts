@@ -29,6 +29,8 @@ export interface ClientOnboardingValues {
   comorbidities: string;
   functionalChallenges: string;
   availableEquipment: string[];
+  /** Preset the equipment came from ("Home Gym"), or null when hand-picked. */
+  equipmentSetupName?: string | null;
   fitnessGoals: string[];
 }
 
@@ -62,6 +64,7 @@ export function buildClientOnboardingPayload(
     comorbidities: v.comorbidities || undefined,
     functionalChallenges: v.functionalChallenges || undefined,
     availableEquipment: v.availableEquipment,
+    ...(v.equipmentSetupName ? { equipmentSetupName: v.equipmentSetupName } : {}),
     fitnessGoals: v.fitnessGoals,
     primaryDiagnosis: v.primaryDiagnosis || undefined,
     painScore: v.painScore ? parseInt(v.painScore) : undefined,

@@ -17,7 +17,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { TagListInput } from "@/components/programs/tag-list-input";
-import { ACTIVITY_LEVELS, COMMON_EQUIPMENT, FITNESS_GOALS } from "@/lib/utils/constants";
+import { ACTIVITY_LEVELS, FITNESS_GOALS } from "@/lib/utils/constants";
+import { EquipmentPicker } from "@/components/equipment/equipment-picker";
 import { updateClientProfileAction } from "@/actions/client-actions";
 import { cn } from "@/lib/utils";
 
@@ -39,6 +40,7 @@ export interface EditableClientProfile {
   comorbidities?: string | null;
   functionalChallenges?: string | null;
   availableEquipment?: string[] | null;
+  equipmentSetupName?: string | null;
   fitnessGoals?: string[] | null;
   preferredDurationMinutes?: number | null;
   preferredDaysPerWeek?: number | null;
@@ -61,6 +63,7 @@ interface FormState {
   comorbidities: string;
   functionalChallenges: string;
   availableEquipment: string[];
+  equipmentSetupName: string | null;
   fitnessGoals: string[];
   preferredDurationMinutes: string;
   preferredDaysPerWeek: string;
@@ -92,6 +95,7 @@ function toFormState(client: EditableClientProfile): FormState {
     comorbidities: client.comorbidities ?? "",
     functionalChallenges: client.functionalChallenges ?? "",
     availableEquipment: client.availableEquipment ?? [],
+    equipmentSetupName: client.equipmentSetupName ?? null,
     fitnessGoals: client.fitnessGoals ?? [],
     preferredDurationMinutes:
       client.preferredDurationMinutes != null ? String(client.preferredDurationMinutes) : "",
@@ -176,6 +180,7 @@ function ProfileForm({
       comorbidities: form.comorbidities,
       functionalChallenges: form.functionalChallenges,
       availableEquipment: form.availableEquipment,
+      equipmentSetupName: form.equipmentSetupName,
       fitnessGoals: form.fitnessGoals,
       preferredDurationMinutes:
         form.preferredDurationMinutes === "" ? null : Number(form.preferredDurationMinutes),
@@ -354,10 +359,11 @@ function ProfileForm({
 
         <Section title="Equipment, goals & preferences">
           <Field label="Available equipment">
-            <ToggleChips
-              options={[...COMMON_EQUIPMENT]}
-              selected={form.availableEquipment}
-              onToggle={(value) => toggleIn("availableEquipment", value)}
+            <EquipmentPicker
+              value={form.availableEquipment}
+              onChange={(items, setupName) =>
+                setForm((prev) => ({ ...prev, availableEquipment: items, equipmentSetupName: setupName }))
+              }
             />
           </Field>
           <Field label="Goals">

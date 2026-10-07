@@ -363,7 +363,7 @@ export function ProgramPicker({
         <div
           role="radiogroup"
           aria-label={copy.listLabel}
-          className="max-h-[300px] overflow-y-auto rounded-md border border-border"
+          className="max-h-[min(300px,40dvh)] overflow-y-auto rounded-md border border-border"
         >
           {rows.map((program, index) => (
             <ProgramRow

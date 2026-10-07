@@ -111,6 +111,7 @@ export async function completeClientOnboarding(data: {
   comorbidities?: string;
   functionalChallenges?: string;
   availableEquipment?: string[];
+  equipmentSetupName?: string;
   fitnessGoals?: string[];
   primaryDiagnosis?: string;
   painScore?: number;
@@ -142,6 +143,7 @@ export async function completeClientOnboarding(data: {
     comorbidities: data.comorbidities ?? null,
     functionalChallenges: data.functionalChallenges ?? null,
     availableEquipment: data.availableEquipment ?? [],
+    equipmentSetupName: data.equipmentSetupName?.trim().slice(0, 60) || null,
     fitnessGoals: data.fitnessGoals ?? [],
     preferredDurationMinutes: 25,
     preferredDaysPerWeek: 3,

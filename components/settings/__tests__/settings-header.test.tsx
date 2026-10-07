@@ -20,12 +20,16 @@ beforeEach(() => {
 describe("getSettingsTabs", () => {
   it("gives trainers every section, in order", () => {
     expect(getSettingsTabs("TRAINER").map((t) => t.label)).toEqual([
-      "Account", "Notifications", "Organization", "Branding", "Billing", "Audit log",
+      "Account", "Notifications", "Equipment", "Organization", "Branding", "Billing", "Audit log",
     ]);
   });
 
-  it("gives clients only account and notifications", () => {
-    expect(getSettingsTabs("CLIENT").map((t) => t.href)).toEqual(["/settings", "/settings/notifications"]);
+  it("gives clients account, notifications and equipment", () => {
+    expect(getSettingsTabs("CLIENT").map((t) => t.href)).toEqual([
+      "/settings",
+      "/settings/notifications",
+      "/settings/equipment",
+    ]);
   });
 });
 

@@ -12,16 +12,7 @@ import { generateProgramAction } from "@/actions/program-actions";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { NATIVE_SELECT_CLASS } from "@/lib/ui/native-select";
-import { Check, ChevronDown, ChevronUp, ChevronsUpDown, Loader2, Plus, Sparkles, Trash2, X } from "lucide-react";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command";
+import { ChevronDown, ChevronUp, Loader2, Plus, Sparkles, Trash2 } from "lucide-react";
 import { getDistinctEquipmentAction } from "@/actions/program-actions";
 import { PlanReviewStep } from "@/components/programs/plan-review-step";
 import { ClinicVisibilitySelector } from "@/components/programs/clinic-visibility-selector";
@@ -29,7 +20,9 @@ import {
   ClientDetailsPanel,
   type ClientSummary,
 } from "@/components/programs/client-details-panel";
-import { mapClientEquipmentToOptions } from "@/lib/utils/program-equipment";
+import { mapClientEquipmentToOptions, NO_EQUIPMENT_OPTION } from "@/lib/utils/program-equipment";
+import { EQUIPMENT_CATALOG } from "@/lib/utils/equipment-catalog";
+import { EquipmentPicker } from "@/components/equipment/equipment-picker";
 import { SchedulingTypeSelector } from "@/components/programs/scheduling-type-selector";
 import type { ProgramSchedulingTypeValue } from "@/lib/utils/program-scheduling";
 import type { ClinicalPlan, ProgramMode } from "@/lib/ai/types/program-generation";
@@ -106,7 +99,6 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
   const [selectedEquipment, setSelectedEquipment] = useState<string[]>([]);
   const [equipmentTouched, setEquipmentTouched] = useState(false);
   const [equipmentOptions, setEquipmentOptions] = useState<string[]>([]);
-  const [equipmentOpen, setEquipmentOpen] = useState(false);
   const [startDate, setStartDate] = useState("");
   // Scheduled = a dated program with generated sessions; On-Demand = an
   // anytime "Resource" with no schedule at all.
@@ -179,7 +171,12 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
   useEffect(() => {
     if (equipmentTouched) return;
     setSelectedEquipment(
-      mapClientEquipmentToOptions(selectedClientDetails?.availableEquipment, equipmentOptions)
+      // Catalogue spellings count as known options too, so a client's
+      // "Home Gym" items pre-fill as-is.
+      mapClientEquipmentToOptions(selectedClientDetails?.availableEquipment, [
+        ...EQUIPMENT_CATALOG,
+        ...equipmentOptions,
+      ])
     );
   }, [selectedClientDetails, equipmentOptions, equipmentTouched]);
 
@@ -196,19 +193,6 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
     setSelectedGoals(prev =>
       prev.includes(goal) ? prev.filter(g => g !== goal) : [...prev, goal]
     );
-  }
-
-  function toggleEquipment(item: string) {
-    setEquipmentTouched(true);
-    setSelectedEquipment(prev => {
-      if (item === "none") {
-        return prev.includes("none") ? [] : ["none"];
-      }
-      const withoutNone = prev.filter(e => e !== "none");
-      return withoutNone.includes(item)
-        ? withoutNone.filter(e => e !== item)
-        : [...withoutNone, item];
-    });
   }
 
   function toggleWeekday(day: string) {
@@ -585,81 +569,15 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
                   </p>
                 )}
 
-                <Popover open={equipmentOpen} onOpenChange={setEquipmentOpen}>
-                  <PopoverTrigger
-                    render={
-                      <Button
-                        type="button"
-                        variant="outline"
-                        role="combobox"
-                        className="w-full justify-between font-normal"
-                      />
-                    }
-                  >
-                    {selectedEquipment.includes("none")
-                      ? "No Equipment (Bodyweight only)"
-                      : selectedEquipment.length === 0
-                      ? "Select equipment..."
-                      : `${selectedEquipment.length} item${selectedEquipment.length === 1 ? "" : "s"} selected`}
-                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                  </PopoverTrigger>
-                  <PopoverContent className="w-72 p-0" align="start">
-                    <Command>
-                      <CommandInput placeholder="Search equipment..." />
-                      <CommandList>
-                        <CommandEmpty>No equipment found.</CommandEmpty>
-                        <CommandGroup>
-                          <CommandItem
-                            key="none"
-                            value="none"
-                            onSelect={() => toggleEquipment("none")}
-                          >
-                            <Check
-                              className={`mr-2 h-4 w-4 ${
-                                selectedEquipment.includes("none") ? "opacity-100" : "opacity-0"
-                              }`}
-                            />
-                            None (Bodyweight only)
-                          </CommandItem>
-                          {equipmentOptions.map(item => (
-                            <CommandItem
-                              key={item}
-                              value={item}
-                              onSelect={() => toggleEquipment(item)}
-                            >
-                              <Check
-                                className={`mr-2 h-4 w-4 ${
-                                  selectedEquipment.includes(item) ? "opacity-100" : "opacity-0"
-                                }`}
-                              />
-                              {item}
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
-                {selectedEquipment.length > 0 && !selectedEquipment.includes("none") && (
-                  <div className="mt-1 flex flex-wrap gap-1.5">
-                    {selectedEquipment.map(item => (
-                      <span
-                        key={item}
-                        className="inline-flex h-8 items-center gap-1 rounded-full border border-border bg-secondary pl-2.5 pr-1 text-caption font-medium text-foreground"
-                      >
-                        {item}
-                        <button
-                          type="button"
-                          onClick={() => toggleEquipment(item)}
-                          aria-label={`Remove ${item}`}
-                          className="inline-flex size-6 items-center justify-center rounded-full text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
-                        >
-                          <X className="size-3" />
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
+                <EquipmentPicker
+                  value={selectedEquipment}
+                  noneValue={NO_EQUIPMENT_OPTION}
+                  extraItems={equipmentOptions}
+                  onChange={(items) => {
+                    setEquipmentTouched(true);
+                    setSelectedEquipment(items);
+                  }}
+                />
               </FormField>
 
               {/* Difficulty Level */}
