@@ -166,7 +166,9 @@ describe("rendering", () => {
     expect(training).toContain('id="activityLevel"');
     expect(training).toContain('id="occupation"');
     expect(training).toMatch(/aria-pressed="true"[^>]*>Dumbbells</);
-    expect(training).toMatch(/aria-pressed="false"[^>]*>None</);
+    // Built-in setups replace the old "None" chip; bodyweight only is one of them.
+    expect(training).toContain("Bodyweight only");
+    expect(training).toContain("Home Gym");
   });
 
   it("the review step summarises every entered value with edit links", () => {

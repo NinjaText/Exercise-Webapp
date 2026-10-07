@@ -21,7 +21,7 @@ async function getTrainerUser() {
 
 async function getOwnedTemplate(programId: string, trainerId: string) {
   const program = await prisma.program.findUnique({ where: { id: programId } });
-  if (!program || program.trainerId !== trainerId || !program.isTemplate || program.clientId) {
+  if (!program || program.trainerId !== trainerId || program.clientId) {
     return null;
   }
   return program;

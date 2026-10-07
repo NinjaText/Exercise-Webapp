@@ -1,31 +1,41 @@
-import { getProgramSchedulingType } from "@/lib/utils/program-scheduling";
+import { nullOrUnset } from "@/lib/db/mongo-null";
+import { getProgramSchedulingType, type ProgramSchedulingTypeValue } from "@/lib/utils/program-scheduling";
 
-type StarterCandidate = {
+type ClubProgramCandidate = {
   id: string;
   name: string;
   isGlobal: boolean;
   schedulingType: string | null;
-  isTemplate?: boolean;
 };
 
 /**
- * Programs the starter picker can show: Global Programs, the club trainer's
- * own templates, and always the club's current starters (an old trainer's
- * template stays visible, so saving while the club has no trainer can't drop it).
+ * Programs the club's starter and resource pickers can show: Global Programs,
+ * the club trainer's own templates (any of their programs with no client), and
+ * always the club's current picks (an old trainer's template stays visible, so
+ * saving while the club has no trainer can't drop it).
  */
-export function starterProgramWhere(starterProgramIds: string[], trainerId: string | null) {
+export function clubProgramWhere(currentIds: string[], trainerId: string | null) {
   return {
     OR: [
       { isGlobal: true },
-      ...(trainerId ? [{ isTemplate: true, isGlobal: false, trainerId }] : []),
-      ...(starterProgramIds.length > 0 ? [{ id: { in: starterProgramIds } }] : []),
+      ...(trainerId ? [{ isGlobal: false, trainerId, ...nullOrUnset("clientId") }] : []),
+      ...(currentIds.length > 0 ? [{ id: { in: currentIds } }] : []),
     ],
   };
 }
 
-/** Scheduled programs only, except current starters which stay visible even if they stopped qualifying. */
-export function starterOptions(programs: StarterCandidate[], starterProgramIds: string[]) {
+function optionsOfType(programs: ClubProgramCandidate[], currentIds: string[], type: ProgramSchedulingTypeValue) {
   return programs
-    .filter((p) => getProgramSchedulingType(p) === "SCHEDULED" || starterProgramIds.includes(p.id))
+    .filter((p) => getProgramSchedulingType(p) === type || currentIds.includes(p.id))
     .map(({ id, name, isGlobal }) => ({ id, name: isGlobal ? name : `${name} (trainer's)` }));
+}
+
+/** Scheduled programs only, except current starters which stay visible even if they stopped qualifying. */
+export function starterOptions(programs: ClubProgramCandidate[], starterProgramIds: string[]) {
+  return optionsOfType(programs, starterProgramIds, "SCHEDULED");
+}
+
+/** Resources (on-demand) only, except current resources which stay visible even if they stopped qualifying. */
+export function resourceOptions(programs: ClubProgramCandidate[], resourceProgramIds: string[]) {
+  return optionsOfType(programs, resourceProgramIds, "ON_DEMAND");
 }

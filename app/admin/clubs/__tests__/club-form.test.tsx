@@ -9,12 +9,12 @@ import { ClubForm, clubFormPayload, type ClubFormValues } from "../club-form";
 
 const values: ClubFormValues = {
   name: "Pine", joinSlug: "pine", joinCode: "PINE24", trialDays: 14,
-  membershipAmount: "14.99", coachingAmount: "30.00", starterProgramIds: [], trainerEmail: "",
+  membershipAmount: "14.99", coachingAmount: "30.00", starterProgramIds: [], resourceProgramIds: [], trainerEmail: "",
 };
 
 describe("ClubForm", () => {
   it("asks for dollar amounts, not Stripe price ids", () => {
-    const html = renderToStaticMarkup(<ClubForm mode="create" globalPrograms={[]} />);
+    const html = renderToStaticMarkup(<ClubForm mode="create" globalPrograms={[]} resourcePrograms={[]} />);
     expect(html).toContain("Membership price");
     expect(html).toContain("Coaching price");
     expect(html).toContain('id="club-membership-amount"');
@@ -24,7 +24,7 @@ describe("ClubForm", () => {
 
   it("pre-fills the current amounts on edit", () => {
     const html = renderToStaticMarkup(
-      <ClubForm mode="edit" clerkOrgId="org_1" globalPrograms={[]} initial={values} />
+      <ClubForm mode="edit" clerkOrgId="org_1" globalPrograms={[]} resourcePrograms={[]} initial={values} />
     );
     expect(html).toContain('value="14.99"');
     expect(html).toContain('value="30.00"');
@@ -35,7 +35,7 @@ describe("ClubForm", () => {
       <ClubForm
         mode="edit"
         clerkOrgId="org_1"
-        globalPrograms={[]}
+        globalPrograms={[]} resourcePrograms={[]}
         initial={{ ...values, coachingAmount: "" }}
         priceNotes={{ coaching: "Couldn't load the current price. Leave empty to keep it unchanged." }}
       />

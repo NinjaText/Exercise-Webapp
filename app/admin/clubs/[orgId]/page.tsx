@@ -16,7 +16,7 @@ import { COACHING_BADGE } from "@/lib/ui/status";
 import { getClubTrainer, getPendingTrainerInvite } from "@/lib/services/club-trainer.service";
 import { describeClubPrice } from "@/lib/services/club-pricing.service";
 import { priceFormField } from "./price-fields";
-import { starterOptions, starterProgramWhere } from "./starter-options";
+import { clubProgramWhere, resourceOptions, starterOptions } from "./starter-options";
 import { ClubTrainerControls } from "./club-trainer-controls";
 import { ClubForm } from "../club-form";
 import { ExtendTrialButton } from "./extend-trial-button";
@@ -38,9 +38,9 @@ export default async function AdminClubDetailPage({ params }: PageProps) {
 
   const now = new Date();
   const [programs, members, coachingRows, membershipPrice, coachingPrice, statusCounts, expired] = await Promise.all([
-    // Global Programs, the club trainer's templates and the current starters.
+    // Global Programs, the club trainer's templates and the current starters/resources.
     prisma.program.findMany({
-      where: starterProgramWhere(org.starterProgramIds, trainer?.id ?? null),
+      where: clubProgramWhere([...org.starterProgramIds, ...(org.resourceProgramIds ?? [])], trainer?.id ?? null),
       select: { id: true, name: true, schedulingType: true, isGlobal: true },
       orderBy: { name: "asc" },
     }),
@@ -68,6 +68,7 @@ export default async function AdminClubDetailPage({ params }: PageProps) {
   const coachingByUser = new Map(coachingRows.map((c) => [c.userId, c.status]));
 
   const globalPrograms = starterOptions(programs, org.starterProgramIds);
+  const resourcePrograms = resourceOptions(programs, org.resourceProgramIds ?? []);
 
   type Member = (typeof members)[number];
   const columns: Column<Member>[] = [
@@ -179,6 +180,7 @@ export default async function AdminClubDetailPage({ params }: PageProps) {
           mode="edit"
           clerkOrgId={orgId}
           globalPrograms={globalPrograms}
+          resourcePrograms={resourcePrograms}
           initial={{
             name: org.name,
             joinSlug: org.joinSlug ?? "",
@@ -187,6 +189,7 @@ export default async function AdminClubDetailPage({ params }: PageProps) {
             membershipAmount: membershipField.amount,
             coachingAmount: coachingField.amount,
             starterProgramIds: org.starterProgramIds,
+            resourceProgramIds: org.resourceProgramIds ?? [],
             trainerEmail: "",
           }}
           priceNotes={{ membership: membershipField.note, coaching: coachingField.note }}

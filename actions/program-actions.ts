@@ -378,15 +378,15 @@ export async function toggleProgramPublicAction(programId: string, isPublic: boo
 
   const program = await prisma.program.findUnique({
     where: { id: programId },
-    select: { trainerId: true, name: true, isTemplate: true, clientId: true },
+    select: { trainerId: true, name: true, clientId: true },
   });
   if (!program || program.trainerId !== user.id) {
     return { success: false as const, error: "Forbidden" };
   }
-  if (!program.isTemplate || program.clientId) {
+  if (program.clientId) {
     return {
       success: false as const,
-      error: "Only templates with no client assigned can be made public",
+      error: "Only programs with no client assigned can be made public",
     };
   }
 

@@ -1,4 +1,5 @@
 import { canonicalEquipment } from '@/lib/utils/equipment-vocabulary'
+import { expandAvailableEquipment } from '@/lib/utils/equipment-catalog'
 
 interface ExerciseWithContraindications {
   id: string
@@ -315,7 +316,7 @@ export function filterByEquipment<T extends ExerciseWithEquipment & { name?: str
   availableEquipment: string[]
 ): T[] {
   if (availableEquipment.length === 0) return exercises
-  const available = new Set(availableEquipment.flatMap(canonicalEquipment))
+  const available = expandAvailableEquipment(availableEquipment.flatMap(canonicalEquipment))
   return exercises.filter(exercise => {
     const implied = exercise.name ? inferEquipmentFromName(exercise.name) : []
     // Each requirement is a set of alternatives; one of them must be available.

@@ -40,6 +40,8 @@ export interface ClubInput {
   /** USD cents per month; we create the Stripe price (stored as `stripePriceId`). */
   membershipAmountCents: number;
   starterProgramIds: string[];
+  /** Unordered; every member gets all of them at once. May be empty. */
+  resourceProgramIds: string[];
   /** Create only: the invited club trainer. Never edited via updateClub. */
   trainerEmail: string;
   /** USD cents per month for the coaching add-on; null = coaching not offered. */
@@ -77,9 +79,10 @@ export function parseClubInput(raw: Record<string, unknown>): ClubInput {
   const settings = parseClubSettings(raw);
   const membershipAmountCents = requiredMembership(raw.membershipAmount);
   const starterProgramIds = parseStarters(raw);
+  const resourceProgramIds = parseResources(raw);
   const coachingAmountCents = parseAmount(raw.coachingAmount, "Coaching price");
   const trainerEmail = normalizeTrainerEmail(String(raw.trainerEmail ?? ""));
-  return { ...settings, membershipAmountCents, starterProgramIds, trainerEmail, coachingAmountCents };
+  return { ...settings, membershipAmountCents, starterProgramIds, resourceProgramIds, trainerEmail, coachingAmountCents };
 }
 
 /**
@@ -92,11 +95,12 @@ export function parseClubUpdateInput(raw: Record<string, unknown>): ClubUpdateIn
   const membershipAmountCents =
     raw.keepMembershipPrice === true && isEmpty(raw.membershipAmount) ? KEEP_PRICE : requiredMembership(raw.membershipAmount);
   const starterProgramIds = parseStarters(raw);
+  const resourceProgramIds = parseResources(raw);
   const coachingAmountCents =
     raw.keepCoachingPrice === true && isEmpty(raw.coachingAmount)
       ? KEEP_PRICE
       : parseAmount(raw.coachingAmount, "Coaching price");
-  return { ...settings, membershipAmountCents, starterProgramIds, coachingAmountCents };
+  return { ...settings, membershipAmountCents, starterProgramIds, resourceProgramIds, coachingAmountCents };
 }
 
 function parseClubSettings(raw: Record<string, unknown>) {
@@ -124,6 +128,15 @@ function parseStarters(raw: Record<string, unknown>): string[] {
   return starterProgramIds;
 }
 
+function parseResources(raw: Record<string, unknown>): string[] {
+  const resourceProgramIds = Array.isArray(raw.resourceProgramIds)
+    ? raw.resourceProgramIds.map(String).filter(Boolean)
+    : [];
+  if (new Set(resourceProgramIds).size !== resourceProgramIds.length)
+    throw new ClubError("invalid_input", "Each resource can only be added once.");
+  return resourceProgramIds;
+}
+
 async function assertSlugFree(joinSlug: string, exceptClerkOrgId?: string) {
   const clash = await prisma.organization.findFirst({
     where: { joinSlug, ...(exceptClerkOrgId ? { clerkOrgId: { not: exceptClerkOrgId } } : {}) },
@@ -133,31 +146,39 @@ async function assertSlugFree(joinSlug: string, exceptClerkOrgId?: string) {
 }
 
 /**
- * Starters are Global Programs or the club trainer's own templates (D7), and
- * always Scheduled. With no trainer yet (create), Global only.
- */
-/**
- * `alreadyOnClub`: the club's current starter ids. They were validated when
- * set, so keeping them unchanged passes the ownership rule even while the
+ * Club programs are Global Programs or the club trainer's own templates (D7):
+ * starters are always Scheduled, resources always On-Demand. With no trainer
+ * yet (create), Global only. A template is any program with no client.
+ *
+ * `alreadyOnClub`: the club's current ids of that kind. They were validated
+ * when set, so keeping them unchanged passes the ownership rule even while the
  * club has no trainer (between Replace and the new trainer accepting), so an
- * admin can still edit the club. They must still exist and be scheduled.
+ * admin can still edit the club. They must still exist and be the right type.
  */
-async function assertStarters(ids: string[], clubTrainerId: string | null, alreadyOnClub: string[] = []) {
+async function assertClubPrograms(
+  kind: "starter" | "resource",
+  ids: string[],
+  clubTrainerId: string | null,
+  alreadyOnClub: string[] = []
+) {
+  if (ids.length === 0) return;
   const programs = await prisma.program.findMany({
     where: { id: { in: ids } },
-    select: { id: true, isGlobal: true, isTemplate: true, trainerId: true, schedulingType: true },
+    select: { id: true, isGlobal: true, trainerId: true, clientId: true, schedulingType: true },
   });
+  const type = kind === "starter" ? "SCHEDULED" : "ON_DEMAND";
   const allowed = (p: (typeof programs)[number]) =>
     p.isGlobal ||
     alreadyOnClub.includes(p.id) ||
-    (clubTrainerId !== null && p.isTemplate && p.trainerId === clubTrainerId);
+    (clubTrainerId !== null && p.trainerId === clubTrainerId && p.clientId == null);
   const ok =
-    programs.length === ids.length &&
-    programs.every((p) => allowed(p) && getProgramSchedulingType(p) === "SCHEDULED");
+    programs.length === ids.length && programs.every((p) => allowed(p) && getProgramSchedulingType(p) === type);
   if (!ok) {
     throw new ClubError(
       "starter_invalid",
-      "Starter programs must be scheduled Global Programs or the club trainer's own templates."
+      kind === "starter"
+        ? "Starter programs must be scheduled Global Programs or the club trainer's own templates."
+        : "Resources must be Global or club trainer Resources (not scheduled programs)."
     );
   }
 }
@@ -169,6 +190,7 @@ function clubData(input: ClubUpdateInput, prices: { stripePriceId: string; coach
     joinCode: input.joinCode,
     trialDays: input.trialDays,
     starterProgramIds: input.starterProgramIds,
+    resourceProgramIds: input.resourceProgramIds,
     ...prices,
   };
 }
@@ -208,7 +230,8 @@ async function deleteClerkOrg(client: Awaited<ReturnType<typeof clerkClient>>, c
 export async function createClub(input: ClubInput): Promise<Organization> {
   await assertSlugFree(input.joinSlug);
   await assertTrainerEmailFree(input.trainerEmail);
-  await assertStarters(input.starterProgramIds, null);
+  await assertClubPrograms("starter", input.starterProgramIds, null);
+  await assertClubPrograms("resource", input.resourceProgramIds, null);
 
   const client = await clerkClient();
   // 0 = no membership cap on this org. Confirm the Clerk plan allows it.
@@ -269,7 +292,8 @@ export async function updateClub(clerkOrgId: string, input: ClubUpdateInput): Pr
   if (!org || getOrgType(org) !== "CLUB") throw new ClubError("not_found");
   await assertSlugFree(input.joinSlug, clerkOrgId);
   const trainer = await getClubTrainer(clerkOrgId);
-  await assertStarters(input.starterProgramIds, trainer?.id ?? null, org.starterProgramIds);
+  await assertClubPrograms("starter", input.starterProgramIds, trainer?.id ?? null, org.starterProgramIds);
+  await assertClubPrograms("resource", input.resourceProgramIds, trainer?.id ?? null, org.resourceProgramIds ?? []);
   if (input.membershipAmountCents === KEEP_PRICE && !org.stripePriceId)
     throw new ClubError("invalid_input", "Membership price is required.");
 

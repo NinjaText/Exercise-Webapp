@@ -1,7 +1,7 @@
 import { clerkClient } from "@clerk/nextjs/server";
 import type { Organization, User } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { duplicateProgram, assignProgram } from "@/lib/services/program.service";
+import { duplicateProgram, assignProgram, assignOnDemandProgram } from "@/lib/services/program.service";
 import { getClubTrainer } from "@/lib/services/club-trainer.service";
 import { getOrgType } from "@/lib/org-capabilities";
 import { nextStarterTemplateId, OPEN_SESSION_STATUSES } from "@/lib/clubs/starter-progression";
@@ -102,6 +102,41 @@ export async function ensureMemberSubscription(userId: string, club: Organizatio
   }
 }
 
+/**
+ * Gives a member a copy of every club Resource they don't have yet. Resources
+ * never finish, so unlike starters they are all handed out at once — and a
+ * resource added to the club later reaches existing members on the next
+ * sweep. Runs under the starter claim so concurrent callers can't each make a
+ * copy. A failing resource is logged and retried next sweep rather than
+ * blocking the member's starter programs.
+ */
+async function assignMissingClubResources(userId: string, club: Organization): Promise<void> {
+  const ids = club.resourceProgramIds ?? [];
+  if (ids.length === 0) return;
+  const have = await prisma.program.findMany({
+    where: { clientId: userId, sourceTemplateId: { in: ids } },
+    select: { sourceTemplateId: true },
+  });
+  const owned = new Set(have.map((p) => p.sourceTemplateId));
+  const missing = ids.filter((id) => !owned.has(id));
+  if (missing.length === 0) return;
+
+  // Copies belong to the club trainer (D6); none yet → the sweep retries.
+  const trainer = await getClubTrainer(club.clerkOrgId);
+  if (!trainer) return;
+  for (const id of missing) {
+    let copyId: string | null = null;
+    try {
+      const copy = await duplicateProgram(id, trainer.id, false);
+      copyId = copy.id;
+      await assignOnDemandProgram(copy.id, userId);
+    } catch (err) {
+      console.error("Failed to give club resource", id, "to member", userId, err);
+      if (copyId) await prisma.program.delete({ where: { id: copyId } }).catch(() => {});
+    }
+  }
+}
+
 export type StarterOutcome = "assigned" | "in_progress" | "done" | "skipped";
 
 /**
@@ -135,6 +170,8 @@ export async function assignNextStarterProgram(userId: string): Promise<StarterO
   if (claimed.count === 0) return "in_progress";
 
   try {
+    await assignMissingClubResources(userId, club);
+
     const copies = await prisma.program.findMany({
       where: { clientId: userId, sourceTemplateId: { in: club.starterProgramIds } },
       select: { id: true, sourceTemplateId: true },

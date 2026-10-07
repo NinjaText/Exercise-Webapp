@@ -8,7 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { SectionCard } from "@/components/shared/section-card";
-import { BODY_REGIONS, DIFFICULTY_LEVELS, COMMON_EQUIPMENT, musclesToGroups, applyMuscleGroupSelection } from "@/lib/utils/constants";
+import { BODY_REGIONS, DIFFICULTY_LEVELS, musclesToGroups, applyMuscleGroupSelection } from "@/lib/utils/constants";
+import { EquipmentPicker } from "@/components/equipment/equipment-picker";
 import { updateExerciseAction, addExerciseMediaAction, deleteExerciseMediaAction } from "@/actions/exercise-actions";
 import { toast } from "sonner";
 import { CheckCircle2, Loader2, Play, Trash2, X, Plus, ClipboardCheck } from "lucide-react";
@@ -109,11 +110,6 @@ export function ExerciseEditForm({ exercise }: Props) {
     }
   }
 
-  function toggleEquipment(item: string) {
-    setSelectedEquipment((prev) =>
-      prev.includes(item) ? prev.filter((e) => e !== item) : [...prev, item]
-    );
-  }
 
   function toggleRegion(value: string) {
     setSelectedRegions((prev) =>
@@ -129,10 +125,6 @@ export function ExerciseEditForm({ exercise }: Props) {
     }
     setCustomEquipmentInput("");
     equipmentInputRef.current?.focus();
-  }
-
-  function removeEquipment(item: string) {
-    setSelectedEquipment((prev) => prev.filter((e) => e !== item));
   }
 
   return (
@@ -252,19 +244,13 @@ export function ExerciseEditForm({ exercise }: Props) {
           <div className="flex flex-col gap-3">
             <Label>Equipment Required</Label>
 
-            <div className="flex flex-wrap gap-2">
-              {COMMON_EQUIPMENT.map((eq) => (
-                <Button
-                  key={eq}
-                  type="button"
-                  variant={selectedEquipment.includes(eq) ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => toggleEquipment(eq)}
-                >
-                  {eq}
-                </Button>
-              ))}
-            </div>
+            {/* The equipment catalogue; an exercise lists what it needs (empty = bodyweight). */}
+            <EquipmentPicker
+              value={selectedEquipment}
+              showSetups={false}
+              allowSave={false}
+              onChange={(items) => setSelectedEquipment(items)}
+            />
 
             <div className="flex gap-2">
               <Input
@@ -289,28 +275,6 @@ export function ExerciseEditForm({ exercise }: Props) {
               </Button>
             </div>
 
-            {selectedEquipment.filter(eq => !COMMON_EQUIPMENT.includes(eq as typeof COMMON_EQUIPMENT[number])).length > 0 && (
-              <div className="flex flex-wrap gap-1.5">
-                {selectedEquipment
-                  .filter(eq => !COMMON_EQUIPMENT.includes(eq as typeof COMMON_EQUIPMENT[number]))
-                  .map((eq) => (
-                    <span
-                      key={eq}
-                      className="inline-flex items-center gap-1 rounded-full bg-primary/10 text-primary border border-primary/20 px-2.5 py-0.5 text-sm font-medium"
-                    >
-                      {eq}
-                      <button
-                        type="button"
-                        onClick={() => removeEquipment(eq)}
-                        className="hover:text-primary/70"
-                        aria-label={`Remove ${eq}`}
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </span>
-                  ))}
-              </div>
-            )}
           </div>
 
           {/* Instructions */}

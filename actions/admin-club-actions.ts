@@ -99,6 +99,7 @@ export async function updateClubAction(clerkOrgId: string, raw: Record<string, u
                 "stripePriceId",
                 "coachingStripePriceId",
                 "starterProgramIds",
+                "resourceProgramIds",
               ]
             )
           : undefined,

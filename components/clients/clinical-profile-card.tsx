@@ -3,6 +3,9 @@ import { Badge } from "@/components/ui/badge";
 import { FieldInfo } from "@/components/clients/field-info";
 import { SectionCard } from "@/components/shared/section-card";
 
+/** A whole gym is ~60 items; past this the card shows a count instead. */
+const EQUIPMENT_BADGE_LIMIT = 12;
+
 /**
  * The clinical fields this card can show. Kept local and narrow so the page
  * doesn't need `any` casts against the loosely-typed Prisma profile record.
@@ -21,6 +24,7 @@ export interface ClinicalProfile {
   priorInjuries?: string[] | null;
   fitnessGoals?: string[] | null;
   availableEquipment?: string[] | null;
+  equipmentSetupName?: string | null;
   preferredDurationMinutes?: number | null;
   preferredDaysPerWeek?: number | null;
 }
@@ -215,12 +219,24 @@ export function ClinicalProfileCard({
 
           {(profile!.availableEquipment?.length ?? 0) > 0 && (
             <Row label="Equipment">
-              <span className="flex flex-wrap gap-1.5">
-                {profile!.availableEquipment!.map((eq) => (
-                  <Badge key={eq} variant="outline" className="font-normal">
-                    {eq}
-                  </Badge>
-                ))}
+              <span className="flex flex-col gap-1.5">
+                {profile!.equipmentSetupName && (
+                  <span className="text-body font-medium text-foreground">
+                    {profile!.equipmentSetupName}
+                  </span>
+                )}
+                <span className="flex flex-wrap gap-1.5">
+                  {profile!.availableEquipment!.slice(0, EQUIPMENT_BADGE_LIMIT).map((eq) => (
+                    <Badge key={eq} variant="outline" className="font-normal">
+                      {eq}
+                    </Badge>
+                  ))}
+                  {profile!.availableEquipment!.length > EQUIPMENT_BADGE_LIMIT && (
+                    <span className="text-caption">
+                      +{profile!.availableEquipment!.length - EQUIPMENT_BADGE_LIMIT} more
+                    </span>
+                  )}
+                </span>
               </span>
             </Row>
           )}

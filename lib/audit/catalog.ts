@@ -58,6 +58,10 @@ export const AUDIT_ACTION_CATALOG = {
   CLINICAL_NOTE_UPDATED: { label: "Updated clinical note", category: "CLINICAL", tone: "info" },
   CLINICAL_NOTE_DELETED: { label: "Deleted clinical note", category: "CLINICAL", tone: "danger" },
   CLIENT_PROFILE_UPDATED: { label: "Updated client profile", category: "CLINICAL", tone: "info" },
+  EQUIPMENT_PROFILE_CREATED: { label: "Saved equipment profile", category: "CLINICAL", tone: "success" },
+  EQUIPMENT_PROFILE_UPDATED: { label: "Updated equipment profile", category: "CLINICAL", tone: "info" },
+  EQUIPMENT_PROFILE_DELETED: { label: "Deleted equipment profile", category: "CLINICAL", tone: "danger" },
+  CLIENT_EQUIPMENT_UPDATED: { label: "Updated own equipment", category: "CLINICAL", tone: "info" },
 
   CHECK_IN_ASSIGNED: { label: "Assigned check-in", category: "ENGAGEMENT", tone: "success" },
   CHECK_IN_SUBMITTED: { label: "Submitted check-in", category: "ENGAGEMENT", tone: "success" },

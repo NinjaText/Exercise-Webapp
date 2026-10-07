@@ -78,7 +78,7 @@ describe("parseClubInput", () => {
   it("normalizes a valid form", () => {
     expect(parseClubInput(valid)).toEqual({
       name: "Pine Valley CC", joinSlug: "pine-valley", joinCode: "PINEVALLEY24",
-      trialDays: 14, membershipAmountCents: 1499, starterProgramIds: ["p1", "p2"],
+      trialDays: 14, membershipAmountCents: 1499, starterProgramIds: ["p1", "p2"], resourceProgramIds: [],
       trainerEmail: "coach@pine.com", coachingAmountCents: null,
     });
   });
@@ -188,8 +188,8 @@ describe("createClub", () => {
   });
   it("only allows Global starters on create (no trainer yet)", async () => {
     vi.mocked(prisma.program.findMany).mockResolvedValue([
-      { id: "p1", isGlobal: true, isTemplate: true, trainerId: null, schedulingType: null },
-      { id: "p2", isGlobal: false, isTemplate: true, trainerId: "t1", schedulingType: "SCHEDULED" },
+      { id: "p1", isGlobal: true, clientId: null, trainerId: null, schedulingType: null },
+      { id: "p2", isGlobal: false, clientId: null, trainerId: "t1", schedulingType: "SCHEDULED" },
     ] as any);
     await expect(createClub(parseClubInput(valid))).rejects.toMatchObject({ code: "starter_invalid" });
   });
@@ -445,21 +445,21 @@ describe("updateClub starters", () => {
   it("allows the club trainer's own scheduled templates", async () => {
     vi.mocked(getClubTrainer).mockResolvedValue({ id: "t1" } as any);
     vi.mocked(prisma.program.findMany).mockResolvedValue([
-      { id: "p1", isGlobal: true, isTemplate: true, trainerId: null, schedulingType: null },
-      { id: "p2", isGlobal: false, isTemplate: true, trainerId: "t1", schedulingType: "SCHEDULED" },
+      { id: "p1", isGlobal: true, clientId: null, trainerId: null, schedulingType: null },
+      { id: "p2", isGlobal: false, clientId: null, trainerId: "t1", schedulingType: "SCHEDULED" },
     ] as any);
     await updateClub("org_1", parseClubUpdateInput(updateForm));
     expect(getClubTrainer).toHaveBeenCalledWith("org_1");
     expect(prisma.organization.update).toHaveBeenCalled();
   });
   it.each([
-    ["another trainer's template", { isGlobal: false, isTemplate: true, trainerId: "t_other", schedulingType: "SCHEDULED" }],
-    ["the trainer's assigned (non-template) program", { isGlobal: false, isTemplate: false, trainerId: "t1", schedulingType: "SCHEDULED" }],
-    ["the trainer's on-demand template", { isGlobal: false, isTemplate: true, trainerId: "t1", schedulingType: "ON_DEMAND" }],
+    ["another trainer's template", { isGlobal: false, clientId: null, trainerId: "t_other", schedulingType: "SCHEDULED" }],
+    ["the trainer's assigned (non-template) program", { isGlobal: false, clientId: "c1", trainerId: "t1", schedulingType: "SCHEDULED" }],
+    ["the trainer's on-demand template", { isGlobal: false, clientId: null, trainerId: "t1", schedulingType: "ON_DEMAND" }],
   ])("refuses %s", async (_l, p2) => {
     vi.mocked(getClubTrainer).mockResolvedValue({ id: "t1" } as any);
     vi.mocked(prisma.program.findMany).mockResolvedValue([
-      { id: "p1", isGlobal: true, isTemplate: true, trainerId: null, schedulingType: null },
+      { id: "p1", isGlobal: true, clientId: null, trainerId: null, schedulingType: null },
       { id: "p2", ...p2 },
     ] as any);
     await expect(updateClub("org_1", parseClubUpdateInput(updateForm))).rejects.toMatchObject({ code: "starter_invalid" });
@@ -473,8 +473,8 @@ describe("updateClub starters", () => {
       clerkOrgId: "org_1", type: "CLUB", name: "Pine Valley CC", starterProgramIds: ["p1", "p2"],
     } as any);
     vi.mocked(prisma.program.findMany).mockResolvedValue([
-      { id: "p1", isGlobal: true, isTemplate: true, trainerId: null, schedulingType: null },
-      { id: "p2", isGlobal: false, isTemplate: true, trainerId: "t_old", schedulingType: "SCHEDULED" },
+      { id: "p1", isGlobal: true, clientId: null, trainerId: null, schedulingType: null },
+      { id: "p2", isGlobal: false, clientId: null, trainerId: "t_old", schedulingType: "SCHEDULED" },
     ] as any);
     await updateClub("org_1", parseClubUpdateInput(updateForm));
     expect(prisma.organization.update).toHaveBeenCalled();
@@ -485,8 +485,8 @@ describe("updateClub starters", () => {
       clerkOrgId: "org_1", type: "CLUB", name: "Pine Valley CC", starterProgramIds: ["p1"],
     } as any);
     vi.mocked(prisma.program.findMany).mockResolvedValue([
-      { id: "p1", isGlobal: true, isTemplate: true, trainerId: null, schedulingType: null },
-      { id: "p2", isGlobal: false, isTemplate: true, trainerId: "t_old", schedulingType: "SCHEDULED" },
+      { id: "p1", isGlobal: true, clientId: null, trainerId: null, schedulingType: null },
+      { id: "p2", isGlobal: false, clientId: null, trainerId: "t_old", schedulingType: "SCHEDULED" },
     ] as any);
     await expect(updateClub("org_1", parseClubUpdateInput(updateForm))).rejects.toMatchObject({ code: "starter_invalid" });
     expect(prisma.organization.update).not.toHaveBeenCalled();
@@ -496,10 +496,41 @@ describe("updateClub starters", () => {
       clerkOrgId: "org_1", type: "CLUB", name: "Pine Valley CC", starterProgramIds: ["p1", "p2"],
     } as any);
     vi.mocked(prisma.program.findMany).mockResolvedValue([
-      { id: "p1", isGlobal: true, isTemplate: true, trainerId: null, schedulingType: null },
-      { id: "p2", isGlobal: false, isTemplate: true, trainerId: "t_old", schedulingType: "ON_DEMAND" },
+      { id: "p1", isGlobal: true, clientId: null, trainerId: null, schedulingType: null },
+      { id: "p2", isGlobal: false, clientId: null, trainerId: "t_old", schedulingType: "ON_DEMAND" },
     ] as any);
     await expect(updateClub("org_1", parseClubUpdateInput(updateForm))).rejects.toMatchObject({ code: "starter_invalid" });
+  });
+  it("accepts Global and club trainer resources", async () => {
+    vi.mocked(getClubTrainer).mockResolvedValue({ id: "t1" } as any);
+    vi.mocked(prisma.program.findMany)
+      .mockResolvedValueOnce([
+        { id: "p1", isGlobal: true, clientId: null, trainerId: null, schedulingType: null },
+        { id: "p2", isGlobal: true, clientId: null, trainerId: null, schedulingType: "SCHEDULED" },
+      ] as any)
+      .mockResolvedValueOnce([
+        { id: "r1", isGlobal: true, clientId: null, trainerId: null, schedulingType: "ON_DEMAND" },
+        { id: "r2", isGlobal: false, clientId: null, trainerId: "t1", schedulingType: "ON_DEMAND" },
+      ] as any);
+    await updateClub("org_1", parseClubUpdateInput({ ...updateForm, resourceProgramIds: ["r1", "r2"] }));
+    expect(prisma.organization.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ resourceProgramIds: ["r1", "r2"] }) })
+    );
+  });
+  it("refuses a scheduled program as a resource", async () => {
+    vi.mocked(prisma.program.findMany)
+      .mockResolvedValueOnce([
+        { id: "p1", isGlobal: true, clientId: null, trainerId: null, schedulingType: null },
+        { id: "p2", isGlobal: true, clientId: null, trainerId: null, schedulingType: "SCHEDULED" },
+      ] as any)
+      .mockResolvedValueOnce([{ id: "r1", isGlobal: true, clientId: null, trainerId: null, schedulingType: "SCHEDULED" }] as any);
+    await expect(
+      updateClub("org_1", parseClubUpdateInput({ ...updateForm, resourceProgramIds: ["r1"] }))
+    ).rejects.toMatchObject({ code: "starter_invalid" });
+    expect(prisma.organization.update).not.toHaveBeenCalled();
+  });
+  it("refuses duplicate resources", () => {
+    expect(() => parseClubUpdateInput({ ...updateForm, resourceProgramIds: ["r1", "r1"] })).toThrow(/only be added once/);
   });
   it("never writes a trainer email on update", async () => {
     await updateClub("org_1", parseClubUpdateInput(updateForm));

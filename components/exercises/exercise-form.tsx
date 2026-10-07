@@ -8,7 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { SectionCard } from "@/components/shared/section-card";
-import { BODY_REGIONS, DIFFICULTY_LEVELS, COMMON_EQUIPMENT, applyMuscleGroupSelection } from "@/lib/utils/constants";
+import { BODY_REGIONS, DIFFICULTY_LEVELS, applyMuscleGroupSelection } from "@/lib/utils/constants";
+import { EquipmentPicker } from "@/components/equipment/equipment-picker";
 import { MuscleGroupChips } from "@/components/exercises/muscle-group-chips";
 import { createExerciseAction } from "@/actions/exercise-actions";
 import { toast } from "sonner";
@@ -39,11 +40,6 @@ export function ExerciseForm() {
     );
   }
 
-  function toggleEquipment(item: string) {
-    setSelectedEquipment((prev) =>
-      prev.includes(item) ? prev.filter((e) => e !== item) : [...prev, item]
-    );
-  }
 
   function addCustomEquipment() {
     const val = customEquipmentInput.trim();
@@ -53,10 +49,6 @@ export function ExerciseForm() {
     }
     setCustomEquipmentInput("");
     equipmentInputRef.current?.focus();
-  }
-
-  function removeEquipment(item: string) {
-    setSelectedEquipment((prev) => prev.filter((e) => e !== item));
   }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -184,24 +176,13 @@ export function ExerciseForm() {
         <div className="flex flex-col gap-3">
           <Label>Equipment Required</Label>
 
-          {/* Preset options */}
-          <div className="flex flex-wrap gap-2">
-            {COMMON_EQUIPMENT.map((eq) => (
-              <button
-                key={eq}
-                type="button"
-                onClick={() => toggleEquipment(eq)}
-                className={cn(
-                  "rounded-full border px-3 py-1 text-sm font-medium transition-colors",
-                  selectedEquipment.includes(eq)
-                    ? "bg-primary text-primary-foreground border-primary"
-                    : "bg-background text-muted-foreground border-border hover:border-primary/60 hover:text-foreground"
-                )}
-              >
-                {eq}
-              </button>
-            ))}
-          </div>
+          {/* The equipment catalogue; an exercise lists what it needs (empty = bodyweight). */}
+          <EquipmentPicker
+            value={selectedEquipment}
+            showSetups={false}
+            allowSave={false}
+            onChange={(items) => setSelectedEquipment(items)}
+          />
 
           {/* Custom equipment input */}
           <div className="flex gap-2">
@@ -227,29 +208,6 @@ export function ExerciseForm() {
             </Button>
           </div>
 
-          {/* Show custom-added equipment as removable chips */}
-          {selectedEquipment.filter(eq => !COMMON_EQUIPMENT.includes(eq as typeof COMMON_EQUIPMENT[number])).length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
-              {selectedEquipment
-                .filter(eq => !COMMON_EQUIPMENT.includes(eq as typeof COMMON_EQUIPMENT[number]))
-                .map((eq) => (
-                  <span
-                    key={eq}
-                    className="inline-flex items-center gap-1 rounded-full bg-primary/10 text-primary border border-primary/20 px-2.5 py-0.5 text-sm font-medium"
-                  >
-                    {eq}
-                    <button
-                      type="button"
-                      onClick={() => removeEquipment(eq)}
-                      className="hover:text-primary/70"
-                      aria-label={`Remove ${eq}`}
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </span>
-                ))}
-            </div>
-          )}
         </div>
 
         {/* Instructions */}

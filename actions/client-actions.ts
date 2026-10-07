@@ -128,6 +128,7 @@ export async function updateClientProfileAction(
       comorbidities: text(data.comorbidities),
       functionalChallenges: text(data.functionalChallenges),
       availableEquipment: data.availableEquipment ?? [],
+      equipmentSetupName: text(data.equipmentSetupName),
       fitnessGoals: data.fitnessGoals ?? [],
       preferredDurationMinutes: data.preferredDurationMinutes ?? 25,
       preferredDaysPerWeek: data.preferredDaysPerWeek ?? 3,

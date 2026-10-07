@@ -12,16 +12,7 @@ import { generateProgramAction } from "@/actions/program-actions";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { NATIVE_SELECT_CLASS } from "@/lib/ui/native-select";
-import { Check, ChevronDown, ChevronUp, ChevronsUpDown, Loader2, Plus, Sparkles, Trash2, X } from "lucide-react";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command";
+import { ChevronDown, ChevronUp, Loader2, Plus, Sparkles, Trash2 } from "lucide-react";
 import { getDistinctEquipmentAction } from "@/actions/program-actions";
 import { PlanReviewStep } from "@/components/programs/plan-review-step";
 import { ClinicVisibilitySelector } from "@/components/programs/clinic-visibility-selector";
@@ -29,7 +20,9 @@ import {
   ClientDetailsPanel,
   type ClientSummary,
 } from "@/components/programs/client-details-panel";
-import { mapClientEquipmentToOptions } from "@/lib/utils/program-equipment";
+import { mapClientEquipmentToOptions, NO_EQUIPMENT_OPTION } from "@/lib/utils/program-equipment";
+import { EQUIPMENT_CATALOG } from "@/lib/utils/equipment-catalog";
+import { EquipmentPicker } from "@/components/equipment/equipment-picker";
 import { SchedulingTypeSelector } from "@/components/programs/scheduling-type-selector";
 import type { ProgramSchedulingTypeValue } from "@/lib/utils/program-scheduling";
 import type { ClinicalPlan, ProgramMode } from "@/lib/ai/types/program-generation";
@@ -106,7 +99,6 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
   const [selectedEquipment, setSelectedEquipment] = useState<string[]>([]);
   const [equipmentTouched, setEquipmentTouched] = useState(false);
   const [equipmentOptions, setEquipmentOptions] = useState<string[]>([]);
-  const [equipmentOpen, setEquipmentOpen] = useState(false);
   const [startDate, setStartDate] = useState("");
   // Scheduled = a dated program with generated sessions; On-Demand = an
   // anytime "Resource" with no schedule at all.
@@ -121,6 +113,9 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
   // number into the other. A Resource previously always generated exactly
   // 1 session, so that stays the default here.
   const [onDemandSessionCount, setOnDemandSessionCount] = useState(1);
+  // Same split for weeks: a Resource defaults to a single week, but a trainer
+  // can build a multi-week one (e.g. a 4-week mobility series).
+  const [onDemandWeeks, setOnDemandWeeks] = useState(1);
   const [selectedWeekdays, setSelectedWeekdays] = useState<string[]>([
     "Monday",
     "Wednesday",
@@ -135,10 +130,11 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
     { id: "3", name: "Cool Down", focusType: "COOLDOWN", exerciseCount: 3, rounds: 1, restBetweenRounds: null },
   ]);
 
-  // A Resource has no schedule — no start date, no weekdays, always one "week".
-  // But it may bundle several standalone sessions, so the day count is the
-  // trainer's choice rather than a forced 1.
-  const effectiveDurationWeeks = isOnDemand ? 1 : durationWeeks;
+  // A Resource has no schedule — no start date, no weekdays. Its weeks and days
+  // only shape how many workouts it contains; the client still picks when to
+  // do each one.
+  const effectiveDurationWeeks = isOnDemand ? onDemandWeeks : durationWeeks;
+  const setEffectiveDurationWeeks = isOnDemand ? setOnDemandWeeks : setDurationWeeks;
   const effectiveDaysPerWeek = isOnDemand ? onDemandSessionCount : daysPerWeek;
 
   useEffect(() => {
@@ -175,7 +171,12 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
   useEffect(() => {
     if (equipmentTouched) return;
     setSelectedEquipment(
-      mapClientEquipmentToOptions(selectedClientDetails?.availableEquipment, equipmentOptions)
+      // Catalogue spellings count as known options too, so a client's
+      // "Home Gym" items pre-fill as-is.
+      mapClientEquipmentToOptions(selectedClientDetails?.availableEquipment, [
+        ...EQUIPMENT_CATALOG,
+        ...equipmentOptions,
+      ])
     );
   }, [selectedClientDetails, equipmentOptions, equipmentTouched]);
 
@@ -192,19 +193,6 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
     setSelectedGoals(prev =>
       prev.includes(goal) ? prev.filter(g => g !== goal) : [...prev, goal]
     );
-  }
-
-  function toggleEquipment(item: string) {
-    setEquipmentTouched(true);
-    setSelectedEquipment(prev => {
-      if (item === "none") {
-        return prev.includes("none") ? [] : ["none"];
-      }
-      const withoutNone = prev.filter(e => e !== "none");
-      return withoutNone.includes(item)
-        ? withoutNone.filter(e => e !== item)
-        : [...withoutNone, item];
-    });
   }
 
   function toggleWeekday(day: string) {
@@ -489,11 +477,11 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
                   </select>
                 </FormField>
                 <FormField
-                  label={isOnDemand ? "Number of days" : "Days per week"}
+                  label={isOnDemand && effectiveDurationWeeks === 1 ? "Number of days" : "Days per week"}
                   htmlFor="generate-days"
                   hint={
                     isOnDemand
-                      ? "How many separate days this resource contains. It stays unscheduled — the client picks when to do each one."
+                      ? "How many separate days each week of this resource contains. It stays unscheduled — the client picks when to do each one."
                       : undefined
                   }
                 >
@@ -521,19 +509,18 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
                 </FormField>
               </div>
 
-              {/* Program Duration — cosmetic for a resource, which has no schedule */}
-              {!isOnDemand && (
+              {/* Program Duration — for a resource this only sets how many weeks of workouts it contains */}
               <FormField label="Program duration">
                 <div role="group" aria-label="Program duration" className="flex flex-wrap items-center gap-2">
                   {[1, 2, 4, 6, 8, 12].map(w => (
                     <Button
                       key={w}
                       type="button"
-                      variant={durationWeeks === w ? 'default' : 'outline'}
+                      variant={effectiveDurationWeeks === w ? 'default' : 'outline'}
                       size="sm"
-                      onClick={() => setDurationWeeks(w)}
+                      onClick={() => setEffectiveDurationWeeks(w)}
                     >
-                      {w === 1 && daysPerWeek === 1 ? "1 day" : w === 1 ? "1 wk" : `${w} wks`}
+                      {w === 1 && effectiveDaysPerWeek === 1 ? "1 day" : w === 1 ? "1 wk" : `${w} wks`}
                     </Button>
                   ))}
                   <div className="ml-1 flex items-center gap-1.5">
@@ -542,10 +529,10 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
                       aria-label="Program duration in weeks"
                       min={1}
                       max={52}
-                      value={durationWeeks}
+                      value={effectiveDurationWeeks}
                       onChange={(e) => {
                         const v = parseInt(e.target.value);
-                        if (!isNaN(v) && v >= 1) setDurationWeeks(v);
+                        if (!isNaN(v) && v >= 1) setEffectiveDurationWeeks(v);
                       }}
                       className="h-8 w-16 text-center text-body"
                     />
@@ -553,7 +540,6 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
                   </div>
                 </div>
               </FormField>
-              )}
 
               {/* Program Goals */}
               <FormField label="Program goals" required>
@@ -583,81 +569,15 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
                   </p>
                 )}
 
-                <Popover open={equipmentOpen} onOpenChange={setEquipmentOpen}>
-                  <PopoverTrigger
-                    render={
-                      <Button
-                        type="button"
-                        variant="outline"
-                        role="combobox"
-                        className="w-full justify-between font-normal"
-                      />
-                    }
-                  >
-                    {selectedEquipment.includes("none")
-                      ? "No Equipment (Bodyweight only)"
-                      : selectedEquipment.length === 0
-                      ? "Select equipment..."
-                      : `${selectedEquipment.length} item${selectedEquipment.length === 1 ? "" : "s"} selected`}
-                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                  </PopoverTrigger>
-                  <PopoverContent className="w-72 p-0" align="start">
-                    <Command>
-                      <CommandInput placeholder="Search equipment..." />
-                      <CommandList>
-                        <CommandEmpty>No equipment found.</CommandEmpty>
-                        <CommandGroup>
-                          <CommandItem
-                            key="none"
-                            value="none"
-                            onSelect={() => toggleEquipment("none")}
-                          >
-                            <Check
-                              className={`mr-2 h-4 w-4 ${
-                                selectedEquipment.includes("none") ? "opacity-100" : "opacity-0"
-                              }`}
-                            />
-                            None (Bodyweight only)
-                          </CommandItem>
-                          {equipmentOptions.map(item => (
-                            <CommandItem
-                              key={item}
-                              value={item}
-                              onSelect={() => toggleEquipment(item)}
-                            >
-                              <Check
-                                className={`mr-2 h-4 w-4 ${
-                                  selectedEquipment.includes(item) ? "opacity-100" : "opacity-0"
-                                }`}
-                              />
-                              {item}
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
-                {selectedEquipment.length > 0 && !selectedEquipment.includes("none") && (
-                  <div className="mt-1 flex flex-wrap gap-1.5">
-                    {selectedEquipment.map(item => (
-                      <span
-                        key={item}
-                        className="inline-flex h-8 items-center gap-1 rounded-full border border-border bg-secondary pl-2.5 pr-1 text-caption font-medium text-foreground"
-                      >
-                        {item}
-                        <button
-                          type="button"
-                          onClick={() => toggleEquipment(item)}
-                          aria-label={`Remove ${item}`}
-                          className="inline-flex size-6 items-center justify-center rounded-full text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
-                        >
-                          <X className="size-3" />
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
+                <EquipmentPicker
+                  value={selectedEquipment}
+                  noneValue={NO_EQUIPMENT_OPTION}
+                  extraItems={equipmentOptions}
+                  onChange={(items) => {
+                    setEquipmentTouched(true);
+                    setSelectedEquipment(items);
+                  }}
+                />
               </FormField>
 
               {/* Difficulty Level */}

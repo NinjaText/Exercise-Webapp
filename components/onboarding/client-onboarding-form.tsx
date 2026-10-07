@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { ACTIVITY_LEVELS, COMMON_EQUIPMENT, FITNESS_GOALS } from "@/lib/utils/constants";
+import { ACTIVITY_LEVELS, FITNESS_GOALS } from "@/lib/utils/constants";
+import { EquipmentPicker } from "@/components/equipment/equipment-picker";
 import { completeClientOnboarding } from "@/actions/onboarding-actions";
 import { StepForm, useStepForm, type StepMeta } from "./step-form";
 import type { FieldErrors } from "./step-form-state";
@@ -14,6 +15,8 @@ import {
   type ClientOnboardingValues,
 } from "./onboarding-payloads";
 import { SelectField, TextAreaField, TextField, ToggleGroupField, toggleItem } from "./onboarding-fields";
+
+const NO_PROFILES: never[] = [];
 
 const STEPS: readonly StepMeta[] = [
   { title: "About you", description: "Your name and how your trainer can reach you." },
@@ -207,13 +210,18 @@ export function ClientOnboardingStepFields({ step, values: v, errors, set, goTo 
               placeholder="e.g., Nurse, Office worker"
             />
           </div>
-          <ToggleGroupField
-            id="availableEquipment"
-            label="Available equipment"
-            options={COMMON_EQUIPMENT}
-            selected={v.availableEquipment}
-            onToggle={(item) => set({ availableEquipment: toggleItem(v.availableEquipment, item) })}
-          />
+          <div role="group" aria-labelledby="availableEquipment-label" className="flex flex-col gap-1.5">
+            <span id="availableEquipment-label" className="text-label text-foreground">
+              Available equipment
+            </span>
+            {/* No saved profiles yet (the account is being created), so built-in setups only. */}
+            <EquipmentPicker
+              value={v.availableEquipment}
+              profiles={NO_PROFILES}
+              allowSave={false}
+              onChange={(availableEquipment, equipmentSetupName) => set({ availableEquipment, equipmentSetupName })}
+            />
+          </div>
           <ToggleGroupField
             id="fitnessGoals"
             label="Rehabilitation goals"
@@ -257,7 +265,7 @@ function ClientReview({ values: v, goTo }: { values: ClientOnboardingValues; goT
       rows: [
         ["Activity level", v.activityLevel ? activityLabel(v.activityLevel) : ""],
         ["Occupation", v.occupation],
-        ["Equipment", v.availableEquipment.join(", ")],
+        ["Equipment", v.equipmentSetupName ? `${v.equipmentSetupName} (${v.availableEquipment.length})` : v.availableEquipment.join(", ")],
         ["Goals", v.fitnessGoals.join(", ")],
       ],
     },

@@ -14,6 +14,7 @@ export interface SettingsTab {
 export const SETTINGS_TABS: readonly SettingsTab[] = [
   { href: "/settings", label: "Account", roles: ["TRAINER", "CLIENT"] },
   { href: "/settings/notifications", label: "Notifications", roles: ["TRAINER", "CLIENT"] },
+  { href: "/settings/equipment", label: "Equipment", roles: ["TRAINER", "CLIENT"] },
   { href: "/settings/clinic", label: "Organization", roles: ["TRAINER"] },
   { href: "/settings/branding", label: "Branding", roles: ["TRAINER"] },
   { href: "/settings/billing", label: "Billing", roles: ["TRAINER"] },

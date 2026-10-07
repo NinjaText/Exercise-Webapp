@@ -7,7 +7,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import {
   Form,
@@ -225,7 +224,6 @@ export function ProgramEditor({ program, exercises, onSave, redirectTo, organiza
     defaultValues: {
       name: (program?.name as string) || "",
       description: (program?.description as string) || "",
-      isTemplate: (program?.isTemplate as boolean) || false,
       programType: (program?.programType as "PERFORMANCE" | "CLINICAL" | null) || null,
       tags: (program?.tags as string[]) || [],
       equipmentRequired: [],
@@ -453,21 +451,6 @@ export function ProgramEditor({ program, exercises, onSave, redirectTo, organiza
               </div>
             </FormItem>
           )}
-          <FormField
-            control={form.control}
-            name="isTemplate"
-            render={({ field }) => (
-              <FormItem className="flex items-center gap-3 sm:col-span-2">
-                <FormControl>
-                  <Switch
-                    checked={field.value}
-                    onCheckedChange={field.onChange}
-                  />
-                </FormControl>
-                <FormLabel className="mt-0!">Save as template</FormLabel>
-              </FormItem>
-            )}
-          />
           {clinics && (
             <div className="sm:col-span-2">
               <ClinicVisibilitySelector
