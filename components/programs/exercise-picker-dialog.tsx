@@ -57,9 +57,16 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   exercises: Exercise[];
-  onSelect: (exercise: Exercise) => void;
+  /** `createdFrom` is set for an exercise created from a `createNames` draft: the name it was seeded with. */
+  onSelect: (exercise: Exercise, meta?: { createdFrom?: string }) => void;
   organizationOrganizationId?: string | null;
   exerciseSourcePreference?: ExerciseSourcePreference;
+  /**
+   * Opens straight into "Create New" with one draft per name (e.g. exercises
+   * named in an uploaded document). One name starts on AI Generate with the
+   * video search pre-filled; several start on Manual.
+   */
+  createNames?: string[];
 }
 
 const PHASES = [
@@ -319,6 +326,8 @@ function emptyFormShape(): ExerciseFormShape {
 
 interface DraftExercise extends ExerciseFormShape {
   draftId: string;
+  /** The `createNames` entry this draft was seeded from. */
+  sourceName?: string;
   videoMode: "search" | "paste";
   expanded: boolean;
 }
@@ -591,6 +600,7 @@ export function ExercisePickerDialog({
   onSelect,
   organizationOrganizationId,
   exerciseSourcePreference,
+  createNames,
 }: Props) {
   const [search, setSearch]     = useState("");
   const [selectedExerciseIds, setSelectedExerciseIds] = useState<Set<string>>(new Set());
@@ -616,6 +626,21 @@ export function ExercisePickerDialog({
   const [aiDrafts, setAiDrafts] = useState<DraftExercise[]>([]);
 
   const [manualDrafts, setManualDrafts] = useState<DraftExercise[]>([makeDraft()]);
+
+  // Seed the create view each time the dialog opens with names to create.
+  const [prevOpen, setPrevOpen] = useState(open);
+  if (open !== prevOpen) {
+    setPrevOpen(open);
+    if (open && createNames?.length) {
+      setView("create");
+      setCreateTab(createNames.length === 1 ? "ai" : "manual");
+      setAiSearchQuery(createNames.length === 1 ? createNames[0] : "");
+      setManualDrafts(createNames.map((name) => makeDraft({ name, sourceName: name })));
+    }
+  }
+  // A single seeded name is kept on AI drafts, so the exercise is saved under
+  // the name the trainer is creating it for, not whatever the video calls it.
+  const seededName = createNames?.length === 1 ? createNames[0] : undefined;
 
   const allExercises = useMemo(
     () => [...exercises, ...localExercises],
@@ -735,7 +760,8 @@ export function ExercisePickerDialog({
         }
         const d = json.data;
         setAiDrafts((prev) => [...prev, makeDraft({
-          name: d.exerciseName ?? "",
+          name: seededName ?? d.exerciseName ?? "",
+          sourceName: seededName,
           description: d.description ?? "",
           bodyRegion: d.bodyRegion ?? [],
           musclesTargeted: d.musclesTargeted ?? [],
@@ -841,11 +867,11 @@ export function ExercisePickerDialog({
         })
       ));
 
-      const created: Exercise[] = [];
+      const created: { exercise: Exercise; createdFrom?: string }[] = [];
       let failureCount = 0;
       results.forEach((result, i) => {
         if (result.success) {
-          created.push({
+          created.push({ createdFrom: ready[i].sourceName, exercise: {
             id: result.data.id,
             name: result.data.name,
             bodyRegion: result.data.bodyRegion,
@@ -857,7 +883,7 @@ export function ExercisePickerDialog({
             description: result.data.description ?? null,
             source: "ORGANIZATION",
             organizationId: result.data.organizationId ?? null,
-          });
+          } });
         } else {
           failureCount++;
           toast.error(`"${ready[i].name}": ${result.error}`);
@@ -865,8 +891,8 @@ export function ExercisePickerDialog({
       });
 
       if (created.length) {
-        setLocalExercises((prev) => [...prev, ...created]);
-        created.forEach((ex) => onSelect(ex));
+        setLocalExercises((prev) => [...prev, ...created.map((c) => c.exercise)]);
+        created.forEach((c) => onSelect(c.exercise, c.createdFrom ? { createdFrom: c.createdFrom } : undefined));
         toast.success(
           `${created.length} exercise${created.length === 1 ? "" : "s"} created and added to program` +
           (failureCount ? ` (${failureCount} failed)` : "")
@@ -1045,7 +1071,14 @@ export function ExercisePickerDialog({
               </div>
 
               <div className="flex shrink-0 gap-2 border-t bg-background px-4 py-3">
-                <Button type="button" variant="outline" className="flex-1 h-8 text-xs" onClick={() => setView("list")}>Cancel</Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="flex-1 h-8 text-xs"
+                  onClick={() => (createNames?.length ? handleClose() : setView("list"))}
+                >
+                  Cancel
+                </Button>
                 <Button type="button" className="flex-1 h-8 text-xs" disabled={isPending || readyCount === 0} onClick={handleSubmitCurrentTab}>
                   {isPending
                     ? "Creating..."

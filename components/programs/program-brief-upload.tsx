@@ -33,7 +33,6 @@ import {
   matchProgramExercisesAction,
   saveGeneratedProgramAction,
 } from "@/actions/program-actions";
-import { createOrganizationExerciseAction } from "@/actions/exercise-actions";
 import { Switch } from "@/components/ui/switch";
 import { SchedulingTypeSelector } from "@/components/programs/scheduling-type-selector";
 import type { ProgramSchedulingTypeValue } from "@/lib/utils/program-scheduling";
@@ -97,6 +96,9 @@ type PreviewState = {
   };
   warnings: string[];
 };
+
+/** An exercise as the picker dialog hands it back. */
+type DialogExercise = Parameters<React.ComponentProps<typeof ExercisePickerDialog>["onSelect"]>[0];
 
 type Resolution = { exerciseId: string; exerciseName: string } | { skip: true };
 
@@ -240,8 +242,8 @@ export function ProgramBriefUpload({
   const isOnDemand = schedulingType === "ON_DEMAND";
   // The picker's list, plus exercises added to the library from this screen.
   const [libraryExercises, setLibraryExercises] = useState<PickerExercise[]>(exercises);
-  const [addingNames, setAddingNames] = useState<Set<string>>(new Set());
-  const [confirmAddAll, setConfirmAddAll] = useState(false);
+  // Document names being created in the exercise dialog ("Add to library").
+  const [createNames, setCreateNames] = useState<string[] | null>(null);
 
   // The preview as shown and saved: the server's matches with the match mode applied.
   const workouts = useMemo<PreviewWorkout[]>(() => {
@@ -527,65 +529,43 @@ export function ProgramBriefUpload({
     return Array.from(byName.values());
   }, [flaggedSlots, resolutions]);
 
-  // Creates each name as an org exercise, then resolves every unresolved
-  // slot written with that name to it (it is the same exercise everywhere).
-  async function addToLibrary(names: string[]) {
-    const unique = names.filter((n) => !addingNames.has(normalizeExerciseName(n)));
-    if (unique.length === 0) return;
-    setAddingNames((prev) => new Set([...prev, ...unique.map(normalizeExerciseName)]));
-    let added = 0;
-    try {
-      for (const name of unique) {
-        const result = await createOrganizationExerciseAction({ name });
-        if (!result.success) {
-          toast.error(`"${name}": ${result.error}`);
-          continue;
+  // A library exercise just created for a document name: resolves every
+  // unresolved slot written with that name to it (same exercise everywhere).
+  function resolveCreated(created: DialogExercise, documentNameCreatedFor: string) {
+    setLibraryExercises((prev) => [
+      ...prev,
+      {
+        id: created.id,
+        name: created.name,
+        bodyRegion: created.bodyRegion,
+        difficultyLevel: created.difficultyLevel,
+        defaultReps: created.defaultReps ?? null,
+        musclesTargeted: created.musclesTargeted ?? [],
+        description: created.description ?? null,
+        videoUrl: created.videoUrl ?? null,
+        videoProvider: created.videoProvider ?? null,
+        exercisePhases: created.exercisePhases ?? [],
+        source: created.source ?? "ORGANIZATION",
+        organizationId: created.organizationId ?? null,
+      },
+    ]);
+    const norm = normalizeExerciseName(documentNameCreatedFor);
+    setResolutions((prev) => {
+      const next = new Map(prev);
+      flaggedSlots.forEach(({ key, exercise }) => {
+        if (!next.has(key) && !exercise.exerciseId && normalizeExerciseName(documentName(exercise)) === norm) {
+          next.set(key, { exerciseId: created.id, exerciseName: created.name });
         }
-        added += 1;
-        const created = result.data;
-        setLibraryExercises((prev) => [
-          ...prev,
-          {
-            id: created.id,
-            name: created.name,
-            bodyRegion: created.bodyRegion,
-            difficultyLevel: created.difficultyLevel,
-            defaultReps: created.defaultReps,
-            musclesTargeted: created.musclesTargeted,
-            description: created.description,
-            videoUrl: created.videoUrl,
-            videoProvider: created.videoProvider,
-            exercisePhases: created.exercisePhases,
-            source: created.source,
-            organizationId: created.organizationId,
-          },
-        ]);
-        const norm = normalizeExerciseName(name);
-        setResolutions((prev) => {
-          const next = new Map(prev);
-          flaggedSlots.forEach(({ key, exercise }) => {
-            if (!next.has(key) && !exercise.exerciseId && normalizeExerciseName(documentName(exercise)) === norm) {
-              next.set(key, { exerciseId: created.id, exerciseName: created.name });
-            }
-          });
-          return next;
-        });
-      }
-      if (added > 0) {
-        toast.success(
-          added === 1 ? `Added "${unique[0]}" to your library` : `Added ${added} exercises to your library`
-        );
-      }
-    } finally {
-      setAddingNames((prev) => {
-        const next = new Set(prev);
-        unique.forEach((n) => next.delete(normalizeExerciseName(n)));
-        return next;
       });
-    }
+      return next;
+    });
   }
 
-  function handlePickerSelect(exercise: { id: string; name: string }) {
+  function handlePickerSelect(exercise: DialogExercise, meta?: { createdFrom?: string }) {
+    if (meta?.createdFrom) {
+      resolveCreated(exercise, meta.createdFrom);
+      return;
+    }
     if (!resolverKey) return;
     const slot = flaggedSlots.find((s) => s.key === resolverKey)?.exercise;
     const originalName = slot ? documentName(slot) : undefined;
@@ -990,10 +970,9 @@ export function ProgramBriefUpload({
                     size="sm"
                     variant="outline"
                     className="h-7 gap-1 text-xs"
-                    disabled={addingNames.size > 0}
-                    onClick={() => setConfirmAddAll(true)}
+                    onClick={() => setCreateNames(missingNames)}
                   >
-                    {addingNames.size > 0 ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
+                    <Plus className="h-3 w-3" />
                     Add {missingNames.length} missing to library
                   </Button>
                 )}
@@ -1109,9 +1088,8 @@ export function ProgramBriefUpload({
                                               onPickAlternative={() => setResolverKey(key)}
                                               onSkip={() => skipSlot(key, ex)}
                                               onAddToLibrary={
-                                                ex.exerciseId ? undefined : () => addToLibrary([documentName(ex)])
+                                                ex.exerciseId ? undefined : () => setCreateNames([documentName(ex)])
                                               }
-                                              addingToLibrary={addingNames.has(normalizeExerciseName(documentName(ex)))}
                                             />
                                           );
                                         })}
@@ -1200,45 +1178,19 @@ export function ProgramBriefUpload({
       )}
 
       <ExercisePickerDialog
-        open={!!resolverKey}
+        open={!!resolverKey || !!createNames}
         onOpenChange={(open) => {
-          if (!open) setResolverKey(null);
+          if (!open) {
+            setResolverKey(null);
+            setCreateNames(null);
+          }
         }}
         exercises={libraryExercises}
         onSelect={handlePickerSelect}
         organizationOrganizationId={organizationOrganizationId}
         exerciseSourcePreference={exerciseSourcePreference}
+        createNames={createNames ?? undefined}
       />
-
-      <AlertDialog open={confirmAddAll} onOpenChange={setConfirmAddAll}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              Add {missingNames.length} exercise{missingNames.length === 1 ? "" : "s"} to your library?
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              Each is created with the name from the document and used everywhere it appears in this program. You
-              can add videos and details later from the exercise library.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <ul className="max-h-48 list-disc space-y-0.5 overflow-y-auto pl-5 text-sm">
-            {missingNames.map((name) => (
-              <li key={name}>{name}</li>
-            ))}
-          </ul>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => {
-                setConfirmAddAll(false);
-                void addToLibrary(missingNames);
-              }}
-            >
-              Add to library
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
 
       <AlertDialog open={!!pendingApplyAll} onOpenChange={(open) => !open && setPendingApplyAll(null)}>
         <AlertDialogContent>

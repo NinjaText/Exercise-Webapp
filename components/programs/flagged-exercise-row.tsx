@@ -3,7 +3,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { AlertTriangle, HelpCircle, FileWarning, Check, Loader2, Plus, Trash2 } from "lucide-react";
+import { AlertTriangle, HelpCircle, FileWarning, Check, Plus, Trash2 } from "lucide-react";
 
 export type ExerciseMatchFlag = "needs_review" | "not_in_library" | "not_in_document";
 
@@ -42,9 +42,8 @@ interface Props {
   onConfirm: () => void;
   onPickAlternative: () => void;
   onSkip: () => void;
-  /** Creates the exercise in the library under the document's name. Omit when not offered. */
+  /** Opens the create-exercise form for this name. Omit when not offered. */
   onAddToLibrary?: () => void;
-  addingToLibrary?: boolean;
 }
 
 export function FlaggedExerciseRow({
@@ -63,7 +62,6 @@ export function FlaggedExerciseRow({
   onPickAlternative,
   onSkip,
   onAddToLibrary,
-  addingToLibrary = false,
 }: Props) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-dashed p-2">
@@ -108,14 +106,8 @@ export function FlaggedExerciseRow({
             </Button>
           )}
           {onAddToLibrary && (
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-7 gap-1 text-xs"
-              onClick={onAddToLibrary}
-              disabled={addingToLibrary}
-            >
-              {addingToLibrary ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
+            <Button size="sm" variant="outline" className="h-7 gap-1 text-xs" onClick={onAddToLibrary}>
+              <Plus className="h-3 w-3" />
               Add to library
             </Button>
           )}
