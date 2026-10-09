@@ -33,6 +33,10 @@ import {
   matchProgramExercisesAction,
   saveGeneratedProgramAction,
 } from "@/actions/program-actions";
+import { createOrganizationExerciseAction } from "@/actions/exercise-actions";
+import { Switch } from "@/components/ui/switch";
+import { SchedulingTypeSelector } from "@/components/programs/scheduling-type-selector";
+import type { ProgramSchedulingTypeValue } from "@/lib/utils/program-scheduling";
 import type { BriefMetadata, ProgramBriefParsed } from "@/lib/services/program-brief.service";
 import type { PreviewWorkout, PreviewExercise } from "@/lib/services/ai.service";
 import { MissingFieldsDialog, type MissingFieldsValues } from "@/components/programs/missing-fields-dialog";
@@ -48,6 +52,7 @@ import {
   ChevronRight,
   FileText,
   Loader2,
+  Plus,
   Sparkles,
 } from "lucide-react";
 
@@ -150,6 +155,27 @@ function normalizeExerciseName(name: string | undefined) {
   return (name ?? "").trim().toLowerCase();
 }
 
+/** The exercise name as the document wrote it (falls back to the matched name for older previews). */
+function documentName(exercise: PreviewExercise) {
+  return exercise.sourceName ?? exercise.exerciseName ?? "";
+}
+
+/**
+ * "Match exactly as written": a fuzzy library suggestion is not used. The slot
+ * keeps the document's own name and is flagged "Not in library" so the trainer
+ * can add it to the library (or pick an exercise) instead of getting a
+ * look-alike swapped in.
+ */
+function applyMatchMode(exercise: PreviewExercise, exactOnly: boolean): PreviewExercise {
+  if (!exactOnly || !exercise.flags?.includes("needs_review")) return exercise;
+  return {
+    ...exercise,
+    exerciseId: null,
+    exerciseName: documentName(exercise),
+    flags: ["not_in_library", ...exercise.flags.filter((f) => f !== "needs_review" && f !== "not_in_library")],
+  };
+}
+
 function ProgressStepper({ stage }: { stage: Stage }) {
   const currentIndex = STAGE_ORDER.indexOf(stage);
   if (currentIndex === -1) return null;
@@ -209,11 +235,29 @@ export function ProgramBriefUpload({
   const [assignClientId, setAssignClientId] = useState(initialClientId ?? "");
   const [assignStartDate, setAssignStartDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [saving, setSaving] = useState<"template" | "assign" | null>(null);
+  const [exactOnly, setExactOnly] = useState(true);
+  const [schedulingType, setSchedulingType] = useState<ProgramSchedulingTypeValue>("SCHEDULED");
+  const isOnDemand = schedulingType === "ON_DEMAND";
+  // The picker's list, plus exercises added to the library from this screen.
+  const [libraryExercises, setLibraryExercises] = useState<PickerExercise[]>(exercises);
+  const [addingNames, setAddingNames] = useState<Set<string>>(new Set());
+  const [confirmAddAll, setConfirmAddAll] = useState(false);
+
+  // The preview as shown and saved: the server's matches with the match mode applied.
+  const workouts = useMemo<PreviewWorkout[]>(() => {
+    if (!preview) return [];
+    return preview.aiPlan.workouts.map((w) => ({
+      ...w,
+      blocks: w.blocks.map((b) => ({
+        ...b,
+        exercises: b.exercises.map((e) => applyMatchMode(e, exactOnly)),
+      })),
+    }));
+  }, [preview, exactOnly]);
 
   const flaggedSlots = useMemo(() => {
-    if (!preview) return [];
     const slots: { key: string; exercise: PreviewExercise }[] = [];
-    preview.aiPlan.workouts.forEach((w, wi) =>
+    workouts.forEach((w, wi) =>
       w.blocks.forEach((b, bi) =>
         b.exercises.forEach((e, ei) => {
           if (e.flags && e.flags.length > 0) {
@@ -223,7 +267,7 @@ export function ProgramBriefUpload({
       )
     );
     return slots;
-  }, [preview]);
+  }, [workouts]);
 
   const unresolvedCount = flaggedSlots.filter((s) => !resolutions.has(s.key)).length;
 
@@ -233,7 +277,7 @@ export function ProgramBriefUpload({
   const flaggedByName = useMemo(() => {
     const map = new Map<string, string[]>();
     flaggedSlots.forEach(({ key, exercise }) => {
-      const norm = normalizeExerciseName(exercise.exerciseName);
+      const norm = normalizeExerciseName(documentName(exercise));
       if (!norm) return;
       if (!map.has(norm)) map.set(norm, []);
       map.get(norm)!.push(key);
@@ -253,7 +297,7 @@ export function ProgramBriefUpload({
   const weekGroups = useMemo(() => {
     if (!preview) return [];
     const byWeek = new Map<number, { workout: PreviewWorkout; index: number }[]>();
-    preview.aiPlan.workouts.forEach((workout, index) => {
+    workouts.forEach((workout, index) => {
       const week = workout.weekIndex;
       if (!byWeek.has(week)) byWeek.set(week, []);
       byWeek.get(week)!.push({ workout, index });
@@ -264,7 +308,7 @@ export function ProgramBriefUpload({
         weekIndex,
         items: [...items].sort((a, b) => a.workout.dayIndex - b.workout.dayIndex),
       }));
-  }, [preview]);
+  }, [preview, workouts]);
 
   function toggleWeek(weekIndex: number) {
     setExpandedWeek((prev) => (prev === weekIndex ? null : weekIndex));
@@ -464,16 +508,87 @@ export function ProgramBriefUpload({
 
   function confirmSuggestion(key: string, exercise: PreviewExercise) {
     if (!exercise.exerciseId) return;
-    applyResolution(key, { exerciseId: exercise.exerciseId, exerciseName: exercise.exerciseName ?? "" }, exercise.exerciseName);
+    applyResolution(key, { exerciseId: exercise.exerciseId, exerciseName: exercise.exerciseName ?? "" }, documentName(exercise));
   }
 
   function skipSlot(key: string, exercise: PreviewExercise) {
-    applyResolution(key, { skip: true }, exercise.exerciseName);
+    applyResolution(key, { skip: true }, documentName(exercise));
+  }
+
+  // Unresolved slots with no library exercise at all, grouped by the
+  // document's name — each distinct name becomes one new library exercise.
+  const missingNames = useMemo(() => {
+    const byName = new Map<string, string>();
+    flaggedSlots.forEach(({ key, exercise }) => {
+      if (resolutions.has(key) || exercise.exerciseId) return;
+      const name = documentName(exercise).trim();
+      if (name && !byName.has(normalizeExerciseName(name))) byName.set(normalizeExerciseName(name), name);
+    });
+    return Array.from(byName.values());
+  }, [flaggedSlots, resolutions]);
+
+  // Creates each name as an org exercise, then resolves every unresolved
+  // slot written with that name to it (it is the same exercise everywhere).
+  async function addToLibrary(names: string[]) {
+    const unique = names.filter((n) => !addingNames.has(normalizeExerciseName(n)));
+    if (unique.length === 0) return;
+    setAddingNames((prev) => new Set([...prev, ...unique.map(normalizeExerciseName)]));
+    let added = 0;
+    try {
+      for (const name of unique) {
+        const result = await createOrganizationExerciseAction({ name });
+        if (!result.success) {
+          toast.error(`"${name}": ${result.error}`);
+          continue;
+        }
+        added += 1;
+        const created = result.data;
+        setLibraryExercises((prev) => [
+          ...prev,
+          {
+            id: created.id,
+            name: created.name,
+            bodyRegion: created.bodyRegion,
+            difficultyLevel: created.difficultyLevel,
+            defaultReps: created.defaultReps,
+            musclesTargeted: created.musclesTargeted,
+            description: created.description,
+            videoUrl: created.videoUrl,
+            videoProvider: created.videoProvider,
+            exercisePhases: created.exercisePhases,
+            source: created.source,
+            organizationId: created.organizationId,
+          },
+        ]);
+        const norm = normalizeExerciseName(name);
+        setResolutions((prev) => {
+          const next = new Map(prev);
+          flaggedSlots.forEach(({ key, exercise }) => {
+            if (!next.has(key) && !exercise.exerciseId && normalizeExerciseName(documentName(exercise)) === norm) {
+              next.set(key, { exerciseId: created.id, exerciseName: created.name });
+            }
+          });
+          return next;
+        });
+      }
+      if (added > 0) {
+        toast.success(
+          added === 1 ? `Added "${unique[0]}" to your library` : `Added ${added} exercises to your library`
+        );
+      }
+    } finally {
+      setAddingNames((prev) => {
+        const next = new Set(prev);
+        unique.forEach((n) => next.delete(normalizeExerciseName(n)));
+        return next;
+      });
+    }
   }
 
   function handlePickerSelect(exercise: { id: string; name: string }) {
     if (!resolverKey) return;
-    const originalName = flaggedSlots.find((s) => s.key === resolverKey)?.exercise.exerciseName;
+    const slot = flaggedSlots.find((s) => s.key === resolverKey)?.exercise;
+    const originalName = slot ? documentName(slot) : undefined;
     applyResolution(resolverKey, { exerciseId: exercise.id, exerciseName: exercise.name }, originalName);
     setResolverKey(null);
   }
@@ -529,7 +644,7 @@ export function ProgramBriefUpload({
 
   function buildResolvedPlan() {
     if (!preview) return null;
-    const workouts = preview.aiPlan.workouts
+    const resolvedWorkouts = workouts
       .map((w, wi) => ({
         name: w.name,
         dayIndex: w.dayIndex,
@@ -566,7 +681,7 @@ export function ProgramBriefUpload({
       }))
       .filter((w) => w.blocks.length > 0);
 
-    return { name: preview.aiPlan.name, description: preview.aiPlan.description, workouts };
+    return { name: preview.aiPlan.name, description: preview.aiPlan.description, workouts: resolvedWorkouts };
   }
 
   async function handleSave(isTemplate: boolean) {
@@ -612,11 +727,16 @@ export function ProgramBriefUpload({
         },
         isTemplate,
         clientId: isTemplate ? null : assignClientId,
-        startDate: isTemplate ? undefined : assignStartDate,
+        startDate: isTemplate || isOnDemand ? undefined : assignStartDate,
+        schedulingType,
       });
 
       if (result.success) {
-        toast.success(isTemplate ? "Program saved" : "Program assigned and saved");
+        toast.success(
+          isTemplate
+            ? isOnDemand ? "Resource saved" : "Program saved"
+            : isOnDemand ? "Resource assigned and saved" : "Program assigned and saved"
+        );
         router.push(`/programs/${result.data}`);
       } else {
         toast.error(result.error);
@@ -847,10 +967,36 @@ export function ProgramBriefUpload({
               </div>
             )}
 
+            <label className="flex items-start justify-between gap-4 rounded-lg border p-3">
+              <span className="min-w-0">
+                <span className="block text-sm font-medium">Match exactly as written</span>
+                <span className="block text-xs text-muted-foreground">
+                  {exactOnly
+                    ? "Exercises keep the document's names. Anything not in your library is flagged so you can add it."
+                    : "Exercises not in your library are matched to the closest library exercise for you to confirm."}
+                </span>
+              </span>
+              <Switch checked={exactOnly} onCheckedChange={(checked) => setExactOnly(checked === true)} />
+            </label>
+
             {unresolvedCount > 0 && (
-              <div className="rounded-lg border border-danger-border bg-danger-soft p-3 text-sm text-danger-foreground">
-                {unresolvedCount} exercise{unresolvedCount === 1 ? "" : "s"} need{unresolvedCount === 1 ? "s" : ""}{" "}
-                your review before this program can be saved.
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-danger-border bg-danger-soft p-3 text-sm text-danger-foreground">
+                <span>
+                  {unresolvedCount} exercise{unresolvedCount === 1 ? "" : "s"} need{unresolvedCount === 1 ? "s" : ""}{" "}
+                  your review before this program can be saved.
+                </span>
+                {missingNames.length > 0 && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 gap-1 text-xs"
+                    disabled={addingNames.size > 0}
+                    onClick={() => setConfirmAddAll(true)}
+                  >
+                    {addingNames.size > 0 ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
+                    Add {missingNames.length} missing to library
+                  </Button>
+                )}
               </div>
             )}
 
@@ -908,14 +1054,16 @@ export function ProgramBriefUpload({
                                             <span className="text-xs text-muted-foreground">
                                               {blockUnresolved.length} need review
                                             </span>
-                                            <Button
-                                              size="sm"
-                                              variant="outline"
-                                              className="h-6 text-xs"
-                                              onClick={() => confirmAllInBlock(blockUnresolved)}
-                                            >
-                                              Confirm all
-                                            </Button>
+                                            {blockUnresolved.some(({ exercise }) => exercise.exerciseId) && (
+                                              <Button
+                                                size="sm"
+                                                variant="outline"
+                                                className="h-6 text-xs"
+                                                onClick={() => confirmAllInBlock(blockUnresolved)}
+                                              >
+                                                Confirm all
+                                              </Button>
+                                            )}
                                             <Button
                                               size="sm"
                                               variant="ghost"
@@ -942,19 +1090,28 @@ export function ProgramBriefUpload({
                                           return (
                                             <FlaggedExerciseRow
                                               key={key}
-                                              exerciseName={ex.exerciseName}
+                                              exerciseName={documentName(ex)}
+                                              suggestedName={
+                                                ex.exerciseId && ex.exerciseName !== documentName(ex)
+                                                  ? ex.exerciseName
+                                                  : undefined
+                                              }
                                               sets={ex.sets}
                                               reps={ex.reps}
                                               flags={flags}
                                               hasSuggestion={!!ex.exerciseId}
                                               resolved={!!resolution}
                                               resolvedLabel={resolutionLabel(resolution)}
-                                              duplicateCount={otherUnresolvedMatches(key, ex.exerciseName).length}
+                                              duplicateCount={otherUnresolvedMatches(key, documentName(ex)).length}
                                               applyToAll={applyToAllKeys.has(key)}
                                               onApplyToAllChange={(checked) => setApplyToAll(key, checked)}
                                               onConfirm={() => confirmSuggestion(key, ex)}
                                               onPickAlternative={() => setResolverKey(key)}
                                               onSkip={() => skipSlot(key, ex)}
+                                              onAddToLibrary={
+                                                ex.exerciseId ? undefined : () => addToLibrary([documentName(ex)])
+                                              }
+                                              addingToLibrary={addingNames.has(normalizeExerciseName(documentName(ex)))}
                                             />
                                           );
                                         })}
@@ -974,6 +1131,10 @@ export function ProgramBriefUpload({
             </div>
 
             <div className="border-t pt-4">
+              <div className="mb-4 space-y-2">
+                <Label>Save as</Label>
+                <SchedulingTypeSelector value={schedulingType} onChange={setSchedulingType} />
+              </div>
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
                   <Label>Assign to Client (optional)</Label>
@@ -1000,10 +1161,12 @@ export function ProgramBriefUpload({
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-2">
-                  <Label>Start Date</Label>
-                  <Input type="date" value={assignStartDate} onChange={(e) => setAssignStartDate(e.target.value)} />
-                </div>
+                {!isOnDemand && (
+                  <div className="space-y-2">
+                    <Label>Start Date</Label>
+                    <Input type="date" value={assignStartDate} onChange={(e) => setAssignStartDate(e.target.value)} />
+                  </div>
+                )}
               </div>
 
               <div className="mt-4 flex flex-wrap items-center gap-2">
@@ -1012,7 +1175,7 @@ export function ProgramBriefUpload({
                   onClick={() => handleSave(true)}
                   disabled={saving !== null || unresolvedCount > 0 || unconfirmedInferredCount > 0}
                 >
-                  {saving === "template" ? "Saving..." : "Save as Template"}
+                  {saving === "template" ? "Saving..." : isOnDemand ? "Save as Resource" : "Save as Template"}
                 </Button>
                 <Button
                   onClick={() => handleSave(false)}
@@ -1041,11 +1204,41 @@ export function ProgramBriefUpload({
         onOpenChange={(open) => {
           if (!open) setResolverKey(null);
         }}
-        exercises={exercises}
+        exercises={libraryExercises}
         onSelect={handlePickerSelect}
         organizationOrganizationId={organizationOrganizationId}
         exerciseSourcePreference={exerciseSourcePreference}
       />
+
+      <AlertDialog open={confirmAddAll} onOpenChange={setConfirmAddAll}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Add {missingNames.length} exercise{missingNames.length === 1 ? "" : "s"} to your library?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Each is created with the name from the document and used everywhere it appears in this program. You
+              can add videos and details later from the exercise library.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <ul className="max-h-48 list-disc space-y-0.5 overflow-y-auto pl-5 text-sm">
+            {missingNames.map((name) => (
+              <li key={name}>{name}</li>
+            ))}
+          </ul>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setConfirmAddAll(false);
+                void addToLibrary(missingNames);
+              }}
+            >
+              Add to library
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={!!pendingApplyAll} onOpenChange={(open) => !open && setPendingApplyAll(null)}>
         <AlertDialogContent>

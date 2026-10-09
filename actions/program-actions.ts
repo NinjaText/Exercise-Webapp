@@ -50,7 +50,7 @@ import type {
 import type { WeekPlan } from "@/lib/ai/types/program-generation";
 import { logAudit, diffFields, deriveActorType, AUDIT_ACTIONS } from "@/lib/services/audit-log.service";
 import { getClientIdsForTrainer } from "@/lib/services/client.service";
-import { getProgramSchedulingType } from "@/lib/utils/program-scheduling";
+import { getProgramSchedulingType, type ProgramSchedulingTypeValue } from "@/lib/utils/program-scheduling";
 import { canonicalEquipmentList } from "@/lib/utils/equipment-vocabulary";
 
 async function getTrainerUser() {
@@ -900,7 +900,11 @@ export async function matchProgramExercisesAction(input: {
       sessionBlueprint: brief.sessionBlueprint,
     };
 
-    const preview = await buildProgramPreviewFromBlueprint(params);
+    const { orgId } = await auth();
+    const preview = await buildProgramPreviewFromBlueprint({
+      ...params,
+      organizationId: orgId ?? user.clerkOrgId ?? null,
+    });
 
     return {
       success: true as const,
@@ -923,6 +927,7 @@ export async function saveGeneratedProgramAction(input: {
   isTemplate: boolean;
   clientId?: string | null;
   startDate?: string;
+  schedulingType?: ProgramSchedulingTypeValue;
 }) {
   const user = await getTrainerUser();
   if (!user) return { success: false as const, error: "Unauthorized" };
@@ -944,6 +949,7 @@ export async function saveGeneratedProgramAction(input: {
       startDate: input.clientId
         ? (input.startDate ?? new Date().toISOString().split("T")[0])
         : null,
+      schedulingType: input.schedulingType === "ON_DEMAND" ? "ON_DEMAND" : "SCHEDULED",
     });
 
     revalidatePath("/programs");

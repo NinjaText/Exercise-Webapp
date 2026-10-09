@@ -3,7 +3,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { AlertTriangle, HelpCircle, FileWarning, Check, Trash2 } from "lucide-react";
+import { AlertTriangle, HelpCircle, FileWarning, Check, Loader2, Plus, Trash2 } from "lucide-react";
 
 export type ExerciseMatchFlag = "needs_review" | "not_in_library" | "not_in_document";
 
@@ -26,7 +26,10 @@ const FLAG_META: Record<ExerciseMatchFlag, { label: string; icon: typeof AlertTr
 };
 
 interface Props {
+  /** The name as written in the document. */
   exerciseName?: string;
+  /** The closest library exercise, shown when it differs from the document's name. */
+  suggestedName?: string;
   sets: number;
   reps: string;
   flags: ExerciseMatchFlag[];
@@ -39,10 +42,14 @@ interface Props {
   onConfirm: () => void;
   onPickAlternative: () => void;
   onSkip: () => void;
+  /** Creates the exercise in the library under the document's name. Omit when not offered. */
+  onAddToLibrary?: () => void;
+  addingToLibrary?: boolean;
 }
 
 export function FlaggedExerciseRow({
   exerciseName,
+  suggestedName,
   sets,
   reps,
   flags,
@@ -55,6 +62,8 @@ export function FlaggedExerciseRow({
   onConfirm,
   onPickAlternative,
   onSkip,
+  onAddToLibrary,
+  addingToLibrary = false,
 }: Props) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-dashed p-2">
@@ -74,6 +83,9 @@ export function FlaggedExerciseRow({
             );
           })}
         </div>
+        {!resolved && suggestedName && (
+          <p className="mt-1 text-xs text-muted-foreground">Suggested match: {suggestedName}</p>
+        )}
         {resolved && resolvedLabel && (
           <p className="mt-1 text-xs text-success-foreground">Resolved: {resolvedLabel}</p>
         )}
@@ -93,6 +105,18 @@ export function FlaggedExerciseRow({
           {hasSuggestion && (
             <Button size="sm" variant="outline" className="h-7 gap-1 text-xs" onClick={onConfirm}>
               <Check className="h-3 w-3" /> Confirm
+            </Button>
+          )}
+          {onAddToLibrary && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 gap-1 text-xs"
+              onClick={onAddToLibrary}
+              disabled={addingToLibrary}
+            >
+              {addingToLibrary ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
+              Add to library
             </Button>
           )}
           <Button size="sm" variant="outline" className="h-7 text-xs" onClick={onPickAlternative}>
