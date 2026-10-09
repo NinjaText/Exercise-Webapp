@@ -3,11 +3,12 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ArrowDown, ArrowUp, Layers, ListOrdered, X } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronDown, Layers, ListOrdered, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { InputGroup, InputGroupAddon, InputGroupInput, InputGroupText } from "@/components/ui/input-group";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { FormField } from "@/components/shared/form-section";
 import { SectionCard } from "@/components/shared/section-card";
 import { createClubAction, updateClubAction } from "@/actions/admin-club-actions";
@@ -89,6 +90,69 @@ function AffixInput({
   );
 }
 
+/**
+ * Searchable multi-select for programs. Stays open while ticking so several
+ * can be added in one go; ticking appends (keeps the starter order), unticking
+ * removes.
+ */
+function ProgramPicker({
+  label,
+  placeholder,
+  programs,
+  selected,
+  onChange,
+}: {
+  label: string;
+  placeholder: string;
+  programs: { id: string; name: string }[];
+  selected: string[];
+  onChange: (ids: string[]) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const toggle = (id: string) =>
+    onChange(selected.includes(id) ? selected.filter((x) => x !== id) : [...selected, id]);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger
+        disabled={programs.length === 0}
+        render={
+          <Button
+            type="button"
+            variant="outline"
+            role="combobox"
+            aria-label={label}
+            className="w-full justify-between font-normal text-muted-foreground"
+          />
+        }
+      >
+        <span className="truncate">{programs.length === 0 ? "No programs available" : placeholder}</span>
+        <ChevronDown className="size-4 shrink-0 opacity-50" />
+      </PopoverTrigger>
+      <PopoverContent className="w-(--anchor-width) min-w-72 p-0" align="start">
+        <Command>
+          <CommandInput placeholder="Search programs…" />
+          <CommandList>
+            <CommandEmpty>No programs found.</CommandEmpty>
+            <CommandGroup>
+              {programs.map((p) => (
+                <CommandItem
+                  key={p.id}
+                  value={`${p.name} ${p.id}`}
+                  data-checked={selected.includes(p.id)}
+                  onSelect={() => toggle(p.id)}
+                >
+                  <span className="truncate">{p.name}</span>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 export function ClubForm(props: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -102,9 +166,7 @@ export function ClubForm(props: Props) {
     setValues((prev) => ({ ...prev, [key]: v }));
 
   const nameOf = (id: string) => globalPrograms.find((p) => p.id === id)?.name ?? id;
-  const available = globalPrograms.filter((p) => !values.starterProgramIds.includes(p.id));
   const resourceNameOf = (id: string) => resourcePrograms.find((p) => p.id === id)?.name ?? id;
-  const availableResources = resourcePrograms.filter((p) => !values.resourceProgramIds.includes(p.id));
 
   const move = (index: number, delta: -1 | 1) => {
     const next = [...values.starterProgramIds];
@@ -284,24 +346,13 @@ export function ClubForm(props: Props) {
               <p className="text-body text-muted-foreground">No starter programs yet. Add one below.</p>
             </div>
           )}
-          <Select
-            value={null}
-            onValueChange={(v) => v && set("starterProgramIds", [...values.starterProgramIds, v as string])}
-            disabled={available.length === 0}
-          >
-            <SelectTrigger aria-label="Add starter program">
-              <SelectValue>
-                {() => (available.length === 0 ? "No more programs to add" : "Add a program…")}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              {available.map((p) => (
-                <SelectItem key={p.id} value={p.id}>
-                  {p.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <ProgramPicker
+            label="Add starter programs"
+            placeholder="Add programs…"
+            programs={globalPrograms}
+            selected={values.starterProgramIds}
+            onChange={(ids) => set("starterProgramIds", ids)}
+          />
         </div>
       </SectionCard>
 
@@ -336,24 +387,13 @@ export function ClubForm(props: Props) {
               <p className="text-body text-muted-foreground">No resources yet.</p>
             </div>
           )}
-          <Select
-            value={null}
-            onValueChange={(v) => v && set("resourceProgramIds", [...values.resourceProgramIds, v as string])}
-            disabled={availableResources.length === 0}
-          >
-            <SelectTrigger aria-label="Add resource">
-              <SelectValue>
-                {() => (availableResources.length === 0 ? "No more resources to add" : "Add a resource…")}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              {availableResources.map((p) => (
-                <SelectItem key={p.id} value={p.id}>
-                  {p.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <ProgramPicker
+            label="Add resources"
+            placeholder="Add resources…"
+            programs={resourcePrograms}
+            selected={values.resourceProgramIds}
+            onChange={(ids) => set("resourceProgramIds", ids)}
+          />
         </div>
       </SectionCard>
 

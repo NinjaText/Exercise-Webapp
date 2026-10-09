@@ -8,6 +8,8 @@ import { ProgramBriefUpload } from "@/components/programs/program-brief-upload";
 import { PageHeader } from "@/components/shared/page-header";
 import { PageShell } from "@/components/shared/page-shell";
 
+export const maxDuration = 300; // extraction runs several LLM calls per document; long briefs need the headroom
+
 export const metadata = {
   title: "Upload Program Brief",
   description: "Upload a program brief file and generate a professional AI program",

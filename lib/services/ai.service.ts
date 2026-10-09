@@ -294,6 +294,8 @@ export function resolveExerciseMatch(
 export type PreviewExercise = {
   exerciseId: string | null;
   exerciseName?: string;
+  /** The name exactly as written in the source document (before library matching). */
+  sourceName?: string;
   orderIndex: number;
   sets: number;
   reps: string;
@@ -1539,6 +1541,7 @@ function assemblePreviewWorkouts(
       block.exercises.push({
         exerciseId: ex.exerciseId,
         exerciseName: ex.exerciseName,
+        sourceName: ex.sourceName,
         orderIndex: block.exercises.length,
         // The document's own set count is authoritative — never collapse it
         // to 1 just because the block was classified as a circuit.
@@ -1566,6 +1569,7 @@ function assemblePreviewWorkouts(
       block.exercises.push({
         exerciseId: ex.exerciseId,
         exerciseName: ex.exerciseName,
+        sourceName: ex.sourceName,
         orderIndex: block.exercises.length,
         sets: ex.sets,
         reps: ex.reps,
@@ -1601,6 +1605,8 @@ export async function buildProgramPreviewFromBlueprint(params: {
   circuits?: CircuitConfig[];
   preferredWeekdays?: string[];
   programTitle?: string;
+  /** Clerk org id. Matches only universal exercises plus this org's own. */
+  organizationId?: string | null;
 }): Promise<PreviewGeneratedProgram> {
   const weekdayToIndex: Record<string, number> = {
     monday: 0, tuesday: 1, wednesday: 2, thursday: 3, friday: 4, saturday: 5, sunday: 6,
@@ -1609,7 +1615,16 @@ export async function buildProgramPreviewFromBlueprint(params: {
   const circuits = params.circuits || [];
   const circuitNameMap = new Map(circuits.map((c, idx) => [normalizeExerciseName(c.name), idx]));
 
-  const allBriefExercises = await prisma.exercise.findMany({ where: { isActive: true, isAssessment: false } });
+  const allBriefExercises = await prisma.exercise.findMany({
+    where: {
+      isActive: true,
+      isAssessment: false,
+      OR: [
+        { source: "UNIVERSAL" },
+        ...(params.organizationId ? [{ source: "ORGANIZATION" as const, organizationId: params.organizationId }] : []),
+      ],
+    },
+  });
 
   const preferredDayIndices = (params.preferredWeekdays ?? [])
     .map((d) => weekdayToIndex[d.toLowerCase().trim()])
@@ -1675,6 +1690,7 @@ export async function buildProgramPreviewFromBlueprint(params: {
         exercisesOutput.push({
           exerciseId: match.exerciseId,
           exerciseName: matchedExercise?.name ?? exerciseBp.name,
+          sourceName: exerciseBp.name,
           phase,
           circuitIndex,
           sets,
