@@ -2,6 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { UserButton } from "@clerk/nextjs";
+import { ExitClubButton } from "@/components/clubs/club-admin-banner";
 import { clerkAppearance } from "@/lib/ui/clerk-appearance";
 import { Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -22,6 +23,8 @@ interface HeaderProps {
   branding: BrandingViewModel;
   /** Hrefs the org's capabilities hide (club orgs). */
   hiddenHrefs?: string[];
+  /** A club's house coach: the user menu offers "Exit club" instead of sign out. */
+  houseCoach?: boolean;
 }
 
 export function Header({
@@ -31,6 +34,7 @@ export function Header({
   initialNotifications,
   branding,
   hiddenHrefs = [],
+  houseCoach = false,
 }: HeaderProps) {
   const pathname = usePathname();
   const { crumbs } = useBreadcrumb();
@@ -54,6 +58,7 @@ export function Header({
             mobileMode
             hiddenHrefs={hiddenHrefs}
             branding={branding}
+            houseCoach={houseCoach}
           />
         </MobileNavDrawer>
 
@@ -86,8 +91,8 @@ export function Header({
         />
 
         {/* User button (always visible top-right; contains sign out) */}
-        <div className="flex size-11 shrink-0 items-center justify-center lg:size-9">
-          <UserButton signInUrl="/sign-in" appearance={clerkAppearance} />
+        <div className="flex h-11 min-w-11 shrink-0 items-center justify-center lg:h-9 lg:min-w-9">
+          {houseCoach ? <ExitClubButton /> : <UserButton signInUrl="/sign-in" appearance={clerkAppearance} />}
         </div>
       </div>
     </header>

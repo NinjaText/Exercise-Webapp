@@ -1,6 +1,6 @@
 "use server";
 
-import { activeUserOnly } from "@/lib/auth/active-user";
+import { activeCallerOnly } from "@/lib/auth/active-user";
 import { auth, clerkClient } from "@clerk/nextjs/server";
 import type { Organization } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
@@ -50,7 +50,7 @@ export async function getOrganizationProfile(): Promise<OrganizationMetadata | n
   const { userId } = await auth();
   if (!userId) return null;
 
-  const dbUser = activeUserOnly(await prisma.user.findUnique({ where: { clerkId: userId } }));
+  const dbUser = await activeCallerOnly(await prisma.user.findUnique({ where: { clerkId: userId } }));
   if (!dbUser?.clerkOrgId) return null;
 
   return toMetadata(await getOrganization(dbUser.clerkOrgId));
@@ -60,7 +60,7 @@ export async function saveOrganizationProfile(input: OrganizationMetadata) {
   const { userId } = await auth();
   if (!userId) return { success: false as const, error: "Unauthorized" };
 
-  const dbUser = activeUserOnly(await prisma.user.findUnique({ where: { clerkId: userId } }));
+  const dbUser = await activeCallerOnly(await prisma.user.findUnique({ where: { clerkId: userId } }));
   if (!dbUser) return { success: false as const, error: "User not found" };
   if (dbUser.role !== "TRAINER") return { success: false as const, error: "Forbidden" };
   if (!dbUser.clerkOrgId) return { success: false as const, error: "Organization not set up" };

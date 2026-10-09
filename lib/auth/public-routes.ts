@@ -16,6 +16,11 @@ export const PUBLIC_ROUTES = [
   // Club join pages: the code form and Clerk sign-up render before any
   // session exists. /join/<slug>/complete checks auth itself.
   "/join/(.*)",
+  // Admin "Manage club" hand-off: /enter runs before any house-coach session
+  // exists and /ended must stay reachable when the session is rejected. The
+  // single-use sign-in ticket and the signed club_admin_session marker are the
+  // credentials, not a Clerk session.
+  "/club-session/(.*)",
   "/api/checkout/program",
   "/privacy",
   "/terms",

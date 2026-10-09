@@ -29,6 +29,9 @@ export interface ThreadMessage {
   replyToExerciseName?: string | null;
   replyToNoteExcerpt?: string | null;
   isInternal?: boolean | null;
+  /** Staff-only: the super admin who sent this as the house coach. Never sent to clients. */
+  sentByAdminId?: string | null;
+  sentByAdminName?: string | null;
   sender: { firstName: string; lastName: string; imageUrl: string | null };
 }
 

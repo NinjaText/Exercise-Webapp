@@ -4,6 +4,7 @@ vi.mock('@clerk/nextjs/server', () => ({ auth: vi.fn() }))
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 vi.mock('@/lib/prisma', () => ({
   prisma: {
+    organization: { findFirst: vi.fn() },
     user: { findUnique: vi.fn() },
     program: { findUnique: vi.fn() },
   },

@@ -1,6 +1,6 @@
 "use server"
 
-import { activeUserOnly } from "@/lib/auth/active-user"
+import { activeCallerOnly } from "@/lib/auth/active-user"
 import { auth } from "@clerk/nextjs/server"
 import { revalidatePath } from "next/cache"
 import { randomUUID } from "crypto"
@@ -11,6 +11,7 @@ import { canCoachInteract, getCapabilitiesForUser } from "@/lib/org-capabilities
 import { MESSAGING_UNAVAILABLE } from "@/lib/org-capabilities"
 import { getR2Client, R2_BUCKET_NAME, R2_PUBLIC_URL } from "@/lib/r2"
 import * as messageService from "@/lib/services/message.service"
+import { getActingAdminFor } from "@/lib/clubs/acting-admin-for"
 import { broadcastNewMessage } from "./message-actions"
 import { presignVoiceMessageSchema, confirmVoiceMessageSchema } from "@/lib/validators/voice-message"
 
@@ -32,7 +33,7 @@ async function messagingDisabled(user: SendingUser, recipientId: string): Promis
 async function getAuthedUser() {
   const { userId: clerkId } = await auth()
   if (!clerkId) return null
-  return activeUserOnly(await prisma.user.findUnique({ where: { clerkId } }))
+  return await activeCallerOnly(await prisma.user.findUnique({ where: { clerkId } }))
 }
 
 export async function generateVoiceMessageUploadUrl(
@@ -88,7 +89,9 @@ export async function confirmVoiceMessage(
     await getR2Client().send(new DeleteObjectCommand({ Bucket: R2_BUCKET_NAME, Key: pendingKey }))
 
     const r2Url = `${R2_PUBLIC_URL}/${permanentKey}`
+    const admin = await getActingAdminFor(user)
     const message = await messageService.sendVoiceMessage({
+      sentByAdminId: admin?.adminUserId ?? null,
       senderId: user.id,
       recipientId,
       audioUrl: r2Url,

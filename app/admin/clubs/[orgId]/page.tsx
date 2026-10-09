@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { format } from "date-fns";
-import { Clock, CreditCard, ExternalLink, Percent, Users } from "lucide-react";
+import { BellRing, Clock, CreditCard, ExternalLink, Percent, Users } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { getOrgType } from "@/lib/org-capabilities";
 import { Button } from "@/components/ui/button";
@@ -13,15 +13,16 @@ import { StatCard } from "@/components/shared/stat-card";
 import { DataList, type Column } from "@/components/shared/data-list";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { COACHING_BADGE } from "@/lib/ui/status";
-import { getClubTrainer, getPendingTrainerInvite } from "@/lib/services/club-trainer.service";
+import { getClubAttentionCounts } from "@/lib/services/club-alerts.service";
+import { getHouseCoach } from "@/lib/services/house-coach.service";
 import { describeClubPrice } from "@/lib/services/club-pricing.service";
 import { priceFormField } from "./price-fields";
 import { clubProgramWhere, resourceOptions, starterOptions } from "./starter-options";
-import { ClubTrainerControls } from "./club-trainer-controls";
 import { ClubForm } from "../club-form";
 import { ExtendTrialButton } from "./extend-trial-button";
 import { ConvertToTrainerButton } from "./convert-to-trainer-button";
 import { CopyValue } from "./copy-value";
+import { ManageClubButton } from "./manage-club-button";
 import { CLUB_MEMBER_LIST_LIMIT, memberListTruncationNote } from "./members-limit";
 
 interface PageProps {
@@ -33,14 +34,14 @@ export default async function AdminClubDetailPage({ params }: PageProps) {
   const org = await prisma.organization.findUnique({ where: { clerkOrgId: orgId } });
   if (!org || getOrgType(org) !== "CLUB") notFound();
 
-  const trainer = await getClubTrainer(orgId);
-  const pendingInvite = trainer ? null : await getPendingTrainerInvite(orgId).catch(() => null);
+  const [houseCoach, attentionCounts] = await Promise.all([getHouseCoach(orgId), getClubAttentionCounts()]);
+  const attention = attentionCounts.get(orgId) ?? 0;
 
   const now = new Date();
   const [programs, members, coachingRows, membershipPrice, coachingPrice, statusCounts, expired] = await Promise.all([
-    // Global Programs, the club trainer's templates and the current starters/resources.
+    // Global Programs, the house coach's templates and the current starters/resources.
     prisma.program.findMany({
-      where: clubProgramWhere([...org.starterProgramIds, ...(org.resourceProgramIds ?? [])], trainer?.id ?? null),
+      where: clubProgramWhere([...org.starterProgramIds, ...(org.resourceProgramIds ?? [])], houseCoach?.id ?? null),
       select: { id: true, name: true, schedulingType: true, isGlobal: true },
       orderBy: { name: "asc" },
     }),
@@ -136,14 +137,12 @@ export default async function AdminClubDetailPage({ params }: PageProps) {
     },
   ];
 
-  const trainerName = trainer ? [trainer.firstName, trainer.lastName].filter(Boolean).join(" ") || trainer.email : null;
-  const clubState = trainer
-    ? trainer.onboarded
-      ? { label: "Active", role: "success" as const }
-      : { label: "Trainer onboarding", role: "warning" as const }
-    : pendingInvite
-      ? { label: "Awaiting trainer", role: "warning" as const }
-      : { label: "No trainer", role: "danger" as const };
+  const houseCoachName = houseCoach
+    ? [houseCoach.firstName, houseCoach.lastName].filter(Boolean).join(" ") || houseCoach.email
+    : null;
+  const clubState = houseCoach
+    ? { label: "Active", role: "success" as const }
+    : { label: "No house coach", role: "danger" as const };
   const joinPath = `/join/${org.joinSlug}`;
 
   return (
@@ -168,7 +167,14 @@ export default async function AdminClubDetailPage({ params }: PageProps) {
         }
       />
 
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-5">
+        <StatCard
+          size="compact"
+          label="Needs attention"
+          value={attention}
+          icon={BellRing}
+          role={attention > 0 ? "danger" : undefined}
+        />
         <StatCard size="compact" label="Members" value={memberTotal} icon={Users} />
         <StatCard size="compact" label="On trial" value={trialing} icon={Clock} role="warning" />
         <StatCard size="compact" label="Paying" value={paying} icon={CreditCard} role="success" />
@@ -190,40 +196,29 @@ export default async function AdminClubDetailPage({ params }: PageProps) {
             coachingAmount: coachingField.amount,
             starterProgramIds: org.starterProgramIds,
             resourceProgramIds: org.resourceProgramIds ?? [],
-            trainerEmail: "",
           }}
           priceNotes={{ membership: membershipField.note, coaching: coachingField.note }}
         />
 
         <aside className="flex flex-col gap-6">
-          <SectionCard title="Club trainer">
+          <SectionCard title="House coach">
             <div className="flex flex-col gap-4">
-              {trainer ? (
+              {houseCoachName ? (
                 <div className="flex min-w-0 items-center gap-3">
                   <Avatar className="size-10">
                     <AvatarFallback className="bg-brand-soft text-sm font-semibold text-brand-foreground">
-                      {initials(trainerName!)}
+                      {initials(houseCoachName)}
                     </AvatarFallback>
                   </Avatar>
-                  <div className="min-w-0">
-                    <p className="truncate text-body font-medium text-foreground">{trainerName}</p>
-                    <p className="truncate text-caption">{trainer.email}</p>
-                  </div>
+                  <p className="truncate text-body font-medium text-foreground">{houseCoachName}</p>
                 </div>
-              ) : pendingInvite ? (
-                <p className="text-body text-muted-foreground">
-                  Invite pending for <span className="font-medium text-foreground">{pendingInvite.email}</span>. The club
-                  opens to members once they accept.
-                </p>
               ) : (
-                <p className="text-body text-muted-foreground">No trainer. The club stays closed until one accepts an invite.</p>
+                <p className="text-body text-muted-foreground">No house coach yet.</p>
               )}
-              {trainer && !trainer.onboarded && (
-                <p className="rounded-md bg-warning-soft px-3 py-2 text-caption text-warning-foreground">
-                  Hasn&apos;t finished onboarding yet.
-                </p>
-              )}
-              <ClubTrainerControls clerkOrgId={orgId} hasTrainer={Boolean(trainer)} invitePending={Boolean(pendingInvite)} />
+              <p className="text-body text-muted-foreground">
+                Members talk to this account. Admins manage the club through it.
+              </p>
+              <ManageClubButton clerkOrgId={org.clerkOrgId} />
             </div>
           </SectionCard>
 
@@ -236,7 +231,7 @@ export default async function AdminClubDetailPage({ params }: PageProps) {
 
           <SectionCard title="Branding">
             <p className="text-body text-muted-foreground">
-              The club trainer manages the club&apos;s logo and colours from their Settings.
+              Admins manage the club&apos;s logo and colours through the house coach.
             </p>
           </SectionCard>
 

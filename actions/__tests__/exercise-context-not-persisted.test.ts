@@ -4,7 +4,7 @@ const trainer = { id: 'trainer_1', role: 'TRAINER', clerkOrgId: 'org_1' }
 
 vi.mock('@clerk/nextjs/server', () => ({ auth: vi.fn().mockResolvedValue({ userId: 'clerk_1', orgId: 'org_1' }) }))
 vi.mock('@/lib/prisma', () => ({
-  prisma: { user: { findUnique: vi.fn() } },
+  prisma: { organization: { findFirst: vi.fn() }, user: { findUnique: vi.fn() } },
 }))
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 vi.mock('@/lib/services/exercise.service', () => ({

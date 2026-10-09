@@ -18,10 +18,6 @@ vi.mock("@/lib/services/audit-log.service", () => ({
 vi.mock("@/lib/stripe", () => ({ stripe: {} }));
 vi.mock("next/navigation", () => ({ redirect: vi.fn() }));
 vi.mock("@/lib/org-capabilities.server", () => ({ getCapabilitiesForUser: vi.fn() }));
-vi.mock("@/lib/services/club-trainer.service", () => ({
-  hasClubTrainerInvite: vi.fn(async () => false),
-  resolveClubTrainerInvite: vi.fn(async () => null),
-}));
 
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";

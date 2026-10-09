@@ -2,6 +2,7 @@
 
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
+import { activeCallerOnly } from "@/lib/auth/active-user";
 import { notifyUser, NOTIFICATION_TYPES } from "@/lib/services/notification.service";
 import { appBaseUrl } from "@/lib/utils/app-url";
 import type { Prisma } from "@prisma/client";
@@ -23,10 +24,12 @@ export async function checkComplianceAndNotify(): Promise<{ alerted: number }> {
   try {
     const { userId } = await auth();
     if (!userId) return { alerted: 0 };
-    const trainer = await prisma.user.findUnique({
-      where: { clerkId: userId },
-      select: { id: true, role: true, email: true, firstName: true, lastName: true, clerkOrgId: true },
-    });
+    const trainer = await activeCallerOnly(
+      await prisma.user.findUnique({
+        where: { clerkId: userId },
+        select: { id: true, clerkId: true, isActive: true, role: true, email: true, firstName: true, lastName: true, clerkOrgId: true },
+      })
+    );
     if (!trainer || trainer.role !== "TRAINER") return { alerted: 0 };
     if (!trainer.clerkOrgId) return { alerted: 0 };
 

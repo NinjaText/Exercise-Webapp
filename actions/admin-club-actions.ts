@@ -15,15 +15,6 @@ import {
   setOrgType,
   updateClub,
 } from "@/lib/services/club.service";
-import {
-  assertTrainerEmailFree,
-  getClubTrainer,
-  getPendingTrainerInvite,
-  inviteClubTrainer,
-  normalizeTrainerEmail,
-  removeClubTrainer,
-} from "@/lib/services/club-trainer.service";
-import { getOrgType } from "@/lib/org-capabilities";
 
 type Result<T = object> = ({ ok: true } & T) | { ok: false; error: string };
 
@@ -54,14 +45,6 @@ export async function createClubAction(raw: Record<string, unknown>): Promise<Re
         stripePriceId: org.stripePriceId,
         coachingStripePriceId: org.coachingStripePriceId,
       },
-    }));
-    await logUserAudit(admin, () => ({
-      action: AUDIT_ACTIONS.CLUB_TRAINER_INVITED,
-      targetType: "Organization",
-      targetId: org.clerkOrgId,
-      targetLabel: input.trainerEmail,
-      orgId: org.clerkOrgId,
-      metadata: { email: input.trainerEmail },
     }));
     revalidatePath("/admin/clubs");
     return { ok: true, clerkOrgId: org.clerkOrgId };
@@ -162,108 +145,6 @@ export async function setOrgTypeAction(clerkOrgId: string, type: OrgType): Promi
     }));
     revalidatePath("/admin/clubs");
     revalidatePath(`/admin/clubs/${clerkOrgId}`);
-    return { ok: true };
-  } catch (err) {
-    return toError(err);
-  }
-}
-
-async function requireClub(clerkOrgId: string) {
-  const org = await prisma.organization.findUnique({ where: { clerkOrgId } });
-  if (!org || getOrgType(org) !== "CLUB") throw new ClubError("not_found", "Club not found.");
-  return org;
-}
-
-function revalidateClub(clerkOrgId: string) {
-  revalidatePath(`/admin/clubs/${clerkOrgId}`);
-  revalidatePath("/admin/clubs");
-}
-
-/** Resends the pending club trainer invite (revokes the old link). Not for a club with an active trainer. */
-export async function resendClubTrainerInviteAction(clerkOrgId: string): Promise<Result> {
-  const admin = await requireSuperAdmin();
-  try {
-    const org = await requireClub(clerkOrgId);
-    if (await getClubTrainer(clerkOrgId)) {
-      return { ok: false, error: "This club already has a trainer. Use Replace to change it." };
-    }
-    const pending = await getPendingTrainerInvite(clerkOrgId);
-    if (!pending) {
-      return { ok: false, error: "There is no pending invite to resend. Use Replace to invite a trainer." };
-    }
-    await inviteClubTrainer(clerkOrgId, pending.email);
-    await logUserAudit(admin, () => ({
-      action: AUDIT_ACTIONS.CLUB_TRAINER_INVITED,
-      targetType: "Organization",
-      targetId: clerkOrgId,
-      targetLabel: pending.email,
-      orgId: clerkOrgId,
-      metadata: { email: pending.email, resend: true, club: org.name },
-    }));
-    revalidateClub(clerkOrgId);
-    return { ok: true };
-  } catch (err) {
-    return toError(err);
-  }
-}
-
-/**
- * Replaces the club trainer. The new email is validated and checked against
- * existing users BEFORE the current trainer is removed. If the invite itself
- * fails after the removal, the club is left without a trainer and the error
- * says so; the admin can retry with Replace (nothing to remove then).
- */
-export async function replaceClubTrainerAction(clerkOrgId: string, rawEmail: string): Promise<Result> {
-  const admin = await requireSuperAdmin();
-  try {
-    await requireClub(clerkOrgId);
-    const email = normalizeTrainerEmail(rawEmail);
-    await assertTrainerEmailFree(email);
-
-    const current = await getClubTrainer(clerkOrgId);
-    if (current) {
-      let removalError: string | undefined;
-      try {
-        await removeClubTrainer(clerkOrgId);
-      } catch (err) {
-        // Clerk membership deleted but the DB update failed: still audit the removal, then stop.
-        if (!(err instanceof ClubError) || err.code !== "trainer_remove_failed") throw err;
-        removalError = err.message;
-      }
-      await logUserAudit(admin, () => ({
-        action: AUDIT_ACTIONS.CLUB_TRAINER_REMOVED,
-        targetType: "User",
-        targetId: current.id,
-        targetLabel: current.email,
-        orgId: clerkOrgId,
-        metadata: { email: current.email, replacedBy: email, ...(removalError ? { error: removalError } : {}) },
-      }));
-      if (removalError) {
-        revalidateClub(clerkOrgId);
-        return { ok: false, error: `${removalError} No invitation was sent.` };
-      }
-    }
-    try {
-      await inviteClubTrainer(clerkOrgId, email);
-    } catch (err) {
-      revalidateClub(clerkOrgId);
-      if (err instanceof ClubError && current) {
-        return {
-          ok: false,
-          error: `The previous trainer was removed, but the invitation failed: ${err.message} The club has no trainer now; use Replace again to retry.`,
-        };
-      }
-      throw err;
-    }
-    await logUserAudit(admin, () => ({
-      action: AUDIT_ACTIONS.CLUB_TRAINER_INVITED,
-      targetType: "Organization",
-      targetId: clerkOrgId,
-      targetLabel: email,
-      orgId: clerkOrgId,
-      metadata: { email, replaced: Boolean(current) },
-    }));
-    revalidateClub(clerkOrgId);
     return { ok: true };
   } catch (err) {
     return toError(err);

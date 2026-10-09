@@ -11,9 +11,10 @@ vi.mock('@/lib/services/message.service', () => ({
 vi.mock('@/lib/services/client.service', () => ({
   getClientIdsForTrainer: vi.fn(),
 }))
+vi.mock('@/lib/clubs/acting-admin-for', () => ({ getActingAdminFor: vi.fn(async () => null) }))
 vi.mock('@clerk/nextjs/server', () => ({ auth: vi.fn() }))
 vi.mock('@/lib/prisma', () => ({
-  prisma: { user: { findUnique: vi.fn() }, message: { create: vi.fn(), updateMany: vi.fn() } },
+  prisma: { organization: { findFirst: vi.fn() }, user: { findUnique: vi.fn() }, message: { create: vi.fn(), updateMany: vi.fn() } },
 }))
 vi.mock('@/lib/pusher', () => ({ pusherServer: { trigger: vi.fn() } }))
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
@@ -23,6 +24,7 @@ vi.mock('@/lib/services/notification.service', () => ({
 }))
 
 import { auth } from '@clerk/nextjs/server'
+import { getActingAdminFor } from '@/lib/clubs/acting-admin-for'
 import { prisma } from '@/lib/prisma'
 import { pusherServer } from '@/lib/pusher'
 import * as messageService from '@/lib/services/message.service'
@@ -52,6 +54,42 @@ const baseMessage = {
   sender: { firstName: 'Alice', lastName: 'Smith', imageUrl: null },
   recipient: { firstName: 'Bob', lastName: 'Jones', imageUrl: null },
 }
+
+describe('sendMessageAction house coach attribution', () => {
+  beforeEach(() => {
+    mockAuth.mockResolvedValue({ userId: 'clerk_hc' } as any)
+    mockFindUnique.mockResolvedValue({ id: 'hc', clerkId: 'clerk_hc', role: 'TRAINER', firstName: 'C', lastName: 'C', isActive: true } as any)
+    mockSendMessage.mockResolvedValue(baseMessage as any)
+    mockTrigger.mockResolvedValue({} as any)
+  })
+
+  it('refuses a house coach with no admin marker (stale session)', async () => {
+    vi.mocked(prisma.organization.findFirst).mockResolvedValueOnce({ id: 'club_1' } as never)
+    const result = await sendMessageAction({ recipientId: 'recipient_id', content: 'Hello' })
+    expect(result).toEqual({ success: false, error: 'User not found' })
+    expect(prisma.organization.findFirst).toHaveBeenCalledWith({ where: { houseCoachUserId: 'hc' }, select: { id: true } })
+    expect(mockSendMessage).not.toHaveBeenCalled()
+  })
+
+  it('stores sentByAdminId when an admin is operating the house coach', async () => {
+    vi.mocked(getActingAdminFor).mockResolvedValueOnce({ adminUserId: 'admin_1', adminName: 'Ada Admin' } as any)
+    await sendMessageAction({ recipientId: 'recipient_id', content: 'Hello' })
+    expect(mockSendMessage).toHaveBeenCalledWith(expect.objectContaining({ sentByAdminId: 'admin_1' }))
+  })
+
+  it('never puts sentByAdminId on the Pusher payload', async () => {
+    vi.mocked(getActingAdminFor).mockResolvedValueOnce({ adminUserId: 'admin_1', adminName: 'Ada Admin' } as any)
+    mockSendMessage.mockResolvedValue({ ...baseMessage, sentByAdminId: 'admin_1' } as any)
+    await sendMessageAction({ recipientId: 'recipient_id', content: 'Hello' })
+    await new Promise((r) => setTimeout(r, 0))
+    for (const call of mockTrigger.mock.calls) expect(JSON.stringify(call[2])).not.toContain('admin_1')
+  })
+
+  it('stores null for a normal sender', async () => {
+    await sendMessageAction({ recipientId: 'recipient_id', content: 'Hello' })
+    expect(mockSendMessage).toHaveBeenCalledWith(expect.objectContaining({ sentByAdminId: null }))
+  })
+})
 
 describe('sendMessageAction', () => {
   beforeEach(() => {

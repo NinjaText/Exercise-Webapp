@@ -27,6 +27,7 @@ vi.mock('@clerk/nextjs/server', () => ({
 }))
 vi.mock('@/lib/prisma', () => ({
   prisma: {
+    organization: { findFirst: vi.fn() },
     user: {
       findUnique: vi.fn().mockResolvedValue({
         id: 'trainer_1', role: 'TRAINER', clerkOrgId: 'org_1',

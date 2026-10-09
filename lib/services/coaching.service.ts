@@ -9,7 +9,7 @@ import { evaluateMemberAccess } from "@/lib/billing/access";
 import { isStripeSubscriptionAlreadyCanceled } from "@/lib/billing/stripe-errors";
 import { subscriptionPeriodEnd } from "@/lib/billing/stripe-period";
 import { nextCoachingStatus, type CoachingEvent } from "@/lib/clubs/coaching-state";
-import { getClubTrainer } from "@/lib/services/club-trainer.service";
+import { requireHouseCoach } from "@/lib/services/house-coach.service";
 import { notifyUser } from "@/lib/services/notification.service";
 import { NOTIFICATION_TYPES } from "@/lib/notifications/types";
 import { logUserAudit } from "@/lib/services/audit-log.service";
@@ -17,7 +17,7 @@ import { AUDIT_ACTIONS } from "@/lib/audit/catalog";
 import { appBaseUrl } from "@/lib/utils/app-url";
 
 /**
- * The club coaching add-on (spec §6): member requests → club trainer accepts
+ * The club coaching add-on (spec §6): member requests → house coach accepts
  * or declines → member pays (Task 6 syncs Stripe) → ACTIVE. Every status
  * write is conditional on the status it was read in, and legal only if
  * `nextCoachingStatus` allows it, so concurrent and replayed calls are safe.
@@ -88,7 +88,7 @@ function transition(current: CoachingStatus | null, event: CoachingEvent): Coach
   return next;
 }
 
-/** The club trainer of the org the coaching row belongs to. */
+/** The house coach of the org the coaching row belongs to. */
 function isTrainerFor(actor: Actor, coaching: MemberCoaching): boolean {
   return actor.role === "TRAINER" && actor.clerkOrgId !== null && actor.clerkOrgId === coaching.clerkOrgId;
 }
@@ -202,13 +202,12 @@ export async function requestCoaching(member: User, note: string): Promise<Membe
     throw new CoachingError("not_eligible", "Coaching is only available to club members.");
   }
   if (!org.coachingStripePriceId) throw new CoachingError("not_offered");
-  const trainer = await getClubTrainer(org.clerkOrgId);
-  if (!trainer) throw new CoachingError("not_offered");
 
   const membership = await prisma.memberSubscription.findUnique({ where: { userId: member.id } });
   if (evaluateMemberAccess(membership, new Date()) !== "ok") throw new CoachingError("not_eligible");
 
   const requestNote = parseRequiredNote(note);
+  const trainer = await requireHouseCoach(org.clerkOrgId);
   const coaching = await writeRequest(member.id, org.clerkOrgId, requestNote);
 
   const memberName = fullName(member);
@@ -282,7 +281,7 @@ export async function respondToCoachingRequest(
   return updated;
 }
 
-/** The member, or their club trainer, cancels a request or an unpaid offer. */
+/** The member, or their house coach, cancels a request or an unpaid offer. */
 export async function withdrawCoaching(actor: User, memberId: string): Promise<MemberCoaching> {
   const coaching = await loadCoaching(memberId);
   let event: CoachingEvent;
@@ -306,7 +305,7 @@ export async function withdrawCoaching(actor: User, memberId: string): Promise<M
 }
 
 /**
- * The club trainer ends coaching. Paid coaching runs to the end of the period
+ * The house coach ends coaching. Paid coaching runs to the end of the period
  * (Stripe's deleted event sets CANCELED later); an unpaid offer ends now.
  */
 export async function endCoaching(trainer: User, memberId: string): Promise<MemberCoaching> {
@@ -664,7 +663,7 @@ export async function markCoachingPastDue(
   return true;
 }
 
-/** The club trainer's inbox: open requests, oldest first. */
+/** The house coach's inbox: open requests, oldest first. */
 export async function listCoachingRequests(clerkOrgId: string): Promise<CoachingWithUser[]> {
   return prisma.memberCoaching.findMany({
     where: { clerkOrgId, status: "REQUESTED" },

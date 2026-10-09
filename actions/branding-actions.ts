@@ -1,6 +1,6 @@
 "use server";
 
-import { activeUserOnly } from "@/lib/auth/active-user";
+import { activeCallerOnly } from "@/lib/auth/active-user";
 import { createHash } from "node:crypto";
 import { auth } from "@clerk/nextjs/server";
 import {
@@ -64,7 +64,7 @@ async function requireTrainerOrg(): Promise<
   const { userId } = await auth();
   if (!userId) return { ok: false, error: "Unauthorized" };
 
-  const dbUser = activeUserOnly(await prisma.user.findUnique({ where: { clerkId: userId } }));
+  const dbUser = await activeCallerOnly(await prisma.user.findUnique({ where: { clerkId: userId } }));
   if (!dbUser) return { ok: false, error: "Unauthorized" };
   if (dbUser.role !== "TRAINER") return { ok: false, error: "Forbidden" };
   if (!dbUser.clerkOrgId) return { ok: false, error: "Organization not set up" };

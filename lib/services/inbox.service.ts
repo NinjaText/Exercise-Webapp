@@ -92,6 +92,20 @@ async function getThreadVoiceNotes(
   return (memos as VoiceMemoWithContext[]).map(toVoiceNoteItem);
 }
 
+/**
+ * Staff-only: labels messages a super admin sent as the house coach with the
+ * admin's first name. One query for the thread's distinct admins.
+ */
+async function withAdminNames<T extends { sentByAdminId?: string | null }>(
+  messages: T[],
+): Promise<(T & { sentByAdminName?: string | null })[]> {
+  const ids = [...new Set(messages.map((m) => m.sentByAdminId).filter((id): id is string => !!id))];
+  if (ids.length === 0) return messages;
+  const admins = await prisma.user.findMany({ where: { id: { in: ids } }, select: { id: true, firstName: true } });
+  const names = new Map(admins.map((a) => [a.id, a.firstName]));
+  return messages.map((m) => (m.sentByAdminId ? { ...m, sentByAdminName: names.get(m.sentByAdminId) ?? null } : m));
+}
+
 function mergeThreadItems(
   messages: ThreadMessage[],
   voiceNotes: ThreadVoiceNoteItem[],
@@ -111,14 +125,14 @@ function mergeThreadItems(
 export async function getThreadItems(
   trainerId: string,
   clientId: string,
-  opts?: { includeInternal?: boolean },
+  opts?: { includeInternal?: boolean; viewer?: "staff" },
 ): Promise<ThreadItem[]> {
   const [messages, voiceNotes] = await Promise.all([
     messageService.getThread(trainerId, clientId, opts),
     getThreadVoiceNotes(trainerId, clientId),
   ]);
 
-  return mergeThreadItems(messages, voiceNotes);
+  return mergeThreadItems(opts?.viewer === "staff" ? await withAdminNames(messages) : messages, voiceNotes);
 }
 
 /**
@@ -130,7 +144,7 @@ export async function getThreadItems(
  */
 export async function getInboxThreadData(trainerId: string, clientId: string) {
   const [messages, voiceNotes, [currentProgram]] = await Promise.all([
-    messageService.getThread(trainerId, clientId, { includeInternal: true }),
+    messageService.getThread(trainerId, clientId, { includeInternal: true, viewer: "staff" }).then(withAdminNames),
     getThreadVoiceNotes(trainerId, clientId),
     programService.getProgramsForClient(clientId),
   ]);

@@ -14,6 +14,17 @@ function maskIfDeleted<T extends { content: string; deletedAt: Date | null }>(me
   return message.deletedAt ? { ...message, content: "" } : message;
 }
 
+/**
+ * `sentByAdminId` is staff-only attribution. Every message read strips it by
+ * default; only a caller on a TRAINER-gated path opts in with
+ * `viewer: "staff"`. Client-reachable reads must never pass it.
+ */
+function stripStaffFields<T extends { sentByAdminId: string | null }>(message: T): Omit<T, "sentByAdminId"> & { sentByAdminId?: undefined } {
+  const { sentByAdminId: _omit, ...rest } = message;
+  void _omit;
+  return rest;
+}
+
 export async function sendMessage(data: {
   senderId: string;
   recipientId: string;
@@ -22,6 +33,8 @@ export async function sendMessage(data: {
   planExerciseId?: string;
   replyContext?: ReplyContextInput;
   isInternal?: boolean;
+  /** Super admin operating the house coach account, when one sent this. */
+  sentByAdminId?: string | null;
 }) {
   const { replyContext, ...messageData } = data;
 
@@ -82,6 +95,7 @@ export async function sendVoiceMessage(data: {
   recipientId: string;
   audioUrl: string;
   audioDurationSec: number;
+  sentByAdminId?: string | null;
 }) {
   return prisma.message.create({
     data: { ...data, content: "" },
@@ -92,7 +106,7 @@ export async function sendVoiceMessage(data: {
 export async function getThread(
   userId1: string,
   userId2: string,
-  opts?: { includeInternal?: boolean },
+  opts?: { includeInternal?: boolean; viewer?: "staff" },
 ) {
   const messages = await prisma.message.findMany({
     where: {
@@ -106,7 +120,10 @@ export async function getThread(
     orderBy: { createdAt: "asc" },
   });
 
-  return messages.map(maskIfDeleted);
+  return messages.map((m) => {
+    const masked = maskIfDeleted(m);
+    return opts?.viewer === "staff" ? masked : stripStaffFields(masked);
+  });
 }
 
 export async function markRead(senderId: string, recipientId: string) {
@@ -153,7 +170,7 @@ export async function getInboxThreads(userId: string, opts?: { includeInternal?:
 
   // Deleted messages still anchor a thread's position, but their content must
   // never surface in the inbox preview.
-  const messages = rawMessages.map(maskIfDeleted);
+  const messages = rawMessages.map((m) => stripStaffFields(maskIfDeleted(m)));
 
   // Build a quick lookup: senderId → unread count
   const unreadBySender = new Map(

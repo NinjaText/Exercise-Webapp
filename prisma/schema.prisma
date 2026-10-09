@@ -236,6 +236,8 @@ model Organization {
   resourceProgramIds    String[] @default([]) @db.ObjectId
   /// Club-only. Recurring Stripe price for the coaching add-on; null → coaching not offered.
   coachingStripePriceId String?
+  /// Club-only. The built-in house coach User. null until ensureHouseCoach runs.
+  houseCoachUserId      String?  @db.ObjectId
 
   // ── Branding ─────────────────────────────────────────────────────────────
   /// Master switch. false → every surface uses the product defaults, even if
@@ -261,6 +263,31 @@ model Organization {
   updatedAt DateTime @updatedAt
 
   @@index([joinSlug])
+  @@index([houseCoachUserId])
+}
+
+/// One row per admin "Manage club" visit.
+model AdminClubSession {
+  id               String    @id @default(auto()) @map("_id") @db.ObjectId
+  adminUserId      String    @db.ObjectId
+  clerkOrgId       String
+  houseCoachUserId String    @db.ObjectId
+  startedAt        DateTime  @default(now())
+  expiresAt        DateTime
+  endedAt          DateTime?
+
+  @@index([clerkOrgId, startedAt])
+  @@index([adminUserId])
+}
+
+/// Super admins who receive club coaching alert emails.
+model ClubAlertSubscriber {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String   @unique @db.ObjectId
+  email     String
+  muted     Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model ClientProfile {
@@ -550,6 +577,8 @@ model Message {
   // Soft delete: rows are never removed so thread ordering and read-receipt
   // history stay intact. The UI renders a placeholder when this is set.
   deletedAt        DateTime?
+  /// Set when a house coach sends: the super admin actually typing.
+  sentByAdminId    String?       @db.ObjectId
 
   // Reply-to-client-note context. Denormalized (plain id + cached strings, not
   // a relation) so the quoted card stays stable even if the underlying session

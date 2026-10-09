@@ -31,10 +31,6 @@ vi.mock('@/lib/services/user-deletion.service', () => ({
 
 vi.mock('@/lib/services/club-member.service', () => ({ ensureMemberSubscription: vi.fn() }))
 vi.mock('@/lib/services/member-billing.service', () => ({ cancelMemberBillingForDeletion: vi.fn() }))
-vi.mock('@/lib/services/club-trainer.service', () => ({
-  ensureClubTrainerUser: vi.fn(),
-  revokeRefusedTrainerMembership: vi.fn(),
-}))
 vi.mock('@/lib/services/pending-program-assignment.service', () => ({
   applyPendingAssignmentsForNewClient: vi.fn(),
 }))
@@ -51,9 +47,7 @@ import { deleteUserData, findDeletionBlockers } from '@/lib/services/user-deleti
 import { revalidateTag } from 'next/cache'
 import { clerkClient } from '@clerk/nextjs/server'
 import { ensureMemberSubscription } from '@/lib/services/club-member.service'
-import { ensureClubTrainerUser, revokeRefusedTrainerMembership } from '@/lib/services/club-trainer.service'
 import { applyPendingAssignmentsForNewClient } from '@/lib/services/pending-program-assignment.service'
-import { ClubError } from '@/lib/services/club-error'
 import { cancelMemberBillingForDeletion } from '@/lib/services/member-billing.service'
 import { POST } from '../route'
 
@@ -314,112 +308,104 @@ describe('organizationMembership.created webhook event (club backup path)', () =
   })
 })
 
-describe('organizationMembership.created with a club TRAINER invite', () => {
-  const trainerEvent = {
-    type: 'organizationMembership.created',
-    data: {
-      organization: { id: 'org_club' },
-      public_user_data: { user_id: 'clerk_t' },
-      public_metadata: { invitedRole: 'TRAINER' },
-    },
-  }
-  const invitationList = vi.fn()
+describe('house coach events are ignored', () => {
+  const coachClerkUser = (publicMetadata: unknown) => ({
+    emailAddresses: [{ id: 'e1', emailAddress: 'house-coach+org_club@x.com' }],
+    primaryEmailAddressId: 'e1',
+    firstName: 'Coach',
+    lastName: 'Pine',
+    imageUrl: 'https://img.clerk.com/default.png',
+    publicMetadata,
+  })
 
   beforeEach(() => {
-    invitationList.mockResolvedValue({ data: [] })
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(null as never)
+    vi.mocked(prisma.organization.findUnique).mockResolvedValue(null as never)
+  })
+
+  it('organizationMembership.created for a Clerk user flagged houseCoach creates nothing', async () => {
     vi.mocked(clerkClient).mockResolvedValue({
-      users: {
-        getUser: vi.fn().mockResolvedValue({
-          emailAddresses: [{ id: 'e1', emailAddress: 't@club.com' }],
-          primaryEmailAddressId: 'e1',
-          firstName: 'T',
-          lastName: 'Rainer',
-          imageUrl: '',
-        }),
-      },
-      organizations: { getOrganizationInvitationList: invitationList },
+      users: { getUser: vi.fn().mockResolvedValue(coachClerkUser({ houseCoach: true })) },
+      organizations: { getOrganizationInvitationList: vi.fn() },
     } as never)
-    vi.mocked(prisma.user.upsert).mockResolvedValue({ id: 'u1', role: 'CLIENT' } as never)
-    vi.mocked(prisma.user.findFirst).mockResolvedValue(null as never)
-  })
 
-  it('ensures a club TRAINER and skips the CLIENT upsert, trial and pending assignments', async () => {
-    const org = { clerkOrgId: 'org_club', type: 'CLUB' }
-    vi.mocked(prisma.organization.findUnique).mockResolvedValue(org as never)
-
-    const res = await POST(makeRequest(trainerEvent))
-
-    expect(res.status).toBe(200)
-    expect(ensureClubTrainerUser).toHaveBeenCalledWith('clerk_t', org)
-    expect(prisma.user.upsert).not.toHaveBeenCalled()
-    expect(ensureMemberSubscription).not.toHaveBeenCalled()
-    expect(applyPendingAssignmentsForNewClient).not.toHaveBeenCalled()
-    // invitedRole came on the event: no invitation lookup needed
-    expect(invitationList).not.toHaveBeenCalled()
-  })
-
-  it('resolves invitedRole from the accepted invitation when the event lacks it', async () => {
-    const org = { clerkOrgId: 'org_club', type: 'CLUB' }
-    vi.mocked(prisma.organization.findUnique).mockResolvedValue(org as never)
-    invitationList.mockResolvedValue({ data: [{ emailAddress: 'T@club.com', publicMetadata: { invitedRole: 'TRAINER' } }] })
-
-    await POST(makeRequest({ ...trainerEvent, data: { ...trainerEvent.data, public_metadata: {} } }))
-
-    expect(ensureClubTrainerUser).toHaveBeenCalledWith('clerk_t', org)
-    expect(prisma.user.upsert).not.toHaveBeenCalled()
-  })
-
-  it('logs and skips (200) when the account already belongs elsewhere, moving nothing', async () => {
-    vi.mocked(prisma.organization.findUnique).mockResolvedValue({ clerkOrgId: 'org_club', type: 'CLUB' } as never)
-    vi.mocked(ensureClubTrainerUser).mockRejectedValueOnce(new ClubError('trainer_email_taken'))
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
-
-    const res = await POST(makeRequest(trainerEvent))
-
-    expect(res.status).toBe(200)
-    expect(warn).toHaveBeenCalled()
-    expect(prisma.user.upsert).not.toHaveBeenCalled()
-    expect(ensureMemberSubscription).not.toHaveBeenCalled()
-    expect(revokeRefusedTrainerMembership).toHaveBeenCalledWith('clerk_t', 'org_club')
-  })
-
-  it('still acks 200 when removing the refused membership fails', async () => {
-    vi.mocked(prisma.organization.findUnique).mockResolvedValue({ clerkOrgId: 'org_club', type: 'CLUB' } as never)
-    vi.mocked(ensureClubTrainerUser).mockRejectedValueOnce(new ClubError('trainer_email_taken'))
-    vi.mocked(revokeRefusedTrainerMembership).mockRejectedValueOnce(new Error('clerk down'))
-    vi.spyOn(console, 'warn').mockImplementation(() => {})
-    vi.spyOn(console, 'error').mockImplementation(() => {})
-
-    const res = await POST(makeRequest(trainerEvent))
-
-    expect(res.status).toBe(200)
-  })
-
-  it('does not revoke anything on a successful trainer ensure', async () => {
-    vi.mocked(prisma.organization.findUnique).mockResolvedValue({ clerkOrgId: 'org_club', type: 'CLUB' } as never)
-    await POST(makeRequest(trainerEvent))
-    expect(revokeRefusedTrainerMembership).not.toHaveBeenCalled()
-  })
-
-  it('a trainer org ignores invitedRole and keeps the CLIENT path', async () => {
-    vi.mocked(prisma.organization.findUnique).mockResolvedValue({ clerkOrgId: 'org_club', type: null } as never)
-
-    await POST(makeRequest(trainerEvent))
-
-    expect(ensureClubTrainerUser).not.toHaveBeenCalled()
-    expect(prisma.user.upsert).toHaveBeenCalledWith(
-      expect.objectContaining({ create: expect.objectContaining({ role: 'CLIENT' }) })
+    const res = await POST(
+      makeRequest({
+        type: 'organizationMembership.created',
+        data: { organization: { id: 'org_club' }, public_user_data: { user_id: 'clerk_hc' } },
+      })
     )
+
+    expect(res.status).toBe(200)
+    expect(prisma.user.upsert).not.toHaveBeenCalled()
+    expect(prisma.user.updateMany).not.toHaveBeenCalled()
+    expect(ensureMemberSubscription).not.toHaveBeenCalled()
   })
 
-  it('a club member invite (no invitedRole) still takes the CLIENT path in a club', async () => {
-    const org = { clerkOrgId: 'org_club', type: 'CLUB' }
-    vi.mocked(prisma.organization.findUnique).mockResolvedValue(org as never)
+  it('organizationMembership.created is also ignored when only the DB link identifies the coach', async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({ id: 'u_hc', clerkOrgId: 'org_club' } as never)
+    vi.mocked(prisma.organization.findUnique).mockResolvedValue({ clerkOrgId: 'org_club', houseCoachUserId: 'u_hc' } as never)
+    vi.mocked(clerkClient).mockResolvedValue({
+      users: { getUser: vi.fn().mockResolvedValue(coachClerkUser({})) },
+      organizations: { getOrganizationInvitationList: vi.fn() },
+    } as never)
 
-    await POST(makeRequest({ ...trainerEvent, data: { ...trainerEvent.data, public_metadata: {} } }))
+    await POST(
+      makeRequest({
+        type: 'organizationMembership.created',
+        data: { organization: { id: 'org_club' }, public_user_data: { user_id: 'clerk_hc' } },
+      })
+    )
 
-    expect(ensureClubTrainerUser).not.toHaveBeenCalled()
-    expect(prisma.user.upsert).toHaveBeenCalled()
-    expect(ensureMemberSubscription).toHaveBeenCalledWith('u1', org)
+    expect(prisma.user.upsert).not.toHaveBeenCalled()
+  })
+
+  it('user.updated for a houseCoach user does not overwrite the row (image, email)', async () => {
+    const res = await POST(
+      makeRequest({
+        type: 'user.updated',
+        data: {
+          id: 'clerk_hc',
+          image_url: 'https://img.clerk.com/default.png',
+          public_metadata: { houseCoach: true },
+          primary_email_address_id: 'e1',
+          email_addresses: [{ id: 'e1', email_address: 'house-coach+org_club@x.com' }],
+        },
+      })
+    )
+
+    expect(res.status).toBe(200)
+    expect(prisma.user.updateMany).not.toHaveBeenCalled()
+  })
+
+  it('organizationMembership.deleted for the house coach does not null its clerkOrgId', async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({ id: 'u_hc', clerkOrgId: 'org_club' } as never)
+    vi.mocked(prisma.organization.findUnique).mockResolvedValue({ clerkOrgId: 'org_club', houseCoachUserId: 'u_hc' } as never)
+
+    await POST(
+      makeRequest({
+        type: 'organizationMembership.deleted',
+        data: { organization: { id: 'org_club' }, public_user_data: { user_id: 'clerk_hc' } },
+      })
+    )
+
+    expect(prisma.user.updateMany).not.toHaveBeenCalled()
+  })
+
+  it('organizationMembership.deleted for a normal member nulls its clerkOrgId', async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({ id: 'u_member', clerkOrgId: 'org_club' } as never)
+    vi.mocked(prisma.organization.findUnique).mockResolvedValue({ clerkOrgId: 'org_club', houseCoachUserId: 'u_hc' } as never)
+
+    await POST(
+      makeRequest({
+        type: 'organizationMembership.deleted',
+        data: { organization: { id: 'org_club' }, public_user_data: { user_id: 'clerk_member' } },
+      })
+    )
+
+    expect(prisma.user.updateMany).toHaveBeenCalledWith({
+      where: { clerkId: 'clerk_member' },
+      data: { clerkOrgId: null },
+    })
   })
 })

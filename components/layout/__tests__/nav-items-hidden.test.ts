@@ -18,7 +18,7 @@ describe("nav filtering by hidden hrefs", () => {
     expect(hrefs(getMoreItems("CLIENT", false, hidden))).not.toContain("/messages");
   });
 
-  // Billing is a settings tab, not an account nav entry; the club-trainer hiding
+  // Billing is a settings tab, not an account nav entry; the house-coach hiding
   // for that tab is covered in components/settings/__tests__/settings-header.test.tsx.
   it("never puts trainer billing in the account nav or More menu", () => {
     const hidden = ["/settings/billing"];

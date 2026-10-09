@@ -15,10 +15,12 @@ vi.mock('@/lib/prisma', () => ({
   prisma: {
     notification: { create: vi.fn(), findFirst: vi.fn() },
     notificationPreference: { findUnique: vi.fn(), create: vi.fn(), upsert: vi.fn() },
-    user: { findUnique: vi.fn() },
+    user: { findUnique: vi.fn(), findMany: vi.fn() },
+    organization: { findFirst: vi.fn().mockResolvedValue(null) },
   },
 }))
 
+vi.mock('@/lib/services/club-alerts.service', () => ({ getClubAlertRecipients: vi.fn() }))
 vi.mock('@/lib/email/send', () => ({ sendEmail: vi.fn() }))
 vi.mock('@/lib/email/branding', () => ({
   getClientEmailBranding: vi.fn(),

@@ -9,7 +9,7 @@ import { ClubForm, clubFormPayload, type ClubFormValues } from "../club-form";
 
 const values: ClubFormValues = {
   name: "Pine", joinSlug: "pine", joinCode: "PINE24", trialDays: 14,
-  membershipAmount: "14.99", coachingAmount: "30.00", starterProgramIds: [], resourceProgramIds: [], trainerEmail: "",
+  membershipAmount: "14.99", coachingAmount: "30.00", starterProgramIds: [], resourceProgramIds: [],
 };
 
 describe("ClubForm", () => {

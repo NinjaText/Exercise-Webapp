@@ -3,6 +3,7 @@ import { AdminSidebar } from "@/components/admin/admin-sidebar";
 import { AdminMobileNav } from "@/components/admin/admin-mobile-nav";
 import { AdminTopBar } from "@/components/admin/admin-top-bar";
 import { BreadcrumbProvider } from "@/components/layout/breadcrumb-context";
+import { ensureClubAlertSubscriber, getTotalClubAttention } from "@/lib/services/club-alerts.service";
 import { StatusBadge } from "@/components/shared/status-badge";
 
 export const metadata = { title: "Super Admin — INMOTUS RX" };
@@ -10,12 +11,22 @@ export const metadata = { title: "Super Admin — INMOTUS RX" };
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const user = await requireSuperAdmin();
 
+  // Alert subscription + sidebar badge must never break the admin shell.
+  const [, clubAttention] = await Promise.all([
+    ensureClubAlertSubscriber(user).catch((err) => console.error("[admin] alert subscriber upsert failed:", err)),
+    getTotalClubAttention().catch((err) => {
+      console.error("[admin] club attention count failed:", err);
+      return 0;
+    }),
+  ]);
+
   return (
     <BreadcrumbProvider>
       <div data-app-shell className="flex h-dvh overflow-hidden bg-canvas">
         <AdminSidebar
           userName={`${user.firstName} ${user.lastName}`}
           userEmail={user.email}
+          clubAttention={clubAttention}
         />
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
           {/* Top bar: same 56px bar and gutter as the platform shell. */}
@@ -28,6 +39,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
                 userName={`${user.firstName} ${user.lastName}`}
                 userEmail={user.email}
                 userImageUrl={user.imageUrl}
+                clubAttention={clubAttention}
               />
               <StatusBadge status="admin" role="brand" label="Super Admin" size="sm" />
               <AdminTopBar />

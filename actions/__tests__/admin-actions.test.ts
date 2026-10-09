@@ -8,6 +8,7 @@ vi.mock('@/lib/prisma', () => ({
       delete: vi.fn(),
       findUnique: vi.fn(),
     },
+    organization: { findFirst: vi.fn() },
   },
 }))
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
@@ -70,6 +71,17 @@ describe('archiveUserAction', () => {
     }))
   })
 
+  it('refuses to deactivate a club house coach', async () => {
+    vi.mocked(prisma.organization.findFirst).mockResolvedValueOnce({ id: 'org_row' } as never)
+    const result = await archiveUserAction('hc_1')
+    expect(result).toEqual({
+      success: false,
+      error: "This is a club's built-in coach account; manage the club instead.",
+    })
+    expect(prisma.organization.findFirst).toHaveBeenCalledWith({ where: { houseCoachUserId: 'hc_1' }, select: { id: true } })
+    expect(mockUserUpdate).not.toHaveBeenCalled()
+  })
+
   it('returns error when not super admin', async () => {
     mockRequireSuperAdmin.mockRejectedValue(new Error('Forbidden'))
     const result = await archiveUserAction('user_1')
@@ -108,6 +120,17 @@ describe('restoreUserAction', () => {
 })
 
 describe('deleteUserAction', () => {
+  it('refuses to delete a club house coach', async () => {
+    vi.mocked(prisma.organization.findFirst).mockResolvedValueOnce({ id: 'org_row' } as never)
+    const result = await deleteUserAction('hc_1')
+    expect(result).toEqual({
+      success: false,
+      error: "This is a club's built-in coach account; manage the club instead.",
+    })
+    expect(mockDeleteUserData).not.toHaveBeenCalled()
+    expect(cancelMemberBillingForDeletion).not.toHaveBeenCalled()
+  })
+
   it('cancels club member billing before deleting any data', async () => {
     const result = await deleteUserAction('user_1')
     expect(result.success).toBe(true)

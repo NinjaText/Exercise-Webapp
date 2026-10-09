@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 vi.mock('@clerk/nextjs/server', () => ({ auth: vi.fn() }))
 vi.mock('@/lib/prisma', () => ({
   prisma: {
+    organization: { findFirst: vi.fn() },
     user: { findUnique: vi.fn() },
     exercise: { create: vi.fn(), findMany: vi.fn(async () => []) },
     $transaction: vi.fn(),

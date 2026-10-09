@@ -85,6 +85,9 @@ export const AUDIT_ACTION_CATALOG = {
   BRANDING_RESET: { label: "Reset branding to defaults", category: "ORGANIZATION", tone: "warning" },
   CLUB_CREATED: { label: "Created club", category: "ORGANIZATION", tone: "success" },
   CLUB_UPDATED: { label: "Updated club", category: "ORGANIZATION", tone: "info" },
+  CLUB_SESSION_STARTED: { label: "Entered club as house coach", category: "ACCESS", tone: "warning" },
+  CLUB_SESSION_ENDED: { label: "Exited club", category: "ACCESS", tone: "neutral" },
+  // Historical: the invited club trainer was replaced by the house coach; kept so old log rows still render.
   CLUB_TRAINER_INVITED: { label: "Invited club trainer", category: "USERS", tone: "info" },
   CLUB_TRAINER_REMOVED: { label: "Removed club trainer", category: "USERS", tone: "warning" },
   CLUB_TRAINER_ONBOARDED: { label: "Club trainer completed onboarding", category: "USERS", tone: "success" },

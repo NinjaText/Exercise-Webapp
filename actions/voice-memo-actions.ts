@@ -1,6 +1,6 @@
 "use server"
 
-import { activeUserOnly } from "@/lib/auth/active-user"
+import { activeCallerOnly } from "@/lib/auth/active-user"
 import { auth } from "@clerk/nextjs/server"
 import { revalidatePath } from "next/cache"
 import { randomUUID } from "crypto"
@@ -52,7 +52,7 @@ async function clientPairRefused(user: SendingUser, trainerId: string | null): P
 async function getAuthedUser() {
   const { userId: clerkId } = await auth()
   if (!clerkId) return null
-  return activeUserOnly(await prisma.user.findUnique({ where: { clerkId } }))
+  return await activeCallerOnly(await prisma.user.findUnique({ where: { clerkId } }))
 }
 
 export async function generateVoiceMemoPresignedUrl(

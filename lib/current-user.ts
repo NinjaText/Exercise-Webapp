@@ -2,10 +2,11 @@ import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import type { User } from "@prisma/client";
-import { getOrgCapabilities } from "@/lib/org-capabilities";
+import { isStaleHouseCoach } from "@/lib/clubs/house-coach-guard";
+import { isSuperAdminEmail } from "@/lib/auth/super-admin-emails";
 
 export async function getCurrentUser(): Promise<User> {
-  const { userId, orgId } = await auth();
+  const { userId, orgId, sessionClaims } = await auth();
   if (!userId) redirect("/sign-in");
 
   let user = await prisma.user.findUnique({
@@ -20,6 +21,9 @@ export async function getCurrentUser(): Promise<User> {
 
   if (!user.isActive) redirect("/account-deactivated");
 
+  // Backstop for the proxy guard (spec H9).
+  if (await isStaleHouseCoach(user, sessionClaims)) redirect("/club-session/ended");
+
   // Auto-sync clerkOrgId from the live Clerk session into the DB.
   // This handles accounts created before Clerk Organizations were configured —
   // the DB field stays null until the user logs in again, at which point it's fixed.
@@ -32,13 +36,6 @@ export async function getCurrentUser(): Promise<User> {
 
   if (!user.onboarded) {
     if (user.role === "CLIENT") redirect("/onboarding/client");
-    // Same rule as the platform layout: a TRAINER in a member-billed org is
-    // the invited club trainer. (Queried directly: org-capabilities.server
-    // imports this module.)
-    const org = user.clerkOrgId
-      ? await prisma.organization.findUnique({ where: { clerkOrgId: user.clerkOrgId } })
-      : null;
-    if (org && getOrgCapabilities(org).billing === "member") redirect("/onboarding/club-trainer");
     redirect("/onboarding");
   }
 
@@ -69,11 +66,7 @@ export async function requireSuperAdmin(): Promise<User> {
   const hasClerkFlag = meta?.superAdmin === true;
 
   // Env-var fallback — add SUPER_ADMIN_EMAILS=you@example.com to .env
-  const allowedEmails = (process.env.SUPER_ADMIN_EMAILS ?? "")
-    .split(",")
-    .map((e) => e.trim().toLowerCase())
-    .filter(Boolean);
-  const hasEmailFlag = allowedEmails.includes(user.email.toLowerCase());
+  const hasEmailFlag = isSuperAdminEmail(user.email);
 
   if (!hasClerkFlag && !hasEmailFlag) redirect("/dashboard");
   return user;
@@ -89,9 +82,5 @@ export async function isSuperAdmin(): Promise<boolean> {
   const user = await prisma.user.findUnique({ where: { clerkId: userId } });
   if (!user) return false;
 
-  const allowedEmails = (process.env.SUPER_ADMIN_EMAILS ?? "")
-    .split(",")
-    .map((e) => e.trim().toLowerCase())
-    .filter(Boolean);
-  return allowedEmails.includes(user.email.toLowerCase());
+  return isSuperAdminEmail(user.email);
 }

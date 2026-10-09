@@ -5,20 +5,17 @@ vi.mock("@/actions/onboarding-actions", () => ({
   completeClientOnboarding: vi.fn(),
   completeTrainerOnboarding: vi.fn(),
 }));
-vi.mock("@/actions/club-trainer-onboarding-actions", () => ({ completeClubTrainerOnboarding: vi.fn() }));
 vi.mock("sonner", () => ({ toast: { error: vi.fn() } }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: vi.fn(), refresh: vi.fn() }) }));
 
 import { toast } from "sonner";
 import { completeClientOnboarding, completeTrainerOnboarding } from "@/actions/onboarding-actions";
-import { completeClubTrainerOnboarding } from "@/actions/club-trainer-onboarding-actions";
 import {
   ClientOnboardingForm,
   ClientOnboardingStepFields,
   submitClientOnboarding,
 } from "../client-onboarding-form";
 import { OnboardingForm, submitTrainerOnboarding } from "../onboarding-form";
-import { ClubTrainerOnboardingForm, submitClubTrainerOnboarding } from "../club-trainer-onboarding-form";
 import { EMPTY_CLIENT_ONBOARDING_VALUES, CLIENT_STEP_VALIDATORS, type ClientOnboardingValues } from "../onboarding-payloads";
 import { createStepFormState, stepFormReducer, type StepFormState } from "../step-form-state";
 
@@ -71,9 +68,9 @@ describe("client onboarding submit", () => {
   });
 
   it("still surfaces a server-side error", async () => {
-    vi.mocked(completeClientOnboarding).mockResolvedValue({ success: false, error: "This account was invited as the club trainer." });
+    vi.mocked(completeClientOnboarding).mockResolvedValue({ success: false, error: "This account already belongs to a club." });
     await submitClientOnboarding(FULL);
-    expect(toast.error).toHaveBeenCalledWith("This account was invited as the club trainer.");
+    expect(toast.error).toHaveBeenCalledWith("This account already belongs to a club.");
   });
 
   it("walking the steps (with Back) and submitting sends the same payload", async () => {
@@ -117,20 +114,6 @@ describe("trainer onboarding submit", () => {
       phone: "555 0100",
     });
     expect(toast.error).toHaveBeenCalledWith("This account already belongs to a club.");
-  });
-});
-
-describe("club trainer onboarding submit", () => {
-  it("calls completeClubTrainerOnboarding with { firstName, lastName } and reports success", async () => {
-    vi.mocked(completeClubTrainerOnboarding).mockResolvedValue({ ok: true });
-    await expect(submitClubTrainerOnboarding({ firstName: "Jo", lastName: "Doe" })).resolves.toBe(true);
-    expect(vi.mocked(completeClubTrainerOnboarding).mock.calls[0][0]).toStrictEqual({ firstName: "Jo", lastName: "Doe" });
-  });
-
-  it("toasts the server error and reports failure", async () => {
-    vi.mocked(completeClubTrainerOnboarding).mockResolvedValue({ ok: false, error: "Please sign in again." });
-    await expect(submitClubTrainerOnboarding({ firstName: "Jo", lastName: "Doe" })).resolves.toBe(false);
-    expect(toast.error).toHaveBeenCalledWith("Please sign in again.");
   });
 });
 
@@ -184,13 +167,5 @@ describe("rendering", () => {
     expect(html).toContain("Step 1 of 2");
     expect(html).toMatch(/<h2[^>]*>About you<\/h2>/);
     expect(html).not.toContain('id="organizationName"');
-  });
-
-  it("club trainer form: one step, names prefilled", () => {
-    const html = renderToStaticMarkup(<ClubTrainerOnboardingForm clubName="Pine Valley" initialFirstName="Jo" initialLastName="Doe" />);
-    expect(html).not.toContain('data-slot="step-progress"');
-    expect(html).toContain("Pine Valley");
-    expect(html).toMatch(/id="firstName"[^>]*value="Jo"|value="Jo"[^>]*id="firstName"/);
-    expect(html.match(/maxLength="80"/g)).toHaveLength(2);
   });
 });

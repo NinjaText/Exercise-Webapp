@@ -39,7 +39,7 @@ export default async function BillingPage({
     return <MemberBillingView org={org} sub={memberSub} reason={memberReason ?? null} userId={user.id} />;
   }
   if (user.role !== "TRAINER") redirect("/dashboard");
-  // Club trainers never pay (trainerBilling off).
+  // House coaches never pay (trainerBilling off).
   if (!(await getCapabilitiesForUser(user)).trainerBilling) redirect("/dashboard");
 
   const sub = await prisma.trainerSubscription.findUnique({

@@ -35,9 +35,17 @@ async function logUserAction(
   }
 }
 
+const HOUSE_COACH_ERROR = "This is a club's built-in coach account; manage the club instead.";
+
+/** A club's house coach is managed through its club, never from the user tools. */
+async function isHouseCoach(userId: string): Promise<boolean> {
+  return !!(await prisma.organization.findFirst({ where: { houseCoachUserId: userId }, select: { id: true } }));
+}
+
 export async function archiveUserAction(userId: string) {
   try {
     const admin = await requireSuperAdmin();
+    if (await isHouseCoach(userId)) return { success: false as const, error: HOUSE_COACH_ERROR };
     await prisma.user.update({ where: { id: userId }, data: { isActive: false } });
     await logUserAction(AUDIT_ACTIONS.USER_DEACTIVATED, admin, userId);
     revalidatePath("/admin/users");
@@ -62,6 +70,7 @@ export async function restoreUserAction(userId: string) {
 export async function deleteUserAction(userId: string) {
   try {
     const admin = await requireSuperAdmin();
+    if (await isHouseCoach(userId)) return { success: false as const, error: HOUSE_COACH_ERROR };
 
     // Captured before the delete so the audit label/org are still available
     // afterward (the row will be gone). A lookup failure here degrades to no

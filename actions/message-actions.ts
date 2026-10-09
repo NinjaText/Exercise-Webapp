@@ -1,6 +1,6 @@
 "use server";
 
-import { activeUserOnly } from "@/lib/auth/active-user";
+import { activeCallerOnly } from "@/lib/auth/active-user";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
@@ -24,6 +24,7 @@ import {
   getCapabilitiesForUser,
 } from "@/lib/org-capabilities.server";
 import { MESSAGING_UNAVAILABLE } from "@/lib/org-capabilities";
+import { getActingAdminFor } from "@/lib/clubs/acting-admin-for";
 
 const MESSAGE_PREVIEW_MAX_LENGTH = 200;
 
@@ -135,7 +136,7 @@ export async function sendMessageAction(input: {
   const { userId } = await auth();
   if (!userId) return { success: false as const, error: "Unauthorized" };
 
-  const dbUser = activeUserOnly(await prisma.user.findUnique({ where: { clerkId: userId } }));
+  const dbUser = await activeCallerOnly(await prisma.user.findUnique({ where: { clerkId: userId } }));
   if (!dbUser) return { success: false as const, error: "User not found" };
   if (await messagingDisabled(dbUser)) return { success: false as const, error: MESSAGING_UNAVAILABLE };
 
@@ -158,9 +159,11 @@ export async function sendMessageAction(input: {
   }
 
   try {
+    const admin = await getActingAdminFor(dbUser);
     const message = await messageService.sendMessage({
       senderId: dbUser.id,
       ...parsed.data,
+      sentByAdminId: admin?.adminUserId ?? null,
     });
 
     broadcastNewMessage(message);
@@ -184,7 +187,11 @@ export async function sendMessageAction(input: {
     }
 
     revalidatePath("/messages");
-    return { success: true as const, data: message };
+    // The sender's own view (staff) labels the admin; this never reaches the client's channel.
+    return {
+      success: true as const,
+      data: admin ? { ...message, sentByAdminName: admin.adminName.split(" ")[0] } : message,
+    };
   } catch (error) {
     console.error("Failed to send message:", error);
     return { success: false as const, error: "Failed to send message" };
@@ -195,7 +202,7 @@ export async function editMessageAction(messageId: string, newContent: string) {
   const { userId } = await auth();
   if (!userId) return { success: false as const, error: "Unauthorized" };
 
-  const dbUser = activeUserOnly(await prisma.user.findUnique({ where: { clerkId: userId } }));
+  const dbUser = await activeCallerOnly(await prisma.user.findUnique({ where: { clerkId: userId } }));
   if (!dbUser) return { success: false as const, error: "User not found" };
 
   const parsed = editMessageSchema.safeParse({ messageId, content: newContent });
@@ -225,7 +232,7 @@ export async function deleteMessageAction(messageId: string) {
   const { userId } = await auth();
   if (!userId) return { success: false as const, error: "Unauthorized" };
 
-  const dbUser = activeUserOnly(await prisma.user.findUnique({ where: { clerkId: userId } }));
+  const dbUser = await activeCallerOnly(await prisma.user.findUnique({ where: { clerkId: userId } }));
   if (!dbUser) return { success: false as const, error: "User not found" };
 
   if (!messageId) return { success: false as const, error: "Message is required" };
@@ -257,7 +264,7 @@ export async function replyToClientNoteAction(
   const { userId } = await auth();
   if (!userId) return { success: false as const, error: "Unauthorized" };
 
-  const dbUser = activeUserOnly(await prisma.user.findUnique({ where: { clerkId: userId } }));
+  const dbUser = await activeCallerOnly(await prisma.user.findUnique({ where: { clerkId: userId } }));
   if (!dbUser) return { success: false as const, error: "User not found" };
   if (await messagingDisabled(dbUser)) return { success: false as const, error: MESSAGING_UNAVAILABLE };
 
@@ -305,8 +312,10 @@ export async function replyToClientNoteAction(
       return { success: false as const, error: MESSAGING_UNAVAILABLE };
     }
 
+    const admin = await getActingAdminFor(dbUser);
     const message = await messageService.sendMessage({
       senderId: dbUser.id,
+      sentByAdminId: admin?.adminUserId ?? null,
       recipientId: log.session.clientId,
       content: parsed.data.content,
       replyContext: {
@@ -346,7 +355,7 @@ export async function markMessagesReadAction(senderId: string) {
   const { userId } = await auth();
   if (!userId) return { success: false as const, error: "Unauthorized" };
 
-  const dbUser = activeUserOnly(await prisma.user.findUnique({ where: { clerkId: userId } }));
+  const dbUser = await activeCallerOnly(await prisma.user.findUnique({ where: { clerkId: userId } }));
   if (!dbUser) return { success: false as const, error: "User not found" };
 
   try {
@@ -372,7 +381,7 @@ export async function sendBroadcastMessageAction(input: {
   const { userId } = await auth();
   if (!userId) return { success: false as const, error: "Unauthorized" };
 
-  const dbUser = activeUserOnly(await prisma.user.findUnique({ where: { clerkId: userId } }));
+  const dbUser = await activeCallerOnly(await prisma.user.findUnique({ where: { clerkId: userId } }));
   if (!dbUser) return { success: false as const, error: "User not found" };
   if (await messagingDisabled(dbUser)) return { success: false as const, error: MESSAGING_UNAVAILABLE };
   if (dbUser.role !== "TRAINER") {
@@ -398,6 +407,7 @@ export async function sendBroadcastMessageAction(input: {
       return { success: false as const, error: "No valid recipients" };
     }
 
+    const admin = await getActingAdminFor(dbUser);
     let sentCount = 0;
     for (const recipientId of recipientIds) {
       try {
@@ -405,6 +415,7 @@ export async function sendBroadcastMessageAction(input: {
           senderId: dbUser.id,
           recipientId,
           content: parsed.data.content,
+          sentByAdminId: admin?.adminUserId ?? null,
         });
         broadcastNewMessage(message);
         sentCount += 1;

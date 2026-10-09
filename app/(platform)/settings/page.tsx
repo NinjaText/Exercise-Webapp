@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { isHouseCoach } from "@/lib/services/house-coach.service";
 import { getCurrentUser } from "@/lib/current-user";
 import { SettingsPanels } from "@/components/settings/settings-section";
 import { ProfilePanel } from "@/components/settings/account/profile-panel";
@@ -10,6 +12,8 @@ import { DeleteAccountSection } from "@/components/settings/delete-account-secti
 
 export default async function AccountSettingsPage() {
   const user = await getCurrentUser();
+  // The Account tab is hidden for house coaches; don't leave it reachable by URL.
+  if (await isHouseCoach(user)) redirect("/settings/notifications");
 
   return (
     <SettingsPanels>

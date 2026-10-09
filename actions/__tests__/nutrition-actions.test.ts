@@ -6,6 +6,7 @@ const trainer = { id: 'trainer_1', role: 'TRAINER' }
 vi.mock('@clerk/nextjs/server', () => ({ auth: vi.fn() }))
 vi.mock('@/lib/prisma', () => ({
   prisma: {
+    organization: { findFirst: vi.fn() },
     user: { findUnique: vi.fn() },
     nutritionLog: { findUnique: vi.fn(), findMany: vi.fn() },
   },
