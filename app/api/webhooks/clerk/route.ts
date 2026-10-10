@@ -12,12 +12,23 @@ import { ensureMemberSubscription } from "@/lib/services/club-member.service";
 import { applyPendingAssignmentsForNewClient } from "@/lib/services/pending-program-assignment.service";
 import { deleteUserData, findDeletionBlockers } from "@/lib/services/user-deletion.service";
 import { cancelMemberBillingForDeletion } from "@/lib/services/member-billing.service";
-import { ensureClubTrainerUser, revokeRefusedTrainerMembership } from "@/lib/services/club-trainer.service";
-import { ClubError } from "@/lib/services/club-error";
+import { isHouseCoach } from "@/lib/services/house-coach.service";
 import type { InviteClientMetadata } from "@/actions/invite-client-action";
 
-/** Client invites carry profile details; club trainer invites carry `invitedRole`. */
-type MembershipInviteMetadata = InviteClientMetadata & { invitedRole?: "TRAINER" };
+type MembershipInviteMetadata = InviteClientMetadata;
+
+/**
+ * A club's house coach is created by the app, never by a signup: its User row
+ * and profile are owned by ensureHouseCoach/syncHouseCoachProfile, so events
+ * for it must not create or overwrite anything. Clerk marks it with
+ * `public_metadata.houseCoach`; membership events don't carry metadata, so the
+ * DB link (an org's houseCoachUserId) is checked as well.
+ */
+async function isHouseCoachClerkUser(clerkUserId: string, publicMetadata?: unknown): Promise<boolean> {
+  if ((publicMetadata as { houseCoach?: unknown } | null | undefined)?.houseCoach === true) return true;
+  const row = await prisma.user.findUnique({ where: { clerkId: clerkUserId } });
+  return row ? isHouseCoach(row) : false;
+}
 
 /**
  * Recovers the profile details a trainer entered when sending the invitation.
@@ -35,7 +46,7 @@ async function resolveInviteMetadata(
   email: string
 ): Promise<MembershipInviteMetadata> {
   const fromEvent = (membershipPublicMetadata ?? {}) as MembershipInviteMetadata;
-  if (fromEvent.invitedFirstName || fromEvent.invitedLastName || fromEvent.invitedPhone || fromEvent.invitedRole) {
+  if (fromEvent.invitedFirstName || fromEvent.invitedLastName || fromEvent.invitedPhone) {
     return fromEvent;
   }
 
@@ -125,7 +136,8 @@ export async function POST(req: Request) {
   }
 
   if (evt.type === "user.updated") {
-    const { id, image_url, email_addresses, primary_email_address_id } = evt.data;
+    const { id, image_url, email_addresses, primary_email_address_id, public_metadata } = evt.data;
+    if (await isHouseCoachClerkUser(id, public_metadata)) return new NextResponse("OK", { status: 200 });
     // The primary address, not the first one listed: a user who adds a second
     // email and makes it primary must not keep (or lose) the wrong one here.
     const primaryEmail =
@@ -153,6 +165,9 @@ export async function POST(req: Request) {
     // Fetch full user details from Clerk
     const client = await clerkClient();
     const clerkUser = await client.users.getUser(clerkUserId);
+    if (await isHouseCoachClerkUser(clerkUserId, clerkUser.publicMetadata)) {
+      return new NextResponse("OK", { status: 200 });
+    }
     const primaryEmail =
       clerkUser.emailAddresses.find(
         (e) => e.id === clerkUser.primaryEmailAddressId
@@ -161,34 +176,7 @@ export async function POST(req: Request) {
     const inviteMetadata = primaryEmail
       ? await resolveInviteMetadata(public_metadata, orgId, primaryEmail)
       : {};
-    // A trainer org ignores invitedRole; only a member-billed (club) org has
-    // an invited club trainer.
-    const clubForTrainer =
-      inviteMetadata.invitedRole === "TRAINER"
-        ? await prisma.organization.findUnique({ where: { clerkOrgId: orgId } })
-        : null;
-
-    if (primaryEmail && clubForTrainer && getOrgCapabilities(clubForTrainer).billing === "member") {
-      // Club trainer: TRAINER row (never CLIENT), no trial, no pending
-      // assignments. An existing account is never moved: log and ack.
-      try {
-        await ensureClubTrainerUser(clerkUserId, clubForTrainer);
-      } catch (error) {
-        if (!(error instanceof ClubError)) throw error;
-        console.warn("[clerk-webhook] club trainer invite skipped:", {
-          clerkUserId,
-          orgId,
-          code: error.code,
-        });
-        // The refused account must not keep the invite's org:admin seat.
-        // Best-effort: the ack below must not depend on it.
-        try {
-          await revokeRefusedTrainerMembership(clerkUserId, orgId);
-        } catch (revokeError) {
-          console.error("[clerk-webhook] failed to remove refused trainer membership:", revokeError);
-        }
-      }
-    } else if (primaryEmail) {
+    if (primaryEmail) {
       const upserted = await prisma.user.upsert({
         where: { clerkId: clerkUserId },
         update: {
@@ -248,6 +236,7 @@ export async function POST(req: Request) {
     const { public_user_data } = evt.data as {
       public_user_data: { user_id: string };
     };
+    if (await isHouseCoachClerkUser(public_user_data.user_id)) return new NextResponse("OK", { status: 200 });
     await prisma.user.updateMany({
       where: { clerkId: public_user_data.user_id },
       data: { clerkOrgId: null },

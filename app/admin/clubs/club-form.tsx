@@ -25,8 +25,6 @@ export type ClubFormValues = {
   starterProgramIds: string[];
   /** Resources (on-demand); unordered, every member gets all of them at once. */
   resourceProgramIds: string[];
-  /** Create only; the edit form never sends it. */
-  trainerEmail: string;
 };
 
 /**
@@ -64,7 +62,6 @@ const EMPTY: ClubFormValues = {
   coachingAmount: "",
   starterProgramIds: [],
   resourceProgramIds: [],
-  trainerEmail: "",
 };
 
 /** An input with a fixed prefix and/or suffix, styled like the plain Input. */
@@ -268,25 +265,6 @@ export function ClubForm(props: Props) {
           </FormField>
         </div>
       </SectionCard>
-
-      {props.mode === "create" && (
-        <SectionCard title="Club trainer" description="The person who runs the club day to day.">
-          <FormField
-            label="Trainer email"
-            htmlFor="club-trainer-email"
-            hint="We'll invite them to run the club. It needs a dedicated account: the email can't already be in use."
-            required
-          >
-            <Input
-              id="club-trainer-email"
-              type="email"
-              placeholder="trainer@club.com"
-              value={values.trainerEmail}
-              onChange={(e) => set("trainerEmail", e.target.value)}
-            />
-          </FormField>
-        </SectionCard>
-      )}
 
       <SectionCard
         title="Starter programs"

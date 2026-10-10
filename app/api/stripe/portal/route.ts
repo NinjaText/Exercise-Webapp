@@ -12,7 +12,7 @@ export async function POST() {
   if (!user || user.role !== "TRAINER") {
     return new NextResponse("Forbidden", { status: 403 });
   }
-  // Club trainers never pay (trainerBilling off).
+  // House coaches never pay (trainerBilling off).
   if (!(await getCapabilitiesForUser(user)).trainerBilling) {
     return new NextResponse("Forbidden", { status: 403 });
   }

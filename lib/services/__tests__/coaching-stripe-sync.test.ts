@@ -4,7 +4,6 @@ vi.mock("@/lib/prisma", () => ({
   prisma: { memberCoaching: { findUnique: vi.fn(), findFirst: vi.fn(), updateMany: vi.fn() } },
 }));
 vi.mock("@/lib/org-capabilities.server", () => ({ getOrgForUser: vi.fn() }));
-vi.mock("@/lib/services/club-trainer.service", () => ({ getClubTrainer: vi.fn() }));
 vi.mock("@/lib/services/notification.service", () => ({ notifyUser: vi.fn() }));
 vi.mock("@/lib/services/audit-log.service", () => ({ logUserAudit: vi.fn() }));
 vi.mock("@/lib/stripe", () => ({

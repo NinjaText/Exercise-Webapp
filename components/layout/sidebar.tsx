@@ -2,6 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { UserButton } from "@clerk/nextjs";
+import { ExitClubButton } from "@/components/clubs/club-admin-banner";
 import { clerkAppearance } from "@/lib/ui/clerk-appearance";
 import { Settings, Shield } from "lucide-react";
 import { findActiveHref, getAccountNav, getPrimaryNav } from "./nav-items";
@@ -32,6 +33,8 @@ interface SidebarProps {
   hiddenHrefs?: string[];
   /** Client-safe branding subset (never tokens/CSS). */
   branding: BrandingViewModel;
+  /** A club's house coach: the user menu offers "Exit club" instead of sign out. */
+  houseCoach?: boolean;
 }
 
 export function Sidebar({
@@ -43,6 +46,7 @@ export function Sidebar({
   isAdmin = false,
   hiddenHrefs = [],
   branding,
+  houseCoach = false,
 }: SidebarProps) {
   const pathname = usePathname();
   const links = getPrimaryNav(role, hiddenHrefs);
@@ -103,7 +107,7 @@ export function Sidebar({
       </ScrollArea>
 
       <SidebarUserBlock
-        menu={<UserButton signInUrl="/sign-in" appearance={clerkAppearance} />}
+        menu={houseCoach ? <ExitClubButton /> : <UserButton signInUrl="/sign-in" appearance={clerkAppearance} />}
         name={userName}
         email={userEmail}
         footer={

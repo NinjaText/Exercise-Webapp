@@ -13,8 +13,6 @@ const ROOT = process.cwd();
 // Intentionally unguarded: onboarding/billing flows and org-gated routes.
 const ALLOWED = new Set([
   "actions/onboarding-actions.ts",
-  "actions/club-trainer-onboarding-actions.ts",
-  "actions/compliance-actions.ts", // requires a non-null clerkOrgId
   "app/api/branding/assets/route.ts", // requires a non-null clerkOrgId
 ]);
 
@@ -40,9 +38,15 @@ describe("deactivated users are refused by direct-auth actions and routes", () =
   it.each(files)("%s wraps its Clerk-id user lookups in activeUserOnly", (file) => {
     const src = readFileSync(join(ROOT, file), "utf8");
     const lookups = src.match(/prisma\.user\.find(?:Unique|First)\(\s*\{\s*where:\s*\{\s*clerkId(?::\s*\w+)?\s*\}/g) ?? [];
-    const guarded = src.match(/activeUserOnly\(\s*(?:await\s+)?prisma\.user\.find(?:Unique|First)\(\s*\{\s*where:\s*\{\s*clerkId/g) ?? [];
-    const guardedSelect = src.match(/activeUserOnly\(\s*await prisma\.user\.findUnique\(\{\s*where: \{ clerkId/g) ?? [];
+    const guarded = src.match(/(?:activeUserOnly|activeCallerOnly)\(\s*(?:await\s+)?prisma\.user\.find(?:Unique|First)\(\s*\{\s*where:\s*\{\s*clerkId/g) ?? [];
+    const guardedSelect = src.match(/(?:activeUserOnly|activeCallerOnly)\(\s*await prisma\.user\.findUnique\(\{\s*where: \{ clerkId/g) ?? [];
     expect(lookups.length).toBeLessThanOrEqual(Math.max(guarded.length, guardedSelect.length));
+  });
+
+  // Server actions also need the stale-house-coach backstop (route handlers rely on the proxy).
+  it.each(files.filter((f) => f.startsWith("actions/")))("%s uses activeCallerOnly, not activeUserOnly", (file) => {
+    const src = readFileSync(join(ROOT, file), "utf8");
+    expect(src).not.toMatch(/activeUserOnly\(/);
   });
 
   it.each(files)("%s never double-wraps activeUserOnly", (file) => {

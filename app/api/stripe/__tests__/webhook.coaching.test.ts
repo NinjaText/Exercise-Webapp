@@ -71,7 +71,6 @@ vi.mock('@/lib/services/stripe-billing.service', () => ({
 }))
 vi.mock('@/lib/services/program-purchase.service', () => ({ fulfillProgramPurchase: vi.fn() }))
 vi.mock('@/lib/org-capabilities.server', () => ({ getOrgForUser: vi.fn() }))
-vi.mock('@/lib/services/club-trainer.service', () => ({ getClubTrainer: vi.fn() }))
 vi.mock('@/lib/services/audit-log.service', () => ({ logUserAudit: vi.fn() }))
 // Real member billing, wrapped in spies.
 vi.mock('@/lib/services/member-billing.service', async (importOriginal) => {

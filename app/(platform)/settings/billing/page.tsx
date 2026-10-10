@@ -29,7 +29,7 @@ function Fact({ label, children }: { label: string; children: React.ReactNode })
 
 export default async function BillingSettingsPage() {
   const user = await requireRole("TRAINER");
-  // Club trainers never pay (trainerBilling off).
+  // House coaches never pay (trainerBilling off).
   await requireCapability("trainerBilling");
 
   const sub = await prisma.trainerSubscription.findUnique({

@@ -1,6 +1,6 @@
 "use server";
 
-import { activeUserOnly } from "@/lib/auth/active-user";
+import { activeCallerOnly } from "@/lib/auth/active-user";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
@@ -10,7 +10,7 @@ export async function startSessionAction(planId: string) {
   const { userId } = await auth();
   if (!userId) return { success: false as const, error: "Unauthorized" };
 
-  const dbUser = activeUserOnly(await prisma.user.findUnique({ where: { clerkId: userId } }));
+  const dbUser = await activeCallerOnly(await prisma.user.findUnique({ where: { clerkId: userId } }));
   if (!dbUser) return { success: false as const, error: "User not found" };
   if (dbUser.role !== "CLIENT") return { success: false as const, error: "Forbidden" };
 
@@ -39,7 +39,7 @@ export async function completeSessionExerciseAction(
   const { userId } = await auth();
   if (!userId) return { success: false as const, error: "Unauthorized" };
 
-  const dbUser = activeUserOnly(await prisma.user.findUnique({ where: { clerkId: userId } }));
+  const dbUser = await activeCallerOnly(await prisma.user.findUnique({ where: { clerkId: userId } }));
   if (!dbUser) return { success: false as const, error: "User not found" };
 
   // Verify the session belongs to this user
@@ -75,7 +75,7 @@ export async function completeSessionAction(
   const { userId } = await auth();
   if (!userId) return { success: false as const, error: "Unauthorized" };
 
-  const dbUser = activeUserOnly(await prisma.user.findUnique({ where: { clerkId: userId } }));
+  const dbUser = await activeCallerOnly(await prisma.user.findUnique({ where: { clerkId: userId } }));
   if (!dbUser) return { success: false as const, error: "User not found" };
 
   // Verify the session belongs to this user
@@ -102,7 +102,7 @@ export async function abandonSessionAction(sessionId: string) {
   const { userId } = await auth();
   if (!userId) return { success: false as const, error: "Unauthorized" };
 
-  const dbUser = activeUserOnly(await prisma.user.findUnique({ where: { clerkId: userId } }));
+  const dbUser = await activeCallerOnly(await prisma.user.findUnique({ where: { clerkId: userId } }));
   if (!dbUser) return { success: false as const, error: "User not found" };
 
   // Verify the session belongs to this user

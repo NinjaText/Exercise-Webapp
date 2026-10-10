@@ -21,7 +21,7 @@ export default async function NewClubPage() {
         back={{ label: "Back to clubs", href: "/admin/clubs" }}
       />
       <ClubForm mode="create" globalPrograms={globalPrograms} resourcePrograms={resourcePrograms} />
-      <p className="text-body text-muted-foreground">The club name is used as its brand automatically. The club trainer can set the logo and colours from their Settings once they join.</p>
+      <p className="text-body text-muted-foreground">The club name is used as its brand automatically. The club&apos;s house coach account is created automatically; admins manage the club through it.</p>
     </PageShell>
   );
 }

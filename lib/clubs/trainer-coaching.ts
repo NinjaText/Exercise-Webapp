@@ -13,13 +13,16 @@ export interface CoachingRequestItem {
   requestedAt: Date | null;
 }
 
-/** True only for a club trainer. Trainer-org trainers return before any coaching query. */
+/**
+ * True for any TRAINER in a member-billed (club) org — i.e. the club's house
+ * coach. Trainer-org trainers return before any coaching query.
+ */
 async function isClubTrainer(trainer: Trainer): Promise<boolean> {
   if (trainer.role !== "TRAINER" || !trainer.clerkOrgId) return false;
   return (await getCapabilitiesForUser(trainer)).billing === "member";
 }
 
-/** Pending coaching requests for the club trainer's dashboard; null for any other trainer. */
+/** Pending coaching requests for the house coach's dashboard; null for any other trainer. */
 export async function getTrainerCoachingRequests(trainer: Trainer): Promise<CoachingRequestItem[] | null> {
   if (!(await isClubTrainer(trainer))) return null;
   const rows = await listCoachingRequests(trainer.clerkOrgId!);

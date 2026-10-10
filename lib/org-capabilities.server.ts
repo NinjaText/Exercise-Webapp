@@ -68,7 +68,7 @@ function sameOrg(a: { clerkOrgId: string | null }, b: { clerkOrgId: string | nul
 
 /**
  * Pair rule for trainer → recipient messaging and check-in assignment (see
- * canPairInteract; filterCoachableClientIds is the batch form). A club trainer
+ * canPairInteract; filterCoachableClientIds is the batch form). A house coach
  * may only reach coached members of their own club; trainer-org trainers keep
  * today's rules. Fails closed: an unknown id or any lookup error (e.g. a
  * malformed ObjectId, P2023) returns false. Never throws.

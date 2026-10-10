@@ -17,6 +17,7 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   SidebarGroup,
+  SidebarCountBadge,
   SidebarIdentityRow,
   SidebarNavLink,
   SidebarUserBlock,
@@ -37,10 +38,12 @@ const adminLinks = [
 interface AdminSidebarProps {
   userName: string;
   userEmail: string;
+  /** Club items waiting on house coaches; hidden at 0. */
+  clubAttention?: number;
   mobileMode?: boolean;
 }
 
-export function AdminSidebar({ userName, userEmail, mobileMode = false }: AdminSidebarProps) {
+export function AdminSidebar({ userName, userEmail, clubAttention = 0, mobileMode = false }: AdminSidebarProps) {
   const pathname = usePathname();
 
   const isActive = (href: string, exact = false) =>
@@ -70,6 +73,7 @@ export function AdminSidebar({ userName, userEmail, mobileMode = false }: AdminS
                   label={link.label}
                   icon={link.icon}
                   active={isActive(link.href, link.exact)}
+                  badge={link.href === "/admin/clubs" ? <SidebarCountBadge count={clubAttention} /> : undefined}
                 />
               ))}
             </nav>

@@ -21,7 +21,7 @@ import type { CoachingRequestItem } from "@/lib/clubs/trainer-coaching";
 
 const NOTE_MAX = 1000;
 
-/** Club trainer dashboard: pending coaching requests with Accept / Decline. */
+/** House coach dashboard: pending coaching requests with Accept / Decline. */
 export function CoachingRequestsCard({ requests }: { requests: CoachingRequestItem[] }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();

@@ -1,7 +1,7 @@
 "use server";
 
 import OpenAI from "openai";
-import { activeUserOnly } from "@/lib/auth/active-user";
+import { activeCallerOnly } from "@/lib/auth/active-user";
 import { z } from "zod";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
@@ -24,8 +24,7 @@ export async function suggestExerciseReplacementsAction(input: {
   const { userId } = await auth();
   if (!userId) return { success: false as const, error: "Unauthorized" };
 
-  const user = activeUserOnly(
-    await prisma.user.findUnique({ where: { clerkId: userId }, select: { role: true, isActive: true } })
+  const user = await activeCallerOnly(await prisma.user.findUnique({ where: { clerkId: userId }, select: { id: true, clerkId: true, role: true, isActive: true } })
   );
   if (!user || user.role !== "TRAINER") {
     return { success: false as const, error: "Unauthorized" };

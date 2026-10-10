@@ -1,6 +1,6 @@
 /**
- * Shared by club.service and club-trainer.service (kept separate so the two
- * don't import each other). Re-exported from club.service.
+ * Shared by club.service and the house-coach/ownership services (kept separate
+ * so they don't import each other). Re-exported from club.service.
  */
 export type ClubErrorCode =
   | "invalid_input"
@@ -10,8 +10,7 @@ export type ClubErrorCode =
   | "starter_invalid"
   | "has_clients"
   | "not_found"
-  | "trainer_email_taken"
-  | "trainer_invite_failed"
+  | "house_coach_failed"
   | "trainer_remove_failed";
 
 export class ClubError extends Error {

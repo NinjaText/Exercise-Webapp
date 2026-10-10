@@ -1,6 +1,6 @@
 "use server";
 
-import { activeUserOnly } from "@/lib/auth/active-user";
+import { activeCallerOnly } from "@/lib/auth/active-user";
 import React from "react";
 import { randomUUID } from "crypto";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
@@ -56,7 +56,7 @@ import { canonicalEquipmentList } from "@/lib/utils/equipment-vocabulary";
 async function getTrainerUser() {
   const { userId } = await auth();
   if (!userId) return null;
-  const dbUser = activeUserOnly(await prisma.user.findUnique({ where: { clerkId: userId } }));
+  const dbUser = await activeCallerOnly(await prisma.user.findUnique({ where: { clerkId: userId } }));
   if (!dbUser || dbUser.role !== "TRAINER") return null;
   return dbUser;
 }
@@ -705,7 +705,7 @@ export async function getProgramAction(programId: string) {
   const { userId } = await auth();
   if (!userId) return { success: false as const, error: "Unauthorized" };
 
-  const dbUser = activeUserOnly(await prisma.user.findUnique({ where: { clerkId: userId } }));
+  const dbUser = await activeCallerOnly(await prisma.user.findUnique({ where: { clerkId: userId } }));
   if (!dbUser) return { success: false as const, error: "User not found" };
 
   try {
@@ -976,7 +976,7 @@ export async function shareProgramViaEmailAction(
   const { userId } = await auth();
   if (!userId) return { success: false, error: "Unauthorized" };
 
-  const dbUser = activeUserOnly(await prisma.user.findUnique({ where: { clerkId: userId } }));
+  const dbUser = await activeCallerOnly(await prisma.user.findUnique({ where: { clerkId: userId } }));
   if (!dbUser || dbUser.role !== "TRAINER") return { success: false, error: "Forbidden" };
 
   const program = await prisma.program.findUnique({

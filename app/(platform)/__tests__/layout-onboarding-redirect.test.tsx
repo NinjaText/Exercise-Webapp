@@ -37,10 +37,10 @@ beforeEach(() => {
 });
 
 describe("platform layout onboarding redirects", () => {
-  it("sends an un-onboarded club trainer to /onboarding/club-trainer", async () => {
+  it("sends an un-onboarded TRAINER in a club org to /onboarding like any trainer", async () => {
     vi.mocked(prisma.user.findUnique).mockResolvedValue({ id: "t1", role: "TRAINER", clerkOrgId: "org_club", onboarded: false } as any);
     vi.mocked(getCapabilitiesForUser).mockResolvedValue(caps("CLUB", "TRAINER"));
-    await expect(run()).rejects.toThrow(/^REDIRECT:\/onboarding\/club-trainer$/);
+    await expect(run()).rejects.toThrow(/^REDIRECT:\/onboarding$/);
   });
 
   it("keeps sending an un-onboarded trainer-org trainer to /onboarding (regression)", async () => {
@@ -55,7 +55,7 @@ describe("platform layout onboarding redirects", () => {
     await expect(run()).rejects.toThrow(/^REDIRECT:\/onboarding\/client$/);
   });
 
-  it("sends a deactivated user (removed club trainer) to /account-deactivated, not /billing", async () => {
+  it("sends a deactivated user (removed trainer) to /account-deactivated, not /billing", async () => {
     vi.mocked(prisma.user.findUnique).mockResolvedValue({ id: "t1", role: "TRAINER", clerkOrgId: null, onboarded: true, isActive: false } as any);
     vi.mocked(getCapabilitiesForUser).mockResolvedValue(caps("TRAINER", "TRAINER"));
     await expect(run()).rejects.toThrow(/^REDIRECT:\/account-deactivated$/);

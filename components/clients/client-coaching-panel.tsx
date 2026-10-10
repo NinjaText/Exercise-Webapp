@@ -37,7 +37,7 @@ const STATUS_COPY: Record<string, string> = {
   PAST_DUE: "Coaching is paused until the member updates their payment.",
 };
 
-/** Club trainer view of one member's coaching state, with the actions legal for it. */
+/** House coach view of one member's coaching state, with the actions legal for it. */
 export function ClientCoachingPanel({ coaching }: { coaching: ClientCoachingPanelData }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();

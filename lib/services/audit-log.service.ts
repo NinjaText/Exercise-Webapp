@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { getActingAdminFor } from "@/lib/clubs/acting-admin-for";
 import type { AuditActorType, Prisma, User } from "@prisma/client";
 
 import {
@@ -43,7 +44,10 @@ export async function logAudit(params: LogAuditParams): Promise<void> {
   }
 }
 
-type AuditUser = Pick<User, "id" | "firstName" | "lastName" | "email" | "role" | "clerkOrgId">;
+type AuditUser = Pick<User, "id" | "firstName" | "lastName" | "email" | "role" | "clerkOrgId"> & {
+  /** Needed to attribute a house-coach action to the admin operating it. */
+  clerkId?: string | null;
+};
 type AuditEvent = Omit<LogAuditParams, "actorId" | "actorType" | "actorName" | "orgId"> & { orgId?: string | null };
 
 /**
@@ -58,6 +62,19 @@ export async function logUserAudit(
 ): Promise<void> {
   try {
     const event = await build();
+    const admin = await getActingAdminFor(user);
+    if (admin) {
+      // A super admin acting as the club's house coach: the admin is the actor.
+      await logAudit({
+        actorId: admin.adminUserId,
+        actorType: "SUPER_ADMIN",
+        actorName: admin.adminName,
+        ...event,
+        orgId: event.orgId ?? user.clerkOrgId ?? null,
+        metadata: { ...event.metadata, viaHouseCoach: user.id },
+      });
+      return;
+    }
     await logAudit({ ...auditActor(user), ...event, orgId: event.orgId ?? user.clerkOrgId ?? null });
   } catch (error) {
     console.error("Failed to build audit log entry:", error);

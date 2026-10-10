@@ -2,7 +2,7 @@ import { clerkClient } from "@clerk/nextjs/server";
 import type { Organization, User } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { duplicateProgram, assignProgram, assignOnDemandProgram } from "@/lib/services/program.service";
-import { getClubTrainer } from "@/lib/services/club-trainer.service";
+import { requireHouseCoach } from "@/lib/services/house-coach.service";
 import { getOrgType } from "@/lib/org-capabilities";
 import { nextStarterTemplateId, OPEN_SESSION_STATUSES } from "@/lib/clubs/starter-progression";
 
@@ -121,9 +121,8 @@ async function assignMissingClubResources(userId: string, club: Organization): P
   const missing = ids.filter((id) => !owned.has(id));
   if (missing.length === 0) return;
 
-  // Copies belong to the club trainer (D6); none yet → the sweep retries.
-  const trainer = await getClubTrainer(club.clerkOrgId);
-  if (!trainer) return;
+  // Copies belong to the club's house coach (D6).
+  const trainer = await requireHouseCoach(club.clerkOrgId);
   for (const id of missing) {
     let copyId: string | null = null;
     try {
@@ -200,13 +199,8 @@ export async function assignNextStarterProgram(userId: string): Promise<StarterO
       return "done";
     }
 
-    // Copies belong to the club trainer (D6). No trainer (not accepted yet, or
-    // being replaced): release the claim so the sweep retries later.
-    const trainer = await getClubTrainer(club.clerkOrgId);
-    if (!trainer) {
-      await prisma.memberSubscription.update({ where: { userId }, data: { starterStatus: "PENDING" } });
-      return "skipped";
-    }
+    // Copies belong to the club's house coach (D6).
+    const trainer = await requireHouseCoach(club.clerkOrgId);
     const copy = await duplicateProgram(next, trainer.id, false);
     try {
       await assignProgram(copy.id, userId, new Date());

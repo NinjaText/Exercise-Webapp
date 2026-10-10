@@ -12,6 +12,7 @@ vi.mock('@/lib/services/notification.service', () => ({
 }))
 vi.mock('@/lib/prisma', () => ({
   prisma: {
+    organization: { findFirst: vi.fn() },
     user: { findUnique: vi.fn() },
     sessionExerciseLog: { findFirst: vi.fn() },
     blockExerciseV2: { findUnique: vi.fn() },

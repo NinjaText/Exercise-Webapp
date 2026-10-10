@@ -5,7 +5,7 @@ describe("clubProgramWhere", () => {
   it("always includes the current picks in the OR", () => {
     expect(clubProgramWhere(["s1"], null).OR).toEqual([{ isGlobal: true }, { id: { in: ["s1"] } }]);
   });
-  it("adds the trainer's templates (any of their programs with no client) when a trainer exists", () => {
+  it("adds the house coach's templates (any of their programs with no client) when one exists", () => {
     expect(clubProgramWhere(["s1"], "t1").OR).toEqual([
       { isGlobal: true },
       { isGlobal: false, trainerId: "t1", OR: [{ clientId: null }, { clientId: { isSet: false } }] },
@@ -24,8 +24,8 @@ describe("starterOptions", () => {
   it("keeps scheduled programs and current starters, labelling non-global ones", () => {
     expect(starterOptions(programs, ["old"])).toEqual([
       { id: "a", name: "a" },
-      { id: "old", name: "old (trainer's)" },
-      { id: "c", name: "c (trainer's)" },
+      { id: "old", name: "old (house coach's)" },
+      { id: "c", name: "c (house coach's)" },
     ]);
   });
 });
@@ -34,8 +34,8 @@ describe("resourceOptions", () => {
   it("keeps resources and current resources, never other scheduled programs", () => {
     expect(resourceOptions(programs, ["c"])).toEqual([
       { id: "b", name: "b" },
-      { id: "old", name: "old (trainer's)" },
-      { id: "c", name: "c (trainer's)" },
+      { id: "old", name: "old (house coach's)" },
+      { id: "c", name: "c (house coach's)" },
     ]);
   });
 });

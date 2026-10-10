@@ -9,10 +9,12 @@ vi.mock('@/lib/prisma', () => ({
   prisma: {
     notification: { create: vi.fn(), findFirst: vi.fn() },
     notificationPreference: { findUnique: vi.fn(), create: vi.fn(), upsert: vi.fn() },
-    user: { findUnique: vi.fn() },
+    user: { findUnique: vi.fn(), findMany: vi.fn() },
+    organization: { findFirst: vi.fn().mockResolvedValue(null) },
   },
 }))
 
+vi.mock('@/lib/services/club-alerts.service', () => ({ getClubAlertRecipients: vi.fn() }))
 vi.mock('@/lib/email/send', () => ({ sendEmail: vi.fn() }))
 // Branding has its own suite (notify-user-branding.test.ts); the mocked
 // registry below marks no type clientFacing, so this is never reached.
@@ -33,6 +35,13 @@ vi.mock('@/lib/notifications/registry', () => ({
       template: FakeTemplate,
       subject: (d: Record<string, unknown>) => `New message from ${d.senderName}`,
       cooldownMinutes: 60,
+    },
+    SESSION_COMPLETED: {
+      category: 'sessions',
+      transactional: false,
+      template: FakeTemplate,
+      subject: () => 'Session completed',
+      cooldownMinutes: null,
     },
     EXERCISE_NOTE: {
       category: 'sessions',
@@ -284,5 +293,88 @@ describe('notifyUser — never throws', () => {
     await expect(notifyUser(reminder)).resolves.toBeUndefined()
     expect(sendEmail).not.toHaveBeenCalled()
     expect(console.error).toHaveBeenCalled()
+  })
+})
+
+describe('notifyUser — house coach fan-out to super admins', () => {
+  const houseMsg = {
+    userId: 'hc1',
+    type: 'NEW_MESSAGE' as never,
+    title: 'Hi',
+    email: { senderName: 'Sam', messagesLink: 'https://app.test/messages?with=c1' },
+  }
+
+  beforeEach(async () => {
+    vi.mocked(prisma.organization.findFirst).mockResolvedValue(
+      { clerkOrgId: 'org_iron', name: 'Iron Club', brandDisplayName: null } as never,
+    )
+    vi.mocked(prisma.user.findMany).mockResolvedValue([
+      { id: 'a1', firstName: 'Ada', lastName: 'Admin' },
+      { id: 'a2', firstName: 'Bo', lastName: 'Boss' },
+    ] as never)
+    const { getClubAlertRecipients } = await import('@/lib/services/club-alerts.service')
+    vi.mocked(getClubAlertRecipients).mockResolvedValue([
+      { userId: 'a1', email: 'ada@x.test' },
+      { userId: 'a2', email: 'bo@x.test' },
+    ])
+  })
+
+  it('sends once per unmuted admin with the club prefix, never to the house coach', async () => {
+    await notifyUser(houseMsg)
+
+    expect(sendEmail).toHaveBeenCalledTimes(2)
+    const calls = vi.mocked(sendEmail).mock.calls.map((c) => c[0])
+    expect(calls.map((c) => c.to)).toEqual(['ada@x.test', 'bo@x.test'])
+    expect(calls.every((c) => c.subject === '[Iron Club] New message from Sam')).toBe(true)
+    expect(calls.every((c) => c.unsubscribeUrl === undefined)).toBe(true)
+    expect(prisma.user.findUnique).not.toHaveBeenCalled()
+  })
+
+  it('prefers the brand display name for the prefix', async () => {
+    vi.mocked(prisma.organization.findFirst).mockResolvedValue(
+      { clerkOrgId: 'org_iron', name: 'Iron Club', brandDisplayName: 'Iron' } as never,
+    )
+    await notifyUser(houseMsg)
+    expect(vi.mocked(sendEmail).mock.calls[0][0].subject).toBe('[Iron] New message from Sam')
+  })
+
+  it('points the CTA link at the club admin page, not the coach inbox', async () => {
+    await notifyUser(houseMsg)
+    const element = vi.mocked(sendEmail).mock.calls[0][0].react as React.ReactElement<Record<string, unknown>>
+    expect(element.props.messagesLink).toBe('https://app.test/admin/clubs/org_iron')
+  })
+
+  it('keeps types outside the allow-list in-app only (no admin email)', async () => {
+    await notifyUser({ ...houseMsg, type: 'SESSION_COMPLETED' as never })
+    expect(prisma.notification.create).toHaveBeenCalledTimes(1)
+    expect(sendEmail).not.toHaveBeenCalled()
+  })
+
+  it('still emails the other admins when one send rejects', async () => {
+    vi.mocked(sendEmail).mockRejectedValueOnce(new Error('resend down'))
+    await expect(notifyUser(houseMsg)).resolves.toBeUndefined()
+    expect(sendEmail).toHaveBeenCalledTimes(2)
+    expect(vi.mocked(sendEmail).mock.calls[1][0].to).toBe('bo@x.test')
+  })
+
+  it('sends nothing and does not throw with zero recipients', async () => {
+    const { getClubAlertRecipients } = await import('@/lib/services/club-alerts.service')
+    vi.mocked(getClubAlertRecipients).mockResolvedValue([])
+    await expect(notifyUser(houseMsg)).resolves.toBeUndefined()
+    expect(prisma.notification.create).toHaveBeenCalledTimes(1)
+    expect(sendEmail).not.toHaveBeenCalled()
+  })
+
+  it('still honours the entry cooldown keyed on the house coach', async () => {
+    vi.mocked(prisma.notification.findFirst).mockResolvedValue({ id: 'old' } as never)
+    await notifyUser(houseMsg)
+    expect(sendEmail).not.toHaveBeenCalled()
+  })
+
+  it('leaves the normal path unchanged for a non-house-coach recipient', async () => {
+    vi.mocked(prisma.organization.findFirst).mockResolvedValue(null)
+    await notifyUser(reminder)
+    expect(sendEmail).toHaveBeenCalledTimes(1)
+    expect(vi.mocked(sendEmail).mock.calls[0][0].to).toBe('sarah@example.com')
   })
 })

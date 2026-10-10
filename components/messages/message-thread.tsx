@@ -613,6 +613,7 @@ function MessageBubble({
         >
           <span>{formatRelativeTime(message.createdAt)}</span>
           {message.editedAt && !isDeleted && <span>(edited)</span>}
+          {message.sentByAdminName && <span>sent by {message.sentByAdminName}</span>}
           {isOwn && <ReadIndicator isRead={!!message.isRead} readAt={message.readAt} />}
         </div>
       </div>

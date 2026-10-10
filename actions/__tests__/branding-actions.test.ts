@@ -24,6 +24,7 @@ vi.mock('@/lib/prisma', () => ({
   prisma: {
     user: { findUnique: (...args: any[]) => mockUserFindUnique(...args) },
     organization: {
+      findFirst: vi.fn(),
       update: (...args: any[]) => mockOrgUpdate(...args),
       findUnique: (...args: any[]) => mockOrgFindUnique(...args),
     },

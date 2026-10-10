@@ -7,7 +7,7 @@ vi.mock("@/lib/prisma", () => ({
   },
 }));
 vi.mock("@/lib/org-capabilities.server", () => ({ getOrgForUser: vi.fn() }));
-vi.mock("@/lib/services/club-trainer.service", () => ({ getClubTrainer: vi.fn() }));
+vi.mock("@/lib/services/house-coach.service", () => ({ requireHouseCoach: vi.fn() }));
 vi.mock("@/lib/services/notification.service", () => ({ notifyUser: vi.fn(async () => {}) }));
 const audited = vi.hoisted(() => [] as Array<Record<string, unknown>>);
 vi.mock("@/lib/services/audit-log.service", () => ({
@@ -25,7 +25,7 @@ vi.mock("@/lib/utils/app-url", () => ({ appBaseUrl: () => "https://app.test" }))
 
 import { prisma } from "@/lib/prisma";
 import { getOrgForUser } from "@/lib/org-capabilities.server";
-import { getClubTrainer } from "@/lib/services/club-trainer.service";
+import { requireHouseCoach } from "@/lib/services/house-coach.service";
 import { notifyUser } from "@/lib/services/notification.service";
 import { logUserAudit } from "@/lib/services/audit-log.service";
 import { stripe } from "@/lib/stripe";
@@ -81,7 +81,7 @@ beforeEach(() => {
     prisma.memberSubscription.findUnique, stripe.subscriptions.cancel, stripe.subscriptions.update,
   ]) vi.mocked(fn as any).mockReset();
   vi.mocked(getOrgForUser).mockResolvedValue(club);
-  vi.mocked(getClubTrainer).mockResolvedValue(trainer);
+  vi.mocked(requireHouseCoach).mockResolvedValue(trainer);
   vi.mocked(prisma.memberSubscription.findUnique).mockResolvedValue(okSub);
   vi.mocked(prisma.memberCoaching.findUnique).mockResolvedValue(null);
   vi.mocked(prisma.memberCoaching.create).mockImplementation((async (args: any) => ({ id: "mc1", ...args.data })) as any);
@@ -101,7 +101,7 @@ describe("getCoachingForUser", () => {
 });
 
 describe("requestCoaching", () => {
-  it("creates a REQUESTED row with the trimmed note, notifies the trainer and audits", async () => {
+  it("creates a REQUESTED row with the trimmed note, notifies the house coach and audits", async () => {
     const res = await requestCoaching(member, "  Help with my squat  ");
     expect(res.status).toBe("REQUESTED");
     expect(prisma.memberCoaching.create).toHaveBeenCalledWith({
@@ -209,10 +209,18 @@ describe("requestCoaching", () => {
     await expectCode(requestCoaching(member, "hi"), "not_offered");
   });
 
-  it("refuses when the club has no trainer (not_offered)", async () => {
-    vi.mocked(getClubTrainer).mockResolvedValue(null);
-    await expectCode(requestCoaching(member, "hi"), "not_offered");
-    expect(getClubTrainer).toHaveBeenCalledWith("org_club");
+  it("does not create a house coach for an ineligible request or blank note", async () => {
+    vi.mocked(prisma.memberSubscription.findUnique).mockResolvedValue(null);
+    await expectCode(requestCoaching(member, "hi"), "not_eligible");
+    vi.mocked(prisma.memberSubscription.findUnique).mockResolvedValue(okSub);
+    await expectCode(requestCoaching(member, "  "), "invalid_input");
+    expect(requireHouseCoach).not.toHaveBeenCalled();
+  });
+
+  it("notifies the club's house coach", async () => {
+    await requestCoaching(member, "hi");
+    expect(requireHouseCoach).toHaveBeenCalledWith("org_club");
+    expect(notifyUser).toHaveBeenCalledWith(expect.objectContaining({ userId: TRAINER_ID }));
   });
 
   it("refuses when the membership gate is not ok", async () => {

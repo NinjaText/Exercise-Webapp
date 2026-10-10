@@ -10,8 +10,12 @@ vi.mock('@/lib/prisma', () => ({
   },
 }))
 
+vi.mock('@/lib/clubs/acting-admin-for', () => ({ getActingAdminFor: vi.fn(async () => null) }))
+
 import { prisma } from '@/lib/prisma'
+import { getActingAdminFor } from '@/lib/clubs/acting-admin-for'
 import {
+  logUserAudit,
   logAudit,
   diffFields,
   deriveActorType,
@@ -166,5 +170,34 @@ describe('auditQueryFromFilters', () => {
   it('pins the scope org over any org in the URL', async () => {
     const { auditQueryFromFilters } = await import('../audit-log.service')
     expect(auditQueryFromFilters({ org: 'org_other', page: 1 }, 'org_mine').orgId).toBe('org_mine')
+  })
+})
+
+describe('logUserAudit acting admin', () => {
+  const trainer = {
+    id: 'hc_1', clerkId: 'clerk_hc', firstName: 'Coach', lastName: 'Club', email: 'hc@x.com',
+    role: 'TRAINER' as const, clerkOrgId: 'org_1',
+  }
+  const build = () => ({ action: AUDIT_ACTIONS.PROGRAM_CREATED })
+
+  it('attributes to the admin and records viaHouseCoach', async () => {
+    mockCreate.mockResolvedValue({} as never)
+    vi.mocked(getActingAdminFor).mockResolvedValueOnce({
+      adminUserId: 'admin_1', adminName: 'Ada Admin', clerkOrgId: 'org_1', houseCoachClerkId: 'clerk_hc', sid: 's', exp: 1,
+    })
+    await logUserAudit(trainer, build)
+    expect(mockCreate.mock.calls[0][0].data).toMatchObject({
+      actorId: 'admin_1', actorType: 'SUPER_ADMIN', actorName: 'Ada Admin', orgId: 'org_1',
+      metadata: { viaHouseCoach: 'hc_1' },
+    })
+  })
+
+  it('leaves a normal trainer unchanged', async () => {
+    mockCreate.mockResolvedValue({} as never)
+    await logUserAudit(trainer, build)
+    expect(mockCreate.mock.calls[0][0].data).toMatchObject({
+      actorId: 'hc_1', actorType: 'TRAINER', actorName: 'Coach Club',
+    })
+    expect(mockCreate.mock.calls[0][0].data.metadata).toBeUndefined()
   })
 })

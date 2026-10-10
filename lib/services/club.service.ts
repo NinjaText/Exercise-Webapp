@@ -14,13 +14,7 @@ import {
   type ClubPriceKind,
   type EnsuredClubPrice,
 } from "@/lib/services/club-pricing.service";
-import {
-  assertTrainerEmailFree,
-  getClubTrainer,
-  getPendingTrainerInvite,
-  inviteClubTrainer,
-  normalizeTrainerEmail,
-} from "@/lib/services/club-trainer.service";
+import { ensureHouseCoach, getHouseCoach, syncHouseCoachProfile } from "@/lib/services/house-coach.service";
 
 export { ClubError, type ClubErrorCode } from "@/lib/services/club-error";
 
@@ -42,13 +36,11 @@ export interface ClubInput {
   starterProgramIds: string[];
   /** Unordered; every member gets all of them at once. May be empty. */
   resourceProgramIds: string[];
-  /** Create only: the invited club trainer. Never edited via updateClub. */
-  trainerEmail: string;
   /** USD cents per month for the coaching add-on; null = coaching not offered. */
   coachingAmountCents: number | null;
 }
 
-export type ClubUpdateInput = Omit<ClubInput, "trainerEmail" | "membershipAmountCents" | "coachingAmountCents"> & {
+export type ClubUpdateInput = Omit<ClubInput, "membershipAmountCents" | "coachingAmountCents"> & {
   membershipAmountCents: number | KeepPrice;
   coachingAmountCents: number | null | KeepPrice;
 };
@@ -74,20 +66,18 @@ function requiredMembership(raw: unknown): number {
   return cents;
 }
 
-/** Create form: everything, including the required club trainer email. */
+/** Create form: everything. */
 export function parseClubInput(raw: Record<string, unknown>): ClubInput {
   const settings = parseClubSettings(raw);
   const membershipAmountCents = requiredMembership(raw.membershipAmount);
   const starterProgramIds = parseStarters(raw);
   const resourceProgramIds = parseResources(raw);
   const coachingAmountCents = parseAmount(raw.coachingAmount, "Coaching price");
-  const trainerEmail = normalizeTrainerEmail(String(raw.trainerEmail ?? ""));
-  return { ...settings, membershipAmountCents, starterProgramIds, resourceProgramIds, trainerEmail, coachingAmountCents };
+  return { ...settings, membershipAmountCents, starterProgramIds, resourceProgramIds, coachingAmountCents };
 }
 
 /**
- * Edit form: the trainer email is managed separately, so it isn't read here.
- * `keepMembershipPrice` / `keepCoachingPrice` with an empty field = KEEP_PRICE.
+ * Edit form: `keepMembershipPrice` / `keepCoachingPrice` with an empty field = KEEP_PRICE.
  */
 export function parseClubUpdateInput(raw: Record<string, unknown>): ClubUpdateInput {
   const settings = parseClubSettings(raw);
@@ -146,19 +136,18 @@ async function assertSlugFree(joinSlug: string, exceptClerkOrgId?: string) {
 }
 
 /**
- * Club programs are Global Programs or the club trainer's own templates (D7):
- * starters are always Scheduled, resources always On-Demand. With no trainer
- * yet (create), Global only. A template is any program with no client.
+ * Club programs are Global Programs or the house coach's own templates (D7):
+ * starters are always Scheduled, resources always On-Demand. With no house
+ * coach yet (create), Global only. A template is any program with no client.
  *
  * `alreadyOnClub`: the club's current ids of that kind. They were validated
- * when set, so keeping them unchanged passes the ownership rule even while the
- * club has no trainer (between Replace and the new trainer accepting), so an
- * admin can still edit the club. They must still exist and be the right type.
+ * when set, so keeping them unchanged passes the ownership rule. They must
+ * still exist and be the right type.
  */
 async function assertClubPrograms(
   kind: "starter" | "resource",
   ids: string[],
-  clubTrainerId: string | null,
+  houseCoachId: string | null,
   alreadyOnClub: string[] = []
 ) {
   if (ids.length === 0) return;
@@ -170,15 +159,15 @@ async function assertClubPrograms(
   const allowed = (p: (typeof programs)[number]) =>
     p.isGlobal ||
     alreadyOnClub.includes(p.id) ||
-    (clubTrainerId !== null && p.trainerId === clubTrainerId && p.clientId == null);
+    (houseCoachId !== null && p.trainerId === houseCoachId && p.clientId == null);
   const ok =
     programs.length === ids.length && programs.every((p) => allowed(p) && getProgramSchedulingType(p) === type);
   if (!ok) {
     throw new ClubError(
       "starter_invalid",
       kind === "starter"
-        ? "Starter programs must be scheduled Global Programs or the club trainer's own templates."
-        : "Resources must be Global or club trainer Resources (not scheduled programs)."
+        ? "Starter programs must be scheduled Global Programs or the house coach's own templates."
+        : "Resources must be Global or house coach Resources (not scheduled programs)."
     );
   }
 }
@@ -218,18 +207,27 @@ async function deleteClerkOrg(client: Awaited<ReturnType<typeof clerkClient>>, c
   }
 }
 
+/** Best effort: deleting the Clerk org leaves the house coach's Clerk user behind. */
+async function deleteHouseCoachClerkUser(client: Awaited<ReturnType<typeof clerkClient>>, clerkOrgId: string) {
+  try {
+    const found = await client.users.getUserList({ externalId: [`house-coach:${clerkOrgId}`], limit: 1 });
+    for (const u of found.data) await client.users.deleteUser(u.id);
+  } catch (err) {
+    console.error("[club] rollback couldn't delete the house coach Clerk user:", clerkOrgId, err);
+  }
+}
+
 /**
- * Creates the Clerk org, its Stripe prices and its CLUB row, then invites the
- * club trainer. No `createdBy`: that would make the admin a member, and the
+ * Creates the Clerk org, its Stripe prices and its CLUB row, then the club's
+ * house coach. No `createdBy`: that would make the admin a member, and the
  * organizationMembership.created webhook would then move the admin's own DB
- * user into the club. Every check (including the trainer email, D4) runs
+ * user into the club. Every check runs
  * before anything is created. The Clerk org comes before the prices so their
  * metadata carries its id; any later failure archives the prices (and their
  * new products) and deletes the org.
  */
 export async function createClub(input: ClubInput): Promise<Organization> {
   await assertSlugFree(input.joinSlug);
-  await assertTrainerEmailFree(input.trainerEmail);
   await assertClubPrograms("starter", input.starterProgramIds, null);
   await assertClubPrograms("resource", input.resourceProgramIds, null);
 
@@ -267,23 +265,24 @@ export async function createClub(input: ClubInput): Promise<Organization> {
   }
 
   try {
-    await inviteClubTrainer(clerkOrg.id, input.trainerEmail);
+    await ensureHouseCoach(org);
   } catch (err) {
-    console.error("Club trainer invite failed; rolling back club", clerkOrg.id, err);
+    console.error("House coach creation failed; rolling back club", clerkOrg.id, err);
     await prisma.organization.delete({ where: { clerkOrgId: clerkOrg.id } }).catch(() => {});
+    // ensureHouseCoach may have upserted the DB user before failing; the org is brand new, so only it can be here.
+    await prisma.user.deleteMany({ where: { clerkOrgId: clerkOrg.id, role: "TRAINER" } }).catch(() => {});
+    await deleteHouseCoachClerkUser(client, clerkOrg.id);
     await deleteClerkOrg(client, clerkOrg.id);
     await rollbackClubPrices(created);
-    if (err instanceof ClubError && err.code === "trainer_email_taken") throw err;
-    throw new ClubError("trainer_invite_failed", "Couldn't send the club trainer invitation, so the club wasn't created.");
+    throw new ClubError("house_coach_failed", "Couldn't set up the club's coach account, so the club wasn't created.");
   }
-  return org;
+  return prisma.organization.findUniqueOrThrow({ where: { clerkOrgId: clerkOrg.id } });
 }
 
 /**
  * Edits apply to future joiners only; existing trials keep their end date and
  * existing subscriptions stay on the price they started on (archiving a price
- * doesn't touch them). The trainer email isn't edited here (resend / replace
- * own that). New prices are created after every other check; replaced ones
+ * doesn't touch them). New prices are created after every other check; replaced ones
  * are archived only once the DB write succeeded. Any Stripe failure fails the
  * whole edit, so an outage can never drop coaching.
  */
@@ -291,9 +290,9 @@ export async function updateClub(clerkOrgId: string, input: ClubUpdateInput): Pr
   const org = await prisma.organization.findUnique({ where: { clerkOrgId } });
   if (!org || getOrgType(org) !== "CLUB") throw new ClubError("not_found");
   await assertSlugFree(input.joinSlug, clerkOrgId);
-  const trainer = await getClubTrainer(clerkOrgId);
-  await assertClubPrograms("starter", input.starterProgramIds, trainer?.id ?? null, org.starterProgramIds);
-  await assertClubPrograms("resource", input.resourceProgramIds, trainer?.id ?? null, org.resourceProgramIds ?? []);
+  const houseCoach = await getHouseCoach(clerkOrgId);
+  await assertClubPrograms("starter", input.starterProgramIds, houseCoach?.id ?? null, org.starterProgramIds);
+  await assertClubPrograms("resource", input.resourceProgramIds, houseCoach?.id ?? null, org.resourceProgramIds ?? []);
   if (input.membershipAmountCents === KEEP_PRICE && !org.stripePriceId)
     throw new ClubError("invalid_input", "Membership price is required.");
 
@@ -340,6 +339,13 @@ export async function updateClub(clerkOrgId: string, input: ClubUpdateInput): Pr
   if (org.name !== input.name) {
     const live = [updated.stripePriceId, updated.coachingStripePriceId].filter((id): id is string => Boolean(id));
     await renameClubProducts(live, input.name);
+    // Best effort (spec H2): the house coach's "Coach <club>" name follows the
+    // rename, but a Clerk hiccup must never fail an edit that already saved.
+    try {
+      await syncHouseCoachProfile(updated);
+    } catch (err) {
+      console.error("syncHouseCoachProfile failed:", err);
+    }
   }
   return updated;
 }
@@ -369,15 +375,10 @@ export interface ClubStats {
   conversionRate: number | null;
   /** Members with a paid coaching add-on (ACTIVE, or PAST_DUE and still subscribed). */
   coached: number;
-  trainer: ClubTrainerStatus;
+  houseCoach: ClubHouseCoachStatus;
 }
 
-export type ClubTrainerStatus =
-  | { status: "active"; name: string }
-  | { status: "pending"; email: string }
-  | { status: "none" }
-  /** The Clerk invite lookup failed, so pending vs none can't be told. */
-  | { status: "unknown" };
+export type ClubHouseCoachStatus = { status: "active"; name: string } | { status: "none" };
 
 export async function listClubsWithStats(now = new Date()): Promise<ClubStats[]> {
   const orgs = await prisma.organization.findMany({ where: { type: "CLUB" }, orderBy: { createdAt: "desc" } });
@@ -392,41 +393,28 @@ export async function listClubsWithStats(now = new Date()): Promise<ClubStats[]>
     where: { clerkOrgId: orgIds, status: "TRIALING", trialEndsAt: { lt: now } },
     _count: { _all: true },
   });
-  const [coachingGroups, trainers] = await Promise.all([
+  const [coachingGroups, coaches] = await Promise.all([
     prisma.memberCoaching.groupBy({
       by: ["clerkOrgId"],
       where: { clerkOrgId: orgIds, status: { in: ["ACTIVE", "PAST_DUE"] } },
       _count: { _all: true },
     }),
     prisma.user.findMany({
-      where: { clerkOrgId: orgIds, role: "TRAINER" },
-      select: { clerkOrgId: true, firstName: true, lastName: true, email: true, onboarded: true },
-      orderBy: [{ onboarded: "desc" }, { createdAt: "desc" }],
+      where: { id: { in: orgs.flatMap((o) => (o.houseCoachUserId ? [o.houseCoachUserId] : [])) } },
+      select: { id: true, firstName: true, lastName: true, email: true },
     }),
   ]);
-  // Only trainer-less clubs need a Clerk lookup to tell "invite pending" from "none".
-  const trainerByOrg = new Map<string, ClubTrainerStatus>();
-  for (const t of trainers) {
-    if (t.clerkOrgId && !trainerByOrg.has(t.clerkOrgId)) {
-      trainerByOrg.set(t.clerkOrgId, {
+  const coachById = new Map(coaches.map((c) => [c.id, c]));
+  const houseCoachByOrg = new Map<string, ClubHouseCoachStatus>();
+  for (const o of orgs) {
+    const c = o.houseCoachUserId ? coachById.get(o.houseCoachUserId) : undefined;
+    if (c) {
+      houseCoachByOrg.set(o.clerkOrgId, {
         status: "active",
-        name: [t.firstName, t.lastName].filter(Boolean).join(" ") || t.email,
+        name: [c.firstName, c.lastName].filter(Boolean).join(" ") || c.email,
       });
     }
   }
-  await Promise.all(
-    orgs
-      .filter((o) => !trainerByOrg.has(o.clerkOrgId))
-      .map(async (o) => {
-        try {
-          const invite = await getPendingTrainerInvite(o.clerkOrgId);
-          trainerByOrg.set(o.clerkOrgId, invite ? { status: "pending", email: invite.email } : { status: "none" });
-        } catch (err) {
-          console.error("Club trainer invite lookup failed:", o.clerkOrgId, err);
-          trainerByOrg.set(o.clerkOrgId, { status: "unknown" });
-        }
-      })
-  );
   return orgs.map((org) => {
     const rows = groups.filter((g) => g.clerkOrgId === org.clerkOrgId);
     const count = (s: string) => rows.find((r) => r.status === s)?._count._all ?? 0;
@@ -439,7 +427,7 @@ export async function listClubsWithStats(now = new Date()): Promise<ClubStats[]>
       org, members, trialing, expired, paying,
       conversionRate: decided > 0 ? paying / decided : null,
       coached: coachingGroups.find((g) => g.clerkOrgId === org.clerkOrgId)?._count._all ?? 0,
-      trainer: trainerByOrg.get(org.clerkOrgId) ?? { status: "none" as const },
+      houseCoach: houseCoachByOrg.get(org.clerkOrgId) ?? { status: "none" as const },
     };
   });
 }

@@ -5,9 +5,13 @@ const clerkMocks = vi.hoisted(() => ({
   deleteOrganization: vi.fn(async () => ({})),
   updateOrganization: vi.fn(async () => ({})),
 }));
+const clerkUserMocks = vi.hoisted(() => ({
+  getUserList: vi.fn(async () => ({ data: [{ id: "user_hc" }] })),
+  deleteUser: vi.fn(async () => ({})),
+}));
 
 vi.mock("@clerk/nextjs/server", () => ({
-  clerkClient: vi.fn(async () => ({ organizations: clerkMocks })),
+  clerkClient: vi.fn(async () => ({ organizations: clerkMocks, users: clerkUserMocks })),
 }));
 vi.mock("@/lib/stripe", () => ({
   stripe: {
@@ -17,24 +21,23 @@ vi.mock("@/lib/stripe", () => ({
 }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
-    organization: { findFirst: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn(), findMany: vi.fn(), delete: vi.fn(async () => ({})), count: vi.fn(async () => 0) },
+    organization: { findFirst: vi.fn(), findUnique: vi.fn(), findUniqueOrThrow: vi.fn(), create: vi.fn(), update: vi.fn(), findMany: vi.fn(), delete: vi.fn(async () => ({})), count: vi.fn(async () => 0) },
     program: { findMany: vi.fn() },
-    user: { count: vi.fn(), findFirst: vi.fn(), findMany: vi.fn() },
+    user: { count: vi.fn(), findFirst: vi.fn(), findMany: vi.fn(), deleteMany: vi.fn(async () => ({ count: 1 })) },
     memberCoaching: { groupBy: vi.fn() },
     memberSubscription: { groupBy: vi.fn(), updateMany: vi.fn(), count: vi.fn() },
   },
 }));
 
-vi.mock("@/lib/services/club-trainer.service", async () => {
-  const actual = await vi.importActual<typeof import("@/lib/services/club-trainer.service")>(
-    "@/lib/services/club-trainer.service"
-  );
-  return { ...actual, inviteClubTrainer: vi.fn(async () => {}), getClubTrainer: vi.fn(async () => null), getPendingTrainerInvite: vi.fn(async () => null) };
-});
+vi.mock("@/lib/services/house-coach.service", () => ({
+  ensureHouseCoach: vi.fn(async () => ({ id: "hc1" })),
+  getHouseCoach: vi.fn(async () => null),
+  syncHouseCoachProfile: vi.fn(async () => {}),
+}));
 
 import { prisma } from "@/lib/prisma";
 import { stripe } from "@/lib/stripe";
-import { inviteClubTrainer, getClubTrainer, getPendingTrainerInvite } from "@/lib/services/club-trainer.service";
+import { ensureHouseCoach, getHouseCoach, syncHouseCoachProfile } from "@/lib/services/house-coach.service";
 import {
   parseClubInput, parseClubUpdateInput, createClub, updateClub, setOrgType, getClubBySlug, listClubsWithStats, ClubError,
   KEEP_PRICE,
@@ -43,7 +46,7 @@ import {
 const valid = {
   name: "Pine Valley CC", joinSlug: "pine-valley", joinCode: "pinevalley24",
   trialDays: "14", membershipAmount: "14.99", starterProgramIds: ["p1", "p2"],
-  trainerEmail: " Coach@Pine.com ", coachingAmount: "",
+  coachingAmount: "",
 };
 
 const outage = Object.assign(new Error("connection error"), { type: "StripeConnectionError" });
@@ -58,7 +61,9 @@ beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(prisma.organization.findFirst).mockResolvedValue(null);
   vi.mocked(prisma.user.findFirst).mockResolvedValue(null);
-  vi.mocked(getClubTrainer).mockResolvedValue(null);
+  vi.mocked(getHouseCoach).mockResolvedValue(null);
+  vi.mocked(ensureHouseCoach).mockResolvedValue({ id: "hc1" } as any);
+  clerkUserMocks.getUserList.mockResolvedValue({ data: [{ id: "user_hc" }] });
   priceSeq = 0;
   vi.mocked(stripe.prices.retrieve).mockImplementation((async (id: string) =>
     id === "price_member" ? storedPrice(id, 1499) : storedPrice(id, 3000)) as any);
@@ -72,6 +77,7 @@ beforeEach(() => {
     { id: "p2", isGlobal: true, schedulingType: "SCHEDULED" },
   ] as any);
   vi.mocked(prisma.organization.create).mockImplementation((async ({ data }: any) => ({ id: "db1", ...data })) as any);
+  vi.mocked(prisma.organization.findUniqueOrThrow).mockResolvedValue({ id: "db1", type: "CLUB", clerkOrgId: "org_new", houseCoachUserId: "hc1" } as any);
 });
 
 describe("parseClubInput", () => {
@@ -79,7 +85,7 @@ describe("parseClubInput", () => {
     expect(parseClubInput(valid)).toEqual({
       name: "Pine Valley CC", joinSlug: "pine-valley", joinCode: "PINEVALLEY24",
       trialDays: 14, membershipAmountCents: 1499, starterProgramIds: ["p1", "p2"], resourceProgramIds: [],
-      trainerEmail: "coach@pine.com", coachingAmountCents: null,
+      coachingAmountCents: null,
     });
   });
   it.each([
@@ -100,9 +106,9 @@ describe("parseClubInput", () => {
   it("create ignores keep flags (there is nothing to keep)", () => {
     expect(() => parseClubInput({ ...valid, membershipAmount: "", keepMembershipPrice: true })).toThrow(ClubError);
   });
-  it("update input has no trainer email and does not require one", () => {
-    const { trainerEmail: _t, ...rest } = valid;
-    const parsed = parseClubUpdateInput(rest);
+  it("ignores a stray trainer email field", () => {
+    expect(parseClubInput({ ...valid, trainerEmail: "coach@pine.com" })).not.toHaveProperty("trainerEmail");
+    const parsed = parseClubUpdateInput({ ...valid, trainerEmail: "coach@pine.com" });
     expect(parsed).not.toHaveProperty("trainerEmail");
     expect(parsed.coachingAmountCents).toBeNull();
   });
@@ -130,8 +136,6 @@ describe("parseClubInput", () => {
     ["3-decimal membership", { membershipAmount: "14.999" }],
     ["negative membership", { membershipAmount: "-5" }],
     ["no starters", { starterProgramIds: [] }],
-    ["missing trainer email", { trainerEmail: "" }],
-    ["bad trainer email", { trainerEmail: "coach@" }],
     ["non-numeric coaching", { coachingAmount: "abc" }],
     ["coaching under $1", { coachingAmount: "0.99" }],
   ])("rejects %s", (_l, patch) => {
@@ -167,26 +171,36 @@ describe("createClub", () => {
     await expect(createClub(parseClubInput(valid))).rejects.toThrow("db down");
     expect(clerkMocks.deleteOrganization).toHaveBeenCalledWith("org_new");
   });
-  it("invites the club trainer after creating the row", async () => {
-    await createClub(parseClubInput(valid));
-    expect(inviteClubTrainer).toHaveBeenCalledWith("org_new", "coach@pine.com");
+  it("creates the house coach after the row and returns the reloaded org", async () => {
+    const org = await createClub(parseClubInput(valid));
+    expect(ensureHouseCoach).toHaveBeenCalledWith(expect.objectContaining({ clerkOrgId: "org_new", type: "CLUB" }));
     expect(prisma.organization.delete).not.toHaveBeenCalled();
+    expect(clerkUserMocks.deleteUser).not.toHaveBeenCalled();
+    expect(org).toMatchObject({ clerkOrgId: "org_new", houseCoachUserId: "hc1" });
   });
-  it("refuses a trainer email that already has an account before creating anything", async () => {
-    vi.mocked(prisma.user.findFirst).mockResolvedValue({ id: "u_existing" } as any);
-    await expect(createClub(parseClubInput(valid))).rejects.toMatchObject({ code: "trainer_email_taken" });
-    expect(clerkMocks.createOrganization).not.toHaveBeenCalled();
-    expect(prisma.organization.create).not.toHaveBeenCalled();
-    expect(inviteClubTrainer).not.toHaveBeenCalled();
+  it("sends no invitation (no trainer email on the input)", async () => {
+    expect(parseClubInput(valid)).not.toHaveProperty("trainerEmail");
+    await createClub(parseClubInput(valid));
+    expect(clerkMocks).not.toHaveProperty("createOrganizationInvitation");
   });
-  it("rolls back the DB row and Clerk org when the invite fails", async () => {
-    vi.mocked(inviteClubTrainer).mockRejectedValueOnce(new Error("clerk down"));
+  it("rolls back the DB row, house coach user and Clerk org when house coach creation fails", async () => {
+    vi.mocked(ensureHouseCoach).mockRejectedValueOnce(new Error("clerk down"));
     vi.spyOn(console, "error").mockImplementation(() => {});
-    await expect(createClub(parseClubInput(valid))).rejects.toMatchObject({ code: "trainer_invite_failed" });
+    await expect(createClub(parseClubInput(valid))).rejects.toMatchObject({ code: "house_coach_failed" });
     expect(prisma.organization.delete).toHaveBeenCalledWith({ where: { clerkOrgId: "org_new" } });
+    expect(clerkUserMocks.getUserList).toHaveBeenCalledWith({ externalId: ["house-coach:org_new"], limit: 1 });
+    expect(clerkUserMocks.deleteUser).toHaveBeenCalledWith("user_hc");
+    expect(prisma.user.deleteMany).toHaveBeenCalledWith({ where: { clerkOrgId: "org_new", role: "TRAINER" } });
     expect(clerkMocks.deleteOrganization).toHaveBeenCalledWith("org_new");
   });
-  it("only allows Global starters on create (no trainer yet)", async () => {
+  it("still deletes the Clerk org when the house coach user cleanup fails", async () => {
+    vi.mocked(ensureHouseCoach).mockRejectedValueOnce(new Error("clerk down"));
+    clerkUserMocks.getUserList.mockRejectedValueOnce(new Error("lookup failed"));
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    await expect(createClub(parseClubInput(valid))).rejects.toMatchObject({ code: "house_coach_failed" });
+    expect(clerkMocks.deleteOrganization).toHaveBeenCalledWith("org_new");
+  });
+  it("only allows Global starters on create (no house coach yet)", async () => {
     vi.mocked(prisma.program.findMany).mockResolvedValue([
       { id: "p1", isGlobal: true, clientId: null, trainerId: null, schedulingType: null },
       { id: "p2", isGlobal: false, clientId: null, trainerId: "t1", schedulingType: "SCHEDULED" },
@@ -223,7 +237,6 @@ describe("createClub prices", () => {
   });
   it.each([
     ["a taken slug", () => vi.mocked(prisma.organization.findFirst).mockResolvedValue({ id: "x" } as any)],
-    ["a taken trainer email", () => vi.mocked(prisma.user.findFirst).mockResolvedValue({ id: "u" } as any)],
     ["invalid starters", () => vi.mocked(prisma.program.findMany).mockResolvedValue([] as any)],
   ])("creates no Stripe objects when validation fails (%s)", async (_l, arrange) => {
     arrange();
@@ -256,10 +269,10 @@ describe("createClub prices", () => {
     expect(vi.mocked(stripe.products.update).mock.calls.map((c) => c[0])).toEqual(["prod_membership", "prod_coaching"]);
     expect(clerkMocks.deleteOrganization).toHaveBeenCalledWith("org_new");
   });
-  it("archives the created prices when the trainer invite fails", async () => {
-    vi.mocked(inviteClubTrainer).mockRejectedValueOnce(new Error("clerk down"));
+  it("archives the created prices when house coach creation fails", async () => {
+    vi.mocked(ensureHouseCoach).mockRejectedValueOnce(new Error("clerk down"));
     vi.spyOn(console, "error").mockImplementation(() => {});
-    await expect(createClub(parseClubInput(valid))).rejects.toMatchObject({ code: "trainer_invite_failed" });
+    await expect(createClub(parseClubInput(valid))).rejects.toMatchObject({ code: "house_coach_failed" });
     expect(stripe.prices.update).toHaveBeenCalledWith("price_new_membership_1", { active: false });
     expect(stripe.products.update).toHaveBeenCalledWith("prod_membership", { active: false });
   });
@@ -278,7 +291,7 @@ describe("createClub prices", () => {
 });
 
 describe("updateClub prices", () => {
-  const { trainerEmail: _t, ...updateForm } = valid;
+  const updateForm = valid;
   const existing = {
     clerkOrgId: "org_1", type: "CLUB", name: "Pine Valley CC", starterProgramIds: ["p1", "p2"],
     stripePriceId: "price_member", coachingStripePriceId: "price_coach",
@@ -437,19 +450,19 @@ describe("updateClub prices", () => {
 });
 
 describe("updateClub starters", () => {
-  const { trainerEmail: _t, ...updateForm } = valid;
+  const updateForm = valid;
   beforeEach(() => {
     vi.mocked(prisma.organization.findUnique).mockResolvedValue({ clerkOrgId: "org_1", type: "CLUB", name: "Pine Valley CC" } as any);
     vi.mocked(prisma.organization.update).mockResolvedValue({} as any);
   });
-  it("allows the club trainer's own scheduled templates", async () => {
-    vi.mocked(getClubTrainer).mockResolvedValue({ id: "t1" } as any);
+  it("allows the house coach's own scheduled templates", async () => {
+    vi.mocked(getHouseCoach).mockResolvedValue({ id: "t1" } as any);
     vi.mocked(prisma.program.findMany).mockResolvedValue([
       { id: "p1", isGlobal: true, clientId: null, trainerId: null, schedulingType: null },
       { id: "p2", isGlobal: false, clientId: null, trainerId: "t1", schedulingType: "SCHEDULED" },
     ] as any);
     await updateClub("org_1", parseClubUpdateInput(updateForm));
-    expect(getClubTrainer).toHaveBeenCalledWith("org_1");
+    expect(getHouseCoach).toHaveBeenCalledWith("org_1");
     expect(prisma.organization.update).toHaveBeenCalled();
   });
   it.each([
@@ -457,7 +470,7 @@ describe("updateClub starters", () => {
     ["the trainer's assigned (non-template) program", { isGlobal: false, clientId: "c1", trainerId: "t1", schedulingType: "SCHEDULED" }],
     ["the trainer's on-demand template", { isGlobal: false, clientId: null, trainerId: "t1", schedulingType: "ON_DEMAND" }],
   ])("refuses %s", async (_l, p2) => {
-    vi.mocked(getClubTrainer).mockResolvedValue({ id: "t1" } as any);
+    vi.mocked(getHouseCoach).mockResolvedValue({ id: "t1" } as any);
     vi.mocked(prisma.program.findMany).mockResolvedValue([
       { id: "p1", isGlobal: true, clientId: null, trainerId: null, schedulingType: null },
       { id: "p2", ...p2 },
@@ -465,10 +478,9 @@ describe("updateClub starters", () => {
     await expect(updateClub("org_1", parseClubUpdateInput(updateForm))).rejects.toMatchObject({ code: "starter_invalid" });
     expect(prisma.organization.update).not.toHaveBeenCalled();
   });
-  // Between Replace and the new trainer accepting, the club has no trainer;
-  // the admin must still be able to edit it without re-picking starters.
-  it("keeps the club's existing trainer-template starters while it has no trainer", async () => {
-    vi.mocked(getClubTrainer).mockResolvedValue(null);
+  // A club without a house coach yet must still be editable without re-picking starters.
+  it("keeps the club's existing template starters while it has no house coach", async () => {
+    vi.mocked(getHouseCoach).mockResolvedValue(null);
     vi.mocked(prisma.organization.findUnique).mockResolvedValue({
       clerkOrgId: "org_1", type: "CLUB", name: "Pine Valley CC", starterProgramIds: ["p1", "p2"],
     } as any);
@@ -479,8 +491,8 @@ describe("updateClub starters", () => {
     await updateClub("org_1", parseClubUpdateInput(updateForm));
     expect(prisma.organization.update).toHaveBeenCalled();
   });
-  it("still refuses a newly added trainer template while the club has no trainer", async () => {
-    vi.mocked(getClubTrainer).mockResolvedValue(null);
+  it("still refuses a newly added template while the club has no house coach", async () => {
+    vi.mocked(getHouseCoach).mockResolvedValue(null);
     vi.mocked(prisma.organization.findUnique).mockResolvedValue({
       clerkOrgId: "org_1", type: "CLUB", name: "Pine Valley CC", starterProgramIds: ["p1"],
     } as any);
@@ -501,8 +513,8 @@ describe("updateClub starters", () => {
     ] as any);
     await expect(updateClub("org_1", parseClubUpdateInput(updateForm))).rejects.toMatchObject({ code: "starter_invalid" });
   });
-  it("accepts Global and club trainer resources", async () => {
-    vi.mocked(getClubTrainer).mockResolvedValue({ id: "t1" } as any);
+  it("accepts Global and house coach resources", async () => {
+    vi.mocked(getHouseCoach).mockResolvedValue({ id: "t1" } as any);
     vi.mocked(prisma.program.findMany)
       .mockResolvedValueOnce([
         { id: "p1", isGlobal: true, clientId: null, trainerId: null, schedulingType: null },
@@ -586,44 +598,27 @@ describe("listClubsWithStats", () => {
   const group = (clerkOrgId: string, status: string, n: number) => ({ clerkOrgId, status, _count: { _all: n } });
 
   beforeEach(() => {
-    vi.mocked(prisma.organization.findMany).mockResolvedValue([{ clerkOrgId: "org_a" }, { clerkOrgId: "org_b" }] as any);
+    vi.mocked(prisma.organization.findMany).mockResolvedValue([
+      { clerkOrgId: "org_a", houseCoachUserId: "hc_a" },
+      { clerkOrgId: "org_b", houseCoachUserId: null },
+    ] as any);
     vi.mocked(prisma.memberCoaching.groupBy).mockResolvedValue([] as any);
     vi.mocked(prisma.user.findMany).mockResolvedValue([] as any);
-    vi.mocked(getPendingTrainerInvite).mockResolvedValue(null);
   });
 
-  it("adds the coached count and the trainer status per club", async () => {
+  it("adds the coached count and the house coach status per club", async () => {
     vi.mocked(prisma.memberSubscription.groupBy).mockResolvedValue([] as any);
     vi.mocked(prisma.memberCoaching.groupBy).mockResolvedValue([{ clerkOrgId: "org_a", _count: { _all: 3 } }] as any);
     vi.mocked(prisma.user.findMany).mockResolvedValue([
-      { clerkOrgId: "org_a", firstName: "Sam", lastName: "Coach", email: "s@x.com", onboarded: true },
+      { id: "hc_a", firstName: "Coach", lastName: "Pine", email: "hc@x.com" },
     ] as any);
     const [a, b] = await listClubsWithStats(now);
     expect(prisma.memberCoaching.groupBy).toHaveBeenCalledWith(
       expect.objectContaining({ where: { clerkOrgId: { in: ["org_a", "org_b"] }, status: { in: ["ACTIVE", "PAST_DUE"] } } })
     );
-    expect(a).toMatchObject({ coached: 3, trainer: { status: "active", name: "Sam Coach" } });
-    expect(b).toMatchObject({ coached: 0, trainer: { status: "none" } });
-    // Only the trainer-less club needs the Clerk invite lookup.
-    expect(getPendingTrainerInvite).toHaveBeenCalledTimes(1);
-    expect(getPendingTrainerInvite).toHaveBeenCalledWith("org_b");
-  });
-
-  it("reports unknown (and logs) when the Clerk invite lookup fails", async () => {
-    vi.mocked(prisma.memberSubscription.groupBy).mockResolvedValue([] as any);
-    vi.mocked(getPendingTrainerInvite).mockRejectedValue(new Error("clerk down"));
-    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
-    const [a] = await listClubsWithStats(now);
-    expect(a.trainer).toEqual({ status: "unknown" });
-    expect(spy).toHaveBeenCalled();
-    spy.mockRestore();
-  });
-
-  it("reports a pending invite for a trainer-less club", async () => {
-    vi.mocked(prisma.memberSubscription.groupBy).mockResolvedValue([] as any);
-    vi.mocked(getPendingTrainerInvite).mockResolvedValue({ email: "new@x.com", createdAt: new Date() });
-    const [a] = await listClubsWithStats(now);
-    expect(a.trainer).toEqual({ status: "pending", email: "new@x.com" });
+    expect(prisma.user.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { id: { in: ["hc_a"] } } }));
+    expect(a).toMatchObject({ coached: 3, houseCoach: { status: "active", name: "Coach Pine" } });
+    expect(b).toMatchObject({ coached: 0, houseCoach: { status: "none" } });
   });
 
   it("counts expired trials as decided (not trialing, not paying)", async () => {
@@ -661,5 +656,35 @@ describe("listClubsWithStats", () => {
       .mockResolvedValueOnce([group("org_a", "TRIALING", 4)] as any);
     const [a] = await listClubsWithStats(now);
     expect(a).toMatchObject({ trialing: 0, expired: 4, paying: 0, conversionRate: 0 });
+  });
+});
+
+describe("updateClub house coach sync", () => {
+  const existing = {
+    clerkOrgId: "org_1", type: "CLUB", name: "Pine Valley CC", starterProgramIds: ["p1", "p2"],
+    stripePriceId: "price_member", coachingStripePriceId: "price_coach",
+  };
+  beforeEach(() => {
+    vi.mocked(prisma.organization.findUnique).mockResolvedValue(existing as any);
+    vi.mocked(prisma.organization.update).mockImplementation((async ({ data }: any) => ({ ...existing, ...data })) as any);
+  });
+
+  it("syncs the house coach profile when the name changes", async () => {
+    await updateClub("org_1", parseClubUpdateInput({ ...valid, name: "Pine Valley Club", coachingAmount: "30" }));
+    expect(syncHouseCoachProfile).toHaveBeenCalledWith(expect.objectContaining({ name: "Pine Valley Club" }));
+  });
+
+  it("does not sync when the name is unchanged", async () => {
+    await updateClub("org_1", parseClubUpdateInput({ ...valid, coachingAmount: "30" }));
+    expect(syncHouseCoachProfile).not.toHaveBeenCalled();
+  });
+
+  it("never fails the edit when the sync throws", async () => {
+    vi.mocked(syncHouseCoachProfile).mockRejectedValueOnce(new Error("clerk down"));
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    await expect(
+      updateClub("org_1", parseClubUpdateInput({ ...valid, name: "Pine Valley Club", coachingAmount: "30" }))
+    ).resolves.toMatchObject({ name: "Pine Valley Club" });
+    errSpy.mockRestore();
   });
 });

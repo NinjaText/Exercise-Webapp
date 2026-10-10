@@ -5,10 +5,9 @@
  * The payload builders reproduce, field for field, the objects the
  * pre-step-form components passed to their server actions. Validation keeps
  * the old required/optional semantics exactly: only names (and the trainer's
- * organization name) are required, and only the club-trainer form trims.
+ * organization name) are required.
  */
 import type { completeClientOnboarding, completeTrainerOnboarding } from "@/actions/onboarding-actions";
-import type { completeClubTrainerOnboarding } from "@/actions/club-trainer-onboarding-actions";
 import type { FieldErrors, StepValidator } from "./step-form-state";
 
 // ── Client ────────────────────────────────────────────────────────────────
@@ -75,10 +74,10 @@ export function buildClientOnboardingPayload(
   };
 }
 
-function requireNames(v: { firstName: string; lastName: string }, trim = false): FieldErrors {
+function requireNames(v: { firstName: string; lastName: string }): FieldErrors {
   const errors: FieldErrors = {};
-  if (!(trim ? v.firstName.trim() : v.firstName)) errors.firstName = "Enter your first name.";
-  if (!(trim ? v.lastName.trim() : v.lastName)) errors.lastName = "Enter your last name.";
+  if (!v.firstName) errors.firstName = "Enter your first name.";
+  if (!v.lastName) errors.lastName = "Enter your last name.";
   return errors;
 }
 
@@ -122,18 +121,3 @@ export const TRAINER_STEP_VALIDATORS: readonly (StepValidator<TrainerOnboardingV
   (v) => requireNames(v),
   (v): FieldErrors => (v.organizationName ? {} : { organizationName: "Enter your organization's name." }),
 ];
-
-// ── Club trainer ──────────────────────────────────────────────────────────
-
-export interface ClubTrainerOnboardingValues {
-  firstName: string;
-  lastName: string;
-}
-
-export function buildClubTrainerOnboardingPayload(
-  v: ClubTrainerOnboardingValues,
-): Parameters<typeof completeClubTrainerOnboarding>[0] {
-  return { firstName: v.firstName, lastName: v.lastName };
-}
-
-export const validateClubTrainer: StepValidator<ClubTrainerOnboardingValues> = (v) => requireNames(v, true);

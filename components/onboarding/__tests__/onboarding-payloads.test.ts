@@ -4,10 +4,8 @@ import {
   EMPTY_TRAINER_ONBOARDING_VALUES,
   buildClientOnboardingPayload,
   buildTrainerOnboardingPayload,
-  buildClubTrainerOnboardingPayload,
   CLIENT_STEP_VALIDATORS,
   TRAINER_STEP_VALIDATORS,
-  validateClubTrainer,
   type ClientOnboardingValues,
 } from "../onboarding-payloads";
 
@@ -116,15 +114,6 @@ describe("buildTrainerOnboardingPayload", () => {
   });
 });
 
-describe("buildClubTrainerOnboardingPayload", () => {
-  it("sends the names as entered (the action trims)", () => {
-    expect(buildClubTrainerOnboardingPayload({ firstName: " Jo ", lastName: "Doe" })).toStrictEqual({
-      firstName: " Jo ",
-      lastName: "Doe",
-    });
-  });
-});
-
 describe("validators keep the legacy required/optional semantics", () => {
   it("client: only first and last name are required, on step 1", () => {
     expect(CLIENT_STEP_VALIDATORS[0]!(EMPTY_CLIENT_ONBOARDING_VALUES)).toEqual({
@@ -140,10 +129,5 @@ describe("validators keep the legacy required/optional semantics", () => {
   it("trainer: names on step 1, organization name on step 2, phone optional", () => {
     expect(Object.keys(TRAINER_STEP_VALIDATORS[0]!(EMPTY_TRAINER_ONBOARDING_VALUES))).toEqual(["firstName", "lastName"]);
     expect(Object.keys(TRAINER_STEP_VALIDATORS[1]!(EMPTY_TRAINER_ONBOARDING_VALUES))).toEqual(["organizationName"]);
-  });
-
-  it("club trainer: names required, whitespace-only rejected (legacy .trim())", () => {
-    expect(Object.keys(validateClubTrainer({ firstName: " ", lastName: "" }))).toEqual(["firstName", "lastName"]);
-    expect(validateClubTrainer({ firstName: "Jo", lastName: "Doe" })).toEqual({});
   });
 });

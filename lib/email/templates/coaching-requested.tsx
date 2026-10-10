@@ -9,7 +9,7 @@ interface CoachingRequestedEmailProps {
   unsubscribeUrl?: string;
 }
 
-/** To the club trainer: a member asked for the paid coaching add-on. */
+/** To the house coach: a member asked for the paid coaching add-on. */
 export function CoachingRequestedEmail({
   recipientName,
   memberName,

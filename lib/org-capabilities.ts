@@ -19,7 +19,7 @@ export interface OrgCapabilities {
    */
   coachNotifications: boolean;
   /**
-   * Trainer billing page/nav is shown (false for club trainers — they never
+   * Trainer billing page/nav is shown (false for house coaches — they never
    * pay). Only meaningful for TRAINERs; clients have no trainer billing page,
    * so it stays true for them and their nav is unaffected.
    */
@@ -49,7 +49,7 @@ const TRAINER_CAPABILITIES: OrgCapabilities = Object.freeze({
 
 /**
  * One user's capabilities. Trainer orgs: everyone gets the full set. Clubs:
- * the club trainer coaches (but never pays); a member gets coaching features
+ * the house coach coaches (but never pays); a member gets coaching features
  * only while their MemberCoaching is ACTIVE.
  */
 export function getUserCapabilities(input: {
@@ -113,5 +113,19 @@ export function hiddenNavHrefs(caps: OrgCapabilities): string[] {
   if (!caps.messaging) hidden.push(CAPABILITY_ROUTES.messaging);
   if (!caps.checkIns) hidden.push(CAPABILITY_ROUTES.checkIns);
   if (!caps.trainerBilling) hidden.push(TRAINER_BILLING_ROUTE);
+  return hidden;
+}
+
+/** Account/security settings tab (and landing page): never shown to a club's house coach. */
+export const SETTINGS_ACCOUNT_ROUTE = "/settings";
+
+/**
+ * Settings tab hrefs to drop. Same as the nav list, plus the Account tab for
+ * a house coach (a shared account the admin must not change credentials on).
+ * Separate from hiddenNavHrefs because "/settings" is also the nav link.
+ */
+export function hiddenSettingsTabHrefs(caps: OrgCapabilities, opts: { houseCoach?: boolean } = {}): string[] {
+  const hidden = hiddenNavHrefs(caps);
+  if (opts.houseCoach) hidden.push(SETTINGS_ACCOUNT_ROUTE);
   return hidden;
 }

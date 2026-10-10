@@ -46,7 +46,7 @@ export async function withdrawCoachingRequestAction(): Promise<CoachingActionRes
   }
 }
 
-const TRAINER_ONLY = "Only a club trainer can manage coaching.";
+const TRAINER_ONLY = "Only the club's coach can manage coaching.";
 
 async function requireTrainer() {
   const user = await getCurrentUser();
@@ -60,7 +60,7 @@ function revalidateTrainerViews(memberId: string) {
   revalidatePath(`/clients/${memberId}`);
 }
 
-/** The club trainer accepts or declines a member's request. The service enforces same-org. */
+/** The house coach accepts or declines a member's request. The service enforces same-org. */
 export async function respondCoachingRequestAction(
   memberId: string,
   accept: boolean,
@@ -76,7 +76,7 @@ export async function respondCoachingRequestAction(
   }
 }
 
-/** The club trainer ends an active coaching subscription (at period end). */
+/** The house coach ends an active coaching subscription (at period end). */
 export async function endCoachingAction(memberId: string): Promise<CoachingActionResult> {
   try {
     const trainer = await requireTrainer();
@@ -88,7 +88,7 @@ export async function endCoachingAction(memberId: string): Promise<CoachingActio
   }
 }
 
-/** The club trainer withdraws an offer the member hasn't paid for yet. */
+/** The house coach withdraws an offer the member hasn't paid for yet. */
 export async function withdrawCoachingOfferAction(memberId: string): Promise<CoachingActionResult> {
   try {
     const trainer = await requireTrainer();

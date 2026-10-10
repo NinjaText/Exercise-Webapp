@@ -6,6 +6,7 @@ import {
   needsCoachingLookup,
   canPairInteract,
   hiddenNavHrefs,
+  hiddenSettingsTabHrefs,
   MESSAGING_UNAVAILABLE,
   CHECK_INS_UNAVAILABLE,
 } from "@/lib/org-capabilities";
@@ -130,5 +131,13 @@ describe("MESSAGING_UNAVAILABLE", () => {
   });
   it("has a check-in counterpart for trainer assignment", () => {
     expect(CHECK_INS_UNAVAILABLE).toBe("Check-ins aren't available for this client.");
+  });
+});
+
+describe("hiddenSettingsTabHrefs", () => {
+  const caps = getUserCapabilities({ orgType: "CLUB", role: "TRAINER", coachingActive: false });
+  it("adds the Account tab only for a house coach", () => {
+    expect(hiddenSettingsTabHrefs(caps)).toEqual(["/settings/billing"]);
+    expect(hiddenSettingsTabHrefs(caps, { houseCoach: true })).toEqual(["/settings/billing", "/settings"]);
   });
 });

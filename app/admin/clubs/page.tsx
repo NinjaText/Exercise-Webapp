@@ -4,6 +4,7 @@ import type { StatusRole } from "@/lib/ui/status";
 import { listClubsWithStats } from "@/lib/services/club.service";
 import { describeClubPrice, type ClubPriceView } from "@/lib/services/club-pricing.service";
 import { priceSummary } from "./[orgId]/price-fields";
+import { ManageClubButton } from "./[orgId]/manage-club-button";
 import { Button } from "@/components/ui/button";
 import { PageShell } from "@/components/shared/page-shell";
 import { PageHeader } from "@/components/shared/page-header";
@@ -11,17 +12,19 @@ import { DataList, type Column } from "@/components/shared/data-list";
 import { EmptyState } from "@/components/shared/empty-state";
 import { StatCard } from "@/components/shared/stat-card";
 import { StatusBadge } from "@/components/shared/status-badge";
+import { requireSuperAdmin } from "@/lib/current-user";
+import { getClubAttentionCounts, isClubAlertsMuted } from "@/lib/services/club-alerts.service";
+import { AlertsToggle } from "./alerts-toggle";
 
 type ClubRow = Awaited<ReturnType<typeof listClubsWithStats>>[number] & {
   membershipPrice: ClubPriceView;
   coachingPrice: ClubPriceView;
+  attention: number;
 };
 
-const TRAINER_BADGE: Record<ClubRow["trainer"]["status"], { label: string; role: StatusRole }> = {
+const HOUSE_COACH_BADGE: Record<ClubRow["houseCoach"]["status"], { label: string; role: StatusRole }> = {
   active: { label: "Active", role: "success" },
-  pending: { label: "Awaiting trainer", role: "warning" },
-  none: { label: "No trainer", role: "danger" },
-  unknown: { label: "Unknown", role: "neutral" },
+  none: { label: "No house coach", role: "danger" },
 };
 
 const columns: Column<ClubRow>[] = [
@@ -44,19 +47,18 @@ const columns: Column<ClubRow>[] = [
     ),
   },
   {
-    key: "trainer",
-    header: "Trainer",
+    key: "houseCoach",
+    header: "House coach",
     className: "hidden md:table-cell",
-    render: ({ trainer }) => (
+    render: ({ houseCoach }) => (
       <div className="flex flex-col gap-1">
         <StatusBadge
-          status={trainer.status}
-          label={TRAINER_BADGE[trainer.status].label}
-          role={TRAINER_BADGE[trainer.status].role}
+          status={houseCoach.status}
+          label={HOUSE_COACH_BADGE[houseCoach.status].label}
+          role={HOUSE_COACH_BADGE[houseCoach.status].role}
           size="sm"
         />
-        {trainer.status === "active" && <span className="text-caption">{trainer.name}</span>}
-        {trainer.status === "pending" && <span className="text-caption">{trainer.email}</span>}
+        {houseCoach.status === "active" && <span className="text-caption">{houseCoach.name}</span>}
       </div>
     ),
   },
@@ -72,6 +74,17 @@ const columns: Column<ClubRow>[] = [
         </span>
       </div>
     ),
+  },
+  {
+    key: "attention",
+    header: "Needs attention",
+    align: "right",
+    render: (r) =>
+      r.attention > 0 ? (
+        <StatusBadge status="attention" label={String(r.attention)} role="danger" size="sm" />
+      ) : (
+        <span className="text-caption">—</span>
+      ),
   },
   { key: "members", header: "Members", align: "right", render: (r) => <span className="text-body">{r.members}</span> },
   { key: "trialing", header: "On trial", align: "right", render: (r) => <span className="text-body">{r.trialing}</span> },
@@ -101,22 +114,33 @@ const columns: Column<ClubRow>[] = [
       </span>
     ),
   },
+  {
+    key: "manage",
+    header: "",
+    align: "right",
+    render: (r) => <ManageClubButton clerkOrgId={r.org.clerkOrgId} compact />,
+  },
 ];
 
 export default async function AdminClubsPage() {
-  const stats = await listClubsWithStats();
+  const admin = await requireSuperAdmin();
+  const [stats, attention, muted] = await Promise.all([
+    listClubsWithStats(),
+    getClubAttentionCounts(),
+    isClubAlertsMuted(admin.id),
+  ]);
   const clubs: ClubRow[] = await Promise.all(
     stats.map(async (row) => {
       const [membershipPrice, coachingPrice] = await Promise.all([
         describeClubPrice(row.org.stripePriceId ?? null),
         describeClubPrice(row.org.coachingStripePriceId ?? null),
       ]);
-      return { ...row, membershipPrice, coachingPrice };
+      return { ...row, membershipPrice, coachingPrice, attention: attention.get(row.org.clerkOrgId) ?? 0 };
     })
   );
 
   const totals = clubs.reduce(
-    (t, r) => ({ members: t.members + r.members, paying: t.paying + r.paying, open: t.open + (r.trainer.status === "active" ? 1 : 0) }),
+    (t, r) => ({ members: t.members + r.members, paying: t.paying + r.paying, open: t.open + (r.houseCoach.status === "active" ? 1 : 0) }),
     { members: 0, paying: 0, open: 0 }
   );
 
@@ -126,6 +150,7 @@ export default async function AdminClubsPage() {
         breadcrumb={[{ label: "Admin", href: "/admin" }, { label: "Clubs" }]}
         title="Clubs"
         description="Member-paid organizations with their own join link and free trial."
+        meta={<AlertsToggle initialMuted={muted} />}
         primaryAction={
           <Button asChild>
             <Link href="/admin/clubs/new">

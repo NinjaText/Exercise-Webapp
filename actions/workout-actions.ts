@@ -1,6 +1,6 @@
 "use server";
 
-import { activeUserOnly } from "@/lib/auth/active-user";
+import { activeCallerOnly } from "@/lib/auth/active-user";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
@@ -30,7 +30,7 @@ export async function createPlanAction(input: {
   const { userId } = await auth();
   if (!userId) return { success: false as const, error: "Unauthorized" };
 
-  const dbUser = activeUserOnly(await prisma.user.findUnique({ where: { clerkId: userId } }));
+  const dbUser = await activeCallerOnly(await prisma.user.findUnique({ where: { clerkId: userId } }));
   if (!dbUser) return { success: false as const, error: "User not found" };
   if (dbUser.role !== "TRAINER") return { success: false as const, error: "Forbidden" };
 
@@ -66,7 +66,7 @@ export async function generatePlanAction(input: {
   const { userId } = await auth();
   if (!userId) return { success: false as const, error: "Unauthorized" };
 
-  const dbUser = activeUserOnly(await prisma.user.findUnique({ where: { clerkId: userId } }));
+  const dbUser = await activeCallerOnly(await prisma.user.findUnique({ where: { clerkId: userId } }));
   if (!dbUser) return { success: false as const, error: "User not found" };
   if (dbUser.role !== "TRAINER") return { success: false as const, error: "Forbidden" };
 
@@ -112,7 +112,7 @@ export async function updatePlanStatusAction(planId: string, status: string) {
   const { userId } = await auth();
   if (!userId) return { success: false as const, error: "Unauthorized" };
 
-  const dbUser = activeUserOnly(await prisma.user.findUnique({ where: { clerkId: userId } }));
+  const dbUser = await activeCallerOnly(await prisma.user.findUnique({ where: { clerkId: userId } }));
   if (!dbUser) return { success: false as const, error: "User not found" };
   if (dbUser.role !== "TRAINER") return { success: false as const, error: "Forbidden" };
 
@@ -151,7 +151,7 @@ export async function updatePlanExerciseAction(
   const { userId } = await auth();
   if (!userId) return { success: false as const, error: "Unauthorized" };
 
-  const dbUser = activeUserOnly(await prisma.user.findUnique({ where: { clerkId: userId } }));
+  const dbUser = await activeCallerOnly(await prisma.user.findUnique({ where: { clerkId: userId } }));
   if (!dbUser) return { success: false as const, error: "User not found" };
   if (dbUser.role !== "TRAINER") return { success: false as const, error: "Forbidden" };
 
@@ -195,7 +195,7 @@ export async function saveProgramBuilderBlocksAction(
   const { userId } = await auth();
   if (!userId) return { success: false as const, error: "Unauthorized" };
 
-  const dbUser = activeUserOnly(await prisma.user.findUnique({ where: { clerkId: userId } }));
+  const dbUser = await activeCallerOnly(await prisma.user.findUnique({ where: { clerkId: userId } }));
   if (!dbUser) return { success: false as const, error: "User not found" };
   if (dbUser.role !== "TRAINER") return { success: false as const, error: "Forbidden" };
 
@@ -224,7 +224,7 @@ export async function swapExerciseAction(planExerciseId: string, newExerciseId: 
   const { userId } = await auth();
   if (!userId) return { success: false as const, error: "Unauthorized" };
 
-  const dbUser = activeUserOnly(await prisma.user.findUnique({ where: { clerkId: userId } }));
+  const dbUser = await activeCallerOnly(await prisma.user.findUnique({ where: { clerkId: userId } }));
   if (!dbUser) return { success: false as const, error: "User not found" };
   if (dbUser.role !== "TRAINER") return { success: false as const, error: "Forbidden" };
 
@@ -250,7 +250,7 @@ export async function assignClientToPlanAction(planId: string, clientId: string 
   const { userId } = await auth();
   if (!userId) return { success: false as const, error: "Unauthorized" };
 
-  const dbUser = activeUserOnly(await prisma.user.findUnique({ where: { clerkId: userId } }));
+  const dbUser = await activeCallerOnly(await prisma.user.findUnique({ where: { clerkId: userId } }));
   if (!dbUser) return { success: false as const, error: "User not found" };
   if (dbUser.role !== "TRAINER") return { success: false as const, error: "Forbidden" };
 

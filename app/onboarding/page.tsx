@@ -3,8 +3,6 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { OnboardingForm } from "@/components/onboarding/onboarding-form";
 import { AuthShell } from "@/components/auth/auth-shell";
-import { getCapabilitiesForUser } from "@/lib/org-capabilities.server";
-import { resolveClubTrainerInvite } from "@/lib/services/club-trainer.service";
 import { resolveBranding } from "@/lib/branding/resolve";
 import { toViewModel } from "@/lib/branding/types";
 
@@ -15,12 +13,6 @@ export default async function OnboardingPage() {
   // If already onboarded, redirect to dashboard
   const user = await prisma.user.findUnique({ where: { clerkId: userId } });
   if (user?.onboarded) redirect("/dashboard");
-  // An invited club trainer never goes through trainer-org signup.
-  if (user?.role === "TRAINER" && (await getCapabilitiesForUser(user)).billing === "member") {
-    redirect("/onboarding/club-trainer");
-  }
-  // No row yet (webhook pending) but invited as a club trainer.
-  if (!user && (await resolveClubTrainerInvite(userId))) redirect("/onboarding/club-trainer");
 
   // A new trainer has no org yet: product branding (no DB read).
   const branding = toViewModel(resolveBranding(null));

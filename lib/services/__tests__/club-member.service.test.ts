@@ -29,13 +29,13 @@ vi.mock("@/lib/services/program.service", () => ({
   assignProgram: vi.fn(async () => ({})),
   assignOnDemandProgram: vi.fn(async () => ({ id: "copy1" })),
 }));
-vi.mock("@/lib/services/club-trainer.service", () => ({
-  getClubTrainer: vi.fn(async () => ({ id: "staff1" })),
+vi.mock("@/lib/services/house-coach.service", () => ({
+  requireHouseCoach: vi.fn(async () => ({ id: "staff1" })),
 }));
 
 import { prisma } from "@/lib/prisma";
 import { duplicateProgram, assignProgram, assignOnDemandProgram } from "@/lib/services/program.service";
-import { getClubTrainer } from "@/lib/services/club-trainer.service";
+import { requireHouseCoach } from "@/lib/services/house-coach.service";
 import {
   enrollClubMember, ensureMemberSubscription, assignNextStarterProgram, sweepClubStarterPrograms,
 } from "../club-member.service";
@@ -211,19 +211,19 @@ describe("assignNextStarterProgram", () => {
     expect(prisma.memberSubscription.update).toHaveBeenCalledWith({ where: { userId: "u1" }, data: { starterStatus: "FAILED" } });
   });
 
-  it("copies as the club trainer", async () => {
+  it("copies as the house coach", async () => {
     vi.mocked(prisma.program.findMany).mockResolvedValue([]);
     await assignNextStarterProgram("u1");
-    expect(getClubTrainer).toHaveBeenCalledWith("org_club");
+    expect(requireHouseCoach).toHaveBeenCalledWith("org_club");
   });
 
-  it("releases the claim to PENDING and skips when the club has no trainer", async () => {
+  it("marks FAILED and rethrows when the house coach can't be created (no PENDING skip)", async () => {
     vi.mocked(prisma.program.findMany).mockResolvedValue([]);
-    vi.mocked(getClubTrainer).mockResolvedValueOnce(null);
-    expect(await assignNextStarterProgram("u1")).toBe("skipped");
+    vi.mocked(requireHouseCoach).mockRejectedValueOnce(new Error("clerk down"));
+    await expect(assignNextStarterProgram("u1")).rejects.toThrow("clerk down");
     expect(duplicateProgram).not.toHaveBeenCalled();
-    expect(prisma.memberSubscription.update).toHaveBeenCalledWith({ where: { userId: "u1" }, data: { starterStatus: "PENDING" } });
-    expect(prisma.memberSubscription.update).not.toHaveBeenCalledWith({ where: { userId: "u1" }, data: { starterStatus: "FAILED" } });
+    expect(prisma.memberSubscription.update).toHaveBeenCalledWith({ where: { userId: "u1" }, data: { starterStatus: "FAILED" } });
+    expect(prisma.memberSubscription.update).not.toHaveBeenCalledWith({ where: { userId: "u1" }, data: { starterStatus: "PENDING" } });
   });
 
   describe("club resources", () => {

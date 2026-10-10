@@ -2,7 +2,6 @@
 
 import { cookies, headers } from "next/headers";
 import { getClubBySlug } from "@/lib/services/club.service";
-import { CLUB_NOT_OPEN_MESSAGE, getClubTrainer } from "@/lib/services/club-trainer.service";
 import { isJoinRateLimited, recordFailedJoinAttempt } from "@/lib/services/join-attempt.service";
 import { JOIN_COOKIE, JOIN_TOKEN_TTL_MS, joinCodesMatch, signJoinToken } from "@/lib/clubs/join-token";
 
@@ -31,10 +30,6 @@ export async function verifyJoinCodeAction(
   if (!club || !joinCodesMatch(code, club.joinCode)) {
     await recordFailedJoinAttempt(key);
     return { ok: false, error: GENERIC_ERROR };
-  }
-  // Checked after the code, so a closed club isn't revealed to guessers (D5).
-  if (!(await getClubTrainer(club.clerkOrgId))) {
-    return { ok: false, error: CLUB_NOT_OPEN_MESSAGE };
   }
 
   (await cookies()).set(JOIN_COOKIE, signJoinToken(club.clerkOrgId), {

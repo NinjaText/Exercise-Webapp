@@ -99,7 +99,7 @@ export default async function ClientsPage({ searchParams }: Props) {
   const [allClients, invitations, coaching] = await Promise.all([
     getClientsForTrainer(user.id),
     user.clerkOrgId ? getOrgInvitations(user.clerkOrgId) : Promise.resolve([]),
-    // null (and no coaching query) unless this is a club trainer.
+    // null (and no coaching query) unless this is a house coach.
     getTrainerCoachingStatuses(user),
   ]);
 

@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 vi.mock('@/lib/org-capabilities.server', () => ({ getCapabilitiesForUser: vi.fn(), canCoachInteract: vi.fn(async () => true), filterCoachableClientIds: vi.fn(async (_t: unknown, ids: string[]) => ids) }))
 vi.mock('@clerk/nextjs/server', () => ({ auth: vi.fn(async () => ({ userId: 'clerk_1' })) }))
-vi.mock('@/lib/prisma', () => ({ prisma: { user: { findUnique: vi.fn() } } }))
+vi.mock('@/lib/prisma', () => ({ prisma: { organization: { findFirst: vi.fn() }, user: { findUnique: vi.fn() } } }))
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 vi.mock('@aws-sdk/client-s3', () => ({
   PutObjectCommand: vi.fn(),

@@ -64,7 +64,7 @@ export default async function DashboardPage() {
       }),
       getDashboardInsights(user.id, now),
       messageService.getInboxThreads(user.id),
-      // null (and no coaching query) unless this is a club trainer.
+      // null (and no coaching query) unless this is a house coach.
       getTrainerCoachingRequests(user),
     ]);
 

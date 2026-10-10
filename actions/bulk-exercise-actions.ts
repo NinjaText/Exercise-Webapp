@@ -1,6 +1,6 @@
 "use server";
 
-import { activeUserOnly } from "@/lib/auth/active-user";
+import { activeCallerOnly } from "@/lib/auth/active-user";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
@@ -39,7 +39,7 @@ export async function bulkCreateExercisesAction(exercises: BulkExerciseInput[]) 
   const { userId } = await auth();
   if (!userId) return { success: false as const, error: "Unauthorized" };
 
-  const dbUser = activeUserOnly(await prisma.user.findUnique({ where: { clerkId: userId } }));
+  const dbUser = await activeCallerOnly(await prisma.user.findUnique({ where: { clerkId: userId } }));
   if (!dbUser) return { success: false as const, error: "User not found" };
   if (dbUser.role !== "TRAINER") return { success: false as const, error: "Forbidden" };
 
@@ -112,7 +112,7 @@ export async function importExercisesFromCsvAction(rows: CsvExerciseRow[]) {
   const { userId } = await auth();
   if (!userId) return { success: false as const, error: "Unauthorized" };
 
-  const dbUser = activeUserOnly(await prisma.user.findUnique({ where: { clerkId: userId } }));
+  const dbUser = await activeCallerOnly(await prisma.user.findUnique({ where: { clerkId: userId } }));
   if (!dbUser) return { success: false as const, error: "User not found" };
 
   const allowedEmails = (process.env.SUPER_ADMIN_EMAILS ?? "")

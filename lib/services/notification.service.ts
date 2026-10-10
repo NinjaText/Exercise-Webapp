@@ -15,10 +15,23 @@ import {
   getOrCreatePreference,
   isAllowedByPrefs,
 } from "@/lib/services/notification-preference.service";
+import { getClubAlertRecipients } from "@/lib/services/club-alerts.service";
 
 // Re-exported so existing importers of this module keep working unchanged.
 export { NOTIFICATION_TYPES };
 export type { NotificationType };
+
+/**
+ * The only types a house coach's mail fans out to the super admins for, mapped
+ * to the template prop holding the CTA link (re-pointed at the club's admin
+ * page). Every other house-coach notification stays in-app only.
+ */
+const ADMIN_ALERT_LINK_PROP: Partial<Record<NotificationType, string>> = {
+  [NOTIFICATION_TYPES.NEW_MESSAGE]: "messagesLink",
+  [NOTIFICATION_TYPES.NEW_RESPONSE]: "responseLink",
+  [NOTIFICATION_TYPES.VOICE_MEMO]: "sessionLink",
+  [NOTIFICATION_TYPES.COACHING_REQUESTED]: "clientLink",
+};
 
 export interface CreateNotificationInput {
   userId: string;
@@ -129,10 +142,25 @@ export async function notifyUser(input: NotifyUserInput): Promise<void> {
     }
     if (!entry.template) return;
 
+    // A club's house coach is a shared account whose address is a placeholder:
+    // its mail fans out to the super admins instead (see below).
+    const houseCoachOrg = await prisma.organization.findFirst({
+      where: { houseCoachUserId: input.userId },
+      select: { clerkOrgId: true, name: true, brandDisplayName: true },
+    }).catch((err) => {
+      console.error(`[notify] house coach lookup failed for user ${input.userId}:`, err);
+      return null;
+    });
+
+    const adminLinkProp = ADMIN_ALERT_LINK_PROP[input.type];
+    if (houseCoachOrg && !adminLinkProp) return;
+
     // 3. Preferences. Transactional mail needs no unsubscribe token, so it
     //    reads without ever creating a row.
     let unsubscribeUrl: string | undefined;
-    if (entry.transactional) {
+    if (houseCoachOrg) {
+      // Admins mute from /admin/clubs; the house coach has no preferences.
+    } else if (entry.transactional) {
       if (!isAllowedByPrefs(await getPreference(input.userId), input.type)) return;
     } else {
       const prefs = await getOrCreatePreference(input.userId);
@@ -155,6 +183,39 @@ export async function notifyUser(input: NotifyUserInput): Promise<void> {
         select: { id: true },
       });
       if (recent) return;
+    }
+
+    // House coach: same template to every unmuted admin, never to the coach.
+    if (houseCoachOrg && adminLinkProp) {
+      const recipients = (await getClubAlertRecipients()).filter((r) => r.userId !== input.userId);
+      if (recipients.length === 0) return;
+      const admins = await prisma.user.findMany({
+        where: { id: { in: recipients.map((r) => r.userId) } },
+        select: { id: true, firstName: true, lastName: true },
+      });
+      const nameById = new Map(admins.map((a) => [a.id, `${a.firstName} ${a.lastName}`.trim()]));
+      const prefix = `[${houseCoachOrg.brandDisplayName ?? houseCoachOrg.name}] `;
+      const clubLink = `${appBaseUrl()}/admin/clubs/${houseCoachOrg.clerkOrgId}`;
+      const template = entry.template;
+      // One admin's failed send must not stop the rest.
+      const results = await Promise.allSettled(
+        recipients.map(async (r) => {
+          const data: Record<string, unknown> = {
+            ...input.email,
+            [adminLinkProp]: clubLink,
+            recipientName: nameById.get(r.userId) ?? "",
+          };
+          return sendEmail({
+            to: r.email,
+            subject: prefix + entry.subject(data),
+            react: React.createElement(template, data),
+          });
+        })
+      );
+      for (const res of results) {
+        if (res.status === "rejected") console.error(`[notify] admin alert send failed for ${input.type}:`, res.reason);
+      }
+      return;
     }
 
     // 5. Recipient.

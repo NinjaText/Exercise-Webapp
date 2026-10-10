@@ -24,16 +24,11 @@ vi.mock("next/navigation", () => ({
   }),
 }));
 vi.mock("@/lib/org-capabilities.server", () => ({ getCapabilitiesForUser: vi.fn() }));
-vi.mock("@/lib/services/club-trainer.service", () => ({
-  hasClubTrainerInvite: vi.fn(),
-  resolveClubTrainerInvite: vi.fn(),
-}));
 
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { getCapabilitiesForUser } from "@/lib/org-capabilities.server";
 import { getUserCapabilities } from "@/lib/org-capabilities";
-import { hasClubTrainerInvite, resolveClubTrainerInvite } from "@/lib/services/club-trainer.service";
 import { completeTrainerOnboarding, completeClientOnboarding } from "../onboarding-actions";
 
 const clubCaps = (role: "TRAINER" | "CLIENT") => getUserCapabilities({ orgType: "CLUB", role, coachingActive: false });
@@ -47,12 +42,10 @@ beforeEach(() => {
   vi.mocked(prisma.user.findUnique).mockResolvedValue(null);
   vi.mocked(prisma.user.upsert).mockResolvedValue({ id: "u1" } as any);
   vi.mocked(prisma.trainerSubscription.findUnique).mockResolvedValue(null);
-  vi.mocked(hasClubTrainerInvite).mockResolvedValue(false);
-  vi.mocked(resolveClubTrainerInvite).mockResolvedValue(null);
 });
 
 describe("completeTrainerOnboarding club guard", () => {
-  it.each([["club trainer", "TRAINER"], ["club member", "CLIENT"]] as const)(
+  it.each([["club house coach", "TRAINER"], ["club member", "CLIENT"]] as const)(
     "refuses an existing %s without creating an org",
     async (_l, role) => {
       vi.mocked(prisma.user.findUnique).mockResolvedValue({ id: "u1", role, clerkOrgId: "org_club" } as any);
@@ -81,36 +74,12 @@ describe("completeTrainerOnboarding club guard", () => {
   });
 });
 
-describe("completeClientOnboarding club trainer guard", () => {
-  it("refuses to create a CLIENT for an invited club trainer (active org)", async () => {
-    vi.mocked(auth).mockResolvedValue({ userId: "clerk_1", orgId: "org_club" } as any);
-    vi.mocked(hasClubTrainerInvite).mockResolvedValue(true);
-    expect(await completeClientOnboarding({ firstName: "A", lastName: "B" })).toEqual({
-      success: false,
-      error: "This account was invited as the club trainer.",
-    });
-    expect(hasClubTrainerInvite).toHaveBeenCalledWith("clerk_1", "org_club");
-    expect(prisma.user.upsert).not.toHaveBeenCalled();
-  });
-
-  it("refuses with no active org when a club trainer invite was accepted", async () => {
-    vi.mocked(resolveClubTrainerInvite).mockResolvedValue({ clerkOrgId: "org_club" } as any);
-    expect((await completeClientOnboarding({ firstName: "A", lastName: "B" })).success).toBe(false);
-    expect(prisma.user.upsert).not.toHaveBeenCalled();
-  });
-
+describe("completeClientOnboarding", () => {
   it("creates a normal invited client (regression)", async () => {
     vi.mocked(auth).mockResolvedValue({ userId: "clerk_1", orgId: "org_t" } as any);
     await expect(completeClientOnboarding({ firstName: "A", lastName: "B" })).rejects.toThrow(/^REDIRECT:\/dashboard$/);
     expect(prisma.user.upsert).toHaveBeenCalledWith(
       expect.objectContaining({ create: expect.objectContaining({ role: "CLIENT", clerkOrgId: "org_t" }) })
     );
-  });
-
-  it("skips the invite lookup for an existing row", async () => {
-    vi.mocked(prisma.user.findUnique).mockResolvedValue({ id: "u1" } as any);
-    vi.mocked(auth).mockResolvedValue({ userId: "clerk_1", orgId: "org_club" } as any);
-    await expect(completeClientOnboarding({ firstName: "A", lastName: "B" })).rejects.toThrow(/^REDIRECT:\/dashboard$/);
-    expect(hasClubTrainerInvite).not.toHaveBeenCalled();
   });
 });

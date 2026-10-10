@@ -88,9 +88,9 @@ export default async function ClientDetailPage({ params, searchParams }: Props) 
       programService.getProgramsForClient(client.id),
       getExercisesForPicker(organizationOrgId),
       sessionService.getClientPastSessions(client.id),
-      canMessage ? getThreadItems(user.id, client.id, { includeInternal: true }) : Promise.resolve([]),
+      canMessage ? getThreadItems(user.id, client.id, { includeInternal: true, viewer: "staff" }) : Promise.resolve([]),
       getOrganizationProfile().catch(() => null),
-      // null (and no coaching query) unless this is a club trainer.
+      // null (and no coaching query) unless this is a house coach.
       getClientCoachingPanel(user, client.id),
     ]);
 
