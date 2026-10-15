@@ -943,6 +943,12 @@ model NutritionTarget {
   // Names of fields (from: calories, proteinG, carbsG, fatG, fiberG, waterMl,
   // mealsPerDayTarget) the client is permitted to edit. Empty = coach-only.
   clientEditableFields String[] @default([])
+  // Last inputs the trainer used in the macro calculator
+  // (/nutrition/[clientId]/calculator) when saving these targets, so reopening
+  // the calculator restores them. Shape: MacroCalculatorInputs in
+  // lib/validators/macro-calculator.ts — always validated on read; malformed
+  // data is ignored. Null until the calculator has been used for this client.
+  calculatorInputs     Json?
   updatedAt            DateTime @updatedAt
 }
 

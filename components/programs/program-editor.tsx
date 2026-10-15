@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useRef, useMemo } from "react";
+import { useState, useRef, useMemo, useEffect } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,7 +26,7 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { Dumbbell, FileText, Sparkles, Tags, X } from "lucide-react";
+import { ArrowLeft, CalendarDays, Dumbbell, FileText, Info, Loader2, Sparkles, Tags, X } from "lucide-react";
 import { SectionCard } from "@/components/shared/section-card";
 import {
   createProgramSchema,
@@ -42,7 +43,6 @@ import { ClinicVisibilitySelector } from "./clinic-visibility-selector";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { TagListInput } from "./tag-list-input";
 import { SchedulingTypeSelector } from "./scheduling-type-selector";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { type ExerciseSourcePreference } from "@/lib/utils/exercise-picker";
 import {
@@ -59,8 +59,8 @@ const ACTIVITY_SUGGESTIONS = ["Tennis", "Golf", "Running", "Basketball", "Soccer
 // instead of the item's label.
 const PROGRAM_TYPE_ITEMS = {
   UNSET: "Select program type",
-  PERFORMANCE: "🏋️ Performance / Athletic",
-  CLINICAL: "🩺 Rehab / Clinical",
+  PERFORMANCE: "Performance / Athletic",
+  CLINICAL: "Rehab / Clinical",
 };
 const LEVEL_ITEMS = {
   UNSET: "Select level",
@@ -96,11 +96,12 @@ interface Props {
    * plain program page — e.g. when arriving from a client's profile.
    */
   assignClientId?: string;
-  /**
-   * Where the sticky save bar parks on phones. "tabbar" (default) clears the
-   * platform's fixed mobile tab bar; "none" is for shells without one (admin).
-   */
-  stickyOffset?: "tabbar" | "none";
+  /** Heading in the sticky editor bar. Defaults to "Edit program" / "New program". */
+  title?: string;
+  /** Where the bar's back arrow goes; omitted = no back arrow. */
+  backHref?: string;
+  /** One-line context shown above the form (e.g. "Editing on behalf of…"). */
+  notice?: string;
 }
 
 // Helper to map DB workout to input type
@@ -160,7 +161,7 @@ function mapWorkoutToInput(w: Record<string, unknown>): WorkoutInput {
   };
 }
 
-export function ProgramEditor({ program, exercises, onSave, redirectTo, organizationOrganizationId, clinics, collections, exerciseSourcePreference, assignClientId, stickyOffset = "tabbar" }: Props) {
+export function ProgramEditor({ program, exercises, onSave, redirectTo, organizationOrganizationId, clinics, collections, exerciseSourcePreference, assignClientId, title, backHref, notice }: Props) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
   const [syncingToMaster, setSyncingToMaster] = useState(false);
@@ -243,6 +244,38 @@ export function ProgramEditor({ program, exercises, onSave, redirectTo, organiza
       daysPerWeek: daysPerWeekCounts.size > 0 ? Math.max(...daysPerWeekCounts.values()) : 0,
     };
   }, [workouts]);
+
+  // Unsaved-changes tracking: one serialised snapshot of everything the save
+  // sends, compared with the snapshot from the first render.
+  const [watchedName, watchedDescription, watchedProgramType] = useWatch({
+    control: form.control,
+    name: ["name", "description", "programType"],
+  });
+  const snapshot = useMemo(
+    () =>
+      JSON.stringify([
+        watchedName, watchedDescription ?? "", watchedProgramType ?? null,
+        workouts, equipment, selectedOrganizationIds, bodyAreas, goals,
+        activities, tags, level, selectedCollectionIds, schedulingType,
+      ]),
+    [watchedName, watchedDescription, watchedProgramType, workouts, equipment, selectedOrganizationIds,
+      bodyAreas, goals, activities, tags, level, selectedCollectionIds, schedulingType],
+  );
+  const [initialSnapshot] = useState(snapshot);
+  const isDirty = snapshot !== initialSnapshot;
+
+  // Warn before a reload/tab close would drop unsaved edits.
+  useEffect(() => {
+    if (!isDirty || saving) return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => e.preventDefault();
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [isDirty, saving]);
+
+  const totalExercises = workouts.reduce(
+    (sum, w) => sum + w.blocks.reduce((n, b) => n + b.exercises.length, 0),
+    0,
+  );
 
   // Auto-detect equipment from exercises currently added to the builder
   function autoDetectEquipment() {
@@ -360,143 +393,128 @@ export function ProgramEditor({ program, exercises, onSave, redirectTo, organiza
     }
   }
 
+  const heading = title ?? (program ? "Edit program" : "New program");
+  const subtitle = watchedName?.trim() || (program ? "Untitled program" : "Name your program to get started");
+
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-        {/* Metadata Card */}
-        <SectionCard title="Program Details" icon={FileText} contentClassName="grid gap-4 sm:grid-cols-2">
-          <FormField
-            control={form.control}
-            name="name"
-            render={({ field }) => (
-              <FormItem className="sm:col-span-2">
-                <FormLabel>Program Name</FormLabel>
-                <FormControl>
-                  <Input
-                    placeholder="e.g., 12-Week Strength Program"
-                    {...field}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
+      <form
+        onSubmit={form.handleSubmit(onSubmit)}
+        // Bar height (py-3 + min-h-10 + 1px border): the sticky sidebar offsets against it.
+        className="flex flex-col [--editor-bar-h:calc(4rem+1px)]"
+      >
+        {/* Editor bar: pinned under the app header, so Save is always one click
+            away and unsaved edits are always visible. Negative margins cancel
+            <main>'s gutter (edge to edge, flush with the header) and the
+            negative `top` matches it, since sticky offsets start inside the
+            scroll container's padding. */}
+        <div
+          data-slot="program-editor-bar"
+          className="sticky -top-4 z-30 -mx-4 -mt-4 mb-6 border-b border-border bg-canvas/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-canvas/90 lg:-top-6 lg:-mx-6 lg:-mt-6 lg:px-6 2xl:-top-8 2xl:-mx-8 2xl:-mt-8 2xl:px-8"
+        >
+          <div className="mx-auto flex min-h-10 max-w-[1440px] items-center gap-3">
+            {backHref && (
+              <Button asChild variant="ghost" size="icon-sm" className="shrink-0">
+                <Link href={backHref} aria-label="Back">
+                  <ArrowLeft />
+                </Link>
+              </Button>
             )}
-          />
-          <FormField
-            control={form.control}
-            name="programType"
-            render={({ field }) => (
-              <FormItem className="sm:col-span-2">
-                <FormLabel>Program Type</FormLabel>
-                <FormControl>
-                  <Select
-                    items={PROGRAM_TYPE_ITEMS}
-                    value={field.value || "UNSET"}
-                    onValueChange={(v) => field.onChange(v === "UNSET" ? null : v)}
+            <div className="min-w-0 flex-1">
+              <div className="flex min-w-0 items-center gap-2">
+                <h1 className="truncate text-heading text-foreground">{heading}</h1>
+                {isDirty && (
+                  <span
+                    data-slot="unsaved-indicator"
+                    className="hidden shrink-0 items-center gap-1.5 rounded-full bg-warning-soft px-2 py-0.5 text-caption font-medium text-warning-foreground sm:inline-flex"
                   >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="UNSET">Select program type</SelectItem>
-                      <SelectItem value="PERFORMANCE">🏋️ Performance / Athletic</SelectItem>
-                      <SelectItem value="CLINICAL">🩺 Rehab / Clinical</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="description"
-            render={({ field }) => (
-              <FormItem className="sm:col-span-2">
-                <FormLabel>Description</FormLabel>
-                <FormControl>
-                  <Textarea
-                    placeholder="Program description..."
-                    {...field}
-                    value={field.value ?? ""}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormItem className="sm:col-span-2">
-            <FormLabel>Scheduling</FormLabel>
-            <SchedulingTypeSelector value={schedulingType} onChange={setSchedulingType} />
-          </FormItem>
-          {!isOnDemand && (
-            <FormItem className="sm:col-span-2">
-              <FormLabel>Schedule</FormLabel>
-              <div className="flex flex-wrap items-center gap-2">
-                {scheduleSummary.durationWeeks > 0 ? (
-                  <>
-                    <Badge variant="secondary" className="text-sm">
-                      {scheduleSummary.durationWeeks} week
-                      {scheduleSummary.durationWeeks !== 1 ? "s" : ""}
-                    </Badge>
-                    <Badge variant="secondary" className="text-sm">
-                      up to {scheduleSummary.daysPerWeek} day
-                      {scheduleSummary.daysPerWeek !== 1 ? "s" : ""}/week
-                    </Badge>
-                  </>
-                ) : (
-                  <p className="text-sm text-muted-foreground">
-                    Add weeks and days in the builder below to set the schedule.
-                  </p>
+                    <span aria-hidden className="size-1.5 rounded-full bg-warning" />
+                    Unsaved changes
+                  </span>
                 )}
               </div>
-            </FormItem>
-          )}
-          {clinics && (
-            <div className="sm:col-span-2">
-              <ClinicVisibilitySelector
-                clinics={clinics}
-                value={selectedOrganizationIds}
-                onChange={setSelectedOrganizationIds}
-              />
+              <p className="truncate text-caption text-muted-foreground">{subtitle}</p>
             </div>
-          )}
-        </SectionCard>
-
-        {/* Categorization Card */}
-        <SectionCard title="Categorization" icon={Tags} contentClassName="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-3">
-            <div className="space-y-1.5">
-              <Label>Body Area</Label>
-              <TagListInput
-                values={bodyAreas}
-                onChange={setBodyAreas}
-                placeholder="Add body area..."
-                suggestions={BODY_AREA_SUGGESTIONS}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Goal</Label>
-              <TagListInput
-                values={goals}
-                onChange={setGoals}
-                placeholder="Add goal..."
-                suggestions={GOAL_SUGGESTIONS}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Activity / Sport</Label>
-              <TagListInput
-                values={activities}
-                onChange={setActivities}
-                placeholder="Add activity..."
-                suggestions={ACTIVITY_SUGGESTIONS}
-              />
+            <div className="flex shrink-0 items-center gap-2">
+              {isAssignedCopyOfTemplate && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={syncingToMaster}
+                  onClick={() => setSyncConfirmOpen(true)}
+                >
+                  {syncingToMaster ? "Saving…" : "Save to master"}
+                </Button>
+              )}
+              <Button
+                type="button"
+                variant="ghost"
+                className="hidden sm:inline-flex"
+                onClick={() => router.back()}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={saving} className="min-w-28">
+                {saving && <Loader2 className="animate-spin motion-reduce:animate-none" />}
+                {saving ? "Saving…" : program ? "Save changes" : "Create program"}
+              </Button>
             </div>
           </div>
+        </div>
 
-          <div className="grid gap-4 sm:grid-cols-3">
-            <div className="space-y-1.5">
-              <Label>Level</Label>
+        {notice && (
+          <p className="mb-6 flex items-start gap-2 rounded-lg border border-info-border bg-info-soft px-3 py-2 text-body text-info-foreground">
+            <Info className="mt-0.5 size-4 shrink-0" aria-hidden />
+            {notice}
+          </p>
+        )}
+
+        {/* Main column (details + builder) with a settings sidebar from xl.
+            DOM order details → sidebar → builder keeps settings above the
+            long builder when stacked; from xl the sidebar spans both rows. */}
+        <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_20rem] xl:grid-rows-[auto_1fr] 2xl:grid-cols-[minmax(0,1fr)_22rem]">
+          <SectionCard title="Details" icon={FileText} contentClassName="grid gap-4 sm:grid-cols-2">
+            <FormField
+              control={form.control}
+              name="name"
+              render={({ field }) => (
+                <FormItem className="sm:col-span-2">
+                  <FormLabel>Program name</FormLabel>
+                  <FormControl>
+                    <Input placeholder="e.g., 12-Week Strength Program" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="programType"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Program type</FormLabel>
+                  <FormControl>
+                    <Select
+                      items={PROGRAM_TYPE_ITEMS}
+                      value={field.value || "UNSET"}
+                      onValueChange={(v) => field.onChange(v === "UNSET" ? null : v)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="UNSET">Select program type</SelectItem>
+                        <SelectItem value="PERFORMANCE">Performance / Athletic</SelectItem>
+                        <SelectItem value="CLINICAL">Rehab / Clinical</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormItem>
+              <FormLabel>Level</FormLabel>
               <Select
                 items={LEVEL_ITEMS}
                 value={level || "UNSET"}
@@ -512,152 +530,207 @@ export function ProgramEditor({ program, exercises, onSave, redirectTo, organiza
                   <SelectItem value="ADVANCED">Advanced</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
-            <div className="space-y-1.5 sm:col-span-2">
-              <Label>Tags</Label>
-              <TagListInput values={tags} onChange={setTags} placeholder="Add a tag..." />
-            </div>
-          </div>
-
-          {collections && collections.length > 0 && (
-            <div className="space-y-1.5 border-t border-border pt-4">
-              <Label>Collections</Label>
-              <div className="flex flex-wrap gap-x-5 gap-y-2">
-                {collections.map((c) => (
-                  <label key={c.id} className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
-                    <Checkbox
-                      checked={selectedCollectionIds.includes(c.id)}
-                      onCheckedChange={(checked) =>
-                        setSelectedCollectionIds((prev) =>
-                          checked ? [...prev, c.id] : prev.filter((id) => id !== c.id)
-                        )
-                      }
+            </FormItem>
+            <FormField
+              control={form.control}
+              name="description"
+              render={({ field }) => (
+                <FormItem className="sm:col-span-2">
+                  <FormLabel>Description</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      placeholder="What this program is for, who it suits, and what to expect."
+                      rows={3}
+                      {...field}
+                      value={field.value ?? ""}
                     />
-                    {c.name}
-                  </label>
-                ))}
-              </div>
-            </div>
-          )}
-        </SectionCard>
-
-        {/* Equipment Card */}
-        <SectionCard
-          title="Equipment Needed"
-          icon={Dumbbell}
-          contentClassName="space-y-3"
-          action={
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={autoDetectEquipment}
-            >
-              <Sparkles className="size-4" />
-              Auto-detect from exercises
-            </Button>
-          }
-        >
-          {/* Current equipment tags */}
-          <div className="flex flex-wrap gap-2 min-h-7">
-            {equipment.length === 0 && (
-              <p className="text-body text-muted-foreground">
-                No equipment added yet. Type below or use auto-detect.
-              </p>
-            )}
-            {equipment.map((item) => (
-              <Badge
-                key={item}
-                variant="secondary"
-                className="h-8 gap-1 pr-1 text-sm"
-              >
-                {item}
-                {/* Visible glyph stays small; the hit area is 32px via the
-                    negative-margin halo so the chip itself doesn't grow. */}
-                <button
-                  type="button"
-                  onClick={() => removeEquipmentItem(item)}
-                  aria-label={`Remove ${item}`}
-                  className="relative inline-flex size-6 items-center justify-center rounded-full outline-none after:absolute after:-inset-1 hover:bg-muted-foreground/20 focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  <X className="size-3" />
-                </button>
-              </Badge>
-            ))}
-          </div>
-          {/* Manual entry */}
-          <div className="flex gap-2">
-            <Input
-              ref={equipmentInputRef}
-              value={equipmentInput}
-              onChange={(e) => setEquipmentInput(e.target.value)}
-              onKeyDown={handleEquipmentKeyDown}
-              placeholder="Add item (e.g. Resistance Band) and press Enter"
-              className="flex-1"
-            />
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                addEquipmentItem(equipmentInput);
-                setEquipmentInput("");
-                equipmentInputRef.current?.focus();
-              }}
-            >
-              Add
-            </Button>
-          </div>
-        </SectionCard>
-
-        {/* Program Builder */}
-        <ProgramBuilder
-          workouts={workouts}
-          onChange={setWorkouts}
-          exerciseLibrary={exercises}
-          organizationOrganizationId={organizationOrganizationId}
-          exerciseSourcePreference={exerciseSourcePreference}
-        />
-
-        {/* Submit — a sticky action bar so a long program can be saved without
-            scrolling back to the bottom. On phones it clears the fixed tab bar
-            (platform shell) or sits at the safe-area edge (admin shell). */}
-        <div
-          className={cn(
-            "sticky z-20 flex flex-wrap justify-end gap-2 rounded-xl bg-surface/95 p-3 shadow-md ring-1 ring-border backdrop-blur supports-[backdrop-filter]:bg-surface/85 lg:bottom-4",
-            stickyOffset === "tabbar"
-              ? "bottom-[calc(var(--tab-bar-height)+var(--safe-bottom)+0.75rem)]"
-              : "bottom-[calc(var(--safe-bottom)+0.75rem)]",
-          )}
-        >
-          {isAssignedCopyOfTemplate && (
-            <Button
-              type="button"
-              variant="outline"
-              disabled={syncingToMaster}
-              onClick={() => setSyncConfirmOpen(true)}
-            >
-              {syncingToMaster ? (
-                "Saving..."
-              ) : (
-                <>
-                  <span className="sm:hidden">Save to master</span>
-                  <span className="hidden sm:inline">
-                    Save changes to master program
-                  </span>
-                </>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
               )}
-            </Button>
-          )}
-          <Button type="button" variant="outline" onClick={() => router.back()}>
-            Cancel
-          </Button>
-          <Button type="submit" disabled={saving}>
-            {saving
-              ? "Saving..."
-              : program
-                ? "Update Program"
-                : "Create Program"}
-          </Button>
+            />
+          </SectionCard>
+
+          <aside
+            data-slot="program-editor-sidebar"
+            // From xl the sidebar stays in view while the builder scrolls: pinned
+            // 1.5rem under the editor bar (sticky offsets start inside <main>'s
+            // padding, 1.5rem at xl and 2rem at 2xl), capped to the viewport
+            // below the app header (3.5rem) and scrolling on its own. The 4px
+            // inner padding keeps card rings and shadows from being clipped, and
+            // shrink-0 stops the capped flex column squashing the cards.
+            className="flex min-w-0 flex-col gap-6 *:shrink-0 xl:sticky xl:top-[var(--editor-bar-h)] xl:col-start-2 xl:row-span-2 xl:row-start-1 xl:-m-1 xl:max-h-[calc(100dvh-3.5rem-var(--editor-bar-h)-3rem+0.5rem)] xl:overflow-y-auto xl:overscroll-contain xl:p-1 2xl:top-[calc(var(--editor-bar-h)-0.5rem)]"
+          >
+            <SectionCard title="Scheduling" icon={CalendarDays} size="compact" contentClassName="space-y-3">
+              <SchedulingTypeSelector
+                value={schedulingType}
+                onChange={setSchedulingType}
+                className="xl:grid-cols-1"
+              />
+              {!isOnDemand && (
+                <dl className="grid grid-cols-3 divide-x divide-border rounded-lg bg-surface-muted py-2.5 text-center">
+                  {[
+                    { label: "Weeks", value: scheduleSummary.durationWeeks },
+                    { label: "Days / wk", value: scheduleSummary.daysPerWeek },
+                    { label: "Exercises", value: totalExercises },
+                  ].map((stat) => (
+                    <div key={stat.label} className="px-2">
+                      <dd className="text-heading tabular-nums text-foreground">{stat.value}</dd>
+                      <dt className="text-caption text-muted-foreground">{stat.label}</dt>
+                    </div>
+                  ))}
+                </dl>
+              )}
+              {!isOnDemand && scheduleSummary.durationWeeks === 0 && (
+                <p className="text-caption text-muted-foreground">
+                  The schedule follows the weeks and days you add in the builder.
+                </p>
+              )}
+            </SectionCard>
+
+            {clinics && (
+              <SectionCard title="Visibility" size="compact">
+                <ClinicVisibilitySelector
+                  clinics={clinics}
+                  value={selectedOrganizationIds}
+                  onChange={setSelectedOrganizationIds}
+                />
+              </SectionCard>
+            )}
+
+            <SectionCard title="Organization" icon={Tags} size="compact" contentClassName="space-y-4">
+              <div className="space-y-1.5">
+                <Label>Body area</Label>
+                <TagListInput
+                  values={bodyAreas}
+                  onChange={setBodyAreas}
+                  placeholder="Add body area..."
+                  suggestions={BODY_AREA_SUGGESTIONS}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Goal</Label>
+                <TagListInput
+                  values={goals}
+                  onChange={setGoals}
+                  placeholder="Add goal..."
+                  suggestions={GOAL_SUGGESTIONS}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Activity / sport</Label>
+                <TagListInput
+                  values={activities}
+                  onChange={setActivities}
+                  placeholder="Add activity..."
+                  suggestions={ACTIVITY_SUGGESTIONS}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Tags</Label>
+                <TagListInput values={tags} onChange={setTags} placeholder="Add a tag..." />
+              </div>
+              {collections && collections.length > 0 && (
+                <div className="space-y-2 border-t border-border pt-4">
+                  <Label id="program-collections-label">Collections</Label>
+                  <div role="group" aria-labelledby="program-collections-label" className="flex flex-wrap gap-1.5">
+                    {collections.map((c) => {
+                      const on = selectedCollectionIds.includes(c.id);
+                      return (
+                        <button
+                          key={c.id}
+                          type="button"
+                          aria-pressed={on}
+                          onClick={() =>
+                            setSelectedCollectionIds((prev) =>
+                              on ? prev.filter((id) => id !== c.id) : [...prev, c.id]
+                            )
+                          }
+                          className={cn(
+                            "inline-flex h-7 items-center rounded-full border px-3 text-label transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none",
+                            on
+                              ? "border-primary bg-primary/10 text-primary"
+                              : "border-border bg-surface text-muted-foreground hover:border-border-strong hover:text-foreground"
+                          )}
+                        >
+                          {c.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </SectionCard>
+
+            <SectionCard
+              title="Equipment"
+              icon={Dumbbell}
+              size="compact"
+              contentClassName="space-y-3"
+              action={
+                <Button type="button" variant="ghost" size="sm" onClick={autoDetectEquipment}>
+                  <Sparkles />
+                  Auto-detect
+                </Button>
+              }
+            >
+              {equipment.length === 0 ? (
+                <p className="text-caption text-muted-foreground">
+                  None yet. Add items below, or auto-detect them from the exercises in this program.
+                </p>
+              ) : (
+                <div className="flex flex-wrap gap-1.5">
+                  {equipment.map((item) => (
+                    <Badge key={item} variant="secondary" className="h-7 gap-1 pr-1 text-sm">
+                      {item}
+                      {/* Visible glyph stays small; the hit area is 32px via the
+                          negative-margin halo so the chip itself doesn't grow. */}
+                      <button
+                        type="button"
+                        onClick={() => removeEquipmentItem(item)}
+                        aria-label={`Remove ${item}`}
+                        className="relative inline-flex size-5 items-center justify-center rounded-full outline-none after:absolute after:-inset-1.5 hover:bg-muted-foreground/20 focus-visible:ring-2 focus-visible:ring-ring"
+                      >
+                        <X className="size-3" />
+                      </button>
+                    </Badge>
+                  ))}
+                </div>
+              )}
+              <div className="flex gap-2">
+                <Input
+                  ref={equipmentInputRef}
+                  value={equipmentInput}
+                  onChange={(e) => setEquipmentInput(e.target.value)}
+                  onKeyDown={handleEquipmentKeyDown}
+                  placeholder="e.g. Resistance band"
+                  aria-label="Add equipment"
+                  className="flex-1"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    addEquipmentItem(equipmentInput);
+                    setEquipmentInput("");
+                    equipmentInputRef.current?.focus();
+                  }}
+                >
+                  Add
+                </Button>
+              </div>
+            </SectionCard>
+          </aside>
+
+          <div className="min-w-0 xl:col-start-1 xl:row-start-2">
+            <ProgramBuilder
+              workouts={workouts}
+              onChange={setWorkouts}
+              exerciseLibrary={exercises}
+              organizationOrganizationId={organizationOrganizationId}
+              exerciseSourcePreference={exerciseSourcePreference}
+            />
+          </div>
         </div>
       </form>
 

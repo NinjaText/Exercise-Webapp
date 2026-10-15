@@ -6,6 +6,8 @@ import { normalizeJoinCode } from "@/lib/clubs/join-token";
 import { getProgramSchedulingType } from "@/lib/utils/program-scheduling";
 import { ClubError } from "@/lib/services/club-error";
 import { parseDollarsToCents } from "@/lib/utils/money";
+import { nullOrUnset } from "@/lib/db/mongo-null";
+import { isFreeClub } from "@/lib/clubs/free-club";
 import {
   disableClubPrice,
   ensureClubPrice,
@@ -31,7 +33,10 @@ export interface ClubInput {
   joinSlug: string;
   joinCode: string;
   trialDays: number;
-  /** USD cents per month; we create the Stripe price (stored as `stripePriceId`). */
+  /**
+   * USD cents per month; we create the Stripe price (stored as `stripePriceId`).
+   * 0 = free club: no price, members are ACTIVE from the start (see isFreeClub).
+   */
   membershipAmountCents: number;
   starterProgramIds: string[];
   /** Unordered; every member gets all of them at once. May be empty. */
@@ -60,9 +65,12 @@ function parseAmount(raw: unknown, label: string): number | null {
   return cents;
 }
 
+/** Like parseAmount, but required, and "0" (free club) is allowed. */
 function requiredMembership(raw: unknown): number {
+  const text = String(raw ?? "").trim();
+  if (text && parseDollarsToCents(text) === 0) return 0;
   const cents = parseAmount(raw, "Membership price");
-  if (cents === null) throw new ClubError("invalid_input", "Membership price is required.");
+  if (cents === null) throw new ClubError("invalid_input", "Membership price is required (enter 0 for a free club).");
   return cents;
 }
 
@@ -172,7 +180,7 @@ async function assertClubPrograms(
   }
 }
 
-function clubData(input: ClubUpdateInput, prices: { stripePriceId: string; coachingStripePriceId: string | null }) {
+function clubData(input: ClubUpdateInput, prices: { stripePriceId: string | null; coachingStripePriceId: string | null }) {
   return {
     name: input.name,
     joinSlug: input.joinSlug,
@@ -244,7 +252,8 @@ export async function createClub(input: ClubInput): Promise<Organization> {
   };
   let org: Organization;
   try {
-    const stripePriceId = await price("membership", input.membershipAmountCents);
+    const stripePriceId =
+      input.membershipAmountCents === 0 ? null : await price("membership", input.membershipAmountCents);
     const coachingStripePriceId =
       input.coachingAmountCents === null ? null : await price("coaching", input.coachingAmountCents);
     org = await prisma.organization.create({
@@ -295,6 +304,7 @@ export async function updateClub(clerkOrgId: string, input: ClubUpdateInput): Pr
   await assertClubPrograms("resource", input.resourceProgramIds, houseCoach?.id ?? null, org.resourceProgramIds ?? []);
   if (input.membershipAmountCents === KEEP_PRICE && !org.stripePriceId)
     throw new ClubError("invalid_input", "Membership price is required.");
+  if (input.membershipAmountCents === 0) await assertNoPaidMembers(clerkOrgId);
 
   const created: EnsuredClubPrice[] = [];
   const replaced: string[] = [];
@@ -311,10 +321,15 @@ export async function updateClub(clerkOrgId: string, input: ClubUpdateInput): Pr
 
   let updated: Organization;
   try {
-    const stripePriceId =
-      input.membershipAmountCents === KEEP_PRICE
-        ? org.stripePriceId!
-        : await price("membership", input.membershipAmountCents, org.stripePriceId ?? null);
+    let stripePriceId: string | null;
+    if (input.membershipAmountCents === KEEP_PRICE) {
+      stripePriceId = org.stripePriceId!;
+    } else if (input.membershipAmountCents === 0) {
+      if (org.stripePriceId) replaced.push(org.stripePriceId);
+      stripePriceId = null;
+    } else {
+      stripePriceId = await price("membership", input.membershipAmountCents, org.stripePriceId ?? null);
+    }
     let coachingStripePriceId = org.coachingStripePriceId ?? null;
     if (input.coachingAmountCents === null) {
       if (coachingStripePriceId) replaced.push(coachingStripePriceId);
@@ -336,6 +351,7 @@ export async function updateClub(clerkOrgId: string, input: ClubUpdateInput): Pr
   }
 
   await archiveReplacedPrices(clerkOrgId, replaced);
+  await syncMembersToClubPrice(updated);
   if (org.name !== input.name) {
     const live = [updated.stripePriceId, updated.coachingStripePriceId].filter((id): id is string => Boolean(id));
     await renameClubProducts(live, input.name);
@@ -348,6 +364,57 @@ export async function updateClub(clerkOrgId: string, input: ClubUpdateInput): Pr
     }
   }
   return updated;
+}
+
+/**
+ * A club can only go free once nobody is still billed for membership, since
+ * we'd otherwise keep charging people for something that's now free.
+ * Canceling those subscriptions is a Stripe-side decision for the admin.
+ */
+async function assertNoPaidMembers(clerkOrgId: string) {
+  const paid = await prisma.memberSubscription.count({
+    where: {
+      clerkOrgId,
+      status: { in: ["TRIALING", "ACTIVE", "PAST_DUE", "UNPAID"] },
+      NOT: nullOrUnset("stripeSubscriptionId"),
+    },
+  });
+  if (paid > 0) {
+    throw new ClubError(
+      "invalid_input",
+      `${paid} member${paid === 1 ? " has" : "s have"} a paid membership. Cancel ${paid === 1 ? "it" : "them"} in Stripe before making the club free.`
+    );
+  }
+}
+
+/**
+ * Brings existing members in line with the club's saved price. Free: everyone
+ * who isn't paying becomes ACTIVE (assertNoPaidMembers ruled out live
+ * subscriptions). Paid: free-joined members (ACTIVE with no subscription) start
+ * a fresh trial, so they get the club's trial window to subscribe. Both are
+ * state-based, not transition-based, so re-saving repairs a half-finished edit.
+ */
+async function syncMembersToClubPrice(club: Organization, now = new Date()) {
+  try {
+    if (isFreeClub(club)) {
+      await prisma.memberSubscription.updateMany({
+        where: { clerkOrgId: club.clerkOrgId, status: { in: ["TRIALING", "CANCELED"] } },
+        data: { status: "ACTIVE", stripeSubscriptionId: null, currentPeriodEnd: null, cancelAtPeriodEnd: false },
+      });
+    } else {
+      await prisma.memberSubscription.updateMany({
+        where: { clerkOrgId: club.clerkOrgId, status: "ACTIVE", ...nullOrUnset("stripeSubscriptionId") },
+        data: {
+          status: "TRIALING",
+          trialEndsAt: new Date(now.getTime() + (club.trialDays ?? 14) * 24 * 60 * 60 * 1000),
+          remindersSent: [],
+        },
+      });
+    }
+  } catch (err) {
+    console.error("[club] couldn't sync members to the club's price", club.clerkOrgId, err);
+    throw new ClubError("invalid_input", "The club was saved, but existing members weren't updated. Save again to retry.");
+  }
 }
 
 /** Type is fixed once the org has clients: switching would break who is billed. */
@@ -421,11 +488,12 @@ export async function listClubsWithStats(now = new Date()): Promise<ClubStats[]>
     const members = rows.reduce((n, r) => n + r._count._all, 0);
     const expired = expiredGroups.find((g) => g.clerkOrgId === org.clerkOrgId)?._count._all ?? 0;
     const trialing = count("TRIALING") - expired;
-    const paying = count("ACTIVE") + count("PAST_DUE");
+    // A free club's ACTIVE members aren't paying anyone.
+    const paying = isFreeClub(org) ? 0 : count("ACTIVE") + count("PAST_DUE");
     const decided = members - trialing;
     return {
       org, members, trialing, expired, paying,
-      conversionRate: decided > 0 ? paying / decided : null,
+      conversionRate: decided > 0 && !isFreeClub(org) ? paying / decided : null,
       coached: coachingGroups.find((g) => g.clerkOrgId === org.clerkOrgId)?._count._all ?? 0,
       houseCoach: houseCoachByOrg.get(org.clerkOrgId) ?? { status: "none" as const },
     };

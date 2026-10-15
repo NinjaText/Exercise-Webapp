@@ -20,11 +20,10 @@ import {
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -32,7 +31,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { GripVertical, Plus, Trash2, Play, X, ChevronDown, ChevronRight, Sparkles, Loader2, CalendarPlus } from "lucide-react";
+import { GripVertical, Plus, Trash2, Play, X, ChevronDown, ChevronRight, Sparkles, Loader2, CalendarPlus, Clock, MoreHorizontal } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ExercisePickerDialog } from "./exercise-picker-dialog";
 import { SetEditor } from "./set-editor";
@@ -98,6 +104,84 @@ const DEFAULT_SELECTION: SelectionState = {
   exerciseIdxs: new Set(),
 };
 
+// Base UI's <Select.Value> shows the raw value unless the root gets an items
+// map, which is how "CIRCUIT" / "STRENGTH" ended up in the triggers.
+const BLOCK_TYPE_ITEMS = {
+  NORMAL: "Standard",
+  WARMUP: "Warm-up",
+  COOLDOWN: "Cool-down",
+  SUPERSET: "Superset",
+  CIRCUIT: "Circuit",
+  AMRAP: "AMRAP",
+  EMOM: "EMOM",
+};
+const ACTIVITY_TYPE_ITEMS = {
+  STRENGTH: "Strength / mobility",
+  RUN: "Run",
+  INTERVAL_RUN: "Interval run",
+};
+
+/** Borderless until hovered or focused: names read as headings, not form boxes. */
+const INLINE_INPUT =
+  "h-8 border-transparent bg-transparent px-2 shadow-none hover:border-input hover:bg-surface focus-visible:bg-surface";
+
+/** Compact number input with a trailing unit ("3 rounds", "45 min"). */
+function UnitNumberField({
+  label,
+  unit,
+  value,
+  onChange,
+  icon,
+  min = 0,
+  placeholder,
+}: {
+  label: string;
+  unit: string;
+  value: number | null;
+  onChange: (value: number | null) => void;
+  icon?: React.ReactNode;
+  min?: number;
+  placeholder?: string;
+}) {
+  return (
+    <label className="flex h-8 shrink-0 cursor-text items-center gap-1.5 rounded-md border border-input bg-surface px-2 text-muted-foreground shadow-xs transition-[border-color,box-shadow] focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50 hover:border-border-strong motion-reduce:transition-none">
+      {icon}
+      <input
+        type="number"
+        inputMode="numeric"
+        min={min}
+        value={value ?? ""}
+        placeholder={placeholder}
+        aria-label={label}
+        onChange={(e) => onChange(e.target.value ? parseInt(e.target.value) : null)}
+        className="w-7 bg-transparent text-right text-sm text-foreground tabular-nums outline-none placeholder:text-muted-foreground [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+      />
+      <span className="text-caption">{unit}</span>
+    </label>
+  );
+}
+
+/** "⋯" menu for a week/day row; keeps destructive actions out of the header. */
+function RowMenu({ label, deleteLabel, onDelete }: { label: string; deleteLabel: string; onDelete: () => void }) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <Button type="button" variant="ghost" size="icon-sm" aria-label={label} className="shrink-0 text-muted-foreground" />
+        }
+      >
+        <MoreHorizontal />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="min-w-40">
+        <DropdownMenuItem variant="destructive" onClick={onDelete}>
+          <Trash2 />
+          {deleteLabel}
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 // Sortable wrapper for a block — must be a component so useSortable can be called as a hook.
 function SortableBlock({
   id,
@@ -159,6 +243,11 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
   const [aiRevisionLoading, setAiRevisionLoading] = useState(false);
   const [viewMode, setViewMode] = useState<BuilderViewMode>("focus");
   const [openKeys, setOpenKeys] = useState<Set<string>>(new Set());
+  const [pendingDelete, setPendingDelete] = useState<
+    | { kind: "week"; weekIndex: number; label: string }
+    | { kind: "day"; idx: number; label: string }
+    | null
+  >(null);
   const { clipboard, copy } = useClipboard();
 
   function dayKey(weekIndex: number, dayIndex: number) {
@@ -687,37 +776,72 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
     return ex?.name || fallback || "Unknown Exercise";
   }
 
+  // Deleting a week or a day that holds exercises asks first; empty ones go
+  // straight away (nothing to lose).
+  function requestRemoveWeek(weekIndex: number, label: string) {
+    const hasExercises = workouts.some(
+      (w) => w.weekIndex === weekIndex && w.blocks.some((b) => b.exercises.length > 0)
+    );
+    if (hasExercises) setPendingDelete({ kind: "week", weekIndex, label });
+    else removeWeek(weekIndex);
+  }
+
+  function requestRemoveWorkout(idx: number) {
+    const w = workouts[idx];
+    if (w.blocks.some((b) => b.exercises.length > 0)) {
+      setPendingDelete({ kind: "day", idx, label: w.name || "this day" });
+    } else {
+      removeWorkout(idx);
+    }
+  }
+
+  const totalDays = workouts.length;
+
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-3 rounded-xl bg-card p-5 shadow-xs ring-1 ring-border sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div className="min-w-0">
           <h2 className="text-heading text-foreground">Workouts</h2>
-          <p className="mt-1 text-body text-muted-foreground">
-            Organize your program into weeks, with up to 7 days each. Drag blocks or exercises to reorder.
+          <p className="mt-0.5 text-body text-muted-foreground">
+            {weekGroups.length > 0
+              ? `${weekGroups.length} week${weekGroups.length === 1 ? "" : "s"} · ${totalDays} day${totalDays === 1 ? "" : "s"} · drag blocks and exercises to reorder`
+              : "Organize the program into weeks of up to 7 days."}
           </p>
         </div>
-        <div className="flex w-fit shrink-0 items-center gap-1 rounded-lg bg-muted p-1">
-          {(["focus", "all"] as const).map((mode) => (
-            <button
-              key={mode}
-              type="button"
-              onClick={() => setViewMode(mode)}
-              aria-pressed={viewMode === mode}
-              className={cn(
-                "h-8 rounded-md px-3 text-label transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none",
-                viewMode === mode
-                  ? "bg-surface text-foreground shadow-xs"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              {mode === "focus" ? "Focus" : "View All"}
-            </button>
-          ))}
+        <div className="flex shrink-0 items-center gap-2">
+          <div
+            role="group"
+            aria-label="Exercise detail"
+            className="flex items-center gap-0.5 rounded-lg bg-muted p-0.5"
+          >
+            {(["focus", "all"] as const).map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                onClick={() => setViewMode(mode)}
+                aria-pressed={viewMode === mode}
+                title={mode === "focus" ? "Open one exercise at a time" : "Show every exercise's sets"}
+                className={cn(
+                  "h-7 rounded-md px-2.5 text-label transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none",
+                  viewMode === mode
+                    ? "bg-surface text-foreground shadow-xs"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {mode === "focus" ? "Focus" : "Expanded"}
+              </button>
+            ))}
+          </div>
+          {weekGroups.length > 0 && (
+            <Button type="button" variant="outline" size="sm" onClick={addWeek}>
+              <Plus /> Add week
+            </Button>
+          )}
         </div>
       </div>
 
       {selection.level === "exercises" && selection.exerciseIdxs.size > 0 && (
-        <div className="sticky top-0 z-20 flex items-center justify-between gap-3 rounded-lg border border-info-border bg-info-soft px-4 py-3 shadow-sm">
+        <div className="sticky top-20 z-20 flex items-center justify-between gap-3 rounded-lg border border-info-border bg-info-soft px-4 py-2.5 shadow-sm">
           <p className="text-label text-info-foreground">
             {selection.exerciseIdxs.size} exercise{selection.exerciseIdxs.size === 1 ? "" : "s"} selected
           </p>
@@ -726,7 +850,7 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
             size="sm"
             onClick={() => setAiRevisionOpen(true)}
           >
-            <Sparkles className="mr-2 h-4 w-4" />
+            <Sparkles />
             Revise with AI
           </Button>
         </div>
@@ -765,11 +889,11 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
         <EmptyState
           icon={CalendarPlus}
           title="No weeks yet"
-          description="Start by adding your first week."
+          description="Add your first week, then fill its days with blocks and exercises."
           className="rounded-xl border border-dashed border-border-strong bg-card"
           action={
-            <Button type="button" variant="outline" onClick={addWeek}>
-              <Plus className="size-4" /> Add Week
+            <Button type="button" onClick={addWeek}>
+              <Plus /> Add week
             </Button>
           }
         />
@@ -777,42 +901,41 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
 
       {weekGroups.map(({ weekIndex, dayIdxs }, weekPos) => {
         const isCollapsed = collapsedWeeks.has(weekIndex);
+        const weekLabel = `Week ${weekPos + 1}`;
         return (
-          <div key={weekIndex} className="rounded-xl bg-surface-muted/70 ring-1 ring-border">
-            <div className="flex items-center justify-between px-4 py-3">
+          <section
+            key={weekIndex}
+            aria-label={weekLabel}
+            className="rounded-xl bg-surface-muted/60 ring-1 ring-border"
+          >
+            <div className="flex items-center gap-2 py-2 pr-2 pl-3">
               <button
                 type="button"
-                className="flex items-center gap-2 rounded-md text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="flex min-w-0 flex-1 items-center gap-2 rounded-md py-1 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 onClick={() => toggleWeek(weekIndex)}
+                aria-expanded={!isCollapsed}
               >
-                {isCollapsed ? (
-                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                ) : (
-                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                )}
-                <h3 className="text-heading text-foreground">
-                  Week {weekPos + 1}
-                </h3>
-                <Badge variant="secondary">
-                  {dayIdxs.length}/{MAX_DAYS_PER_WEEK} days
-                </Badge>
+                <ChevronRight
+                  className={cn(
+                    "size-4 shrink-0 text-muted-foreground transition-transform motion-reduce:transition-none",
+                    !isCollapsed && "rotate-90"
+                  )}
+                />
+                <h3 className="text-heading text-foreground">{weekLabel}</h3>
+                <span className="text-caption text-muted-foreground tabular-nums">
+                  {dayIdxs.length} of {MAX_DAYS_PER_WEEK} days
+                </span>
               </button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                onClick={() => removeWeek(weekIndex)}
-                className="text-destructive"
-                title="Remove week"
-                aria-label={`Remove week ${weekPos + 1}`}
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
+              <RowMenu
+                label={`${weekLabel} actions`}
+                deleteLabel="Delete week"
+                onDelete={() => requestRemoveWeek(weekIndex, weekLabel)}
+              />
             </div>
 
             {!isCollapsed && (
-              <div className="space-y-4 px-4 pb-4">
-                {dayIdxs.map((wi) => {
+              <div className="space-y-3 px-3 pb-3">
+                {dayIdxs.map((wi, dayPos) => {
                   const workout = workouts[wi];
                   const isDayCollapsed = collapsedDays.has(
                     dayKey(weekIndex, workout.dayIndex)
@@ -825,7 +948,7 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
         <Card
           key={wi}
           className={cn(
-            "transition-shadow motion-reduce:transition-none",
+            "gap-0 py-0 transition-shadow motion-reduce:transition-none",
             selection.level === "workout" && selection.workoutIdx === wi
               ? "ring-2 ring-ring"
               : ""
@@ -841,64 +964,59 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
             });
           }}
         >
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-            <div className="flex items-center gap-3 flex-1">
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="size-8 shrink-0"
-                onClick={() => toggleDay(weekIndex, workout.dayIndex)}
-                title={isDayCollapsed ? "Expand day" : "Collapse day"}
-              >
-                {isDayCollapsed ? (
-                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                ) : (
-                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                )}
-              </Button>
-              <Input
-                value={workout.name}
-                onChange={(e) =>
-                  updateWorkoutField(wi, "name", e.target.value)
-                }
-                aria-label="Workout name"
-                className="max-w-xs font-semibold md:text-base"
-              />
-              <Input
-                type="number"
-                value={workout.estimatedMinutes ?? ""}
-                onChange={(e) =>
-                  updateWorkoutField(
-                    wi,
-                    "estimatedMinutes",
-                    e.target.value ? parseInt(e.target.value) : null
-                  )
-                }
-                placeholder="Est. min"
-                aria-label="Estimated minutes"
-                className="w-24"
-              />
-              {isDayCollapsed && (
-                <Badge variant="secondary" className="shrink-0">
-                  {workout.blocks.length} block{workout.blocks.length === 1 ? "" : "s"} ·{" "}
-                  {exerciseCount} exercise{exerciseCount === 1 ? "" : "s"}
-                </Badge>
-              )}
-            </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => removeWorkout(wi)}
-              className="text-destructive"
-              aria-label="Remove workout"
+          {/* Day header: collapse, inline-editable name, duration, actions. */}
+          <div className="flex flex-wrap items-center gap-2 px-3 py-2.5 sm:flex-nowrap">
+            <button
+              type="button"
+              className="flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+              onClick={() => toggleDay(weekIndex, workout.dayIndex)}
+              aria-expanded={!isDayCollapsed}
+              aria-label={isDayCollapsed ? "Expand day" : "Collapse day"}
             >
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          </CardHeader>
+              <ChevronRight
+                className={cn(
+                  "size-4 transition-transform motion-reduce:transition-none",
+                  !isDayCollapsed && "rotate-90"
+                )}
+              />
+            </button>
+            <span className="shrink-0 rounded-md bg-muted px-1.5 py-0.5 text-caption font-medium text-muted-foreground tabular-nums">
+              Day {dayPos + 1}
+            </span>
+            <Input
+              value={workout.name}
+              onChange={(e) =>
+                updateWorkoutField(wi, "name", e.target.value)
+              }
+              aria-label="Workout name"
+              placeholder="Workout name"
+              className={cn(INLINE_INPUT, "min-w-0 flex-1 font-semibold md:text-base")}
+            />
+            {isDayCollapsed && (
+              <span className="hidden shrink-0 text-caption text-muted-foreground sm:inline">
+                {workout.blocks.length} block{workout.blocks.length === 1 ? "" : "s"} ·{" "}
+                {exerciseCount} exercise{exerciseCount === 1 ? "" : "s"}
+              </span>
+            )}
+            <UnitNumberField
+              label="Estimated minutes"
+              icon={<Clock className="size-3.5" />}
+              unit="min"
+              value={workout.estimatedMinutes ?? null}
+              onChange={(v) => updateWorkoutField(wi, "estimatedMinutes", v)}
+              placeholder="—"
+            />
+            <RowMenu
+              label={`${workout.name || "Day"} actions`}
+              deleteLabel="Delete day"
+              onDelete={() => requestRemoveWorkout(wi)}
+            />
+          </div>
           {!isDayCollapsed && (
-          <CardContent className="space-y-4">
+          <div className="space-y-3 border-t border-border p-3">
+            {/* Stable ids: dnd-kit's auto ids differ between server and client. */}
             <DndContext
+              id={`blocks-${wi}`}
               sensors={sensors}
               collisionDetection={closestCenter}
               onDragEnd={(e) => handleBlockDragEnd(wi, e)}
@@ -914,7 +1032,7 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
                     {(dragHandleProps) => (
                       <div
                         className={cn(
-                          "rounded-lg border border-border bg-surface-muted/60 p-4 transition-shadow motion-reduce:transition-none",
+                          "rounded-lg border border-border bg-surface-muted/50 transition-shadow motion-reduce:transition-none",
                           selection.level === "block" &&
                           selection.workoutIdx === wi &&
                           selection.blockIdx === bi
@@ -932,7 +1050,7 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
                       >
                         {/* Block header */}
                         <div
-                          className="flex flex-wrap items-center gap-3 mb-3 cursor-pointer"
+                          className="flex flex-wrap items-center gap-2 px-2 py-2"
                           onClick={(e) => {
                             const target = e.target as HTMLElement;
                             if (target.closest("input, button, select")) return;
@@ -947,10 +1065,11 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
                         >
                           <button
                             type="button"
-                            className="cursor-grab touch-none text-muted-foreground hover:text-foreground"
+                            aria-label="Drag to reorder block"
+                            className="flex size-7 shrink-0 cursor-grab touch-none items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
                             {...dragHandleProps}
                           >
-                            <GripVertical className="h-4 w-4" />
+                            <GripVertical className="size-4" />
                           </button>
                           <Input
                             value={block.name || ""}
@@ -958,78 +1077,61 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
                               updateBlockField(wi, bi, "name", e.target.value)
                             }
                             placeholder="Block name"
-                            className="max-w-[200px] min-w-[120px] flex-1"
+                            aria-label="Block name"
+                            className={cn(INLINE_INPUT, "min-w-[8rem] flex-1 font-medium")}
                           />
                           <Select
+                            items={BLOCK_TYPE_ITEMS}
                             value={block.type}
                             onValueChange={(v) =>
                               updateBlockField(wi, bi, "type", v)
                             }
                           >
-                            <SelectTrigger className="w-[130px] shrink-0">
+                            <SelectTrigger size="sm" className="w-32 shrink-0" aria-label="Block type">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="NORMAL">Normal</SelectItem>
-                              <SelectItem value="WARMUP">Warmup</SelectItem>
-                              <SelectItem value="COOLDOWN">Cooldown</SelectItem>
-                              <SelectItem value="SUPERSET">Superset</SelectItem>
-                              <SelectItem value="CIRCUIT">Circuit</SelectItem>
-                              <SelectItem value="AMRAP">AMRAP</SelectItem>
-                              <SelectItem value="EMOM">EMOM</SelectItem>
+                              {Object.entries(BLOCK_TYPE_ITEMS).map(([value, label]) => (
+                                <SelectItem key={value} value={value}>{label}</SelectItem>
+                              ))}
                             </SelectContent>
                           </Select>
                           {(block.type === "CIRCUIT" ||
                             block.type === "AMRAP") && (
-                            <Input
-                              type="number"
+                            <UnitNumberField
+                              label="Rounds"
+                              unit={block.rounds === 1 ? "round" : "rounds"}
                               value={block.rounds}
-                              onChange={(e) =>
-                                updateBlockField(
-                                  wi,
-                                  bi,
-                                  "rounds",
-                                  parseInt(e.target.value) || 1
-                                )
-                              }
-                              className="w-20 shrink-0"
                               min={1}
-                              placeholder="Rounds"
+                              onChange={(v) => updateBlockField(wi, bi, "rounds", v ?? 1)}
                             />
                           )}
                           {block.type === "AMRAP" && (
-                            <Input
-                              type="number"
-                              value={block.timeCap ?? ""}
-                              onChange={(e) =>
-                                updateBlockField(
-                                  wi,
-                                  bi,
-                                  "timeCap",
-                                  e.target.value
-                                    ? parseInt(e.target.value)
-                                    : null
-                                )
-                              }
-                              className="w-24 shrink-0"
-                              placeholder="Time cap (s)"
+                            <UnitNumberField
+                              label="Time cap in seconds"
+                              unit="sec cap"
+                              value={block.timeCap ?? null}
+                              onChange={(v) => updateBlockField(wi, bi, "timeCap", v)}
+                              placeholder="—"
                             />
                           )}
-                          <div className="ml-auto flex shrink-0 items-center gap-1">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => removeBlock(wi, bi)}
-                              className="text-destructive h-8 w-8"
-                              title="Remove block"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
-                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon-sm"
+                            onClick={() => removeBlock(wi, bi)}
+                            className="ml-auto text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                            aria-label={`Delete block ${block.name || bi + 1}`}
+                            title="Delete block"
+                          >
+                            <Trash2 />
+                          </Button>
                         </div>
 
                         {/* Exercises in this block */}
+                        <div className="space-y-1.5 px-2 pb-2">
                         <DndContext
+                          id={`exercises-${wi}-${bi}`}
                           sensors={sensors}
                           collisionDetection={closestCenter}
                           onDragEnd={(e) => handleExerciseDragEnd(wi, bi, e)}
@@ -1040,7 +1142,7 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
                             )}
                             strategy={verticalListSortingStrategy}
                           >
-                            <div className="space-y-2">
+                            <div className="space-y-1.5">
                               {block.exercises.map((ex, ei) => (
                                 <SortableExercise
                                   key={ei}
@@ -1049,132 +1151,116 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
                                   {(exDragHandleProps) => {
                                     const key = exerciseKey(wi, bi, ei);
                                     const open = isExerciseOpen(viewMode, openKeys, key);
-                                    const collapsedLib = exerciseLibrary.find(
+                                    const lib = exerciseLibrary.find(
                                       (e) => e.id === ex.exerciseId
                                     );
+                                    const name = getExerciseName(
+                                      ex.exerciseId,
+                                      (ex as typeof ex & { _exerciseName?: string })._exerciseName
+                                    );
+                                    const hasVideo = !!lib?.videoUrl && hasRealVideoUrl(lib.videoUrl);
+                                    const isChecked =
+                                      selection.level === "exercises" &&
+                                      selection.workoutIdx === wi &&
+                                      selection.blockIdx === bi &&
+                                      selection.exerciseIdxs.has(ei);
                                     return open ? (
                                     <div
                                       className={cn(
-                                        "group rounded-md border border-border p-3",
-                                        selection.level === "exercises" &&
-                                        selection.workoutIdx === wi &&
-                                        selection.blockIdx === bi &&
-                                        selection.exerciseIdxs.has(ei)
-                                          ? "bg-info-soft"
-                                          : "bg-surface"
+                                        "group rounded-md border p-3 shadow-xs",
+                                        isChecked ? "border-info-border bg-info-soft" : "border-border bg-surface"
                                       )}
                                     >
-                                      <div className="flex items-center gap-2 mb-2">
+                                      <div className="mb-2.5 flex flex-wrap items-center gap-x-2 gap-y-1.5">
                                         <input
                                           type="checkbox"
+                                          aria-label={`Select ${name}`}
                                           className={cn(
-                                            "h-4 w-4 shrink-0 rounded border-border cursor-pointer transition-opacity",
-                                            selection.level === "exercises" &&
-                                            selection.workoutIdx === wi &&
-                                            selection.blockIdx === bi &&
-                                            selection.exerciseIdxs.has(ei)
-                                              ? "opacity-100"
-                                              : "opacity-0 group-hover:opacity-100"
+                                            "size-4 shrink-0 cursor-pointer rounded border-border accent-primary transition-opacity",
+                                            isChecked ? "opacity-100" : "opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
                                           )}
-                                          checked={
-                                            selection.level === "exercises" &&
-                                            selection.workoutIdx === wi &&
-                                            selection.blockIdx === bi &&
-                                            selection.exerciseIdxs.has(ei)
-                                          }
+                                          checked={isChecked}
                                           onChange={(e) => {
                                             e.stopPropagation();
                                             handleExerciseCheck(wi, bi, ei, e.target.checked);
                                           }}
                                           onClick={(e) => e.stopPropagation()}
                                         />
-                                        {/* rest of the existing row content follows unchanged */}
                                         <button
                                           type="button"
-                                          className="cursor-grab touch-none text-muted-foreground hover:text-foreground"
+                                          aria-label={`Drag to reorder ${name}`}
+                                          className="flex size-6 shrink-0 cursor-grab touch-none items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
                                           {...exDragHandleProps}
                                         >
-                                          <GripVertical className="h-4 w-4" />
+                                          <GripVertical className="size-4" />
                                         </button>
-                                        <div className="flex items-center gap-2 flex-1 min-w-0">
-                                          <span className="font-medium truncate">
-                                            {getExerciseName(
-                                              ex.exerciseId,
-                                              (
-                                                ex as typeof ex & {
-                                                  _exerciseName?: string;
-                                                }
-                                              )._exerciseName
-                                            )}
-                                          </span>
-                                          <Select
-                                            value={ex.activityType || "STRENGTH"}
-                                            onValueChange={(v) =>
-                                              updateExerciseField(wi, bi, ei, "activityType", v)
-                                            }
+                                        <span className="min-w-[8rem] flex-1 truncate font-medium text-foreground">
+                                          {name}
+                                        </span>
+                                        {/* Wraps under the name on narrow screens. */}
+                                        <div className="ml-auto flex shrink-0 items-center gap-1">
+                                        {hasVideo && (
+                                          <button
+                                            type="button"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              setVideoPreview({
+                                                url: lib!.videoUrl!,
+                                                provider: lib!.videoProvider,
+                                                name: lib!.name,
+                                              });
+                                            }}
+                                            className="inline-flex h-6 shrink-0 items-center gap-1 rounded-md px-1.5 text-caption font-medium text-info-foreground hover:bg-info-soft"
                                           >
-                                            <SelectTrigger className="h-6 text-[10px] w-[118px] shrink-0">
-                                              <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                              <SelectItem value="STRENGTH">Strength/Mobility</SelectItem>
-                                              <SelectItem value="RUN">Run</SelectItem>
-                                              <SelectItem value="INTERVAL_RUN">Interval Run</SelectItem>
-                                            </SelectContent>
-                                          </Select>
-                                          {(() => {
-                                            const lib = exerciseLibrary.find(
-                                              (e) => e.id === ex.exerciseId
-                                            );
-                                            return lib?.videoUrl && hasRealVideoUrl(lib.videoUrl) ? (
-                                              <button
-                                                type="button"
-                                                onClick={(e) => {
-                                                  e.stopPropagation();
-                                                  setVideoPreview({
-                                                    url: lib.videoUrl!,
-                                                    provider: lib.videoProvider,
-                                                    name: lib.name,
-                                                  });
-                                                }}
-                                                className="inline-flex items-center gap-0.5 text-[10px] bg-info-soft text-info-foreground border border-info-border px-1.5 py-0.5 rounded-sm font-medium shrink-0 hover:bg-info-border"
-                                              >
-                                                <Play className="h-2.5 w-2.5" />
-                                                Video
-                                              </button>
-                                            ) : null;
-                                          })()}
-                                        </div>
-                                        <div className="flex items-center gap-0.5">
-                                          {viewMode !== "all" && (
-                                            <button
-                                              type="button"
-                                              onClick={() =>
-                                                setOpenKeys((prev) =>
-                                                  resolveOpenKeys(viewMode, prev, key, "toggle")
-                                                )
-                                              }
-                                              aria-label={`Collapse ${getExerciseName(
-                                                ex.exerciseId,
-                                                (ex as typeof ex & { _exerciseName?: string })
-                                                  ._exerciseName
-                                              )}`}
-                                              className="text-muted-foreground hover:text-foreground"
-                                            >
-                                              <ChevronDown className="h-4 w-4" />
-                                            </button>
-                                          )}
+                                            <Play className="size-3" />
+                                            Video
+                                          </button>
+                                        )}
+                                        <Select
+                                          items={ACTIVITY_TYPE_ITEMS}
+                                          value={ex.activityType || "STRENGTH"}
+                                          onValueChange={(v) =>
+                                            updateExerciseField(wi, bi, ei, "activityType", v)
+                                          }
+                                        >
+                                          <SelectTrigger size="sm" className="h-7 w-auto shrink-0 gap-1 text-caption" aria-label="Activity type">
+                                            <SelectValue />
+                                          </SelectTrigger>
+                                          <SelectContent>
+                                            {Object.entries(ACTIVITY_TYPE_ITEMS).map(([value, label]) => (
+                                              <SelectItem key={value} value={value}>{label}</SelectItem>
+                                            ))}
+                                          </SelectContent>
+                                        </Select>
+                                        {viewMode !== "all" && (
                                           <Button
+                                            type="button"
                                             variant="ghost"
-                                            size="icon"
+                                            size="icon-xs"
                                             onClick={() =>
-                                              removeExercise(wi, bi, ei)
+                                              setOpenKeys((prev) =>
+                                                resolveOpenKeys(viewMode, prev, key, "toggle")
+                                              )
                                             }
-                                            className="size-8 text-destructive"
-                                            title="Remove exercise"
+                                            aria-label={`Collapse ${name}`}
+                                            className="text-muted-foreground"
                                           >
-                                            <Trash2 className="h-3 w-3" />
+                                            <ChevronDown />
                                           </Button>
+                                        )}
+                                        <Button
+                                          type="button"
+                                          variant="ghost"
+                                          size="icon-xs"
+                                          onClick={() =>
+                                            removeExercise(wi, bi, ei)
+                                          }
+                                          className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                                          aria-label={`Remove ${name}`}
+                                          title="Remove exercise"
+                                        >
+                                          <Trash2 />
+                                        </Button>
                                         </div>
                                       </div>
                                       {/* Trainer notes for this exercise */}
@@ -1188,8 +1274,9 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
                                             e.target.value
                                           )
                                         }
-                                        placeholder="Instructions for client (e.g. use one hand only, keep back straight)…"
-                                        className="text-sm mb-2 min-h-[36px] resize-none"
+                                        aria-label={`Instructions for ${name}`}
+                                        placeholder="Instructions for the client (e.g. use one hand only, keep back straight)…"
+                                        className="mb-3 min-h-9 resize-none bg-surface-muted/40 text-sm"
                                         rows={1}
                                       />
                                       <SetEditor
@@ -1202,16 +1289,9 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
                                     </div>
                                     ) : (
                                       <CollapsedExerciseRow
-                                        name={getExerciseName(
-                                          ex.exerciseId,
-                                          (ex as typeof ex & { _exerciseName?: string })
-                                            ._exerciseName
-                                        )}
+                                        name={name}
                                         sets={ex.sets}
-                                        hasVideo={
-                                          !!collapsedLib?.videoUrl &&
-                                          hasRealVideoUrl(collapsedLib.videoUrl)
-                                        }
+                                        hasVideo={hasVideo}
                                         dragHandleProps={exDragHandleProps}
                                         onSelect={() =>
                                           setOpenKeys((prev) =>
@@ -1233,13 +1313,15 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
                         </DndContext>
 
                         <Button
-                          variant="outline"
+                          type="button"
+                          variant="ghost"
                           size="sm"
-                          className="mt-3"
+                          className="text-primary hover:bg-primary/10 hover:text-primary"
                           onClick={() => openExercisePicker(wi, bi)}
                         >
-                          <Plus className="mr-1 h-3.5 w-3.5" /> Add Exercise
+                          <Plus /> Add exercise
                         </Button>
+                        </div>
                       </div>
                     )}
                   </SortableBlock>
@@ -1248,14 +1330,15 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
             </DndContext>
 
             <Button
-              variant="secondary"
+              type="button"
+              variant="ghost"
               size="sm"
               onClick={() => addBlock(wi)}
-              className="w-full border border-dashed border-border-strong"
+              className="w-full border border-dashed border-border-strong text-muted-foreground hover:text-foreground"
             >
-              <Plus className="mr-1 h-3.5 w-3.5" /> Add Block
+              <Plus /> Add block
             </Button>
-          </CardContent>
+          </div>
           )}
         </Card>
                   );
@@ -1267,29 +1350,49 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
                   size="sm"
                   disabled={dayIdxs.length >= MAX_DAYS_PER_WEEK}
                   onClick={() => addDayToWeek(weekIndex)}
-                  className="w-full border-dashed bg-surface"
+                  className="w-full border-dashed bg-surface/60 text-muted-foreground hover:text-foreground"
                 >
-                  <Plus className="mr-1 h-3.5 w-3.5" />
+                  <Plus />
                   {dayIdxs.length >= MAX_DAYS_PER_WEEK
-                    ? `${MAX_DAYS_PER_WEEK}/${MAX_DAYS_PER_WEEK} days`
-                    : "Add Day"}
+                    ? `All ${MAX_DAYS_PER_WEEK} days used`
+                    : `Add day to ${weekLabel.toLowerCase()}`}
                 </Button>
               </div>
             )}
-          </div>
+          </section>
         );
       })}
 
       {weekGroups.length > 0 && (
         <Button
           type="button"
-          variant="secondary"
+          variant="outline"
           onClick={addWeek}
-          className="w-full border border-dashed border-border-strong bg-surface hover:bg-surface-muted"
+          className="h-11 w-full border-dashed border-border-strong text-muted-foreground hover:text-foreground"
         >
-          <Plus className="mr-2 h-4 w-4" /> Add Week
+          <Plus /> Add week
         </Button>
       )}
+
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingDelete(null);
+        }}
+        title={pendingDelete?.kind === "week" ? `Delete ${pendingDelete.label}?` : `Delete “${pendingDelete?.label ?? ""}”?`}
+        description={
+          pendingDelete?.kind === "week"
+            ? "Every day, block and exercise in this week will be removed. Nothing is saved until you save the program."
+            : "This day's blocks and exercises will be removed. Nothing is saved until you save the program."
+        }
+        confirmLabel={pendingDelete?.kind === "week" ? "Delete week" : "Delete day"}
+        variant="destructive"
+        onConfirm={() => {
+          if (pendingDelete?.kind === "week") removeWeek(pendingDelete.weekIndex);
+          else if (pendingDelete?.kind === "day") removeWorkout(pendingDelete.idx);
+          setPendingDelete(null);
+        }}
+      />
 
       <ExercisePickerDialog
         open={pickerOpen}

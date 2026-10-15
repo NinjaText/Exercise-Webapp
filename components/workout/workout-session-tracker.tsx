@@ -24,12 +24,13 @@ import { ExerciseVideoPlayer } from "@/components/exercises/exercise-video-playe
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Check, SkipForward, X, PlayCircle, Loader2, Timer, ChevronRight, ChevronLeft, ChevronDown, Trophy, RotateCcw, ClipboardList, Dumbbell } from "lucide-react";
-import type { SetLogEntry, SetLogCache } from "./types";
+import { Check, SkipForward, X, PlayCircle, Loader2, Timer, ChevronRight, ChevronLeft, ChevronDown, Trophy, RotateCcw, ClipboardList, Dumbbell, MessageSquarePlus } from "lucide-react";
+import { SKIP_REASONS, type SetLogEntry, type SetLogCache } from "./types";
 import { instructionsToBullets } from "./format-instructions";
 import {
   WORKOUT_STATE,
@@ -289,6 +290,12 @@ export function WorkoutSessionTracker({
   const [activeSetLogs, setActiveSetLogs] = useState<Record<number, SetLogState>>({});
   const [loggingSet, setLoggingSet] = useState<number | null>(null);
   const [instructionsExpanded, setInstructionsExpanded] = useState(false);
+  const [notesOpen, setNotesOpen] = useState(false);
+  // Skip flow: the timer pauses while the client says why they're skipping.
+  const [skipDialogOpen, setSkipDialogOpen] = useState(false);
+  const [skipReason, setSkipReason] = useState<string | null>(null);
+  const [skipOther, setSkipOther] = useState("");
+  const [isSkipping, setIsSkipping] = useState(false);
 
   // Client's own note per exercise, auto-saved as they type
   const [clientNotes, setClientNotes] = useState<Record<string, string>>(() => {
@@ -400,9 +407,10 @@ export function WorkoutSessionTracker({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentIndex]);
 
-  // Instructions collapse by default per exercise
+  // Instructions and the note box collapse by default per exercise
   useEffect(() => {
     setInstructionsExpanded(false);
+    setNotesOpen(false);
   }, [currentIndex]);
 
   // Load voice memos when the end dialog opens
@@ -520,8 +528,42 @@ export function WorkoutSessionTracker({
 
   const handleSkip = () => {
     if (!currentItem || currentItem.kind !== "exercise") return;
-    setSkippedKeys((prev) => new Set(prev).add(currentItem.key));
-    advanceToNext();
+    setSkipReason(null);
+    setSkipOther("");
+    setTimerActive(false);
+    setSkipDialogOpen(true);
+  };
+
+  const cancelSkip = () => {
+    setSkipDialogOpen(false);
+    setTimerActive(true);
+  };
+
+  // Logged like the checklist's skip: 0 reps with the reason in the set's
+  // notes, so the trainer sees "Skipped" and why in either mode.
+  const confirmSkip = async () => {
+    if (!currentItem || currentItem.kind !== "exercise" || !skipReason) return;
+    const { blockExercise, round, isCircuit, key } = currentItem;
+    const reason = skipReason === "Other" ? skipOther.trim() || "Other" : skipReason;
+    const setIndexes = isCircuit
+      ? [round]
+      : blockExercise.sets.map((_, i) => i).filter((i) => !activeSetLogs[i]?.completed);
+    setIsSkipping(true);
+    try {
+      for (const i of setIndexes) {
+        const result = await updateSetLogV2Action(session.id, blockExercise.id, i, { actualReps: 0, notes: reason });
+        if (!result.success) throw new Error(result.error);
+        onSetLogged?.(blockExercise.id, i, { actualReps: 0, completed: true });
+      }
+      setSkippedKeys((prev) => new Set(prev).add(key));
+      setSkipDialogOpen(false);
+      setTimerActive(true);
+      advanceToNext();
+    } catch {
+      toast.error("Couldn't skip this exercise. Try again.");
+    } finally {
+      setIsSkipping(false);
+    }
   };
 
   const handleEndSession = async () => {
@@ -593,67 +635,93 @@ export function WorkoutSessionTracker({
   }
 
   // ── Active workout ────────────────────────────────────────────────────────
+  const currentDone =
+    currentItem?.kind === "exercise" &&
+    (completedKeys.has(currentItem.key) ||
+      skippedKeys.has(currentItem.key) ||
+      (additionalCompleted?.has(currentItem.blockExercise.id) ?? false));
+
   return (
-    <div className="flex w-full flex-col gap-4">
-      {/* Timer, progress and exits — pinned so they stay in reach while the
-          client scrolls a long exercise card. The negative top offset matches
-          <main>'s gutter (p-4 / lg:p-6 / 2xl:p-8) so the bar sits flush with
-          the top of the scroll area. */}
+    <div className="flex w-full flex-col gap-3">
+      {/* Timer, progress, exits and the exercise actions — pinned so Complete
+          and Skip are always in reach, however long the exercise card is. The
+          negative top offset matches <main>'s gutter (p-4 / lg:p-6 / 2xl:p-8)
+          so the bar sits flush with the top of the scroll area. */}
       <div className="sticky -top-4 z-20 -mx-4 border-b border-border bg-canvas/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-canvas/80 sm:mx-0 sm:rounded-xl sm:rounded-t-none sm:border sm:bg-surface sm:shadow-xs lg:-top-6 2xl:-top-8">
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 text-heading tabular-nums">
+        <div className="flex items-center gap-3">
+          <div className="flex shrink-0 items-center gap-2 text-heading tabular-nums">
             <Timer className="size-4 text-primary" aria-hidden />
             {formatTime(timer)}
           </div>
-          <div className="flex items-center gap-1">
+          <Progress value={progress} className="hidden h-1.5 flex-1 rounded-full sm:block" />
+          <span className="ml-auto shrink-0 text-caption tabular-nums sm:ml-0">
+            {doneCount}/{totalExerciseItems} done
+          </span>
+          <div className="flex shrink-0 items-center gap-1">
             {onSwitchMode && (
               <Button
                 variant="ghost"
-                className={cn(WORKOUT_TOUCH, "gap-1.5 px-3 text-muted-foreground hover:text-foreground")}
+                className={cn(WORKOUT_TOUCH, "gap-1.5 px-2.5 text-muted-foreground hover:text-foreground")}
                 onClick={onSwitchMode}
               >
                 <ClipboardList className="size-4" />
-                Checklist
+                <span className="hidden sm:inline">Checklist</span>
               </Button>
             )}
             <Button
               variant="ghost"
-              className={cn(WORKOUT_TOUCH, "gap-1.5 px-3 text-destructive hover:bg-destructive/10 hover:text-destructive")}
+              className={cn(WORKOUT_TOUCH, "gap-1.5 px-2.5 text-destructive hover:bg-destructive/10 hover:text-destructive")}
               onClick={() => { toast.info("Session preserved"); router.push("/dashboard"); }}
             >
               <X className="size-4" /> End
             </Button>
           </div>
         </div>
-        <div className="mt-2 flex items-center gap-3">
-          <Progress value={progress} className="h-1.5 flex-1 rounded-full" />
-          <span className="shrink-0 text-caption tabular-nums">
-            {doneCount}/{totalExerciseItems} · {totalExerciseItems - doneCount} left
-          </span>
-        </div>
-      </div>
+        <Progress value={progress} className="mt-2 h-1.5 rounded-full sm:hidden" />
 
-      {/* Navigation */}
-      <div className="flex items-center justify-between gap-2">
-        <Button
-          variant="outline"
-          className={cn(WORKOUT_TOUCH, "gap-1")}
-          disabled={currentIndex === 0}
-          onClick={() => setCurrentIndex((i) => Math.max(0, i - 1))}
-        >
-          <ChevronLeft className="size-4" /> Prev
-        </Button>
-        <span className="text-label tabular-nums text-muted-foreground">
-          {currentItem?.kind === "rest" ? "Rest" : `${currentIndex + 1} of ${totalItems}`}
-        </span>
-        <Button
-          variant="outline"
-          className={cn(WORKOUT_TOUCH, "gap-1")}
-          disabled={currentIndex === totalItems - 1}
-          onClick={() => setCurrentIndex((i) => Math.min(totalItems - 1, i + 1))}
-        >
-          Next <ChevronRight className="size-4" />
-        </Button>
+        {/* Exercise actions: Complete is the forward button (Next once done). */}
+        <div className="mt-3 flex items-center gap-2">
+          <Button
+            variant="outline"
+            className={cn(WORKOUT_TOUCH, "gap-1 px-2.5 sm:px-3")}
+            disabled={currentIndex === 0}
+            onClick={() => setCurrentIndex((i) => Math.max(0, i - 1))}
+            aria-label="Previous exercise"
+          >
+            <ChevronLeft className="size-4" />
+            <span className="hidden sm:inline">Prev</span>
+          </Button>
+          <span className="min-w-0 flex-1 truncate text-center text-label tabular-nums text-muted-foreground">
+            {currentItem?.kind === "rest" ? "Rest" : `${currentIndex + 1} of ${totalItems}`}
+          </span>
+          {currentItem?.kind === "rest" ? (
+            <Button
+              className={cn(WORKOUT_TOUCH, "gap-1.5 px-4")}
+              onClick={() => { setRestCountdown(null); advanceToNext(); }}
+            >
+              <SkipForward className="size-4" /> Skip rest
+            </Button>
+          ) : currentDone ? (
+            <Button className={cn(WORKOUT_TOUCH, "gap-1 px-4")} onClick={advanceToNext}>
+              {currentIndex === totalItems - 1 ? "Finish" : "Next"} <ChevronRight className="size-4" />
+            </Button>
+          ) : (
+            <>
+              <Button
+                variant="outline"
+                className={cn(WORKOUT_TOUCH, "gap-1.5 px-3")}
+                onClick={handleSkip}
+                disabled={isLoading}
+              >
+                <SkipForward className="size-4" /> Skip
+              </Button>
+              <Button className={cn(WORKOUT_TOUCH, "gap-1.5 px-4")} onClick={handleCompleteAll} disabled={isLoading}>
+                {isLoading ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
+                Complete
+              </Button>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Rest card */}
@@ -676,19 +744,12 @@ export function WorkoutSessionTracker({
             <div className={`text-5xl font-semibold tabular-nums ${ROLE_CLASSES.info.text}`} aria-live="polite">
               {restCountdown !== null ? formatTime(restCountdown) : formatTime(currentItem.restSeconds)}
             </div>
-            <Button
-              variant="outline"
-              className={cn(WORKOUT_TOUCH, "gap-2 px-5")}
-              onClick={() => { setRestCountdown(null); advanceToNext(); }}
-            >
-              <SkipForward className="h-4 w-4" />
-              Skip Rest
-            </Button>
           </CardContent>
         </Card>
       )}
 
-      {/* Exercise card */}
+      {/* Exercise card — media beside the log on wide screens so the whole
+          exercise fits on one screen; stacked on phones. */}
       {currentItem?.kind === "exercise" && (() => {
         const { blockExercise, round, totalRounds, isCircuit, blockName, key } = currentItem;
         const isCompleted = completedKeys.has(key) || (additionalCompleted?.has(blockExercise.id) ?? false);
@@ -699,31 +760,31 @@ export function WorkoutSessionTracker({
         // Interval Run is a sequence of distinct segments (warm-up, work,
         // recovery, cool-down) — never a repeating round like a circuit.
         const showAsSegments = activityType === "INTERVAL_RUN";
+        const hasVideo = Boolean(blockExercise.exercise.videoUrl || blockExercise.exercise.media.some((m) => m.type.toLowerCase() === "video"));
+        const note = clientNotes[blockExercise.id] ?? "";
 
         return (
           <Card className="gap-0 overflow-hidden py-0">
             <div className={`h-1 w-full ${isCompleted ? WORKOUT_STATE.completed.dot : isSkipped ? "bg-muted" : "bg-primary"}`} />
-            <CardContent className="space-y-5 p-5">
-              {/* Block + round badges */}
-              <div className="flex items-center gap-2 flex-wrap">
-                <Badge variant="secondary">{blockName}</Badge>
-                {isCircuit && totalRounds > 1 && (
-                  <Badge variant="outline" className={`${ROLE_CLASSES.brand.soft} ${ROLE_CLASSES.brand.text} ${ROLE_CLASSES.brand.border}`}>
-                    <RotateCcw className="mr-1 size-3" aria-hidden />
-                    Round {round + 1} / {totalRounds}
-                  </Badge>
-                )}
-              </div>
-
+            <CardContent className="grid gap-4 p-3 sm:p-5 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:gap-6">
               {/* Header */}
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex items-start justify-between gap-2 lg:col-span-2">
+                <div className="min-w-0 space-y-1.5">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant="secondary">{blockName}</Badge>
+                    {isCircuit && totalRounds > 1 && (
+                      <Badge variant="outline" className={`${ROLE_CLASSES.brand.soft} ${ROLE_CLASSES.brand.text} ${ROLE_CLASSES.brand.border}`}>
+                        <RotateCcw className="mr-1 size-3" aria-hidden />
+                        Round {round + 1} / {totalRounds}
+                      </Badge>
+                    )}
+                    {isRunType && (
+                      <Badge variant="outline" className={`${WORKOUT_STATE.current.soft} ${WORKOUT_STATE.current.text} ${WORKOUT_STATE.current.border}`}>
+                        {activityType === "INTERVAL_RUN" ? "Interval Run" : "Run"}
+                      </Badge>
+                    )}
+                  </div>
                   <h3 className="text-title text-foreground">{blockExercise.exercise.name}</h3>
-                  {isRunType && (
-                    <Badge variant="outline" className={`${WORKOUT_STATE.current.soft} ${WORKOUT_STATE.current.text} ${WORKOUT_STATE.current.border} shrink-0`}>
-                      {activityType === "INTERVAL_RUN" ? "Interval Run" : "Run"}
-                    </Badge>
-                  )}
                 </div>
                 {isCompleted && (
                   <Badge className={`${WORKOUT_STATE.completed.soft} ${WORKOUT_STATE.completed.text} ${WORKOUT_STATE.completed.border} border shrink-0`}>
@@ -735,21 +796,34 @@ export function WorkoutSessionTracker({
                 )}
               </div>
 
-              {/* Video (preferred) or image — one compact box, no separate thumbnail below */}
-              {blockExercise.exercise.videoUrl || blockExercise.exercise.media.length > 0 ? (
-                <div className="mx-auto w-full max-w-xs">
-                  <ExerciseVideoPlayer
-                    videoUrl={blockExercise.exercise.videoUrl ?? undefined}
-                    mediaItems={blockExercise.exercise.media.map((m) => ({ id: m.id, url: m.url, mediaType: m.type }))}
+              {/* Video (preferred) or image */}
+              <div className="lg:self-start">
+                {hasVideo ? (
+                  <div className="mx-auto w-full max-w-xs lg:max-w-none">
+                    <ExerciseVideoPlayer
+                      videoUrl={blockExercise.exercise.videoUrl ?? undefined}
+                      mediaItems={blockExercise.exercise.media.map((m) => ({ id: m.id, url: m.url, mediaType: m.type }))}
+                    />
+                  </div>
+                ) : (
+                  <ExerciseImageLightbox
+                    src={blockExercise.exercise.imageUrl ?? blockExercise.exercise.media.find((m) => m.type.toLowerCase() === "image")?.url ?? undefined}
+                    alt={blockExercise.exercise.name}
+                    label={blockExercise.exercise.name.split(" ").slice(0, 2).join(" ")}
+                    thumbnailClassName="relative h-36 w-full overflow-hidden rounded-xl lg:h-56"
                   />
+                )}
+              </div>
+
+              <div className="min-w-0 space-y-4">
+              {/* Trainer notes */}
+              {blockExercise.notes && (
+                <div className="rounded-lg bg-surface-muted px-3 py-2.5">
+                  <p className={`text-body ${WORKOUT_STATE.current.text}`}>
+                    <span className="font-semibold">Tip:</span>{" "}
+                    <span className="italic">{blockExercise.notes}</span>
+                  </p>
                 </div>
-              ) : (
-                <ExerciseImageLightbox
-                  src={blockExercise.exercise.imageUrl ?? undefined}
-                  alt={blockExercise.exercise.name}
-                  label={blockExercise.exercise.name.split(" ").slice(0, 2).join(" ")}
-                  thumbnailClassName="relative h-40 w-full overflow-hidden rounded-xl"
-                />
               )}
 
               {/* Instructions (collapsed by default) */}
@@ -771,16 +845,6 @@ export function WorkoutSessionTracker({
                       ))}
                     </ul>
                   )}
-                </div>
-              )}
-
-              {/* Trainer notes */}
-              {blockExercise.notes && (
-                <div className="rounded-lg bg-surface-muted px-4 py-3">
-                  <p className={`text-body ${WORKOUT_STATE.current.text}`}>
-                    <span className="font-semibold">Tip:</span>{" "}
-                    <span className="italic">{blockExercise.notes}</span>
-                  </p>
                 </div>
               )}
 
@@ -922,38 +986,82 @@ export function WorkoutSessionTracker({
                 </div>
               )}
 
-              {/* Client note */}
-              <div className={`space-y-1.5 rounded-lg ${ROLE_CLASSES.brand.soft} p-3`}>
-                <Label htmlFor={`client-note-${blockExercise.id}`} className={ROLE_CLASSES.brand.text}>
-                  Your notes
-                </Label>
-                <Textarea
-                  id={`client-note-${blockExercise.id}`}
-                  placeholder="Anything you want your trainer to know about this exercise..."
-                  value={clientNotes[blockExercise.id] ?? ""}
-                  onChange={(e) => handleClientNoteChange(blockExercise.id, e.target.value)}
-                  className={`min-h-16 resize-none bg-surface ${ROLE_CLASSES.brand.border}`}
-                />
-              </div>
-
-              {/* Action buttons */}
-              <div className="flex gap-3">
+              {/* Client note — a one-line opener until there's something to show */}
+              {notesOpen || note ? (
+                <div className={`space-y-1.5 rounded-lg ${ROLE_CLASSES.brand.soft} p-3`}>
+                  <Label htmlFor={`client-note-${blockExercise.id}`} className={ROLE_CLASSES.brand.text}>
+                    Your notes
+                  </Label>
+                  <Textarea
+                    id={`client-note-${blockExercise.id}`}
+                    placeholder="Anything you want your trainer to know about this exercise..."
+                    value={note}
+                    onChange={(e) => handleClientNoteChange(blockExercise.id, e.target.value)}
+                    autoFocus={notesOpen && !note}
+                    className={`min-h-16 resize-none bg-surface ${ROLE_CLASSES.brand.border}`}
+                  />
+                </div>
+              ) : (
                 <Button
-                  className="h-12 flex-1 sm:h-10"
-                  onClick={handleCompleteAll}
-                  disabled={isLoading}
+                  variant="ghost"
+                  className={cn(WORKOUT_TOUCH, "-ml-2 gap-1.5 px-2 text-muted-foreground hover:text-foreground")}
+                  onClick={() => setNotesOpen(true)}
                 >
-                  {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
-                  Complete
+                  <MessageSquarePlus className="size-4" aria-hidden />
+                  Add a note for your trainer
                 </Button>
-                <Button variant="outline" className="h-12 flex-1 gap-2 sm:h-10" onClick={handleSkip} disabled={isLoading}>
-                  <SkipForward className="h-4 w-4" /> Skip
-                </Button>
+              )}
               </div>
             </CardContent>
           </Card>
         );
       })()}
+
+      {/* Skip dialog — the timer is paused while it's open */}
+      <Dialog open={skipDialogOpen} onOpenChange={(open) => { if (!open && !isSkipping) cancelSkip(); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Skip this exercise?</DialogTitle>
+            <DialogDescription>Your timer is paused. Tell your trainer why you&apos;re skipping it.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Reason for skipping">
+              {SKIP_REASONS.map((reason) => (
+                <Button
+                  key={reason}
+                  type="button"
+                  role="radio"
+                  aria-checked={skipReason === reason}
+                  variant={skipReason === reason ? "default" : "outline"}
+                  className={WORKOUT_TOUCH}
+                  onClick={() => setSkipReason(reason)}
+                >
+                  {reason}
+                </Button>
+              ))}
+            </div>
+            {skipReason === "Other" && (
+              <Input
+                aria-label="Other reason"
+                placeholder="What's going on?"
+                value={skipOther}
+                onChange={(e) => setSkipOther(e.target.value)}
+                maxLength={200}
+                autoFocus
+              />
+            )}
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" className="h-11" onClick={cancelSkip} disabled={isSkipping}>
+              Keep going
+            </Button>
+            <Button className="h-11 flex-1" onClick={confirmSkip} disabled={!skipReason || isSkipping}>
+              {isSkipping ? <Loader2 className="mr-2 size-4 animate-spin" /> : <SkipForward className="mr-2 size-4" />}
+              Skip exercise
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* End session dialog */}
       <Dialog open={showEndDialog} onOpenChange={setShowEndDialog}>

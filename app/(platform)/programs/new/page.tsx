@@ -4,7 +4,7 @@ import { getExercises, getExerciseUsageForTrainer, rankExercisesByUsage } from "
 import { listCollections } from "@/lib/services/collection.service";
 import { getOrganizationProfile } from "@/actions/organization-actions";
 import { ProgramEditor } from "@/components/programs/program-editor";
-import { PageHeader } from "@/components/shared/page-header";
+import { BreadcrumbRegistrar } from "@/components/layout/breadcrumb-context";
 import { PageShell } from "@/components/shared/page-shell";
 
 export default async function NewProgramPage({
@@ -28,13 +28,10 @@ export default async function NewProgramPage({
 
   return (
     <PageShell>
-      <PageHeader
-        back={{ label: "Back to programs", href: "/programs" }}
-        breadcrumb={[{ label: "Programs", href: "/programs" }, { label: "Create Program" }]}
-        title="Create Program"
-        description="Build a new training program from scratch or start from a template."
-      />
+      <BreadcrumbRegistrar crumbs={[{ label: "Programs", href: "/programs" }, { label: "Create Program" }]} />
       <ProgramEditor
+        title="New program"
+        backHref="/programs"
         exercises={rankedExercises}
         organizationOrganizationId={organizationOrgId}
         exerciseSourcePreference={organizationProfile?.exerciseSourcePreference}

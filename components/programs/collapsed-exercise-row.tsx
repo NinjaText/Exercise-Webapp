@@ -47,10 +47,11 @@ export function CollapsedExerciseRow({
   onToggle: () => void;
 }) {
   return (
-    <div className="flex items-center gap-2 rounded-md border bg-card px-2 py-1.5">
+    <div className="flex items-center gap-1.5 rounded-md border border-border bg-surface px-1.5 py-1 shadow-xs transition-colors hover:border-border-strong motion-reduce:transition-none">
       <button
         type="button"
-        className="cursor-grab touch-none text-muted-foreground hover:text-foreground"
+        aria-label={`Drag to reorder ${name}`}
+        className="flex size-6 shrink-0 cursor-grab touch-none items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
         {...dragHandleProps}
       >
         <GripVertical className="h-4 w-4" />
@@ -59,25 +60,27 @@ export function CollapsedExerciseRow({
         type="button"
         onClick={onToggle}
         aria-label={`Expand ${name}`}
-        className="text-muted-foreground hover:text-foreground"
+        className="flex size-6 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
       >
         <ChevronRight className="h-4 w-4" />
       </button>
       <button
         type="button"
         onClick={onSelect}
-        className="flex min-w-0 flex-1 items-center gap-2 text-left"
+        className="flex min-h-7 min-w-0 flex-1 items-center gap-2 rounded px-1 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <span className="truncate text-sm font-medium">{name}</span>
         {hasVideo && (
-          <span className="inline-flex shrink-0 items-center gap-0.5 rounded-sm border border-info-border bg-info-soft px-1.5 py-0.5 text-[10px] font-medium text-info-foreground">
-            <Play className="h-2.5 w-2.5" />
+          <span className="inline-flex shrink-0 items-center gap-1 text-caption font-medium text-info-foreground">
+            <Play className="size-3" />
             Video
           </span>
         )}
-        <span className="ml-auto shrink-0 text-xs text-muted-foreground">
-          {summarizePrescription(sets)}
-        </span>
+        {sets.length > 0 && (
+          <span className="ml-auto shrink-0 rounded-md bg-muted px-1.5 py-0.5 text-caption font-medium text-muted-foreground tabular-nums">
+            {summarizePrescription(sets)}
+          </span>
+        )}
       </button>
     </div>
   );

@@ -554,10 +554,14 @@ describe("updateClub starters", () => {
 
 describe("updateClub", () => {
   it("does not touch existing members' trials", async () => {
-    vi.mocked(prisma.organization.findUnique).mockResolvedValue({ clerkOrgId: "org_1", type: "CLUB", joinSlug: "pine-valley" } as any);
-    vi.mocked(prisma.organization.update).mockResolvedValue({} as any);
+    const org = { clerkOrgId: "org_1", type: "CLUB", joinSlug: "pine-valley", stripePriceId: "price_member" };
+    vi.mocked(prisma.organization.findUnique).mockResolvedValue(org as any);
+    vi.mocked(prisma.organization.update).mockResolvedValue({ ...org, trialDays: 30 } as any);
     await updateClub("org_1", parseClubUpdateInput({ ...valid, trialDays: "30" }));
-    expect(prisma.memberSubscription.updateMany).not.toHaveBeenCalled();
+    // The only member write is the free-member sync, which never matches trialing rows.
+    for (const [arg] of vi.mocked(prisma.memberSubscription.updateMany).mock.calls) {
+      expect((arg as any).where.status).toBe("ACTIVE");
+    }
     expect(prisma.organization.update).toHaveBeenCalledWith({
       where: { clerkOrgId: "org_1" },
       data: expect.objectContaining({ trialDays: 30 }),
@@ -599,8 +603,8 @@ describe("listClubsWithStats", () => {
 
   beforeEach(() => {
     vi.mocked(prisma.organization.findMany).mockResolvedValue([
-      { clerkOrgId: "org_a", houseCoachUserId: "hc_a" },
-      { clerkOrgId: "org_b", houseCoachUserId: null },
+      { clerkOrgId: "org_a", houseCoachUserId: "hc_a", stripePriceId: "price_a" },
+      { clerkOrgId: "org_b", houseCoachUserId: null, stripePriceId: "price_b" },
     ] as any);
     vi.mocked(prisma.memberCoaching.groupBy).mockResolvedValue([] as any);
     vi.mocked(prisma.user.findMany).mockResolvedValue([] as any);
@@ -686,5 +690,92 @@ describe("updateClub house coach sync", () => {
       updateClub("org_1", parseClubUpdateInput({ ...valid, name: "Pine Valley Club", coachingAmount: "30" }))
     ).resolves.toMatchObject({ name: "Pine Valley Club" });
     errSpy.mockRestore();
+  });
+});
+
+describe("free clubs", () => {
+  const paidClub = {
+    clerkOrgId: "org_1", type: "CLUB", name: "Pine Valley CC", starterProgramIds: ["p1", "p2"], trialDays: 14,
+    stripePriceId: "price_member", coachingStripePriceId: null,
+  };
+  beforeEach(() => {
+    vi.mocked(prisma.memberSubscription.count).mockResolvedValue(0);
+    vi.mocked(prisma.memberSubscription.updateMany).mockResolvedValue({ count: 0 } as any);
+    vi.mocked(prisma.organization.update).mockImplementation((async ({ data }: any) => ({ ...paidClub, ...data })) as any);
+  });
+
+  it.each(["0", "0.00", "$0"])("accepts %s as a free membership", (amount) => {
+    expect(parseClubInput({ ...valid, membershipAmount: amount }).membershipAmountCents).toBe(0);
+  });
+
+  it("still refuses an empty membership price, and amounts between $0 and $1", () => {
+    expect(() => parseClubInput({ ...valid, membershipAmount: "" })).toThrow(/enter 0 for a free club/);
+    expect(() => parseClubInput({ ...valid, membershipAmount: "0.50" })).toThrow(/between \$1 and \$10,000/);
+  });
+
+  it("creates a free club without a Stripe membership price", async () => {
+    await createClub(parseClubInput({ ...valid, membershipAmount: "0" }));
+    expect(stripe.prices.create).not.toHaveBeenCalled();
+    expect(prisma.organization.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ stripePriceId: null, coachingStripePriceId: null }),
+    });
+  });
+
+  it("a free club can still sell coaching", async () => {
+    await createClub(parseClubInput({ ...valid, membershipAmount: "0", coachingAmount: "30" }));
+    expect(stripe.prices.create).toHaveBeenCalledTimes(1);
+    expect(prisma.organization.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ stripePriceId: null, coachingStripePriceId: "price_new_coaching_1" }),
+    });
+  });
+
+  it("refuses to make a club free while members still pay, before touching anything", async () => {
+    vi.mocked(prisma.organization.findUnique).mockResolvedValue(paidClub as any);
+    vi.mocked(prisma.memberSubscription.count).mockResolvedValue(2);
+    await expect(updateClub("org_1", parseClubUpdateInput({ ...valid, membershipAmount: "0" }))).rejects.toThrow(
+      /2 members have a paid membership/
+    );
+    expect(prisma.organization.update).not.toHaveBeenCalled();
+    expect(stripe.prices.update).not.toHaveBeenCalled();
+  });
+
+  it("making a club free archives its price and gives non-paying members access", async () => {
+    vi.mocked(prisma.organization.findUnique).mockResolvedValue(paidClub as any);
+    await updateClub("org_1", parseClubUpdateInput({ ...valid, membershipAmount: "0" }));
+    expect((vi.mocked(prisma.organization.update).mock.calls[0][0] as any).data).toMatchObject({ stripePriceId: null });
+    expect(stripe.prices.update).toHaveBeenCalledWith("price_member", { active: false });
+    expect(prisma.memberSubscription.updateMany).toHaveBeenCalledWith({
+      where: { clerkOrgId: "org_1", status: { in: ["TRIALING", "CANCELED"] } },
+      data: { status: "ACTIVE", stripeSubscriptionId: null, currentPeriodEnd: null, cancelAtPeriodEnd: false },
+    });
+  });
+
+  it("charging for a free club starts its free members on a fresh trial", async () => {
+    const now = Date.now();
+    vi.mocked(prisma.organization.findUnique).mockResolvedValue({ ...paidClub, stripePriceId: null } as any);
+    await updateClub("org_1", parseClubUpdateInput(valid));
+    const [arg] = vi.mocked(prisma.memberSubscription.updateMany).mock.calls[0] as any;
+    expect(arg.where).toMatchObject({ clerkOrgId: "org_1", status: "ACTIVE" });
+    expect(arg.data).toMatchObject({ status: "TRIALING", remindersSent: [] });
+    expect(arg.data.trialEndsAt.getTime() - now).toBeGreaterThanOrEqual(14 * 24 * 60 * 60 * 1000 - 1000);
+  });
+
+  it("reports a failed member sync instead of claiming success", async () => {
+    vi.mocked(prisma.organization.findUnique).mockResolvedValue(paidClub as any);
+    vi.mocked(prisma.memberSubscription.updateMany).mockRejectedValue(new Error("db down"));
+    await expect(updateClub("org_1", parseClubUpdateInput({ ...valid, membershipAmount: "0" }))).rejects.toThrow(
+      /Save again to retry/
+    );
+  });
+
+  it("counts nobody as paying in a free club", async () => {
+    vi.mocked(prisma.organization.findMany).mockResolvedValue([{ clerkOrgId: "org_f", stripePriceId: null }] as any);
+    vi.mocked(prisma.memberCoaching.groupBy).mockResolvedValue([] as any);
+    vi.mocked(prisma.user.findMany).mockResolvedValue([] as any);
+    vi.mocked(prisma.memberSubscription.groupBy)
+      .mockResolvedValueOnce([{ clerkOrgId: "org_f", status: "ACTIVE", _count: { _all: 5 } }] as any)
+      .mockResolvedValueOnce([] as any);
+    const [f] = await listClubsWithStats(new Date());
+    expect(f).toMatchObject({ members: 5, paying: 0, conversionRate: null });
   });
 });

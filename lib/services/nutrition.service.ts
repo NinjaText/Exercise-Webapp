@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
-import type { NutritionTarget } from "@prisma/client";
+import type { NutritionTarget, Prisma } from "@prisma/client";
 import { NUTRITION_TARGET_FIELDS, type NutritionTargetField } from "@/lib/validators/nutrition";
+import type { MacroCalculatorInputs } from "@/lib/validators/macro-calculator";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -78,6 +79,25 @@ export async function updateNutritionTarget(
   return prisma.nutritionTarget.update({
     where: { clientId },
     data: updates,
+  });
+}
+
+/**
+ * Saves a macro-calculator result as the client's daily targets. Writes only
+ * calories / protein / carbs / fat plus the calculator inputs; fibre, water,
+ * meals-per-day and client-editable fields are left untouched. Trainer-only —
+ * the caller must have verified the trainer owns the client.
+ */
+export async function saveCalculatedNutritionTarget(
+  clientId: string,
+  values: { calories: number; proteinG: number; carbsG: number; fatG: number },
+  calculatorInputs: MacroCalculatorInputs
+): Promise<NutritionTarget> {
+  const data = { ...values, calculatorInputs: calculatorInputs as Prisma.InputJsonValue };
+  return prisma.nutritionTarget.upsert({
+    where: { clientId },
+    create: { clientId, ...data },
+    update: data,
   });
 }
 

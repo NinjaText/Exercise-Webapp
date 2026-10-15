@@ -7,6 +7,7 @@ import { AuthShell } from "@/components/auth/auth-shell";
 import { PlanCard } from "@/components/billing/plan-card";
 import { StatusBanner } from "@/components/billing/status-banner";
 import { hasScheduledSubscription, trialDaysLeft } from "@/lib/billing/access";
+import { isFreeClub } from "@/lib/clubs/free-club";
 import { formatStripeAmount } from "@/lib/utils/money";
 import { getCoachingViewModel } from "@/lib/clubs/coaching-view";
 import { memberCoachingLinkLabel } from "@/lib/clubs/coaching-state";
@@ -40,6 +41,7 @@ export async function MemberBillingView({
   const scheduled = hasScheduledSubscription(sub);
   // PAST_DUE/UNPAID already have a subscription: fix the card via the portal, don't start a second.
   const hasSubscription = isActive || scheduled || sub?.status === "UNPAID";
+  const free = isFreeClub(org);
 
   return (
     <>
@@ -50,6 +52,8 @@ export async function MemberBillingView({
         subhead={isActive ? "Your membership is active." : "Manage your membership and billing."}
       >
         <div className="flex flex-col gap-6">
+          {/* Below lg AuthShell already shows the page heading above the column. */}
+          <h2 className="hidden text-title text-foreground lg:block">Your membership</h2>
           {reason === "trial_expired" && (
             <StatusBanner tone="neutral">Your free trial has ended. Subscribe to keep training.</StatusBanner>
           )}
@@ -65,16 +69,21 @@ export async function MemberBillingView({
             </StatusBanner>
           )}
           <PlanCard
-            name="Monthly membership"
-            price={priceLabel?.price}
+            name={free ? "Membership" : "Monthly membership"}
+            price={free ? "Free" : priceLabel?.price}
             cadence={priceLabel ? `/ ${priceLabel.interval}` : undefined}
-            billedNote={priceLabel ? `Billed ${priceLabel.interval === "month" ? "monthly" : `per ${priceLabel.interval}`}` : undefined}
+            billedNote={
+              free
+                ? "Your club covers your membership."
+                : priceLabel
+                  ? `Billed ${priceLabel.interval === "month" ? "monthly" : `per ${priceLabel.interval}`}`
+                  : undefined
+            }
             features={["Your club's training programs", "Workout logging and progress tracking"]}
           >
             <MemberBillingButtons
               canSubscribe={!hasSubscription && Boolean(org.stripePriceId)}
               canManage={Boolean(sub?.stripeCustomerId)}
-              missingPrice={!org.stripePriceId}
             />
           </PlanCard>
           {coaching && (
@@ -86,7 +95,6 @@ export async function MemberBillingView({
               <MemberBillingButtons
                 canSubscribe={false}
                 canManage={coaching.status === "ACTIVE" || coaching.status === "PAST_DUE"}
-                missingPrice={false}
               />
               {coachingLink && (
                 <Button asChild variant="outline" size="lg" className="h-11 w-full">

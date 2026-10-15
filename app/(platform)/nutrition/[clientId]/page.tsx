@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getCurrentUser } from "@/lib/current-user";
 import { getClientIdsForTrainer } from "@/lib/services/client.service";
@@ -20,7 +21,8 @@ import { PageShell } from "@/components/shared/page-shell";
 import { PageHeader } from "@/components/shared/page-header";
 import { SectionCard } from "@/components/shared/section-card";
 import { Card } from "@/components/ui/card";
-import { UtensilsCrossed, TrendingUp } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { UtensilsCrossed, TrendingUp, Calculator } from "lucide-react";
 
 function describeEmptyRange(preset: nutritionService.NutritionRangePreset, start: Date, end: Date): string {
   if (preset === "TODAY") return "No meals logged today.";
@@ -75,6 +77,14 @@ export default async function ClientNutritionDetailPage({
           description={`${summary.mealsLogged} meal${summary.mealsLogged !== 1 ? "s" : ""} logged today`}
           primaryAction={
             <NutritionGoalsDialog clientId={clientId} role="TRAINER" target={summary.target} variant="default" />
+          }
+          secondaryActions={
+            <Button variant="outline" asChild>
+              <Link href={`/nutrition/${clientId}/calculator`}>
+                <Calculator className="size-4" />
+                Macro calculator
+              </Link>
+            </Button>
           }
           meta={
             summary.adherencePct !== null ? (

@@ -23,6 +23,8 @@ import * as nutritionService from "@/lib/services/nutrition.service";
 import * as nutritionAiService from "@/lib/services/nutrition-ai.service";
 import { lookupFoodByBarcode } from "@/lib/services/food-barcode.service";
 import { normalizeBarcode, type BarcodeLookupResult } from "@/lib/nutrition/food-barcode";
+import { calculateMacros } from "@/lib/nutrition/macro-calculator";
+import { saveMacroCalculatorSchema } from "@/lib/validators/macro-calculator";
 import {
   upsertNutritionTargetSchema,
   addWaterLogSchema,
@@ -93,6 +95,45 @@ export async function upsertNutritionTargetAction(
     console.error("[nutrition] upsertTarget error:", err);
     const message = err instanceof Error ? err.message : "Failed to update nutrition target";
     return { success: false, error: message };
+  }
+}
+
+/**
+ * Saves the macro calculator's result as the client's daily targets.
+ * The server recomputes calories/grams from the submitted inputs with the
+ * same pure module the UI uses, so stored numbers always match the maths.
+ */
+export async function saveMacroCalculatorTargetAction(
+  input: unknown
+): Promise<ActionResult<{ calories: number; proteinG: number; carbsG: number; fatG: number }>> {
+  const parsed = saveMacroCalculatorSchema.safeParse(input);
+  if (!parsed.success) return { success: false, error: "Invalid input" };
+
+  const user = await getAuthedUser();
+  if (!user) return { success: false, error: "Unauthorized" };
+  if (user.role !== "TRAINER") return { success: false, error: "Forbidden" };
+
+  const { clientId, inputs } = parsed.data;
+  if (!(await canTrainerAccessClient(user.id, clientId))) {
+    return { success: false, error: "Forbidden" };
+  }
+
+  try {
+    const result = calculateMacros(inputs);
+    const values = {
+      calories: result.calories,
+      proteinG: result.proteinG,
+      carbsG: result.carbsG,
+      fatG: result.fatG,
+    };
+    await nutritionService.saveCalculatedNutritionTarget(clientId, values, inputs);
+    revalidatePath("/nutrition");
+    revalidatePath(`/nutrition/${clientId}`);
+    revalidatePath(`/nutrition/${clientId}/calculator`);
+    return { success: true, data: values };
+  } catch (err) {
+    console.error("[nutrition] saveMacroCalculatorTarget error:", err);
+    return { success: false, error: "Failed to save nutrition targets" };
   }
 }
 

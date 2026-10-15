@@ -8,6 +8,7 @@ import { BrandStyle } from "@/components/branding/brand-style";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { clerkAuthAppearance } from "@/lib/ui/clerk-appearance";
 import { JOIN_COOKIE, verifyJoinToken } from "@/lib/clubs/join-token";
+import { isFreeClub } from "@/lib/clubs/free-club";
 import { JoinCodeForm } from "./join-code-form";
 
 export default async function JoinClubPage({ params }: { params: Promise<{ slug: string }> }) {
@@ -21,6 +22,7 @@ export default async function JoinClubPage({ params }: { params: Promise<{ slug:
   // verifyJoinToken throws when CLERK_SECRET_KEY is missing: fail closed (500).
   const verified = verifyJoinToken((await cookies()).get(JOIN_COOKIE)?.value, club.clerkOrgId);
   const completeUrl = `/join/${slug}/complete`;
+  const startWhat = isFreeClub(club) ? "join" : "start your free trial";
 
   return (
     <>
@@ -30,7 +32,7 @@ export default async function JoinClubPage({ params }: { params: Promise<{ slug:
           branding={brandingVm}
           headingMode="form"
           headline={`Join ${branding.displayName}`}
-          subhead="Create your account to start your free trial."
+          subhead={`Create your account to ${startWhat}.`}
         >
           <SignUp
             routing="hash"
@@ -43,7 +45,7 @@ export default async function JoinClubPage({ params }: { params: Promise<{ slug:
         <AuthShell
           branding={brandingVm}
           headline={`Join ${branding.displayName}`}
-          subhead="Enter the access code your club gave you to start your free trial."
+          subhead={`Enter the access code your club gave you to ${startWhat}.`}
         >
           <JoinCodeForm slug={slug} clubName={branding.displayName} />
         </AuthShell>

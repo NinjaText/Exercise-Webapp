@@ -19,10 +19,13 @@ interface Props {
     imageUrl?: string | null;
     equipmentRequired?: string[];
   }[];
+  title?: string;
+  backHref?: string;
+  notice?: string;
   clinics?: { id: string; name: string }[];
 }
 
-export function GlobalProgramEditorWrapper({ program, exercises, clinics }: Props) {
+export function GlobalProgramEditorWrapper({ program, exercises, clinics, title, backHref, notice }: Props) {
   async function handleSave(data: CreateProgramInput, programId?: string) {
     if (programId) {
       return updateGlobalProgramAction(programId, data);
@@ -36,7 +39,9 @@ export function GlobalProgramEditorWrapper({ program, exercises, clinics }: Prop
       exercises={exercises}
       clinics={clinics}
       onSave={handleSave}
-      stickyOffset="none"
+      title={title}
+      backHref={backHref}
+      notice={notice}
       redirectTo="/admin/global-programs"
     />
   );
