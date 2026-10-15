@@ -4,7 +4,7 @@ import { getProgramById } from "@/lib/services/program.service";
 import { notFound } from "next/navigation";
 import { GlobalProgramEditorWrapper } from "../../global-program-editor-wrapper";
 import { PageShell } from "@/components/shared/page-shell";
-import { PageHeader } from "@/components/shared/page-header";
+import { BreadcrumbRegistrar } from "@/components/layout/breadcrumb-context";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -23,19 +23,19 @@ export default async function EditGlobalProgramPage({ params }: Props) {
 
   return (
     <PageShell>
-      <PageHeader
-        back={{ label: "Back to global programs", href: "/admin/global-programs" }}
-        breadcrumb={[
+      <BreadcrumbRegistrar
+        crumbs={[
           { label: "Admin", href: "/admin" },
           { label: "Global Programs", href: "/admin/global-programs" },
           { label: "Edit" },
         ]}
-        title="Edit Global Program"
-        description="Changes will be reflected for all organizations after pushing an update."
       />
       <GlobalProgramEditorWrapper
         program={program as unknown as Record<string, unknown>}
         exercises={exercises}
+        title="Edit global program"
+        backHref="/admin/global-programs"
+        notice="Changes will be reflected for all organizations after pushing an update."
       />
     </PageShell>
   );

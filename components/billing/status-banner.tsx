@@ -31,7 +31,8 @@ export function StatusBanner({
     >
       <Icon className="mt-0.5 size-4 shrink-0" aria-hidden />
       <div className="min-w-0 flex-1">{children}</div>
-      {action ? <div className="shrink-0">{action}</div> : null}
+      {/* -my-1: a 32px action target sits centred on the 24px text line. */}
+      {action ? <div className="-my-1 shrink-0 self-center">{action}</div> : null}
     </div>
   );
 }

@@ -4,7 +4,7 @@ import { getExercises } from "@/lib/services/exercise.service";
 import { getProgramById } from "@/lib/services/program.service";
 import { AdminProgramEditorWrapper } from "../admin-program-editor-wrapper";
 import { PageShell } from "@/components/shared/page-shell";
-import { PageHeader } from "@/components/shared/page-header";
+import { BreadcrumbRegistrar } from "@/components/layout/breadcrumb-context";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -23,20 +23,20 @@ export default async function AdminProgramEditPage({ params }: Props) {
 
   return (
     <PageShell>
-      <PageHeader
-        back={{ label: "Back to program", href: `/admin/programs/${id}` }}
-        breadcrumb={[
+      <BreadcrumbRegistrar
+        crumbs={[
           { label: "Admin", href: "/admin" },
           { label: "Programs", href: "/admin/programs" },
           { label: program.name as string, href: `/admin/programs/${id}` },
           { label: "Edit" },
         ]}
-        title="Edit Program"
-        description="Editing on behalf of the program's trainer. Changes apply immediately."
       />
       <AdminProgramEditorWrapper
         program={program as unknown as Record<string, unknown>}
         exercises={exercises}
+        title="Edit program"
+        backHref={`/admin/programs/${id}`}
+        notice="Editing on behalf of the program's trainer. Changes apply immediately."
       />
     </PageShell>
   );

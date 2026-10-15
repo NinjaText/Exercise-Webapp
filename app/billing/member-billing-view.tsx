@@ -50,6 +50,8 @@ export async function MemberBillingView({
         subhead={isActive ? "Your membership is active." : "Manage your membership and billing."}
       >
         <div className="flex flex-col gap-6">
+          {/* Below lg AuthShell already shows the page heading above the column. */}
+          <h2 className="hidden text-title text-foreground lg:block">Your membership</h2>
           {reason === "trial_expired" && (
             <StatusBanner tone="neutral">Your free trial has ended. Subscribe to keep training.</StatusBanner>
           )}

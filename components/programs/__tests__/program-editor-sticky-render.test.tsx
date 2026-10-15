@@ -10,17 +10,47 @@ vi.mock("../program-builder", () => ({ ProgramBuilder: () => null }));
 
 import { ProgramEditor } from "../program-editor";
 
-const TABBAR_OFFSET = "bottom-[calc(var(--tab-bar-height)+var(--safe-bottom)+0.75rem)]";
-
-describe("ProgramEditor sticky save bar", () => {
-  it("clears the platform tab bar by default", () => {
+describe("ProgramEditor editor bar", () => {
+  it("pins the title and save actions to the top of the scroll area", () => {
     const html = renderToStaticMarkup(<ProgramEditor exercises={[]} />);
-    expect(html).toContain(TABBAR_OFFSET);
+    expect(html).toContain('data-slot="program-editor-bar"');
+    expect(html).toMatch(/data-slot="program-editor-bar"[^>]*class="[^"]*sticky -top-4/);
+    expect(html).toContain("New program");
+    expect(html).toContain("Create program");
   });
 
-  it("sits at the safe-area edge when the shell has no tab bar", () => {
-    const html = renderToStaticMarkup(<ProgramEditor exercises={[]} stickyOffset="none" />);
-    expect(html).not.toContain(TABBAR_OFFSET);
-    expect(html).toContain("bottom-[calc(var(--safe-bottom)+0.75rem)]");
+  it("labels an existing program as an edit and saves changes", () => {
+    const html = renderToStaticMarkup(
+      <ProgramEditor exercises={[]} program={{ id: "p1", name: "Strength block", workouts: [] }} />
+    );
+    expect(html).toContain("Edit program");
+    expect(html).toContain("Strength block");
+    expect(html).toContain("Save changes");
+  });
+
+  it("starts clean: no unsaved-changes indicator on first render", () => {
+    const html = renderToStaticMarkup(
+      <ProgramEditor exercises={[]} program={{ id: "p1", name: "Strength block", workouts: [] }} />
+    );
+    expect(html).not.toContain('data-slot="unsaved-indicator"');
+  });
+
+  it("uses the caller's title, back link and notice", () => {
+    const html = renderToStaticMarkup(
+      <ProgramEditor
+        exercises={[]}
+        title="Edit global program"
+        backHref="/admin/global-programs"
+        notice="Changes apply after pushing an update."
+      />
+    );
+    expect(html).toContain("Edit global program");
+    expect(html).toContain('href="/admin/global-programs"');
+    expect(html).toContain("Changes apply after pushing an update.");
+  });
+
+  it("puts settings in a sidebar beside the builder", () => {
+    const html = renderToStaticMarkup(<ProgramEditor exercises={[]} />);
+    expect(html).toContain('data-slot="program-editor-sidebar"');
   });
 });

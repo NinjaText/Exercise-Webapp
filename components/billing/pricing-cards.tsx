@@ -56,7 +56,7 @@ export function PricingCards({ headingLevel = 2 }: { headingLevel?: 2 | 3 | 4 } 
               disabled={loading !== null}
               variant={isPopular ? "default" : "outline"}
             >
-              {loading === tier ? "Redirecting…" : "Start Plan"}
+              {loading === tier ? "Redirecting…" : `Choose ${config.label}`}
             </Button>
           </PlanCard>
         );

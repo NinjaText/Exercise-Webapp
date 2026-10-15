@@ -12,6 +12,10 @@ import {
 import { Plus, Trash2 } from "lucide-react";
 import type { ExerciseSetInput } from "@/lib/validators/program";
 
+// Base UI's <Select.Value> renders the raw value without an items map.
+const SET_TYPE_ITEMS = { NORMAL: "Normal", WARMUP: "Warm-up", DROP_SET: "Drop", FAILURE: "Failure" };
+const DURATION_UNIT_ITEMS = { SEC: "sec", MIN: "min" };
+
 interface Props {
   sets: ExerciseSetInput[];
   activityType?: "STRENGTH" | "RUN" | "INTERVAL_RUN";
@@ -72,7 +76,7 @@ export function SetEditor({ sets, activityType = "STRENGTH", onChange }: Props) 
                 type="number"
                 value={set.targetDistance ?? ""}
                 onChange={(e) => updateSet(si, "targetDistance", e.target.value ? parseFloat(e.target.value) : null)}
-                className="h-8 text-xs"
+                className="h-8 text-sm"
                 placeholder="mi"
                 min={0}
                 step={0.1}
@@ -82,12 +86,12 @@ export function SetEditor({ sets, activityType = "STRENGTH", onChange }: Props) 
                   type="number"
                   value={set.targetDuration ?? ""}
                   onChange={(e) => updateSet(si, "targetDuration", e.target.value ? parseInt(e.target.value) : null)}
-                  className="h-8 text-xs w-full"
+                  className="h-8 text-sm w-full"
                   placeholder="Duration"
                   min={0}
                 />
-                <Select value={set.targetDurationUnit || "SEC"} onValueChange={(v) => updateSet(si, "targetDurationUnit", v)}>
-                  <SelectTrigger className="h-8 text-xs w-16 shrink-0"><SelectValue /></SelectTrigger>
+                <Select items={DURATION_UNIT_ITEMS} value={set.targetDurationUnit || "SEC"} onValueChange={(v) => updateSet(si, "targetDurationUnit", v)}>
+                  <SelectTrigger className="h-8 text-sm w-[4.5rem] shrink-0"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="SEC">sec</SelectItem>
                     <SelectItem value="MIN">min</SelectItem>
@@ -97,20 +101,20 @@ export function SetEditor({ sets, activityType = "STRENGTH", onChange }: Props) 
               <Input
                 value={set.targetPace ?? ""}
                 onChange={(e) => updateSet(si, "targetPace", e.target.value || null)}
-                className="h-8 text-xs"
+                className="h-8 text-sm"
                 placeholder="9:30/mi"
               />
               <Input
                 value={set.targetHrZone ?? ""}
                 onChange={(e) => updateSet(si, "targetHrZone", e.target.value || null)}
-                className="h-8 text-xs"
+                className="h-8 text-sm"
                 placeholder="Zone 2"
               />
               <Input
                 type="number"
                 value={set.targetRPE ?? ""}
                 onChange={(e) => updateSet(si, "targetRPE", e.target.value ? parseInt(e.target.value) : null)}
-                className="h-8 text-xs"
+                className="h-8 text-sm"
                 placeholder="RPE"
                 min={1}
                 max={10}
@@ -122,7 +126,7 @@ export function SetEditor({ sets, activityType = "STRENGTH", onChange }: Props) 
           ))}
         </div>
         <Button variant="ghost" size="sm" onClick={addSet} className="text-xs h-7">
-          <Plus className="mr-1 h-3 w-3" /> Add Set
+          <Plus className="mr-1 h-3 w-3" /> Add set
         </Button>
       </div>
     );
@@ -130,9 +134,10 @@ export function SetEditor({ sets, activityType = "STRENGTH", onChange }: Props) 
 
   return (
     <div className="space-y-1.5 overflow-x-auto">
-      <div className="min-w-[520px] space-y-1.5">
+      <div className="min-w-[540px] space-y-1.5">
         {/* Header row */}
-        <div className="grid grid-cols-[100px_minmax(70px,1fr)_minmax(70px,1fr)_minmax(110px,1.4fr)_minmax(60px,1fr)_40px] gap-2 text-xs text-muted-foreground font-medium px-1">
+        <div className="grid grid-cols-[24px_100px_minmax(70px,1fr)_minmax(70px,1fr)_minmax(110px,1.4fr)_minmax(60px,1fr)_32px] gap-2 text-xs text-muted-foreground font-medium px-1">
+          <span className="text-center">Set</span>
           <span>Type</span>
           <span>Reps</span>
           <span>Weight</span>
@@ -143,18 +148,20 @@ export function SetEditor({ sets, activityType = "STRENGTH", onChange }: Props) 
         {sets.map((set, si) => (
           <div
             key={si}
-            className="grid grid-cols-[100px_minmax(70px,1fr)_minmax(70px,1fr)_minmax(110px,1.4fr)_minmax(60px,1fr)_40px] gap-2 items-center"
+            className="grid grid-cols-[24px_100px_minmax(70px,1fr)_minmax(70px,1fr)_minmax(110px,1.4fr)_minmax(60px,1fr)_32px] gap-2 items-center"
           >
+            <span className="text-center text-caption font-medium text-muted-foreground tabular-nums">{si + 1}</span>
             <Select
+              items={SET_TYPE_ITEMS}
               value={set.setType}
               onValueChange={(v) => updateSet(si, "setType", v)}
             >
-              <SelectTrigger className="h-8 text-xs">
+              <SelectTrigger className="h-8 text-sm">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="NORMAL">Normal</SelectItem>
-                <SelectItem value="WARMUP">Warmup</SelectItem>
+                <SelectItem value="WARMUP">Warm-up</SelectItem>
                 <SelectItem value="DROP_SET">Drop</SelectItem>
                 <SelectItem value="FAILURE">Failure</SelectItem>
               </SelectContent>
@@ -169,7 +176,7 @@ export function SetEditor({ sets, activityType = "STRENGTH", onChange }: Props) 
                   e.target.value ? parseInt(e.target.value) : null
                 )
               }
-              className="h-8 text-xs"
+              className="h-8 text-sm"
               placeholder="Reps"
               min={0}
             />
@@ -183,7 +190,7 @@ export function SetEditor({ sets, activityType = "STRENGTH", onChange }: Props) 
                   e.target.value ? parseFloat(e.target.value) : null
                 )
               }
-              className="h-8 text-xs"
+              className="h-8 text-sm"
               placeholder="lbs"
               min={0}
               step={2.5}
@@ -199,15 +206,16 @@ export function SetEditor({ sets, activityType = "STRENGTH", onChange }: Props) 
                     e.target.value ? parseInt(e.target.value) : null
                   )
                 }
-                className="h-8 text-xs w-full"
+                className="h-8 text-sm w-full"
                 placeholder="Duration"
                 min={0}
               />
               <Select
+                items={DURATION_UNIT_ITEMS}
                 value={set.targetDurationUnit || "SEC"}
                 onValueChange={(v) => updateSet(si, "targetDurationUnit", v)}
               >
-                <SelectTrigger className="h-8 text-xs w-16 shrink-0">
+                <SelectTrigger className="h-8 text-sm w-[4.5rem] shrink-0">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -226,7 +234,7 @@ export function SetEditor({ sets, activityType = "STRENGTH", onChange }: Props) 
                   e.target.value ? parseInt(e.target.value) : null
                 )
               }
-              className="h-8 text-xs"
+              className="h-8 text-sm"
               placeholder="RPE"
               min={1}
               max={10}
@@ -244,7 +252,7 @@ export function SetEditor({ sets, activityType = "STRENGTH", onChange }: Props) 
         ))}
       </div>
       <Button variant="ghost" size="sm" onClick={addSet} className="text-xs h-7">
-        <Plus className="mr-1 h-3 w-3" /> Add Set
+        <Plus className="mr-1 h-3 w-3" /> Add set
       </Button>
     </div>
   );
@@ -294,7 +302,7 @@ function IntervalSetEditor({ sets, onChange }: { sets: ExerciseSetInput[]; onCha
               type="number"
               value={set.repeatCount ?? ""}
               onChange={(e) => updateSegment(si, "repeatCount", e.target.value ? parseInt(e.target.value) : null)}
-              className="h-8 text-xs w-14"
+              className="h-8 text-sm w-14"
               placeholder="×N"
               min={1}
             />
@@ -303,7 +311,7 @@ function IntervalSetEditor({ sets, onChange }: { sets: ExerciseSetInput[]; onCha
             type="number"
             value={set.targetDistance ?? ""}
             onChange={(e) => updateSegment(si, "targetDistance", e.target.value ? parseFloat(e.target.value) : null)}
-            className="h-8 text-xs w-20"
+            className="h-8 text-sm w-20"
             placeholder="mi"
             step={0.05}
           />
@@ -311,11 +319,11 @@ function IntervalSetEditor({ sets, onChange }: { sets: ExerciseSetInput[]; onCha
             type="number"
             value={set.targetDuration ?? ""}
             onChange={(e) => updateSegment(si, "targetDuration", e.target.value ? parseInt(e.target.value) : null)}
-            className="h-8 text-xs w-20"
+            className="h-8 text-sm w-20"
             placeholder="Duration"
           />
-          <Select value={set.targetDurationUnit || "SEC"} onValueChange={(v) => updateSegment(si, "targetDurationUnit", v)}>
-            <SelectTrigger className="h-8 text-xs w-16 shrink-0"><SelectValue /></SelectTrigger>
+          <Select items={DURATION_UNIT_ITEMS} value={set.targetDurationUnit || "SEC"} onValueChange={(v) => updateSegment(si, "targetDurationUnit", v)}>
+            <SelectTrigger className="h-8 text-sm w-[4.5rem] shrink-0"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="SEC">sec</SelectItem>
               <SelectItem value="MIN">min</SelectItem>
@@ -325,7 +333,7 @@ function IntervalSetEditor({ sets, onChange }: { sets: ExerciseSetInput[]; onCha
             <Input
               value={set.targetPace ?? ""}
               onChange={(e) => updateSegment(si, "targetPace", e.target.value || null)}
-              className="h-8 text-xs flex-1"
+              className="h-8 text-sm flex-1"
               placeholder="Target pace (e.g. 7:30/mi)"
             />
           )}

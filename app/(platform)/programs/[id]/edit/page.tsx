@@ -6,7 +6,7 @@ import { getExercises, getExerciseUsageForTrainer, rankExercisesByUsage } from "
 import { listCollections } from "@/lib/services/collection.service";
 import { getOrganizationProfile } from "@/actions/organization-actions";
 import { ProgramEditor } from "@/components/programs/program-editor";
-import { PageHeader } from "@/components/shared/page-header";
+import { BreadcrumbRegistrar } from "@/components/layout/breadcrumb-context";
 import { PageShell } from "@/components/shared/page-shell";
 
 interface Props {
@@ -35,17 +35,16 @@ export default async function EditProgramPage({ params }: Props) {
 
   return (
     <PageShell>
-      <PageHeader
-        back={{ label: "Back to program", href: `/programs/${id}` }}
-        breadcrumb={[
+      <BreadcrumbRegistrar
+        crumbs={[
           { label: "Programs", href: "/programs" },
           { label: program.name, href: `/programs/${id}` },
           { label: "Edit" },
         ]}
-        title="Edit Program"
-        description={`Modify “${program.name}”`}
       />
       <ProgramEditor
+        title="Edit program"
+        backHref={`/programs/${id}`}
         program={program as unknown as Record<string, unknown>}
         exercises={rankedExercises}
         organizationOrganizationId={organizationOrgId}

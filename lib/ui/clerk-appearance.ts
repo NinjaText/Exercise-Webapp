@@ -82,11 +82,15 @@ export function clerkAuthAppearance({ hideHeader = false }: ClerkAuthAppearanceO
     variables: clerkAppearance.variables,
     elements: {
       rootBox: "w-full!",
-      cardBox: "w-full! max-w-none! rounded-none! border-0! bg-transparent! shadow-none!",
-      card: "w-full! gap-6! rounded-none! border-0! bg-transparent! p-0! shadow-none!",
+      // Clerk clips the cardBox (overflow: hidden); with p-0 that slices the
+      // focus ring off the inputs' left/right edges, so let it overflow.
+      cardBox: "w-full! max-w-none! overflow-visible! rounded-none! border-0! bg-transparent! shadow-none!",
+      card: "w-full! gap-6! overflow-visible! rounded-none! border-0! bg-transparent! p-0! shadow-none!",
       // AuthShell shows the org identity; never repeat Clerk's dashboard logo.
       logoBox: "hidden!",
-      header: hideHeader ? "hidden!" : "items-start! text-left! gap-1!",
+      // Stretch (not items-start) so the identity chip inside the header spans
+      // the full column; text stays left-aligned.
+      header: hideHeader ? "hidden!" : "items-stretch! text-left! gap-1!",
       headerTitle: "text-heading! text-foreground!",
       headerSubtitle: "text-body! text-muted-foreground!",
       socialButtons: "gap-2!",
@@ -104,8 +108,12 @@ export function clerkAuthAppearance({ hideHeader = false }: ClerkAuthAppearanceO
       formButtonPrimary:
         "h-11! sm:h-9! w-full! rounded-md! border-0! bg-primary! bg-none! text-sm! font-medium! normal-case! text-primary-foreground! shadow-xs! hover:bg-primary/90! focus-visible:ring-3! focus-visible:ring-ring/50! motion-reduce:transition-none!",
       alternativeMethodsBlockButton: AUTH_SECONDARY_BUTTON,
-      identityPreview: "rounded-md! border! border-border! bg-surface-muted! shadow-none!",
-      identityPreviewEditButton: "text-primary!",
+      // The "signed in as" chip on later steps: a full-width, input-height row
+      // (email left, edit pencil right) instead of Clerk's centred pill.
+      identityPreview:
+        "w-full! max-w-none! h-11! sm:h-9! justify-between! gap-2! rounded-md! border! border-border! bg-surface-muted! px-3! py-0! shadow-none!",
+      identityPreviewText: "truncate! text-sm! text-foreground!",
+      identityPreviewEditButton: "shrink-0! text-muted-foreground! hover:text-primary!",
       // The card's footer ("Don't have an account?", "Secured by Clerk") sits on
       // a tinted band by default; flatten it onto the panel.
       footer: "bg-transparent! bg-none! border-0! p-0! pt-2!",

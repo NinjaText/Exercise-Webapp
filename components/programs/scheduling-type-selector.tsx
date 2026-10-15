@@ -28,15 +28,17 @@ interface Props {
   value: ProgramSchedulingTypeValue;
   onChange: (value: ProgramSchedulingTypeValue) => void;
   disabled?: boolean;
+  /** Layout overrides for the option grid (e.g. one column in a narrow sidebar). */
+  className?: string;
 }
 
 /**
  * Two-option segmented control shared by the program editor and the AI
  * generate form, so both places describe Scheduled vs. Resource identically.
  */
-export function SchedulingTypeSelector({ value, onChange, disabled }: Props) {
+export function SchedulingTypeSelector({ value, onChange, disabled, className }: Props) {
   return (
-    <div className="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label="Scheduling type">
+    <div className={cn("grid gap-2 sm:grid-cols-2", className)} role="radiogroup" aria-label="Scheduling type">
       {OPTIONS.map((option) => {
         const Icon = option.icon;
         const isSelected = value === option.value;

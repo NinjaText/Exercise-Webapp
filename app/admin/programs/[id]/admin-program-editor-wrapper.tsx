@@ -16,9 +16,12 @@ interface Props {
     imageUrl?: string | null;
     equipmentRequired?: string[];
   }[];
+  title?: string;
+  backHref?: string;
+  notice?: string;
 }
 
-export function AdminProgramEditorWrapper({ program, exercises }: Props) {
+export function AdminProgramEditorWrapper({ program, exercises, title, backHref, notice }: Props) {
   async function handleSave(data: CreateProgramInput, programId?: string) {
     return updateAdminProgramAction(programId as string, data);
   }
@@ -28,7 +31,9 @@ export function AdminProgramEditorWrapper({ program, exercises }: Props) {
       program={program}
       exercises={exercises}
       onSave={handleSave}
-      stickyOffset="none"
+      title={title}
+      backHref={backHref}
+      notice={notice}
       redirectTo={`/admin/programs/${program.id}`}
     />
   );
