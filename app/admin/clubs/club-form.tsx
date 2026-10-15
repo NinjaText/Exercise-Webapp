@@ -158,6 +158,7 @@ export function ClubForm(props: Props) {
   const { globalPrograms, resourcePrograms } = props;
   const notes: ClubPriceNotes = props.mode === "edit" ? (props.priceNotes ?? {}) : {};
   const dirty = props.mode === "edit" && JSON.stringify(values) !== JSON.stringify(initial);
+  const isFree = /^\$?0+(\.0{1,2})?$/.test(values.membershipAmount.trim());
 
   const set = <K extends keyof ClubFormValues>(key: K, v: ClubFormValues[K]) =>
     setValues((prev) => ({ ...prev, [key]: v }));
@@ -224,7 +225,7 @@ export function ClubForm(props: Props) {
           <FormField
             label="Membership price"
             htmlFor="club-membership-amount"
-            hint={notes.membership ?? "Charged monthly after the trial. $1 to $10,000."}
+            hint={notes.membership ?? (isFree ? "Free club: members join with no trial and no billing." : "Charged monthly after the trial. $1 to $10,000, or 0 for a free club.")}
             required={!notes.membership}
           >
             <AffixInput
@@ -252,13 +253,19 @@ export function ClubForm(props: Props) {
               onChange={(e) => set("coachingAmount", e.target.value)}
             />
           </FormField>
-          <FormField label="Free trial" htmlFor="club-trial" hint="Days before the first charge." required>
+          <FormField
+            label="Free trial"
+            htmlFor="club-trial"
+            hint={isFree ? "Not used while membership is free." : "Days before the first charge."}
+            required={!isFree}
+          >
             <AffixInput
               id="club-trial"
               type="number"
               suffix="days"
               min={1}
               max={365}
+              disabled={isFree}
               value={values.trialDays}
               onChange={(e) => set("trialDays", Number(e.target.value))}
             />

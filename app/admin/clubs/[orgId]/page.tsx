@@ -16,6 +16,7 @@ import { COACHING_BADGE } from "@/lib/ui/status";
 import { getClubAttentionCounts } from "@/lib/services/club-alerts.service";
 import { getHouseCoach } from "@/lib/services/house-coach.service";
 import { describeClubPrice } from "@/lib/services/club-pricing.service";
+import { isFreeClub } from "@/lib/clubs/free-club";
 import { priceFormField } from "./price-fields";
 import { clubProgramWhere, resourceOptions, starterOptions } from "./starter-options";
 import { ClubForm } from "../club-form";
@@ -61,9 +62,11 @@ export default async function AdminClubDetailPage({ params }: PageProps) {
   const countOf = (s: string) => statusCounts.find((g) => g.status === s)?._count._all ?? 0;
   const memberTotal = statusCounts.reduce((n, g) => n + g._count._all, 0);
   const trialing = countOf("TRIALING") - expired;
-  const paying = countOf("ACTIVE") + countOf("PAST_DUE");
+  const free = isFreeClub(org);
+  // A free club's ACTIVE members aren't paying anyone.
+  const paying = free ? 0 : countOf("ACTIVE") + countOf("PAST_DUE");
   const decided = memberTotal - trialing;
-  const conversion = decided > 0 ? `${Math.round((paying / decided) * 100)}%` : "—";
+  const conversion = decided > 0 && !free ? `${Math.round((paying / decided) * 100)}%` : "—";
   const membershipField = priceFormField(membershipPrice);
   const coachingField = priceFormField(coachingPrice);
   const coachingByUser = new Map(coachingRows.map((c) => [c.userId, c.status]));
@@ -192,7 +195,7 @@ export default async function AdminClubDetailPage({ params }: PageProps) {
             joinSlug: org.joinSlug ?? "",
             joinCode: org.joinCode ?? "",
             trialDays: org.trialDays ?? 14,
-            membershipAmount: membershipField.amount,
+            membershipAmount: free ? "0" : membershipField.amount,
             coachingAmount: coachingField.amount,
             starterProgramIds: org.starterProgramIds,
             resourceProgramIds: org.resourceProgramIds ?? [],

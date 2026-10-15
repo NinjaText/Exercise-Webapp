@@ -90,7 +90,9 @@ export default async function SessionPage({
   const description = `${session.workout.program.name} · ${format(toLocalCalendarDate(session.scheduledDate), "MMM d, yyyy")}`;
 
   return (
-    <PageShell width="narrow">
+    // Wider than "narrow" so the guided workout can sit its video beside the
+    // set log and fit one screen; capped so checklist rows don't stretch.
+    <PageShell width="narrow" className="max-w-5xl">
       <PageHeader
         back={{ label: "Back to dashboard", href: "/dashboard" }}
         breadcrumb={[{ label: "Dashboard", href: "/dashboard" }, { label: workoutName }]}

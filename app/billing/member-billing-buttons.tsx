@@ -12,8 +12,8 @@ const ENDPOINTS: Record<Action, string> = {
 };
 
 export function MemberBillingButtons({
-  canSubscribe, canManage, missingPrice,
-}: { canSubscribe: boolean; canManage: boolean; missingPrice: boolean }) {
+  canSubscribe, canManage,
+}: { canSubscribe: boolean; canManage: boolean }) {
   const [loading, setLoading] = useState<Action | null>(null);
 
   async function go(action: Action) {
@@ -41,11 +41,6 @@ export function MemberBillingButtons({
         <Button variant="outline" size="lg" className="h-11 w-full" disabled={loading !== null} onClick={() => go("manage")}>
           {loading === "manage" ? "Redirecting…" : "Manage billing"}
         </Button>
-      )}
-      {missingPrice && (
-        <p className="text-body text-muted-foreground">
-          Subscriptions aren&apos;t set up for this club yet — contact support.
-        </p>
       )}
     </div>
   );

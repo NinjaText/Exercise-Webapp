@@ -5,6 +5,7 @@ import { duplicateProgram, assignProgram, assignOnDemandProgram } from "@/lib/se
 import { requireHouseCoach } from "@/lib/services/house-coach.service";
 import { getOrgType } from "@/lib/org-capabilities";
 import { nextStarterTemplateId, OPEN_SESSION_STATUSES } from "@/lib/clubs/starter-progression";
+import { isFreeClub } from "@/lib/clubs/free-club";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -78,7 +79,10 @@ export async function enrollClubMember(args: { clerkUserId: string; club: Organi
   return { ok: true, userId: user.id };
 }
 
-/** Creates the trial once. Never resets `trialEndsAt` for an existing row. */
+/**
+ * Creates the trial once (or, for a free club, an ACTIVE membership with
+ * nothing to pay). Never resets `trialEndsAt` for an existing row.
+ */
 export async function ensureMemberSubscription(userId: string, club: Organization, now = new Date()): Promise<void> {
   const existing = await prisma.memberSubscription.findUnique({ where: { userId }, select: { id: true } });
   if (existing) return;
@@ -88,7 +92,7 @@ export async function ensureMemberSubscription(userId: string, club: Organizatio
       data: {
         userId,
         clerkOrgId: club.clerkOrgId,
-        status: "TRIALING",
+        status: isFreeClub(club) ? "ACTIVE" : "TRIALING",
         trialEndsAt: new Date(now.getTime() + trialDays * DAY_MS),
         // Explicit nulls, not omitted: Mongo `{ field: null }` filters miss unwritten fields.
         stripeCustomerId: null,

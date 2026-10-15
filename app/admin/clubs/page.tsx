@@ -68,7 +68,7 @@ const columns: Column<ClubRow>[] = [
     className: "hidden md:table-cell",
     render: (r) => (
       <div className="flex flex-col">
-        <span className="text-body text-foreground tabular-nums">{priceSummary(r.membershipPrice)}</span>
+        <span className="text-body text-foreground tabular-nums">{r.membershipPrice.status === "none" ? "Free" : priceSummary(r.membershipPrice)}</span>
         <span className="text-caption">
           {r.coachingPrice.status === "none" ? "No coaching" : `Coaching ${priceSummary(r.coachingPrice)}`}
         </span>

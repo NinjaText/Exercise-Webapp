@@ -18,6 +18,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { ExerciseVideoPlayer } from "@/components/exercises/exercise-video-player";
 import {
@@ -25,7 +26,7 @@ import {
   AlertCircle, Plus, X, Dumbbell, PlayCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { SetLogEntry, SetLogCache } from "./types";
+import { SKIP_REASONS, type SetLogEntry, type SetLogCache } from "./types";
 import { instructionsToBullets } from "./format-instructions";
 import {
   WORKOUT_STATE,
@@ -172,8 +173,6 @@ function getExerciseStatus(
   return "partial";
 }
 
-const SKIP_REASONS = ["Too painful", "Too difficult", "No equipment", "Too tired", "Other"] as const;
-
 // ── Component ─────────────────────────────────────────────────────────────────
 interface Props {
   session: WorkoutSessionV2;
@@ -311,6 +310,10 @@ export function WorkoutChecklistTracker({
     return new Set();
   });
 
+  // Preview mode: every exercise open at once. Off = one at a time, and
+  // finishing an exercise collapses it and opens the next.
+  const [showAll, setShowAll] = useState(false);
+
   // ── Finish dialog ──────────────────────────────────────────────────────────
   const [showEndDialog, setShowEndDialog] = useState(false);
   const [rpe, setRpe] = useState(5);
@@ -426,34 +429,61 @@ export function WorkoutChecklistTracker({
 
       onSetLogged?.(ex.id, setIndex, entry);
 
-      if (allDone) {
-        setExpandedExercises((prev) => {
-          const next = new Set(prev);
-          next.delete(ex.id);
-          return next;
-        });
-        // Auto-open next incomplete exercise
-        const updatedCache: SetLogCache = { ...exerciseSetLogs, [ex.id]: updatedExLogs };
-        let found = false;
-        for (const b of session.workout.blocks) {
-          for (const e of b.exercises) {
-            if (found) {
-              const sc = getSetCount(e, b);
-              const st = getExerciseStatus(e.id, sc, updatedCache);
-              if (st !== "complete" && !additionalCompleted?.has(e.id)) {
-                setExpandedExercises((prev) => new Set([...prev, e.id]));
-                break;
-              }
-            }
-            if (e.id === ex.id) found = true;
-          }
-        }
-      }
+      if (allDone) moveFocusPast(ex.id, { ...exerciseSetLogs, [ex.id]: updatedExLogs });
     } else {
       toast.error(result.error ?? "Failed to log set");
     }
 
     setLoggingKey(null);
+  }
+
+  /** The first unfinished exercise after `exerciseId`, in workout order. */
+  function nextUnfinishedAfter(exerciseId: string, cache: SetLogCache): { exId: string; blockId: string } | null {
+    let found = false;
+    for (const b of session.workout.blocks) {
+      for (const e of b.exercises) {
+        if (found && !additionalCompleted?.has(e.id) && getExerciseStatus(e.id, getSetCount(e, b), cache) !== "complete") {
+          return { exId: e.id, blockId: b.id };
+        }
+        if (e.id === exerciseId) found = true;
+      }
+    }
+    return null;
+  }
+
+  /** An exercise was just finished: collapse it and open the next one (unless previewing all). */
+  function moveFocusPast(exerciseId: string, cache: SetLogCache) {
+    if (showAll) return;
+    const next = nextUnfinishedAfter(exerciseId, cache);
+    setExpandedExercises(new Set(next ? [next.exId] : []));
+    if (!next) return;
+    setExpandedBlocks((prev) => new Set(prev).add(next.blockId));
+    // After the collapse has rendered, bring the newly opened exercise into view.
+    requestAnimationFrame(() => {
+      document.getElementById(`checklist-ex-${next.exId}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }
+
+  /** Row click: one open at a time, unless previewing all. */
+  function toggleExerciseOpen(exerciseId: string) {
+    setExpandedExercises((prev) => {
+      if (prev.has(exerciseId)) {
+        const next = new Set(prev);
+        next.delete(exerciseId);
+        return next;
+      }
+      return showAll ? new Set(prev).add(exerciseId) : new Set([exerciseId]);
+    });
+  }
+
+  function handleShowAllChange(on: boolean) {
+    setShowAll(on);
+    if (on) {
+      setExpandedBlocks(new Set(session.workout.blocks.map((b) => b.id)));
+      setExpandedExercises(new Set(allExercises.map(({ ex }) => ex.id)));
+    } else {
+      setExpandedExercises(new Set(firstUnfinishedId ? [firstUnfinishedId] : []));
+    }
   }
 
   // Click-the-circle toggle: checks off every set at once, or unchecks them all.
@@ -473,6 +503,7 @@ export function WorkoutChecklistTracker({
         onSetLogged?.(ex.id, i, { completed: nextDone });
       }
       setExerciseSetLogs((prev) => ({ ...prev, [ex.id]: entries }));
+      if (nextDone) moveFocusPast(ex.id, { ...exerciseSetLogs, [ex.id]: entries });
     } else {
       toast.error(result.error ?? "Failed to update exercise");
     }
@@ -507,8 +538,13 @@ export function WorkoutChecklistTracker({
             {doneCount}/{totalCount}
           </span>
           <div className="flex-1" />
+          <label className={cn(WORKOUT_TOUCH, "flex shrink-0 cursor-pointer items-center gap-2 text-label text-muted-foreground")}>
+            <Switch checked={showAll} onCheckedChange={handleShowAllChange} />
+            Show all
+          </label>
           <Button variant="ghost" className={cn(WORKOUT_TOUCH, "-mr-2 shrink-0 px-3 text-muted-foreground")} onClick={onSwitchMode}>
-            Switch to Session
+            <span className="sm:hidden">Session</span>
+            <span className="hidden sm:inline">Switch to Session</span>
           </Button>
         </div>
         <div className="mt-2 flex items-center gap-2">
@@ -596,7 +632,7 @@ export function WorkoutChecklistTracker({
                   const isToggling = togglingExerciseId === ex.id;
 
                   return (
-                    <div key={ex.id}>
+                    <div key={ex.id} id={`checklist-ex-${ex.id}`} className="scroll-mt-28">
                       {/* Exercise header row */}
                       <div
                         role="button"
@@ -612,23 +648,11 @@ export function WorkoutChecklistTracker({
                             ? "bg-primary/5 ring-1 ring-inset ring-primary/30"
                             : "hover:bg-surface-muted"
                         )}
-                        onClick={() =>
-                          setExpandedExercises((prev) => {
-                            const next = new Set(prev);
-                            if (next.has(ex.id)) next.delete(ex.id);
-                            else next.add(ex.id);
-                            return next;
-                          })
-                        }
+                        onClick={() => toggleExerciseOpen(ex.id)}
                         onKeyDown={(e) => {
                           if (e.key === "Enter" || e.key === " ") {
                             e.preventDefault();
-                            setExpandedExercises((prev) => {
-                              const next = new Set(prev);
-                              if (next.has(ex.id)) next.delete(ex.id);
-                              else next.add(ex.id);
-                              return next;
-                            });
+                            toggleExerciseOpen(ex.id);
                           }
                         }}
                       >

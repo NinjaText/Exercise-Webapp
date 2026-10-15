@@ -41,7 +41,7 @@ import {
 } from "../club-member.service";
 
 const club = {
-  clerkOrgId: "org_club", type: "CLUB", trialDays: 14, starterProgramIds: ["t1", "t2"],
+  clerkOrgId: "org_club", type: "CLUB", trialDays: 14, starterProgramIds: ["t1", "t2"], stripePriceId: "price_member",
 } as any;
 
 beforeEach(() => {
@@ -321,5 +321,15 @@ describe("sweepClubStarterPrograms", () => {
     vi.mocked(prisma.user.findUnique).mockResolvedValue(null);
     const res = await sweepClubStarterPrograms(new Date(), () => 0);
     expect(res).toEqual({ processed: 12, assigned: 0, failed: 0, stoppedEarly: false });
+  });
+});
+
+describe("ensureMemberSubscription (free club)", () => {
+  it("makes the member ACTIVE straight away", async () => {
+    vi.mocked(prisma.memberSubscription.findUnique).mockResolvedValue(null);
+    await ensureMemberSubscription("u1", { ...club, stripePriceId: null }, new Date("2026-10-01T00:00:00Z"));
+    expect(prisma.memberSubscription.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ userId: "u1", status: "ACTIVE" }),
+    });
   });
 });
