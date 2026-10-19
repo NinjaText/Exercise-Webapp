@@ -109,7 +109,7 @@ export interface ResolvedBranding {
   /** false → everything below is the product default. */
   enabled: boolean;
   orgId: string | null;
-  /** "INMOTUS RX" when disabled; else `brandDisplayName ?? name`. */
+  /** "MIA Performance" when disabled; else `brandDisplayName ?? name`. */
   displayName: string;
   /** Organization tagline; null when disabled or blank. */
   tagline: string | null;

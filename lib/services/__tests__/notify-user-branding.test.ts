@@ -104,7 +104,7 @@ describe('notifyUser — client-recipient types carry the org brand', () => {
 
   it('an unbranded org gets no From name, Reply-To or template brand', async () => {
     vi.mocked(getClientEmailBranding).mockResolvedValue({
-      enabled: false, organizationName: 'INMOTUS RX', accent: '#2563eb', fromName: 'INMOTUS RX', replyTo: 'desk@summit.test',
+      enabled: false, organizationName: 'MIA Performance', accent: '#2563eb', fromName: 'MIA Performance', replyTo: 'desk@summit.test',
     })
 
     await notifyUser({ ...base, type: 'SESSION_REMINDER' as never })

@@ -852,7 +852,7 @@ ${buildTimeBudgetLine(params.durationMinutes, circuits, totalExercisesPerSession
           : ''
 
         const userPrompt = `CURRENT PROGRAM REQUEST — PHASE ${phase.phaseIndex + 1} OF ${phases.length}
-Create the exercise selection for this phase using the Inmotus System Programming Rules, Client Context, current trainer information, and supplied exercise library.
+Create the exercise selection for this phase using the MIA System Programming Rules, Client Context, current trainer information, and supplied exercise library.
 
 ${clientContext}
 
@@ -1138,7 +1138,7 @@ Produce exactly one dayTemplates entry per weekday index in [${uniqueWeekdayIndi
   })
 
   const userPrompt = `CURRENT PROGRAM REQUEST
-Create the complete exercise program using the Inmotus System Programming Rules, Client Context, current trainer information, and supplied exercise library.
+Create the complete exercise program using the MIA System Programming Rules, Client Context, current trainer information, and supplied exercise library.
 
 ${clientContext}
 

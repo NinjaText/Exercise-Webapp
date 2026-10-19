@@ -27,7 +27,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const b = await getCurrentBranding();
   return {
     // `absolute`, not `default`: a layout's own title is still run through the
-    // root template ("%s | INMOTUS RX"), which gave "Yahya Clinic | INMOTUS RX"
+    // root template ("%s | MIA Performance"), which gave "Yahya Clinic | MIA Performance"
     // on every page without a title of its own.
     title: { template: `%s | ${b.displayName}`, absolute: b.displayName },
     // Full replacement of the root PRODUCT_ICONS when branded; no key at all

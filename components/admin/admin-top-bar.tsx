@@ -1,6 +1,7 @@
 "use client";
 
 import { Breadcrumbs, useBreadcrumb } from "@/components/layout/breadcrumb-context";
+import { PRODUCT_NAME } from "@/lib/brand";
 
 /**
  * Middle slot of the admin top bar: renders the page's breadcrumb trail
@@ -15,7 +16,7 @@ export function AdminTopBar() {
       {crumbs.length > 0 ? (
         <Breadcrumbs crumbs={crumbs} />
       ) : (
-        <span className="truncate text-label text-foreground">INMOTUS RX</span>
+        <span className="truncate text-label text-foreground">{PRODUCT_NAME}</span>
       )}
     </div>
   );

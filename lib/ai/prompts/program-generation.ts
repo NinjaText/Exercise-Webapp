@@ -4,7 +4,7 @@
  * Both generation paths in ai.service.ts — the whole-program call used when
  * no week plan exists, and the per-phase calls used by the Generate-with-AI
  * flow (which always supplies a week plan) — MUST build their prompts from
- * these functions. The Inmotus hard-constraint rules previously lived only
+ * these functions. The MIA hard-constraint rules previously lived only
  * in the whole-program path, which the UI never reaches, so trainer
  * exclusions like "no plyometrics" were silently ignored in production.
  */
@@ -85,11 +85,11 @@ Trainer-prescribed dosage: when the trainer's instructions explicitly state sets
     ? `Circuit structure per session (EXACT — follow precisely):\n${formatCircuitStructure(circuits)}\nEvery exercise MUST carry "circuitIndex" (0-based) matching one of these circuits. Each circuit's count is PER SESSION — every training day repeats the full structure.`
     : `No circuit structure was configured. Distribute the ${totalExercisesPerSession} exercises across sensible phases (WARMUP → ACTIVATION → STRENGTHENING → MOBILITY → COOLDOWN).`
 
-  return `INMOTUS EXERCISE PROGRAMMING SYSTEM
+  return `MIA EXERCISE PROGRAMMING SYSTEM
 
 ROLE
-You are the exercise-programming intelligence within Inmotus. You have advanced knowledge of physical therapy and rehabilitation, strength & conditioning, athletic development, sports performance, general fitness, mobility, balance, functional training, exercise progression/regression, and return-to-activity programming.
-Create safe, purposeful, individualized, professionally structured exercise programs using ONLY the information and exercise pool supplied by Inmotus.
+You are the exercise-programming intelligence within MIA. You have advanced knowledge of physical therapy and rehabilitation, strength & conditioning, athletic development, sports performance, general fitness, mobility, balance, functional training, exercise progression/regression, and return-to-activity programming.
+Create safe, purposeful, individualized, professionally structured exercise programs using ONLY the information and exercise pool supplied by MIA.
 Every exercise must have a clear reason for inclusion. Do not add exercises merely to fill slots.
 
 CLIENT CONTEXT MODE: ${clientModeHint}
@@ -156,7 +156,7 @@ Do not automatically use rehabilitation framing because a historical injury exis
 ==================================================
 E. EXERCISE SELECTION
 ==================================================
-Use ONLY exercises from the supplied Inmotus exercise pool. Every returned exercise must use an exact valid exerciseId.
+Use ONLY exercises from the supplied MIA exercise pool. Every returned exercise must use an exact valid exerciseId.
 NEVER: invent an exercise, invent or alter an exerciseId, return an exercise outside the supplied pool, or choose an exercise that violates a hard constraint.
 For each candidate exercise ask: (1) Does it contribute to the program goal? (2) Is it appropriate for current ability/status? (3) Does it comply with every hard constraint? (4) Is it compatible with symptoms and precautions? (5) Does it use available equipment? (6) Does it fit the requested circuit/block? (7) Does it complement the rest of the session? (8) Is a more appropriate valid option available?
 TRAINER-REQUIRED EXERCISES: when the request lists exercises the trainer explicitly named, include each of them in every session where it fits the trainer's wording (e.g. "every lower body session"), placed in the circuit whose purpose matches. Never drop a required exercise for variety.

@@ -21,7 +21,7 @@ export async function generateMetadata({
   const branding = await getOrgBranding(pkg.trainer.clerkOrgId ?? null);
   return {
     // `absolute`: app/p has no layout of its own, so a plain string would get
-    // the root "%s | INMOTUS RX" template appended after the org name.
+    // the root "%s | MIA Performance" template appended after the org name.
     title: { absolute: `${pkg.name} | ${branding.displayName}` },
     ...brandIconsMetadata(branding),
   };

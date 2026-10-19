@@ -1,6 +1,7 @@
 "use client";
 
 import { SiteNavbar } from "@/components/layout/site-navbar";
+import { ProductLogo } from "@/components/branding/product-logo";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { FadeUp } from "@/components/layout/scroll-reveal";
 import { Badge } from "@/components/ui/badge";
@@ -28,12 +29,12 @@ export default function AboutPage() {
                 About
               </Badge>
               <h1 className="text-4xl font-extrabold tracking-tight text-slate-900 sm:text-5xl">
-                Why INMOTUS RX Is Different
+                Why MIA Performance Is Different
               </h1>
               <div className="mt-6 space-y-4 text-left text-lg leading-8 text-slate-600">
                 <p>Most workout apps were built by software companies.</p>
                 <p>
-                  INMOTUS RX was built by a Doctor of Physical Therapy who has spent years
+                  MIA Performance was built by a Doctor of Physical Therapy who has spent years
                   helping thousands of people improve movement, recover from injuries, and
                   perform at a higher level.
                 </p>
@@ -60,7 +61,7 @@ export default function AboutPage() {
               </h2>
               <div className="mt-6 space-y-4 text-left text-lg leading-8 text-slate-600">
                 <p>
-                  Unlike generic workout builders, INMOTUS RX was created by a practicing
+                  Unlike generic workout builders, MIA Performance was created by a practicing
                   Doctor of Physical Therapy with years of experience in movement science,
                   biomechanics, rehabilitation, and performance training.
                 </p>
@@ -88,7 +89,7 @@ export default function AboutPage() {
                   Other Training Apps
                 </div>
                 <div className="border-b border-slate-200 bg-linear-to-r from-blue-500 to-indigo-500 px-3 py-4 text-center text-sm font-semibold text-white sm:px-6">
-                  INMOTUS RX
+                  <ProductLogo surface="dark" className="mx-auto h-3.5 sm:h-4" />
                 </div>
               </div>
               {COMPARISON_ROWS.map((row, i) => (
@@ -127,7 +128,7 @@ export default function AboutPage() {
                   </div>
                   <div>
                     <p className="text-xl font-bold text-slate-900">Dr. Sharon Ackerman, PT, DPT</p>
-                    <p className="text-sm text-slate-500">Founder of INMOTUS RX</p>
+                    <p className="text-sm text-slate-500">Founder of MIA Performance</p>
                     <div className="mt-6 space-y-4 text-base leading-relaxed text-slate-600">
                       <p>
                         After years of helping clients recover, move better, and perform at a
@@ -135,7 +136,7 @@ export default function AboutPage() {
                         complicated software.
                       </p>
                       <p>
-                        I built INMOTUS RX to bring the thought process of a movement expert
+                        I built MIA Performance to bring the thought process of a movement expert
                         into an AI-powered platform that helps trainers create better programs
                         faster.
                       </p>

@@ -1,7 +1,7 @@
-import { Activity } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { BrandingViewModel } from "@/lib/branding/types";
 import { OrgMark } from "./org-mark";
+import { ProductLogo } from "./product-logo";
 
 /** Fixed logo box (spec §6.1: `h-8` + explicit width/height, no layout shift). */
 const LOGO_W = 144;
@@ -33,7 +33,7 @@ function Logo({ src, alt }: { src: string; alt: string }) {
  * Org identity lockup implementing the spec §6.1 fallback table:
  * - dark:  logo-on-dark ‖ logo-on-light on a `bg-card` plate ‖ mark + name
  * - light: logo-on-light ‖ mark + name
- * Renders the unchanged product identity when branding is disabled.
+ * Renders the MIA Performance logo when branding is disabled.
  *
  * Returns inline children for a flex row (the caller owns the `h-16` row).
  */
@@ -51,44 +51,11 @@ export function OrgIdentity({ branding, surface, subtitle }: OrgIdentityProps) {
   ) : null;
 
   if (!branding.enabled) {
-    if (dark) {
-      // Byte-for-byte the pre-branding sidebar identity (class order included).
-      return (
-        <>
-          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-muted shadow-sm">
-            <Activity className="h-4 w-4 text-muted-foreground" />
-          </div>
-          <div>
-            <span className="text-[15px] font-bold tracking-tight text-sidebar-foreground">
-              INMOTUS RX
-            </span>
-            {subtitle ? (
-              <p className="text-[10px] font-medium text-sidebar-foreground/40 uppercase tracking-widest">
-                {subtitle}
-              </p>
-            ) : null}
-          </div>
-        </>
-      );
-    }
-
-    // Same Activity tile on a light surface: name in text-foreground, subtitle in text-muted-foreground.
     return (
-      <>
-        <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-muted shadow-sm">
-          <Activity className="h-4 w-4 text-muted-foreground" />
-        </div>
-        <div>
-          <span className="text-[15px] font-bold tracking-tight text-foreground">
-            INMOTUS RX
-          </span>
-          {subtitle ? (
-            <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-widest">
-              {subtitle}
-            </p>
-          ) : null}
-        </div>
-      </>
+      <div className="min-w-0">
+        <ProductLogo surface={surface} className="h-5" />
+        {subtitle ? <div className="mt-1.5">{subtitleEl}</div> : null}
+      </div>
     );
   }
 

@@ -5,7 +5,7 @@ import type { BrandingViewModel } from "@/lib/branding/types";
 
 const productBranding: BrandingViewModel = {
   enabled: false,
-  displayName: "INMOTUS RX",
+  displayName: "MIA Performance",
   logoOnLightUrl: null,
   logoOnDarkUrl: null,
   markUrl: null,
@@ -85,7 +85,7 @@ describe("AuthShell", () => {
 
   it("falls back to the product identity when branding is disabled", () => {
     const html = render({ branding: productBranding });
-    expect(slot(html, "auth-brand-panel")).toContain("INMOTUS RX");
+    expect(slot(html, "auth-brand-panel")).toContain("MIA Performance");
   });
 
   it("puts the form in the right column, top-aligned (not vertically centred)", () => {

@@ -999,7 +999,7 @@ function ProgramFiltersPanel({
                   onChange={() => onTypeFilterChange(v)}
                   className="h-3.5 w-3.5 accent-primary"
                 />
-                {v === "all" ? "All Sources" : v === "clinical" ? "My Programs" : "InMotus Programs"}
+                {v === "all" ? "All Sources" : v === "clinical" ? "My Programs" : "MIA Programs"}
               </label>
             ))}
           </div>

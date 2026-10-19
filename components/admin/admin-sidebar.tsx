@@ -15,6 +15,7 @@ import {
   Flag,
 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { ProductLogo } from "@/components/branding/product-logo";
 import {
   SidebarGroup,
   SidebarCountBadge,
@@ -53,12 +54,12 @@ export function AdminSidebar({ userName, userEmail, clubAttention = 0, mobileMod
     <aside className={sidebarAsideClass(mobileMode)}>
       {/* Distinct Super Admin identity (never org-branded). */}
       <SidebarIdentityRow>
-        <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-sidebar-primary/20">
-          <Shield className="size-4 text-sidebar-primary" aria-hidden />
-        </div>
         <div className="min-w-0">
-          <span className="block text-[15px] font-bold tracking-tight text-sidebar-foreground">INMOTUS RX</span>
-          <p className="text-[10px] font-semibold tracking-widest text-sidebar-primary uppercase">Super Admin</p>
+          <ProductLogo surface="dark" className="h-5" />
+          <p className="mt-1.5 flex items-center gap-1 text-[10px] font-semibold tracking-widest text-sidebar-foreground/60 uppercase">
+            <Shield className="size-3" aria-hidden />
+            Super Admin
+          </p>
         </div>
       </SidebarIdentityRow>
 

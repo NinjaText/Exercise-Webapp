@@ -8,7 +8,11 @@ import type { ResolvedBranding } from "./types";
  * nested layout sets `icons`; config icons are replaced wholesale instead.
  */
 export const PRODUCT_ICONS = {
-  icon: [{ url: "/favicon.ico", sizes: "any" }],
+  icon: [
+    { url: "/favicon.ico", sizes: "any" },
+    { url: "/brand/icon-192.png", sizes: "192x192", type: "image/png" },
+  ],
+  apple: [{ url: "/apple-touch-icon.png", sizes: "180x180" }],
 } satisfies Metadata["icons"];
 
 /**

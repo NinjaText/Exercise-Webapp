@@ -21,8 +21,8 @@ describe("DEFAULT_PRIMARY_HEX", () => {
 });
 
 describe("DEFAULT_DISPLAY_NAME", () => {
-  it("is INMOTUS RX", () => {
-    expect(DEFAULT_DISPLAY_NAME).toBe("INMOTUS RX");
+  it("is MIA Performance", () => {
+    expect(DEFAULT_DISPLAY_NAME).toBe("MIA Performance");
   });
 });
 

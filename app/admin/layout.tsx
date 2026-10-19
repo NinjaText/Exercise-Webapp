@@ -6,7 +6,7 @@ import { BreadcrumbProvider } from "@/components/layout/breadcrumb-context";
 import { ensureClubAlertSubscriber, getTotalClubAttention } from "@/lib/services/club-alerts.service";
 import { StatusBadge } from "@/components/shared/status-badge";
 
-export const metadata = { title: "Super Admin — INMOTUS RX" };
+export const metadata = { title: "Super Admin — MIA Performance" };
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const user = await requireSuperAdmin();

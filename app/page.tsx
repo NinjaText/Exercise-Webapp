@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { SiteNavbar } from "@/components/layout/site-navbar";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { FadeUp } from "@/components/layout/scroll-reveal";
+import { PRODUCT_EXPANSION } from "@/lib/brand";
 import {
   ArrowRight,
   Dumbbell,
@@ -93,7 +94,7 @@ const testimonials = [
   {
     name: "Dr. Amanda Lee, DPT",
     role: "Physical Therapist",
-    quote: "Inmotus saves me hours each week and helps me create better programs for my patients.",
+    quote: "MIA saves me hours each week and helps me create better programs for my patients.",
     avatar: "AL",
     gradient: "from-blue-500 to-indigo-500",
   },
@@ -101,7 +102,7 @@ const testimonials = [
     name: "Dr. Sarah Chen",
     role: "Physical Therapist · Motion Health Organization",
     quote:
-      "INMOTUS RX cut my program creation time from 45 minutes to under 2 minutes. The AI understands contraindications and creates thoughtful progressions I would have designed myself.",
+      "MIA Performance cut my program creation time from 45 minutes to under 2 minutes. The AI understands contraindications and creates thoughtful progressions I would have designed myself.",
     avatar: "SC",
     gradient: "from-violet-500 to-purple-500",
   },
@@ -109,7 +110,7 @@ const testimonials = [
     name: "Dr. Emily Thompson",
     role: "Orthopedic Surgeon · Summit Orthopaedics",
     quote:
-      "I refer clients to trainers on INMOTUS RX because I can see adherence data and outcomes. It closes the feedback loop I never had before.",
+      "I refer clients to trainers on MIA Performance because I can see adherence data and outcomes. It closes the feedback loop I never had before.",
     avatar: "ET",
     gradient: "from-emerald-500 to-teal-500",
   },
@@ -169,6 +170,26 @@ const pricingPlans = [
     cta: "Contact Sales",
     highlighted: false,
     badge: null,
+  },
+];
+
+const miaPillars = [
+  {
+    letter: "M",
+    word: "Movement",
+    description:
+      "Grounded in movement science, biomechanics, and rehabilitation, not generic workout templates.",
+  },
+  {
+    letter: "I",
+    word: "Intelligence",
+    description:
+      "Weighs goals, limitations, precautions, and equipment to choose the right exercises and progressions.",
+  },
+  {
+    letter: "A",
+    word: "Assistant",
+    description: "Drafts the program in seconds. You review, edit, and stay in full control.",
   },
 ];
 
@@ -475,6 +496,42 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ── Meet MIA ──────────────────────────────────────────────────────── */}
+      <section id="meet-mia" className="bg-white py-24 sm:py-28">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <FadeUp className="mx-auto max-w-3xl text-center">
+            <p className="mb-4 text-xs font-semibold tracking-[0.3em] text-primary uppercase">
+              {PRODUCT_EXPANSION}
+            </p>
+            <h2 className="text-4xl font-extrabold tracking-tight text-slate-900 sm:text-5xl">
+              Meet MIA.
+            </h2>
+            <p className="mt-4 text-lg text-slate-600">
+              The clinical reasoning of a Doctor of Physical Therapy, built into every program you create.
+            </p>
+          </FadeUp>
+
+          <div className="mt-16 grid border-y border-slate-200 sm:grid-cols-3 sm:divide-x sm:divide-slate-200">
+            {miaPillars.map(({ letter, word, description }, i) => (
+              <FadeUp
+                key={word}
+                delay={i * 0.1}
+                className="border-slate-200 px-2 py-10 not-first:border-t sm:px-8 sm:not-first:border-t-0"
+              >
+                <p
+                  aria-hidden
+                  className="w-fit bg-linear-to-br from-blue-500 to-indigo-500 bg-clip-text text-7xl leading-none font-light tracking-tight text-transparent"
+                >
+                  {letter}
+                </p>
+                <h3 className="mt-6 text-sm font-semibold tracking-[0.3em] text-slate-900 uppercase">{word}</h3>
+                <p className="mt-3 text-sm leading-relaxed text-slate-600">{description}</p>
+              </FadeUp>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* ── Three ways to create ──────────────────────────────────────────── */}
       <section id="how-it-works" className="bg-slate-50 py-24 sm:py-28">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -486,7 +543,7 @@ export default function LandingPage() {
               Three Ways to Create Programs
             </h2>
             <p className="mt-4 text-lg text-slate-600">
-              Choose the workflow that fits your style. Inmotus adapts to you.
+              Choose the workflow that fits your style. MIA adapts to you.
             </p>
           </FadeUp>
 

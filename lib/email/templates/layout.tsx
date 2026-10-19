@@ -38,7 +38,7 @@ export interface EmailLayoutProps {
  */
 export function EmailLayout({
   title,
-  organizationName = "INMOTUS RX",
+  organizationName = "MIA Performance",
   accent = "#2563eb",
   logoUrl,
   greeting,

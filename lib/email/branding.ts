@@ -10,6 +10,7 @@ import {
 } from "@/lib/branding/color";
 import { isPlainEmailAddress } from "@/lib/email/send";
 import { prisma } from "@/lib/prisma";
+import { PRODUCT_NAME } from "@/lib/brand";
 import { getOrgBranding } from "@/lib/services/branding.service";
 import { getOrganizationOrNull } from "@/lib/services/organization.service";
 
@@ -23,7 +24,7 @@ import { getOrganizationOrNull } from "@/lib/services/organization.service";
  */
 
 /** The current `EmailLayout` defaults — an unbranded client email looks exactly like today. */
-export const DEFAULT_EMAIL_ORG_NAME = "INMOTUS RX";
+export const DEFAULT_EMAIL_ORG_NAME = PRODUCT_NAME;
 export const DEFAULT_EMAIL_ACCENT = "#2563eb";
 
 export interface EmailBranding {

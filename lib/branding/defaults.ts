@@ -3,6 +3,7 @@
  * imports — consumed directly by the branding settings form.
  */
 
+import { PRODUCT_NAME } from "@/lib/brand";
 import type { LightToken } from "./types";
 
 /**
@@ -22,7 +23,7 @@ import type { LightToken } from "./types";
  */
 export const DEFAULT_PRIMARY_HEX = "#204ec3";
 
-export const DEFAULT_DISPLAY_NAME = "INMOTUS RX";
+export const DEFAULT_DISPLAY_NAME = PRODUCT_NAME;
 
 /**
  * The product's default value of every light brand token, copied verbatim

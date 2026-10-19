@@ -18,6 +18,7 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { OrgIdentity } from "@/components/branding/org-identity";
 import type { BrandingViewModel } from "@/lib/branding/types";
+import { PRODUCT_NAME } from "@/lib/brand";
 
 interface SidebarProps {
   role: "TRAINER" | "CLIENT";
@@ -114,7 +115,7 @@ export function Sidebar({
           // Spec §12.3 default: clients of a branded org see a small product credit.
           branding.enabled && role === "CLIENT" ? (
             <p className="mt-1 text-center text-[10px] text-sidebar-foreground/60">
-              Powered by INMOTUS RX
+              Powered by {PRODUCT_NAME}
             </p>
           ) : undefined
         }

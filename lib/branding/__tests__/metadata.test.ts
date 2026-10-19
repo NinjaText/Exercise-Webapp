@@ -23,7 +23,13 @@ const ASSET = "https://assets.example.com/branding/org_teal";
 
 describe("PRODUCT_ICONS (root layout)", () => {
   it("declares the product favicon via config, not the app/ file convention", () => {
-    expect(PRODUCT_ICONS).toEqual({ icon: [{ url: "/favicon.ico", sizes: "any" }] });
+    expect(PRODUCT_ICONS).toEqual({
+      icon: [
+        { url: "/favicon.ico", sizes: "any" },
+        { url: "/brand/icon-192.png", sizes: "192x192", type: "image/png" },
+      ],
+      apple: [{ url: "/apple-touch-icon.png", sizes: "180x180" }],
+    });
   });
 });
 

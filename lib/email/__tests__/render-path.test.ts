@@ -67,7 +67,7 @@ describe('the @react-email/render path used by resend.emails.send', () => {
     expect(html).toContain(`src="${logoUrl}"`)
     expect(html).toContain('alt="Summit PT"')
     expect(html).toContain('#0f766e')
-    expect(html).not.toContain('INMOTUS RX')
+    expect(html).not.toContain('MIA Performance')
     expect(html).toContain('Unsubscribe')
   })
 })
