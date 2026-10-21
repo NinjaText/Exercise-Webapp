@@ -61,22 +61,17 @@ const baseProps: DashboardProps = {
   inboxThreads: [] as unknown as DashboardProps["inboxThreads"],
 };
 
-/** Counts real `<Button variant="default">` renders (unique cva fragment), never a hand-rolled `<button>` like the inbox tabs, which also carry `bg-primary text-primary-foreground` for their active state. */
-function countPrimaryButtons(html: string): number {
-  return (html.match(/bg-primary text-primary-foreground shadow-xs hover:bg-primary\/90 aria-expanded:bg-primary\/90/g) ?? []).length;
-}
-
 describe("ClientDashboard static render", () => {
-  it("renders today's workout with a single filled primary button", () => {
+  it("renders today's workout in the Up next hero with a Start action", () => {
     const html = renderToStaticMarkup(
       <ClientDashboard {...baseProps} upcomingSessions={[makeSession()]} />
     );
 
     expect(html).toContain("Week 1, Day 1: Upper Body Strength");
     expect(html).toContain("Start workout");
-    expect(html).toContain("TODAY");
-    expect(countPrimaryButtons(html)).toBe(1);
-    expect((html.match(/data-slot="section-card"/g) ?? []).length).toBe(4);
+    expect(html).toContain("Today");
+    expect(html).toContain('aria-label="Up next"');
+    expect((html.match(/data-slot="section-card"/g) ?? []).length).toBe(3);
   });
 
   it("uses the workoutsCompleted fixture value on the Workouts completed stat", () => {
@@ -88,26 +83,7 @@ describe("ClientDashboard static render", () => {
     expect(html).toMatch(/>Workouts completed<\/p>\s*<p[^>]*>5<\/p>/);
   });
 
-  it("sanity: the filled-button class fragment appears at least once across fixtures", () => {
-    // Guards the `toBe(0)` assertions above and below against vacuously
-    // passing because the class fragment itself stopped matching real markup
-    // (e.g. after a Button/cva refactor).
-    const htmls = [
-      renderToStaticMarkup(<ClientDashboard {...baseProps} upcomingSessions={[makeSession()]} />),
-      renderToStaticMarkup(
-        <ClientDashboard
-          {...baseProps}
-          upcomingSessions={[makeSession({ id: "future-1", scheduledDate: addDays(new Date(), 3) })]}
-        />
-      ),
-      renderToStaticMarkup(<ClientDashboard {...baseProps} upcomingSessions={[]} />),
-    ];
-
-    const totalPrimaryButtons = htmls.reduce((sum, html) => sum + countPrimaryButtons(html), 0);
-    expect(totalPrimaryButtons).toBeGreaterThan(0);
-  });
-
-  it("renders a future session with an outline Preview action", () => {
+  it("renders a future session in the Up next hero with a Preview action", () => {
     const html = renderToStaticMarkup(
       <ClientDashboard
         {...baseProps}
@@ -117,9 +93,8 @@ describe("ClientDashboard static render", () => {
 
     expect(html).toContain("Week 1, Day 1: Upper Body Strength");
     expect(html).toContain("Preview");
-    expect(html).toContain("UPCOMING");
-    expect(countPrimaryButtons(html)).toBe(0);
-    expect((html.match(/data-slot="section-card"/g) ?? []).length).toBe(4);
+    expect(html).toContain('aria-label="Up next"');
+    expect((html.match(/data-slot="section-card"/g) ?? []).length).toBe(3);
   });
 
   it("puts the stat cards above the 'Up next' card", () => {
@@ -185,7 +160,6 @@ describe("ClientDashboard static render", () => {
     const html = renderToStaticMarkup(<ClientDashboard {...baseProps} upcomingSessions={[]} />);
 
     expect(html).toContain("Nothing scheduled right now");
-    expect(countPrimaryButtons(html)).toBe(0);
     expect((html.match(/data-slot="section-card"/g) ?? []).length).toBe(4);
   });
 

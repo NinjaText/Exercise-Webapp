@@ -1,6 +1,7 @@
 import { clerkClient } from "@clerk/nextjs/server";
 import type { Organization, OrgType } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { ORG_MEMBER_LIMIT } from "@/lib/clerk-org-limits";
 import { getOrgType } from "@/lib/org-capabilities";
 import { normalizeJoinCode } from "@/lib/clubs/join-token";
 import { getProgramSchedulingType } from "@/lib/utils/program-scheduling";
@@ -240,8 +241,10 @@ export async function createClub(input: ClubInput): Promise<Organization> {
   await assertClubPrograms("resource", input.resourceProgramIds, null);
 
   const client = await clerkClient();
-  // 0 = no membership cap on this org. Confirm the Clerk plan allows it.
-  const clerkOrg = await client.organizations.createOrganization({ name: input.name, maxAllowedMemberships: 0 });
+  const clerkOrg = await client.organizations.createOrganization({
+    name: input.name,
+    maxAllowedMemberships: ORG_MEMBER_LIMIT,
+  });
   const created: EnsuredClubPrice[] = [];
   const price = async (kind: ClubPriceKind, amountCents: number) => {
     const r = await ensureClubPrice({

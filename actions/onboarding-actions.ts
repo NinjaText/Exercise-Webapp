@@ -2,6 +2,7 @@
 
 import { auth, clerkClient, currentUser } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
+import { ORG_MEMBER_LIMIT } from "@/lib/clerk-org-limits";
 import { redirect } from "next/navigation";
 import { stripe } from "@/lib/stripe";
 import { logUserAudit, AUDIT_ACTIONS } from "@/lib/services/audit-log.service";
@@ -32,6 +33,7 @@ export async function completeTrainerOnboarding(data: {
     const org = await client.organizations.createOrganization({
       name: organizationName,
       createdBy: userId,
+      maxAllowedMemberships: ORG_MEMBER_LIMIT,
     });
 
     // The DB Organization row is the canonical org profile.

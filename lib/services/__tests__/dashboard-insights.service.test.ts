@@ -14,6 +14,7 @@ import {
   buildPriorityAlerts,
   countClientsNeedingAttention,
   computeClientProgressBreakdown,
+  filterDismissedAlerts,
   type ClientSessionSummary,
   type ClientSnapshot,
 } from "../dashboard-insights.service";
@@ -437,13 +438,51 @@ describe("buildPriorityAlerts — reasons", () => {
   });
 });
 
+describe("buildPriorityAlerts — stale programs", () => {
+  it("reports a program older than the history window with no recent activity as inactive, not 'hasn't started'", () => {
+    const oldProgram = { id: "prog_old", name: "Base", startDate: daysAgo(60), durationWeeks: 20 };
+    const alerts = buildPriorityAlerts([snapshot({ activeProgram: oldProgram, sessions: [] })], NOW);
+    expect(alerts.some((a) => /hasn't started/i.test(a.message))).toBe(false);
+    expect(alerts.find((a) => a.kind === "inactive")?.message).toMatch(/over 45 days/);
+  });
+
+  it("raises no inactivity alerts once the program has ended", () => {
+    const ended = { id: "prog_done", name: "Done", startDate: daysAgo(10 * 7), durationWeeks: 8 };
+    const alerts = buildPriorityAlerts([snapshot({ activeProgram: ended, sessions: [] })], NOW);
+    expect(alerts.filter((a) => a.kind === "inactive" || a.kind === "no_sessions_started")).toHaveLength(0);
+  });
+});
+
+describe("filterDismissedAlerts", () => {
+  const painAt = (createdAt: Date) =>
+    buildPriorityAlerts([snapshot({ recentFeedback: [{ rating: "PAINFUL", createdAt }] })], NOW);
+
+  it("hides a cleared alert while its evidence is older than the dismissal", () => {
+    const alerts = painAt(daysAgo(3));
+    const dismissals = [{ clientId: "c1", kind: "pain_feedback", dismissedAt: daysAgo(1) }];
+    expect(filterDismissedAlerts(alerts, dismissals).some((a) => a.kind === "pain_feedback")).toBe(false);
+  });
+
+  it("brings the alert back when something newer happens", () => {
+    const alerts = painAt(daysAgo(1));
+    const dismissals = [{ clientId: "c1", kind: "pain_feedback", dismissedAt: daysAgo(2) }];
+    expect(filterDismissedAlerts(alerts, dismissals).some((a) => a.kind === "pain_feedback")).toBe(true);
+  });
+
+  it("only affects the dismissed client and kind", () => {
+    const alerts = painAt(daysAgo(3));
+    const dismissals = [{ clientId: "other", kind: "pain_feedback", dismissedAt: NOW }];
+    expect(filterDismissedAlerts(alerts, dismissals)).toEqual(alerts);
+  });
+});
+
 describe("countClientsNeedingAttention", () => {
   it("counts distinct clients with high or medium alerts, excluding low-only clients", () => {
     const alerts = [
-      { clientId: "a", clientName: "A", severity: "high" as const, kind: "inactive" as const, message: "", reason: "", href: "" },
-      { clientId: "a", clientName: "A", severity: "medium" as const, kind: "discomfort" as const, message: "", reason: "", href: "" },
-      { clientId: "b", clientName: "B", severity: "low" as const, kind: "fully_completed" as const, message: "", reason: "", href: "" },
-      { clientId: "c", clientName: "C", severity: "medium" as const, kind: "discomfort" as const, message: "", reason: "", href: "" },
+      { clientId: "a", clientName: "A", severity: "high" as const, kind: "inactive" as const, message: "", reason: "", href: "", triggeredAt: NOW },
+      { clientId: "a", clientName: "A", severity: "medium" as const, kind: "discomfort" as const, message: "", reason: "", href: "", triggeredAt: NOW },
+      { clientId: "b", clientName: "B", severity: "low" as const, kind: "fully_completed" as const, message: "", reason: "", href: "", triggeredAt: NOW },
+      { clientId: "c", clientName: "C", severity: "medium" as const, kind: "discomfort" as const, message: "", reason: "", href: "", triggeredAt: NOW },
     ];
     expect(countClientsNeedingAttention(alerts)).toBe(2);
   });
@@ -458,6 +497,7 @@ describe("computeClientProgressBreakdown", () => {
     message: `${clientId} message`,
     reason,
     href: "",
+    triggeredAt: NOW,
   });
 
   it("buckets each client by worst non-low alert and lists them worst-first", () => {

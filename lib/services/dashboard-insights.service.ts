@@ -28,15 +28,18 @@ export const SCHEDULED_PROGRAM_WHERE: Prisma.ProgramWhereInput = {
 
 export type AlertSeverity = "high" | "medium" | "low";
 
-export type AlertKind =
-  | "pain_feedback"
-  | "no_sessions_started"
-  | "inactive"
-  | "discomfort"
-  | "low_completion"
-  | "delayed_pattern"
-  | "program_ending"
-  | "fully_completed";
+export const ALERT_KINDS = [
+  "pain_feedback",
+  "no_sessions_started",
+  "inactive",
+  "discomfort",
+  "low_completion",
+  "delayed_pattern",
+  "program_ending",
+  "fully_completed",
+] as const;
+
+export type AlertKind = (typeof ALERT_KINDS)[number];
 
 export interface PriorityAlert {
   clientId: string;
@@ -47,6 +50,12 @@ export interface PriorityAlert {
   /** Concrete evidence for why this was flagged, shown under the message. */
   reason: string;
   href: string;
+  /**
+   * When the evidence behind this alert last changed (the feedback, the last
+   * workout, the latest missed session…). A trainer's dismissal hides the
+   * alert until something newer than this happens — see filterDismissedAlerts.
+   */
+  triggeredAt: Date;
 }
 
 export interface ClientSessionSummary {
@@ -234,6 +243,17 @@ export function countSessionsDueToday(snapshots: ClientSnapshot[], now: Date): n
   return count;
 }
 
+function latestOf(dates: (Date | null | undefined)[]): Date | null {
+  let latest: Date | null = null;
+  for (const d of dates) if (d && (!latest || d > latest)) latest = d;
+  return latest;
+}
+
+function sessionsInWindow(sessions: ClientSessionSummary[], now: Date, windowDays = COMPLETION_WINDOW_DAYS) {
+  const windowStart = new Date(now.getTime() - windowDays * DAY_MS);
+  return sessions.filter((s) => s.scheduledDate >= windowStart && s.scheduledDate <= now);
+}
+
 export function buildPriorityAlerts(snapshots: ClientSnapshot[], now: Date): PriorityAlert[] {
   const alerts: PriorityAlert[] = [];
 
@@ -253,13 +273,38 @@ export function buildPriorityAlerts(snapshots: ClientSnapshot[], now: Date): Pri
           [painFeedback.exerciseName, painFeedback.comment].filter(Boolean).join(" — ") ||
           "Reported pain on a recent exercise",
         href,
+        triggeredAt: painFeedback.createdAt,
       });
     }
 
-    if (snap.activeProgram) {
+    // A program whose last week is behind it can't be fallen behind on — an
+    // ACTIVE program left running past its end would otherwise keep flagging
+    // the client as inactive / never started indefinitely.
+    const programEnd =
+      snap.activeProgram?.startDate && snap.activeProgram.durationWeeks
+        ? new Date(snap.activeProgram.startDate.getTime() + snap.activeProgram.durationWeeks * 7 * DAY_MS)
+        : null;
+    const programIsOver = !!programEnd && programEnd < now;
+
+    if (snap.activeProgram && !programIsOver) {
       const programHasStarted = !snap.activeProgram.startDate || snap.activeProgram.startDate <= now;
       const lastActivity = getLastActivityAt(snap.sessions);
-      if (!lastActivity) {
+      const historyStart = new Date(now.getTime() - HISTORY_WINDOW_DAYS * DAY_MS);
+      if (!lastActivity && snap.activeProgram.startDate && snap.activeProgram.startDate < historyStart) {
+        // Sessions are only loaded for the history window, so "no activity"
+        // on a program older than it means "nothing recent", not "never
+        // started" — they may well have trained before the window.
+        alerts.push({
+          clientId,
+          clientName,
+          severity: "high",
+          kind: "inactive",
+          message: `${clientName} hasn't logged a workout in over ${HISTORY_WINDOW_DAYS} days`,
+          reason: `No workouts logged on ${snap.activeProgram.name} since before ${format(historyStart, "MMM d")}`,
+          href,
+          triggeredAt: snap.activeProgram.startDate,
+        });
+      } else if (!lastActivity) {
         if (programHasStarted) {
           alerts.push({
             clientId,
@@ -273,6 +318,7 @@ export function buildPriorityAlerts(snapshots: ClientSnapshot[], now: Date): Pri
                 : "with no start date"
             } and has no completed sessions`,
             href,
+            triggeredAt: snap.activeProgram.startDate ?? new Date(0),
           });
         }
       } else {
@@ -286,6 +332,7 @@ export function buildPriorityAlerts(snapshots: ClientSnapshot[], now: Date): Pri
             message: `${clientName} has been inactive for ${daysSince} days`,
             reason: `Last completed a workout ${daysSince} days ago`,
             href,
+            triggeredAt: lastActivity,
           });
         }
       }
@@ -303,10 +350,12 @@ export function buildPriorityAlerts(snapshots: ClientSnapshot[], now: Date): Pri
           [discomfort.exerciseName, discomfort.comment].filter(Boolean).join(" — ") ||
           "Reported mild discomfort recently",
         href,
+        triggeredAt: discomfort.createdAt,
       });
     }
 
     const { rate, scheduled, completed } = computeCompletionRate(snap.sessions, now);
+    const recentSessions = sessionsInWindow(snap.sessions, now);
     if (scheduled >= MIN_SESSIONS_FOR_RATE && rate < LOW_COMPLETION_THRESHOLD) {
       alerts.push({
         clientId,
@@ -316,6 +365,9 @@ export function buildPriorityAlerts(snapshots: ClientSnapshot[], now: Date): Pri
         message: `${clientName} completed ${Math.round(rate * 100)}% of scheduled workouts recently`,
         reason: `${completed} of ${scheduled} scheduled workouts completed in the last 14 days`,
         href,
+        // Re-raised by the next workout they don't complete.
+        triggeredAt:
+          latestOf(recentSessions.filter((s) => s.status !== "COMPLETED").map((s) => s.scheduledDate)) ?? now,
       });
     }
 
@@ -334,13 +386,13 @@ export function buildPriorityAlerts(snapshots: ClientSnapshot[], now: Date): Pri
           variance.delayed + variance.onTime + variance.early
         } workouts completed 2+ days after their scheduled date`,
         href,
+        triggeredAt:
+          latestOf(recentSessions.filter((s) => s.scheduleVariance === "DELAYED").map((s) => s.completedAt)) ?? now,
       });
     }
 
-    if (snap.activeProgram?.startDate && snap.activeProgram.durationWeeks) {
-      const endDate = new Date(
-        snap.activeProgram.startDate.getTime() + snap.activeProgram.durationWeeks * 7 * DAY_MS
-      );
+    if (snap.activeProgram?.startDate && programEnd) {
+      const endDate = programEnd;
       const daysToEnd = Math.ceil((endDate.getTime() - now.getTime()) / DAY_MS);
       if (daysToEnd >= 0 && daysToEnd <= PROGRAM_ENDING_SOON_DAYS) {
         alerts.push({
@@ -351,6 +403,8 @@ export function buildPriorityAlerts(snapshots: ClientSnapshot[], now: Date): Pri
           message: `${clientName}'s program ends in ${daysToEnd} day${daysToEnd === 1 ? "" : "s"}`,
           reason: `${snap.activeProgram.name} ends ${format(endDate, "MMM d")}`,
           href,
+          // Stable for the program's lifetime — one dismissal covers it.
+          triggeredAt: snap.activeProgram.startDate,
         });
       }
     }
@@ -364,11 +418,39 @@ export function buildPriorityAlerts(snapshots: ClientSnapshot[], now: Date): Pri
         message: `${clientName} completed every scheduled workout recently`,
         reason: `${scheduled} of ${scheduled} scheduled workouts completed`,
         href,
+        triggeredAt: latestOf(recentSessions.map((s) => s.completedAt)) ?? now,
       });
     }
   }
 
   return alerts.sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity]);
+}
+
+/** Prefix that keeps priority dismissals apart from AI-insight dismissals in DismissedInsight. */
+export const PRIORITY_DISMISS_PREFIX = "priority:";
+
+export interface PriorityDismissal {
+  clientId: string;
+  /** The alert kind, without PRIORITY_DISMISS_PREFIX. */
+  kind: string;
+  dismissedAt: Date;
+}
+
+/**
+ * Drops alerts the trainer has cleared. A dismissal only holds while nothing
+ * new has happened: once the alert's evidence is newer than the dismissal
+ * (fresh pain feedback, another missed workout…) the alert comes back.
+ */
+export function filterDismissedAlerts(
+  alerts: PriorityAlert[],
+  dismissals: PriorityDismissal[]
+): PriorityAlert[] {
+  if (dismissals.length === 0) return alerts;
+  const dismissedAt = new Map(dismissals.map((d) => [`${d.clientId}:${d.kind}`, d.dismissedAt]));
+  return alerts.filter((a) => {
+    const at = dismissedAt.get(`${a.clientId}:${a.kind}`);
+    return !at || a.triggeredAt > at;
+  });
 }
 
 export function countClientsNeedingAttention(alerts: PriorityAlert[]): number {
@@ -525,9 +607,19 @@ export async function getDashboardInsights(
   trainerId: string,
   now: Date = new Date()
 ): Promise<DashboardInsights> {
-  const snapshots = await getClientSnapshots(trainerId, now);
+  const [snapshots, dismissals] = await Promise.all([
+    getClientSnapshots(trainerId, now),
+    prisma.dismissedInsight.findMany({
+      where: { trainerId, kind: { startsWith: PRIORITY_DISMISS_PREFIX } },
+      select: { clientId: true, kind: true, dismissedAt: true },
+    }),
+  ]);
 
   const allAlerts = buildPriorityAlerts(snapshots, now);
+  const openAlerts = filterDismissedAlerts(
+    allAlerts,
+    dismissals.map((d) => ({ ...d, kind: d.kind.slice(PRIORITY_DISMISS_PREFIX.length) }))
+  );
   const clientMetrics: Record<string, ClientMetrics> = {};
   for (const snap of snapshots) {
     clientMetrics[snap.clientId] = {
@@ -538,8 +630,8 @@ export async function getDashboardInsights(
   }
 
   return {
-    priorities: allAlerts.slice(0, MAX_PRIORITY_ALERTS),
-    clientsNeedingAttention: countClientsNeedingAttention(allAlerts),
+    priorities: openAlerts.slice(0, MAX_PRIORITY_ALERTS),
+    clientsNeedingAttention: countClientsNeedingAttention(openAlerts),
     sessionsDueToday: countSessionsDueToday(snapshots, now),
     clientMetrics,
     clientProgress: computeClientProgressBreakdown(snapshots, allAlerts),

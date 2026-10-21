@@ -17,7 +17,16 @@ export async function updateAdminProgramAction(
 
   const existing = await prisma.program.findUnique({
     where: { id: programId },
-    select: { isGlobal: true, name: true, description: true, status: true, trainer: { select: { clerkOrgId: true } } },
+    select: {
+      isGlobal: true,
+      name: true,
+      description: true,
+      status: true,
+      clientId: true,
+      startDate: true,
+      schedulingType: true,
+      trainer: { select: { clerkOrgId: true } },
+    },
   });
   if (!existing) {
     return { success: false as const, error: "Program not found" };
@@ -34,8 +43,19 @@ export async function updateAdminProgramAction(
     return { success: false as const, error: parsed.error.issues[0].message };
   }
 
+  // Same rule as the trainer-side updateProgramAction: a client's Scheduled
+  // program needs a start date to date its sessions from.
+  const nextSchedulingType = getProgramSchedulingType({
+    schedulingType: parsed.data.schedulingType ?? existing.schedulingType,
+  });
+  const nextStartDate = parsed.data.startDate !== undefined ? parsed.data.startDate : existing.startDate;
+  if (existing.clientId && nextSchedulingType === "SCHEDULED" && !nextStartDate) {
+    return { success: false as const, error: "A start date is required for a scheduled program" };
+  }
+
   try {
     const updated = await programService.updateProgram(programId, parsed.data);
+    if (existing.clientId) await programService.syncClientProgramSessions(programId);
     const diff = diffFields(
       existing as unknown as Record<string, unknown>,
       parsed.data as unknown as Record<string, unknown>,

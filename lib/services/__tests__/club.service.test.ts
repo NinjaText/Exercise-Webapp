@@ -146,7 +146,7 @@ describe("parseClubInput", () => {
 describe("createClub", () => {
   it("creates the Clerk org without createdBy and a CLUB row", async () => {
     const org = await createClub(parseClubInput(valid));
-    expect(clerkMocks.createOrganization).toHaveBeenCalledWith({ name: "Pine Valley CC", maxAllowedMemberships: 0 });
+    expect(clerkMocks.createOrganization).toHaveBeenCalledWith({ name: "Pine Valley CC", maxAllowedMemberships: 20 });
     expect(prisma.organization.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         clerkOrgId: "org_new", type: "CLUB", brandingEnabled: true, joinSlug: "pine-valley", trialDays: 14,

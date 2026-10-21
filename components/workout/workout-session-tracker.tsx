@@ -457,8 +457,14 @@ export function WorkoutSessionTracker({
         actualRPE: logData?.actualRPE,
       });
       setActiveSetLogs((prev) => ({ ...prev, [setIdx]: { ...prev[setIdx], completed: true } }));
-      setCompletedKeys((prev) => new Set(prev).add(key));
-      onExerciseToggle?.(blockExercise.id, true);
+      // An exercise only counts as done once every one of its sets is logged —
+      // a circuit item is a single round, so logging it finishes the item.
+      const allDone =
+        isCircuit || blockExercise.sets.every((_, i) => i === setIdx || activeSetLogs[i]?.completed);
+      if (allDone) {
+        setCompletedKeys((prev) => new Set(prev).add(key));
+        onExerciseToggle?.(blockExercise.id, true);
+      }
       onSetLogged?.(blockExercise.id, dbSetIndex, {
         actualReps: logData?.actualReps,
         actualWeight: logData?.actualWeight,
@@ -468,10 +474,7 @@ export function WorkoutSessionTracker({
         completed: true,
       });
 
-      if (!isCircuit) {
-        const allDone = blockExercise.sets.every((_, i) => i === setIdx || activeSetLogs[i]?.completed);
-        if (allDone) setTimeout(advanceToNext, 600);
-      }
+      if (!isCircuit && allDone) setTimeout(advanceToNext, 600);
     } catch {
       toast.error("Failed to log set");
     } finally {
@@ -640,6 +643,14 @@ export function WorkoutSessionTracker({
     (completedKeys.has(currentItem.key) ||
       skippedKeys.has(currentItem.key) ||
       (additionalCompleted?.has(currentItem.blockExercise.id) ?? false));
+  // Complete stays locked until the client has ticked off every set themselves
+  // (a circuit item shows a single round, held at index 0).
+  const currentSetCount =
+    currentItem?.kind === "exercise" ? (currentItem.isCircuit ? 1 : currentItem.blockExercise.sets.length) : 0;
+  const loggedSetCount = Array.from({ length: currentSetCount }, (_, i) => i).filter(
+    (i) => activeSetLogs[i]?.completed
+  ).length;
+  const allSetsLogged = loggedSetCount >= currentSetCount;
 
   return (
     <div className="flex w-full flex-col gap-3">
@@ -715,9 +726,19 @@ export function WorkoutSessionTracker({
               >
                 <SkipForward className="size-4" /> Skip
               </Button>
-              <Button className={cn(WORKOUT_TOUCH, "gap-1.5 px-4")} onClick={handleCompleteAll} disabled={isLoading}>
+              <Button
+                className={cn(WORKOUT_TOUCH, "gap-1.5 px-4")}
+                onClick={handleCompleteAll}
+                disabled={isLoading || !allSetsLogged}
+                title={allSetsLogged ? undefined : "Mark every set complete first"}
+              >
                 {isLoading ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
                 Complete
+                {!allSetsLogged && currentSetCount > 1 && (
+                  <span className="tabular-nums opacity-80">
+                    {loggedSetCount}/{currentSetCount}
+                  </span>
+                )}
               </Button>
             </>
           )}
