@@ -28,7 +28,7 @@ const OFF_FIELDS = [
   "nutriments.fat_100g",
 ].join(",");
 
-const USER_AGENT = "InmotusRX/1.0 (nutrition barcode lookup)";
+const USER_AGENT = "MIAPerformance/1.0 (nutrition barcode lookup)";
 const TIMEOUT_MS = 5000;
 const KJ_PER_KCAL = 4.184;
 /** Package sizes above this are multipacks or bulk tubs — "1 package" is not a useful portion. */

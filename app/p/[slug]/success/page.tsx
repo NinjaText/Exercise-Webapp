@@ -22,7 +22,7 @@ export async function generateMetadata({
   const branding = await getOrgBranding(purchase?.orgId ?? null);
   return {
     // `absolute`: no app/p layout, so a plain string would get the root
-    // "%s | INMOTUS RX" template appended after the org name.
+    // "%s | MIA Performance" template appended after the org name.
     title: { absolute: `Payment successful | ${branding.displayName}` },
     ...brandIconsMetadata(branding),
   };

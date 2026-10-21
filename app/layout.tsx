@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { PRODUCT_ICONS } from "@/lib/branding/metadata";
+import { PRODUCT_NAME } from "@/lib/brand";
 import { Inter, Lexend } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import { ToastProvider } from "@/components/providers/toast-provider";
@@ -22,12 +23,17 @@ const lexend = Lexend({
 });
 
 export const metadata: Metadata = {
-  title: { default: "INMOTUS RX", template: "%s | INMOTUS RX" },
+  title: { default: PRODUCT_NAME, template: `%s | ${PRODUCT_NAME}` },
+  applicationName: PRODUCT_NAME,
   // Config (not app/favicon.ico file convention) so a branded org's nested
   // `icons` replaces it instead of Next injecting the product icon first.
   icons: PRODUCT_ICONS,
   description:
-    "Personalized AI-powered home exercise programs for trainers and clients. Generate, assign, and track exercise programs in minutes.",
+    "MIA, your Movement Intelligence Assistant. Build personalized, evidence-informed exercise programs in minutes, then deliver and track them with your clients.",
+  openGraph: {
+    siteName: PRODUCT_NAME,
+    images: [{ url: "/brand/icon-512.png", width: 512, height: 512, alt: PRODUCT_NAME }],
+  },
 };
 
 // viewport-fit=cover lets the page extend under the iOS notch and home
@@ -44,7 +50,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       localization={{
         signIn: {
           start: {
-            title: "Sign in to Inmotus RX",
+            title: `Sign in to ${PRODUCT_NAME}`,
           },
         },
       }}

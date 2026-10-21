@@ -4,7 +4,8 @@ import { useState } from "react";
 import Link from "next/link";
 import { motion, useScroll, useTransform, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { Activity, Menu, X } from "lucide-react";
+import { Menu, X } from "lucide-react";
+import { ProductLogo } from "@/components/branding/product-logo";
 
 const NAV_LINKS = [
   { label: "Features", href: "/#features" },
@@ -32,11 +33,8 @@ export function SiteNavbar({ alwaysSolid = false }: { alwaysSolid?: boolean } = 
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.6 }}
         >
-          <Link href="/" className="flex items-center gap-2.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sidebar-primary shadow-lg">
-              <Activity className="h-4 w-4 text-sidebar-primary-foreground" />
-            </div>
-            <span className="text-lg font-bold tracking-tight text-sidebar-foreground">INMOTUS RX</span>
+          <Link href="/" className="flex items-center" aria-label="MIA Performance home">
+            <ProductLogo surface="dark" className="h-5 sm:h-6" />
           </Link>
         </motion.div>
 

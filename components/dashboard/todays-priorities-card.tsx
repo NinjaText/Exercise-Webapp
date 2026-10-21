@@ -1,7 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
   Accordion,
@@ -9,12 +11,13 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { ListChecks, CircleCheck } from "lucide-react";
+import { ListChecks, CircleCheck, X } from "lucide-react";
 import { SectionCard } from "@/components/shared/section-card";
 import { EmptyState } from "@/components/shared/empty-state";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { ROLE_CLASSES, statusRole } from "@/lib/ui/status";
 import { cn } from "@/lib/utils";
+import { dismissPrioritiesAction } from "@/actions/dismiss-insight-action";
 import type { AlertKind, AlertSeverity, PriorityAlert } from "@/lib/services/dashboard-insights.service";
 
 const severityLabel: Record<AlertSeverity, string> = {
@@ -58,7 +61,39 @@ interface TodaysPrioritiesCardProps {
   expandSignal?: number;
 }
 
-export function TodaysPrioritiesCard({ priorities, expandSignal = 0 }: TodaysPrioritiesCardProps) {
+const alertKey = (alert: PriorityAlert) => `${alert.clientId}:${alert.kind}`;
+
+export function TodaysPrioritiesCard({ priorities: allPriorities, expandSignal = 0 }: TodaysPrioritiesCardProps) {
+  const router = useRouter();
+  const [isClearing, startClearing] = useTransition();
+  // Hidden optimistically on click; the server refresh then drops them for good
+  // (or they reappear with an error toast if the save failed).
+  const [clearedKeys, setClearedKeys] = useState<Set<string>>(() => new Set());
+  const priorities = useMemo(
+    () => allPriorities.filter((alert) => !clearedKeys.has(alertKey(alert))),
+    [allPriorities, clearedKeys]
+  );
+
+  function clearAlerts(alerts: PriorityAlert[]) {
+    const keys = alerts.map(alertKey);
+    setClearedKeys((prev) => new Set([...prev, ...keys]));
+    startClearing(async () => {
+      const result = await dismissPrioritiesAction(
+        alerts.map(({ clientId, kind }) => ({ clientId, kind }))
+      );
+      if (result.success) {
+        router.refresh();
+      } else {
+        setClearedKeys((prev) => {
+          const next = new Set(prev);
+          keys.forEach((key) => next.delete(key));
+          return next;
+        });
+        toast.error(result.error);
+      }
+    });
+  }
+
   const groups = useMemo(
     () =>
       SEVERITY_ORDER.map((severity) => ({
@@ -88,6 +123,22 @@ export function TodaysPrioritiesCard({ priorities, expandSignal = 0 }: TodaysPri
       title="Today's Priorities"
       icon={ListChecks}
       count={priorities.length}
+      description={
+        priorities.length > 0 ? "Clear an item once handled — it returns only if something new happens" : undefined
+      }
+      action={
+        priorities.length > 0 ? (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-muted-foreground"
+            onClick={() => clearAlerts(priorities)}
+            disabled={isClearing}
+          >
+            Clear all
+          </Button>
+        ) : undefined
+      }
       className="h-full"
     >
       {priorities.length === 0 ? (
@@ -115,7 +166,7 @@ export function TodaysPrioritiesCard({ priorities, expandSignal = 0 }: TodaysPri
                 <div className="space-y-2">
                   {alerts.map((alert, i) => (
                     <div
-                      key={`${alert.clientId}-${i}`}
+                      key={`${alertKey(alert)}-${i}`}
                       className="rounded-lg border border-border bg-surface-muted/50 p-3"
                     >
                       <div className="flex items-start gap-3">
@@ -126,7 +177,19 @@ export function TodaysPrioritiesCard({ priorities, expandSignal = 0 }: TodaysPri
                           )}
                         />
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-label text-foreground">{alert.clientName}</p>
+                          <div className="flex items-start justify-between gap-2">
+                            <p className="truncate text-label text-foreground">{alert.clientName}</p>
+                            <Button
+                              variant="ghost"
+                              size="icon-xs"
+                              className="-mt-1 -mr-1 shrink-0 text-muted-foreground"
+                              aria-label={`Clear: ${alert.message}`}
+                              title="Clear"
+                              onClick={() => clearAlerts([alert])}
+                            >
+                              <X />
+                            </Button>
+                          </div>
                           <p className="mt-0.5 text-body text-muted-foreground">{alert.message}</p>
                           <p className="mt-0.5 text-caption">{alert.reason}</p>
                           <div className="mt-3 flex flex-wrap gap-2">

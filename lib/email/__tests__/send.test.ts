@@ -207,7 +207,7 @@ describe('formatFromHeader (RFC 5322 quoted display name)', () => {
   })
 
   it('uses only the address part when given a "Name <addr>" sender', () => {
-    expect(formatFromHeader('Summit PT', 'INMOTUS RX <noreply@send.goinmotus.com>')).toBe(
+    expect(formatFromHeader('Summit PT', 'MIA Performance <noreply@send.goinmotus.com>')).toBe(
       '"Summit PT" <noreply@send.goinmotus.com>'
     )
   })
@@ -239,7 +239,7 @@ describe('sendEmail — branded From and Reply-To', () => {
   })
 
   it('extracts the bare address when RESEND_FROM_EMAIL is already "Name <addr>"', async () => {
-    vi.stubEnv('RESEND_FROM_EMAIL', 'INMOTUS RX <hello@example.com>')
+    vi.stubEnv('RESEND_FROM_EMAIL', 'MIA Performance <hello@example.com>')
 
     await sendEmail({ to: 'a@example.com', subject: 'S', react: el, fromName: 'Summit PT' })
 
@@ -255,11 +255,11 @@ describe('sendEmail — branded From and Reply-To', () => {
   })
 
   it('sends a named RESEND_FROM_EMAIL unchanged when there is no fromName', async () => {
-    vi.stubEnv('RESEND_FROM_EMAIL', 'INMOTUS RX <hello@example.com>')
+    vi.stubEnv('RESEND_FROM_EMAIL', 'MIA Performance <hello@example.com>')
 
     await sendEmail({ to: 'a@example.com', subject: 'S', react: el })
 
-    expect(sendMock.mock.calls[0][0].from).toBe('INMOTUS RX <hello@example.com>')
+    expect(sendMock.mock.calls[0][0].from).toBe('MIA Performance <hello@example.com>')
   })
 
   it('sends a bare RESEND_FROM_EMAIL unchanged when there is no fromName', async () => {

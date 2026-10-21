@@ -22,7 +22,7 @@ vi.mock("@clerk/nextjs", () => ({
 
 const resolved = {
   enabled: false,
-  displayName: "INMOTUS RX",
+  displayName: "MIA Performance",
   logoOnLightUrl: null,
   logoOnDarkUrl: null,
   markUrl: null,

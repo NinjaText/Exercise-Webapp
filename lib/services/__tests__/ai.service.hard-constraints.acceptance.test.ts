@@ -1,5 +1,5 @@
 /**
- * LIVE acceptance tests (Inmotus spec section 8) — calls the real
+ * LIVE acceptance tests (MIA spec section 8) — calls the real
  * generateWorkoutPlan() against the real DB and a real OpenAI (gpt-4o) API
  * call to verify the Layer 1/2/3 hard-constraint prompts are actually
  * obeyed, not just present in the prompt text.
@@ -41,7 +41,7 @@ function reportViolations(label: string, exercises: { exerciseId: string; exerci
   return violators
 }
 
-describeLive('LIVE acceptance tests — Inmotus hard-constraint prompts', () => {
+describeLive('LIVE acceptance tests — MIA hard-constraint prompts', () => {
   it(
     'Test 1: Subjective "No plyometrics." -> zero jump/hop/bound/plyo exercises',
     async () => {

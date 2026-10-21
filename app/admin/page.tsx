@@ -20,7 +20,7 @@ export default async function AdminOverviewPage() {
       <PageHeader
         breadcrumb={[{ label: "Admin", href: "/admin" }]}
         title="Platform Overview"
-        description="Real-time snapshot of all activity across the INMOTUS RX platform."
+        description="Real-time snapshot of all activity across the MIA Performance platform."
       />
 
       <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">

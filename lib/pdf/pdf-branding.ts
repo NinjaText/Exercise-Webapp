@@ -5,7 +5,7 @@
  *
  * Rules (spec §7, controller rulings for Task 20):
  * - Name + tagline come from the Organization row, so an unbranded org keeps
- *   its own name in the PDF (never "INMOTUS RX"). Branding enabled → the
+ *   its own name in the PDF (never "MIA Performance"). Branding enabled → the
  *   branded `displayName`.
  * - Logo only when branding is enabled and the URL is one of our own R2
  *   branding assets. Legacy external URLs are never fetched.

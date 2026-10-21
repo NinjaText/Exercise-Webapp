@@ -102,7 +102,7 @@ describe("ClientOnboardingPage", () => {
     expect(mockGetOrgBranding).toHaveBeenCalledWith("org_from_claim");
   });
 
-  it("keeps the product copy and INMOTUS RX name when branding is disabled", async () => {
+  it("keeps the product copy and MIA Performance name when branding is disabled", async () => {
     mockAuth.mockResolvedValue({ userId: "user_1", orgId: "org_2" });
     mockFindUnique.mockResolvedValue({ clerkOrgId: "org_2", onboarded: false });
     mockGetOrgBranding.mockResolvedValue(unbrandedBranding);
@@ -110,7 +110,7 @@ describe("ClientOnboardingPage", () => {
     const html = renderToStaticMarkup(await ClientOnboardingPage());
 
     expect(html).toContain("so your trainer can personalize your exercise program");
-    expect(html).toContain("© INMOTUS RX");
+    expect(html).toContain("© MIA Performance");
     expect(html).not.toContain('id="org-brand"');
   });
 });

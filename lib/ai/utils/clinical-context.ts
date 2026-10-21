@@ -81,7 +81,7 @@ function describeTrainerEquipment(selected: string[]): string {
  * Single canonical client-profile-to-prompt-text builder, shared by both
  * generateClinicalPlan and generateWorkoutPlan so the two prompts can't drift.
  *
- * Structure follows Layer 2 of the Inmotus AI Exercise Program Generation
+ * Structure follows Layer 2 of the MIA AI Exercise Program Generation
  * Backend Prompt Specification. Only fields actually present in
  * ClientProfile are included — the spec's template names several fields
  * (e.g. romRestrictions, strengthDeficits, toleratedExercises) that have no

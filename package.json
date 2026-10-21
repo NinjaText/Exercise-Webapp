@@ -27,6 +27,7 @@
     "db:migrate-org-profiles": "npx tsx lib/db/scripts/migrate-org-profiles-to-db.ts",
     "db:migrate-club-trainers": "npx tsx lib/db/scripts/migrate-club-trainers.ts",
     "db:backfill-club-null-fields": "npx tsx lib/db/scripts/backfill-club-null-fields.ts",
+    "db:migrate-to-live-keys": "npx tsx lib/db/scripts/migrate-to-live-keys.ts",
     "tag-exercises": "npx ts-node --compiler-options '{\"module\":\"CommonJS\"}' lib/db/seed/tag-exercises-ai.ts",
     "postinstall": "prisma generate"
   },

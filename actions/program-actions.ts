@@ -259,7 +259,15 @@ export async function updateProgramAction(
 
   const program = await prisma.program.findUnique({
     where: { id: programId },
-    select: { trainerId: true, name: true, description: true, status: true },
+    select: {
+      trainerId: true,
+      name: true,
+      description: true,
+      status: true,
+      clientId: true,
+      startDate: true,
+      schedulingType: true,
+    },
   });
   if (!program || program.trainerId !== user.id) {
     return { success: false as const, error: "Forbidden" };
@@ -270,8 +278,23 @@ export async function updateProgramAction(
     return { success: false as const, error: parsed.error.issues[0].message };
   }
 
+  // A client's Scheduled program is dated from its start date — without one
+  // there's nothing to schedule their sessions against.
+  const nextSchedulingType = getProgramSchedulingType({
+    schedulingType: parsed.data.schedulingType ?? program.schedulingType,
+  });
+  const nextStartDate = parsed.data.startDate !== undefined ? parsed.data.startDate : program.startDate;
+  if (program.clientId && nextSchedulingType === "SCHEDULED" && !nextStartDate) {
+    return { success: false as const, error: "A start date is required for a scheduled program" };
+  }
+
   try {
     const updated = await programService.updateProgram(programId, parsed.data);
+    if (program.clientId) {
+      await programService.syncClientProgramSessions(programId);
+      revalidatePath(`/clients/${program.clientId}`);
+      revalidatePath("/calendar");
+    }
     const diff = diffFields(
       program as unknown as Record<string, unknown>,
       parsed.data as unknown as Record<string, unknown>,

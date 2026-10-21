@@ -16,7 +16,7 @@ describe("EmailLayout", () => {
       />
     );
 
-    expect(html).toContain("INMOTUS RX");
+    expect(html).toContain("MIA Performance");
     expect(html).toContain("Hi Sarah,");
     expect(html).toContain("Your session is tomorrow.");
     expect(html).toContain("Workout");
@@ -67,7 +67,7 @@ describe("EmailLayout", () => {
     );
 
     expect(html).toContain("ACME PHYSIO");
-    expect(html).not.toContain("INMOTUS RX");
+    expect(html).not.toContain("MIA Performance");
   });
 
   it("defaults to brand blue when no accent is given", () => {

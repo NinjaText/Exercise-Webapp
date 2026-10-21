@@ -24,7 +24,7 @@ async function seed() {
       console.log(`Product already exists: ${plan.name} (${product.id})`);
     } else {
       product = await stripe.products.create({
-        name: `INMOTUS RX — ${plan.name}`,
+        name: `MIA Performance — ${plan.name}`,
         metadata: { inmotus_seed_key: plan.key },
       });
       console.log(`Created product: ${plan.name} (${product.id})`);

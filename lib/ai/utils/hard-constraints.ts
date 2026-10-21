@@ -1,6 +1,6 @@
 /**
  * Deterministic, keyword-based backstop for trainer "hard constraints"
- * (e.g. "no plyometrics", "strength only") described in the Inmotus
+ * (e.g. "no plyometrics", "strength only") described in the MIA
  * AI Exercise Program Generation Backend Prompt Specification.
  *
  * This is a stand-in for true metadata-based filtering (spec section 7.4 —

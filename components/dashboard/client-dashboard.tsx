@@ -1,11 +1,11 @@
 "use client";
 
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/shared/page-header";
 import { SectionCard } from "@/components/shared/section-card";
 import { StatCard } from "@/components/shared/stat-card";
-import { StatusBadge } from "@/components/shared/status-badge";
 import { EmptyState } from "@/components/shared/empty-state";
 import {
   CalendarDays,
@@ -160,61 +160,48 @@ export function ClientDashboard({
       </div>
 
       {/* Up next — always reflects today (or the next upcoming session) */}
-      <SectionCard title="Up next" icon={CalendarDays}>
-        {todayWorkout ? (
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="min-w-0">
-              <StatusBadge status="TODAY" role="info" label="TODAY" />
-              <h3 className="mt-2 text-title text-foreground">
-                {formatDayLabel(todayWorkout.workout)}
-              </h3>
-              <p className="mt-1 text-body text-muted-foreground">
-                {formatWorkoutMetaLine(
-                  todayWorkout.workout?.estimatedMinutes,
-                  countExercises(todayWorkout.workout)
-                )}
-              </p>
-            </div>
-            <Button size="lg" className="h-11 w-full shrink-0 sm:h-10 sm:w-auto" asChild>
-              <Link href={`/sessions/${todayWorkout.id}`}>
-                <Play className="mr-2 size-4 fill-current" />
-                Start workout
-              </Link>
-            </Button>
-          </div>
-        ) : nextFutureSession ? (
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="min-w-0">
-              <StatusBadge status="UPCOMING" role="neutral" label="UPCOMING" />
-              <p className="mt-2 text-label text-muted-foreground">
-                {format(toLocalCalendarDate(nextFutureSession.scheduledDate), "EEEE, MMM d")}
-              </p>
-              <h3 className="text-title text-foreground">
-                {formatDayLabel(nextFutureSession.workout)}
-              </h3>
-              <p className="mt-1 text-body text-muted-foreground">
-                {formatWorkoutMetaLine(
-                  nextFutureSession.workout?.estimatedMinutes,
-                  countExercises(nextFutureSession.workout)
-                )}
-              </p>
-            </div>
-            <Button size="lg" variant="outline" className="h-11 w-full shrink-0 sm:h-10 sm:w-auto" asChild>
-              <Link href={`/sessions/${nextFutureSession.id}`}>
-                Preview
-                <ChevronRight className="ml-2 size-4" />
-              </Link>
-            </Button>
-          </div>
-        ) : (
+      {todayWorkout ? (
+        <UpNextHero
+          eyebrow="Today"
+          title={formatDayLabel(todayWorkout.workout)}
+          meta={formatWorkoutMetaLine(
+            todayWorkout.workout?.estimatedMinutes,
+            countExercises(todayWorkout.workout)
+          )}
+          href={`/sessions/${todayWorkout.id}`}
+          action={
+            <>
+              <Play className="mr-2 size-4 fill-current" />
+              Start workout
+            </>
+          }
+        />
+      ) : nextFutureSession ? (
+        <UpNextHero
+          eyebrow={format(toLocalCalendarDate(nextFutureSession.scheduledDate), "EEEE, MMM d")}
+          title={formatDayLabel(nextFutureSession.workout)}
+          meta={formatWorkoutMetaLine(
+            nextFutureSession.workout?.estimatedMinutes,
+            countExercises(nextFutureSession.workout)
+          )}
+          href={`/sessions/${nextFutureSession.id}`}
+          action={
+            <>
+              Preview
+              <ChevronRight className="ml-2 size-4" />
+            </>
+          }
+        />
+      ) : (
+        <SectionCard title="Up next" icon={CalendarDays}>
           <EmptyState
             size="compact"
             icon={CalendarX}
             title="Nothing scheduled right now"
             description={quote}
           />
-        )}
-      </SectionCard>
+        </SectionCard>
+      )}
 
       {/* What the client can pull on their own, next to what's waiting for them.
           Both cards take `h-full` so the column stretch gives them a matching
@@ -227,5 +214,57 @@ export function ClientDashboard({
       {/* Primary at-a-glance schedule — the month view lives at /calendar */}
       <WeekStrip sessions={weekStripSessions} today={today} />
     </div>
+  );
+}
+
+/**
+ * The client's next workout, set apart from the rest of the dashboard as a
+ * filled brand-blue panel so it reads as the one thing to act on. Gradient
+ * stops derive from --primary, so org branding recolours it automatically.
+ */
+function UpNextHero({
+  eyebrow,
+  title,
+  meta,
+  href,
+  action,
+}: {
+  eyebrow: string;
+  title: string;
+  meta: string;
+  href: string;
+  action: ReactNode;
+}) {
+  return (
+    <section
+      aria-label="Up next"
+      className="relative isolate overflow-hidden rounded-2xl bg-primary bg-[linear-gradient(135deg,var(--primary),color-mix(in_oklch,var(--primary),black_28%))] p-5 text-primary-foreground shadow-lg shadow-primary/25 ring-1 ring-primary/40 duration-500 animate-in fade-in slide-in-from-bottom-3 motion-reduce:animate-none sm:p-6"
+    >
+      {/* Soft light blooms + a faint watermark, purely decorative */}
+      <div aria-hidden className="pointer-events-none absolute -top-24 -right-16 -z-10 size-72 rounded-full bg-primary-foreground/10 blur-3xl" />
+      <div aria-hidden className="pointer-events-none absolute -bottom-28 left-1/3 -z-10 size-64 rounded-full bg-primary-foreground/5 blur-3xl" />
+      <Dumbbell aria-hidden className="pointer-events-none absolute right-6 -bottom-6 -z-10 hidden size-40 -rotate-12 text-primary-foreground/[0.07] sm:block" />
+
+      <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <p className="flex items-center gap-2 text-caption font-semibold tracking-wide text-primary-foreground/80 uppercase">
+            <CalendarDays className="size-4" aria-hidden />
+            Up next
+            <span aria-hidden className="text-primary-foreground/40">•</span>
+            <span className="normal-case tracking-normal">{eyebrow}</span>
+          </p>
+          <h2 className="mt-2 text-title text-primary-foreground sm:text-display">{title}</h2>
+          <p className="mt-1 text-body text-primary-foreground/80">{meta}</p>
+        </div>
+        <Button
+          size="lg"
+          variant="outline"
+          className="h-11 w-full shrink-0 border-transparent bg-primary-foreground font-semibold text-primary shadow-md hover:bg-primary-foreground/90 hover:text-primary sm:h-10 sm:w-auto"
+          asChild
+        >
+          <Link href={href}>{action}</Link>
+        </Button>
+      </div>
+    </section>
   );
 }

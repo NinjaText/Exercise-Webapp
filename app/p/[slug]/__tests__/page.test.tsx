@@ -92,7 +92,7 @@ describe("SalesPage", () => {
       await SalesPage({ params: Promise.resolve({ slug: "golf-back-pain" }) })
     );
 
-    expect(html).toContain("INMOTUS RX");
+    expect(html).toContain("MIA Performance");
     expect(html).not.toContain('id="org-brand"');
   });
 
@@ -117,7 +117,7 @@ describe("generateMetadata", () => {
     const metadata = await generateMetadata({ params: Promise.resolve({ slug: "golf-back-pain" }) });
 
     // `absolute`: app/p has no layout, so a plain string would get the root
-    // template appended ("… | Acme Physio | INMOTUS RX").
+    // template appended ("… | Acme Physio | MIA Performance").
     expect(metadata.title).toEqual({ absolute: "Golf Back Pain Program | Acme Physio" });
   });
 
@@ -144,7 +144,7 @@ describe("generateMetadata", () => {
     const metadata = await generateMetadata({ params: Promise.resolve({ slug: "golf-back-pain" }) });
 
     expect("icons" in metadata).toBe(false);
-    expect(metadata.title).toEqual({ absolute: "Golf Back Pain Program | INMOTUS RX" });
+    expect(metadata.title).toEqual({ absolute: "Golf Back Pain Program | MIA Performance" });
   });
 
   it("returns an empty metadata object when the package does not exist", async () => {

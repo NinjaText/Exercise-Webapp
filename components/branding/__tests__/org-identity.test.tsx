@@ -56,7 +56,7 @@ describe("OrgIdentity — fallback table (spec §6.1)", () => {
     expect(html).toContain("bg-primary text-primary-foreground");
     expect(html).toContain(">T<");
     expect(html).toContain("Teal Physio");
-    expect(html).not.toContain("INMOTUS RX");
+    expect(html).not.toContain("MIA Performance");
   });
 
   it("dark surface: mark only → mark image + display name", () => {
@@ -86,7 +86,7 @@ describe("OrgIdentity — fallback table (spec §6.1)", () => {
     expect(html).toContain("Teal Physio");
   });
 
-  it("disabled → exact product identity (Activity icon + INMOTUS RX + subtitle)", () => {
+  it("disabled → MIA Performance logo (white on the dark sidebar) + subtitle", () => {
     const html = renderToStaticMarkup(
       <OrgIdentity
         branding={toViewModel(DEFAULT_BRANDING)}
@@ -94,31 +94,23 @@ describe("OrgIdentity — fallback table (spec §6.1)", () => {
         subtitle="Trainer Portal"
       />,
     );
-    expect(imgSrcs(html)).toEqual([]);
-    expect(html).toContain(
-      '<div class="flex h-8 w-8 items-center justify-center rounded-xl bg-muted shadow-sm"><svg',
-    );
-    expect(html).toContain("lucide-activity");
-    expect(html).toContain(
-      '<span class="text-[15px] font-bold tracking-tight text-sidebar-foreground">INMOTUS RX</span>',
-    );
-    expect(html).toContain(
-      '<p class="text-[10px] font-medium text-sidebar-foreground/40 uppercase tracking-widest">Trainer Portal</p>',
-    );
+    expect(imgSrcs(html)).toEqual(["/brand/mia-logo-light.png"]);
+    expect(html).toContain('alt="MIA Performance"');
+    expect(html).toContain("text-sidebar-foreground/40");
+    expect(html).toContain(">Trainer Portal</p>");
   });
 
   it("disabled ignores any stray asset URLs", () => {
     const html = renderToStaticMarkup(
       <OrgIdentity
-        branding={vm({ enabled: false, displayName: "INMOTUS RX", logoOnDarkUrl: DARK })}
+        branding={vm({ enabled: false, displayName: "MIA Performance", logoOnDarkUrl: DARK })}
         surface="dark"
       />,
     );
-    expect(imgSrcs(html)).toEqual([]);
-    expect(html).toContain("INMOTUS RX");
+    expect(imgSrcs(html)).toEqual(["/brand/mia-logo-light.png"]);
   });
 
-  it("disabled + light surface: same Activity tile, name in text-foreground, subtitle in text-muted-foreground", () => {
+  it("disabled + light surface: black logo, subtitle in text-muted-foreground", () => {
     const html = renderToStaticMarkup(
       <OrgIdentity
         branding={toViewModel(DEFAULT_BRANDING)}
@@ -126,17 +118,9 @@ describe("OrgIdentity — fallback table (spec §6.1)", () => {
         subtitle="Trainer Portal"
       />,
     );
-    expect(imgSrcs(html)).toEqual([]);
-    expect(html).toContain(
-      '<div class="flex h-8 w-8 items-center justify-center rounded-xl bg-muted shadow-sm"><svg',
-    );
-    expect(html).toContain("lucide-activity");
-    expect(html).toContain(
-      '<span class="text-[15px] font-bold tracking-tight text-foreground">INMOTUS RX</span>',
-    );
-    expect(html).toContain(
-      '<p class="text-[10px] font-medium text-muted-foreground uppercase tracking-widest">Trainer Portal</p>',
-    );
+    expect(imgSrcs(html)).toEqual(["/brand/mia-logo-dark.png"]);
+    expect(html).toContain("text-muted-foreground");
+    expect(html).toContain(">Trainer Portal</p>");
     expect(html).not.toContain("text-sidebar-foreground");
   });
 });

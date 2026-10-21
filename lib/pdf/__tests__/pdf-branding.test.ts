@@ -44,7 +44,7 @@ describe("resolvePdfBranding", () => {
     });
   });
 
-  it("keeps the organization's own name and tagline when branding is disabled (never INMOTUS RX)", () => {
+  it("keeps the organization's own name and tagline when branding is disabled (never MIA Performance)", () => {
     const result = resolvePdfBranding(org, DEFAULT_BRANDING);
     expect(result.organizationName).toBe("Acme Physio");
     expect(result.tagline).toBe("Move better, live better");

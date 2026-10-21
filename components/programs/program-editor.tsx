@@ -44,6 +44,8 @@ import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { TagListInput } from "./tag-list-input";
 import { SchedulingTypeSelector } from "./scheduling-type-selector";
 import { Label } from "@/components/ui/label";
+import { format } from "date-fns";
+import { toLocalCalendarDate } from "@/lib/utils/calendar-date";
 import { type ExerciseSourcePreference } from "@/lib/utils/exercise-picker";
 import {
   getProgramSchedulingType,
@@ -218,6 +220,13 @@ export function ProgramEditor({ program, exercises, onSave, redirectTo, organiza
     })
   );
   const isOnDemand = schedulingType === "ON_DEMAND";
+  // A program running for a client needs a start date to be scheduled — its
+  // sessions are dated from it. A library program gets one when it's assigned.
+  const hasClient = !!program?.clientId;
+  const [startDate, setStartDate] = useState(() =>
+    format(program?.startDate ? toLocalCalendarDate(program.startDate as Date | string) : new Date(), "yyyy-MM-dd")
+  );
+  const needsStartDate = hasClient && !isOnDemand;
 
   const form = useForm<CreateProgramInput>({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -256,10 +265,10 @@ export function ProgramEditor({ program, exercises, onSave, redirectTo, organiza
       JSON.stringify([
         watchedName, watchedDescription ?? "", watchedProgramType ?? null,
         workouts, equipment, selectedOrganizationIds, bodyAreas, goals,
-        activities, tags, level, selectedCollectionIds, schedulingType,
+        activities, tags, level, selectedCollectionIds, schedulingType, needsStartDate ? startDate : null,
       ]),
     [watchedName, watchedDescription, watchedProgramType, workouts, equipment, selectedOrganizationIds,
-      bodyAreas, goals, activities, tags, level, selectedCollectionIds, schedulingType],
+      bodyAreas, goals, activities, tags, level, selectedCollectionIds, schedulingType, needsStartDate, startDate],
   );
   const [initialSnapshot] = useState(snapshot);
   const isDirty = snapshot !== initialSnapshot;
@@ -315,6 +324,10 @@ export function ProgramEditor({ program, exercises, onSave, redirectTo, organiza
   }
 
   async function onSubmit(data: CreateProgramInput) {
+    if (needsStartDate && !startDate) {
+      toast.error("Pick a start date for this scheduled program");
+      return;
+    }
     setSaving(true);
     try {
       const cleanWorkouts = workouts.map((w) => ({
@@ -342,6 +355,8 @@ export function ProgramEditor({ program, exercises, onSave, redirectTo, organiza
       // schedule values on it would make the Programs UI and adherence lie.
       data.daysPerWeek = isOnDemand ? null : scheduleSummary.daysPerWeek || null;
       if (isOnDemand) data.startDate = null;
+      // Stored UTC-midnight-anchored, like every other program start date.
+      else if (needsStartDate) data.startDate = `${startDate}T00:00:00.000Z`;
       data.bodyAreas = bodyAreas;
       data.goals = goals;
       data.activities = activities;
@@ -580,6 +595,28 @@ export function ProgramEditor({ program, exercises, onSave, redirectTo, organiza
                     </div>
                   ))}
                 </dl>
+              )}
+              {needsStartDate && (
+                <div className="space-y-1.5">
+                  <Label htmlFor="program-start-date">
+                    Start date <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    id="program-start-date"
+                    type="date"
+                    required
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                  />
+                  <p className="text-caption text-muted-foreground">
+                    The client&apos;s sessions are dated from this day.
+                  </p>
+                </div>
+              )}
+              {!isOnDemand && !hasClient && (
+                <p className="text-caption text-muted-foreground">
+                  You&apos;ll pick a start date when you assign it to a client.
+                </p>
               )}
               {!isOnDemand && scheduleSummary.durationWeeks === 0 && (
                 <p className="text-caption text-muted-foreground">

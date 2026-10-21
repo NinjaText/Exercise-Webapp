@@ -341,7 +341,8 @@ export async function updateProgram(
     data: {
       ...rest,
       status: rest.status as PlanStatus | undefined,
-      startDate: startDate ? new Date(startDate) : undefined,
+      // null clears it (a program switched to a Resource); undefined leaves it.
+      startDate: startDate ? new Date(startDate) : startDate === null ? null : undefined,
     },
   });
 
@@ -549,6 +550,75 @@ export async function assignProgram(
   }
 
   return program;
+}
+
+/**
+ * Brings a client program's sessions in line with its current schedule after
+ * an edit. Saving in the editor rebuilds every workout (and the Workout →
+ * WorkoutSessionV2 cascade takes their sessions with it), and the trainer may
+ * also have changed the start date or switched between Scheduled and Resource.
+ *
+ * - Resource: drops sessions the client never started — a Resource must never
+ *   own a SCHEDULED row (see assignOnDemandProgram).
+ * - Scheduled: every workout dated today or later gets a session, and
+ *   untouched upcoming sessions move to follow a new start date. Past dates are
+ *   left alone so an edit can't flood the client's history with "missed" days.
+ */
+export async function syncClientProgramSessions(programId: string, now: Date = new Date()) {
+  const program = await prisma.program.findUnique({
+    where: { id: programId },
+    select: {
+      clientId: true,
+      startDate: true,
+      schedulingType: true,
+      workouts: {
+        select: {
+          id: true,
+          dayIndex: true,
+          weekIndex: true,
+          sessions: { select: { id: true, status: true, scheduledDate: true, rescheduledAt: true } },
+        },
+      },
+    },
+  });
+  if (!program?.clientId) return;
+  const clientId = program.clientId;
+
+  if (getProgramSchedulingType(program) === "ON_DEMAND") {
+    await prisma.workoutSessionV2.deleteMany({
+      where: { workout: { programId }, status: "SCHEDULED" },
+    });
+    return;
+  }
+  if (!program.startDate) return;
+
+  const start = program.startDate;
+  const today = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  const toCreate: { workoutId: string; clientId: string; scheduledDate: Date; status: "SCHEDULED" }[] = [];
+  const toMove: { id: string; scheduledDate: Date }[] = [];
+
+  for (const w of program.workouts) {
+    const date = new Date(
+      Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate() + w.weekIndex * 7 + w.dayIndex)
+    );
+    if (date.getTime() < today) continue;
+    if (w.sessions.length === 0) {
+      toCreate.push({ workoutId: w.id, clientId, scheduledDate: date, status: "SCHEDULED" });
+    } else {
+      for (const session of w.sessions) {
+        if (session.status === "SCHEDULED" && !session.rescheduledAt && session.scheduledDate.getTime() !== date.getTime()) {
+          toMove.push({ id: session.id, scheduledDate: date });
+        }
+      }
+    }
+  }
+
+  if (toCreate.length > 0) await prisma.workoutSessionV2.createMany({ data: toCreate });
+  await Promise.all(
+    toMove.map(({ id, scheduledDate }) =>
+      prisma.workoutSessionV2.update({ where: { id }, data: { scheduledDate } })
+    )
+  );
 }
 
 /**

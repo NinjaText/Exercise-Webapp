@@ -53,9 +53,9 @@ describe('getEmailBranding — defaults', () => {
 
     expect(b).toEqual({
       enabled: false,
-      organizationName: 'INMOTUS RX',
+      organizationName: 'MIA Performance',
       accent: '#2563eb',
-      fromName: 'INMOTUS RX',
+      fromName: 'MIA Performance',
     })
     expect(b.logoUrl).toBeUndefined()
     expect(b.replyTo).toBeUndefined()

@@ -40,6 +40,6 @@ describe("/onboarding/patient (legacy alias of /onboarding/client)", () => {
     const html = renderToStaticMarkup(await Page());
     expect(html).toContain("CLIENT_FORM");
     expect(html).toMatch(/data-slot="auth-form-column" data-size="wide"/);
-    expect(html).toContain("INMOTUS RX");
+    expect(html).toContain("MIA Performance");
   });
 });

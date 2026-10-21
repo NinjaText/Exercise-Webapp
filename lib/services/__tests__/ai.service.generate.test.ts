@@ -99,14 +99,14 @@ const baseParams = {
 }
 
 describe('generateWorkoutPlan — multi-week (Generate-with-AI) path', () => {
-  it('builds the per-phase prompt from the shared Inmotus module with all trainer directives', async () => {
+  it('builds the per-phase prompt from the shared MIA module with all trainer directives', async () => {
     modelReturns([])
     await generateWorkoutPlan(baseParams).catch(() => undefined)
     expect(mockCreate).toHaveBeenCalledTimes(1)
     const [{ messages }] = mockCreate.mock.calls[0]
     const system = messages[0].content as string
     const user = messages[1].content as string
-    expect(system).toContain('INMOTUS EXERCISE PROGRAMMING SYSTEM')
+    expect(system).toContain('MIA EXERCISE PROGRAMMING SYSTEM')
     expect(system).toContain('ONE PHASE OF A MULTI-WEEK PROGRAM')
     expect(system).toContain('POST-GENERATION HARD-CONSTRAINT AUDIT')
     expect(user).toContain('CURRENT TRAINER SUBJECTIVE')

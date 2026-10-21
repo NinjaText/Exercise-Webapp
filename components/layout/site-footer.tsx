@@ -1,5 +1,7 @@
 import Link from "next/link";
-import { Activity, Shield } from "lucide-react";
+import { Shield } from "lucide-react";
+import { ProductLogo } from "@/components/branding/product-logo";
+import { PRODUCT_EXPANSION, PRODUCT_NAME } from "@/lib/brand";
 
 const FOOTER_COLUMNS = [
   {
@@ -34,12 +36,10 @@ export function SiteFooter() {
         <div className="grid gap-12 lg:grid-cols-5">
           {/* Brand */}
           <div className="lg:col-span-2">
-            <div className="flex items-center gap-2.5">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary shadow-md">
-                <Activity className="h-4 w-4 text-primary-foreground" />
-              </div>
-              <span className="text-lg font-bold text-foreground">INMOTUS RX</span>
-            </div>
+            <ProductLogo surface="light" className="h-5" />
+            <p className="mt-3 text-[11px] font-medium tracking-[0.3em] text-muted-foreground uppercase">
+              {PRODUCT_EXPANSION}
+            </p>
             <p className="mt-4 max-w-xs text-sm leading-relaxed text-muted-foreground">
               AI-powered home exercise programs for modern rehabilitation. Built for trainers, designed for clients.
             </p>
@@ -71,7 +71,7 @@ export function SiteFooter() {
 
         <div className="mt-16 flex flex-col items-center justify-between gap-4 border-t border-border pt-8 sm:flex-row">
           <p className="text-sm text-muted-foreground">
-            &copy; {new Date().getFullYear()} INMOTUS RX. All rights reserved.
+            &copy; {new Date().getFullYear()} {PRODUCT_NAME}. All rights reserved.
           </p>
           <p className="text-xs text-muted-foreground">
             Made with ♥ for better rehabilitation outcomes

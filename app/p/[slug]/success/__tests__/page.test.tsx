@@ -77,7 +77,7 @@ describe("SuccessPage", () => {
     );
 
     expect(mockGetOrgBranding).toHaveBeenCalledWith(null);
-    expect(html).toContain("INMOTUS RX");
+    expect(html).toContain("MIA Performance");
     expect(html).not.toContain('id="org-brand"');
   });
 
@@ -110,7 +110,7 @@ describe("generateMetadata", () => {
     const metadata = await generateMetadata({ searchParams: Promise.resolve({}) });
 
     expect(mockGetPurchaseBySessionId).not.toHaveBeenCalled();
-    expect(metadata.title).toEqual({ absolute: "Payment successful | INMOTUS RX" });
+    expect(metadata.title).toEqual({ absolute: "Payment successful | MIA Performance" });
     expect("icons" in metadata).toBe(false);
   });
 

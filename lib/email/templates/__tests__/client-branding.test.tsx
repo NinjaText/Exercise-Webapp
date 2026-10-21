@@ -154,14 +154,14 @@ describe("client-facing templates carry the org brand", () => {
       expect(html).toContain("Summit PT");
       expect(html).toContain("#0f766e");
       expect(html).toContain(`src="${LOGO}"`);
-      expect(html).not.toContain("INMOTUS RX");
+      expect(html).not.toContain("MIA Performance");
       expect(html).not.toContain(c.defaultAccent);
     });
 
     it(`${c.name} keeps its current look without brand`, () => {
       const html = renderToStaticMarkup(c.el(undefined));
 
-      expect(html).toContain("INMOTUS RX");
+      expect(html).toContain("MIA Performance");
       expect(html).toContain(c.defaultAccent);
       expect(html).not.toContain("<img");
     });
