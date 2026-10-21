@@ -23,6 +23,7 @@ vi.mock('@/lib/prisma', () => ({
 
 import { generateWorkoutPlan, generateProgram } from '../ai.service'
 import type { WeekPlan } from '@/lib/ai/types/program-generation'
+import { generatedProgramSchema } from '@/lib/validators/generated-program'
 
 function ex(id: string, name: string, overrides: Record<string, unknown> = {}) {
   return {
@@ -207,6 +208,22 @@ describe('generateProgram — circuit blocks', () => {
     expect(goblet.reps).toBe('6')
     expect(lunges.sets).toBe(1)
     expect(lower.rounds).toBe(3)
+  })
+
+  it('passes save validation when the model returns null restSeconds and notes', async () => {
+    modelReturns([
+      { dayOfWeek: 0, sessionName: 'Lower A', exercises: [
+        { exerciseId: 'march', exerciseName: 'Standing March in Place', phase: 'WARMUP', circuitIndex: 0, baseSets: 1, baseReps: 20, restSeconds: null, notes: null, trainerPrescribedDosage: false },
+        { exerciseId: 'legswing', exerciseName: 'Leg Swings', phase: 'WARMUP', circuitIndex: 0, baseSets: 1, baseReps: 12, restSeconds: null, trainerPrescribedDosage: false },
+        { exerciseId: 'goblet', exerciseName: 'Goblet Squat', phase: 'STRENGTHENING', circuitIndex: 1, baseSets: 3, baseReps: 8, restSeconds: null, trainerPrescribedDosage: false },
+        { exerciseId: 'lunge', exerciseName: 'Lunges', phase: 'STRENGTHENING', circuitIndex: 1, baseSets: 3, baseReps: 10, restSeconds: null, trainerPrescribedDosage: false },
+        { exerciseId: 'bridge', exerciseName: 'Glute Bridges', phase: 'STRENGTHENING', circuitIndex: 1, baseSets: 3, baseReps: 12, restSeconds: null, trainerPrescribedDosage: false },
+        { exerciseId: 'quadstretch', exerciseName: 'Standing Quad Stretch', phase: 'COOLDOWN', circuitIndex: 2, baseSets: 1, baseDurationSeconds: 30, restSeconds: null, trainerPrescribedDosage: false },
+      ] },
+    ])
+    const program = await generateProgram({ ...baseParams, durationMinutes: 10, daysPerWeek: 1, preferredWeekdays: ['Monday'], weekPlan: [weekPlan[0]] })
+    const result = generatedProgramSchema.safeParse(program)
+    expect(result.success, result.success ? '' : result.error.issues[0].message).toBe(true)
   })
 })
 

@@ -240,13 +240,29 @@ export function mergeChunkSessions(
   let currentLabel: string | null = null;
   let seenFirst = false;
 
+  // Size of each run of sessions sharing one carried week label. A run longer
+  // than 7 means the label was stated once and carried over later weeks
+  // (e.g. "Week 1" then 26 unlabelled sessions), so it isn't a real week —
+  // split it into fixed-size weeks like the no-label fallback below.
+  const runLengths = new Map<number, number>();
+  let runStart = 0;
+  withCarriedLabel.forEach((s, i) => {
+    if (i > 0 && s.weekLabel !== withCarriedLabel[i - 1].weekLabel) runStart = i;
+    runLengths.set(runStart, (runLengths.get(runStart) ?? 0) + 1);
+  });
+  let currentRunLength = 0;
+
   withCarriedLabel.forEach((s, i) => {
     if (hasAnyWeekLabel) {
       if (!seenFirst || s.weekLabel !== currentLabel) {
         if (seenFirst) weekIndex += 1;
         currentLabel = s.weekLabel;
+        currentRunLength = runLengths.get(i) ?? 1;
         dayIndex = 0;
         seenFirst = true;
+      } else if (currentRunLength > 7 && dayIndex >= perWeek) {
+        weekIndex += 1;
+        dayIndex = 0;
       }
       sessionBlueprint.push({ dayIndex, weekIndex, title: s.title, blocks: s.blocks, sourceChunkIndex: s.sourceChunkIndex, dayLabel: s.dayLabel });
       dayIndex += 1;
