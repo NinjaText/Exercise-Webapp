@@ -2,11 +2,17 @@ import { NextResponse } from "next/server";
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { PUBLIC_ROUTES } from "@/lib/auth/public-routes";
 import { CLUB_ADMIN_COOKIE, houseCoachSessionInvalid } from "@/lib/clubs/admin-session-token";
+import { legacyHostRedirect } from "@/lib/utils/legacy-host";
 
 const isPublicRoute = createRouteMatcher([...PUBLIC_ROUTES]);
 let warnedMissingPublicMetadata = false;
 
 export default clerkMiddleware(async (auth, req) => {
+  // Old-domain links (emails already sent, bookmarks) land on the new domain,
+  // where the production Clerk instance lives.
+  const legacyTarget = legacyHostRedirect(req.nextUrl);
+  if (legacyTarget) return NextResponse.redirect(legacyTarget, 308);
+
   if (!isPublicRoute(req)) {
     await auth.protect();
   }

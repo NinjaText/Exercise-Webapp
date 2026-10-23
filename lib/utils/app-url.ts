@@ -1,4 +1,4 @@
-const DEFAULT_APP_URL = "https://app.goinmotus.com";
+const DEFAULT_APP_URL = "https://www.miaperformance.com";
 
 /**
  * The public base URL for links in emails and notifications.
