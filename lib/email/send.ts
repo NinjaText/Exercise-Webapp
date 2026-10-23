@@ -1,5 +1,6 @@
 import type * as React from "react";
 import { getResend } from "@/lib/email/resend";
+import { PRODUCT_NAME } from "@/lib/brand";
 
 const DEFAULT_FROM = "noreply@send.goinmotus.com";
 
@@ -104,8 +105,8 @@ export async function sendEmail(args: {
   unsubscribeUrl?: string;
   /**
    * Display name for the `From` header (org branding on client mail). The
-   * address stays the verified sender from `emailFrom()`. Omit to send from
-   * the bare address.
+   * address stays the verified sender from `emailFrom()`. Omit to send as the
+   * product (or as the name already in `RESEND_FROM_EMAIL`, if it has one).
    */
   fromName?: string;
   /** `Reply-To` (the org's contact email). Dropped unless a single plain address. */
@@ -128,7 +129,11 @@ export async function sendEmail(args: {
       }
     : undefined;
 
-  const from = args.fromName ? formatFromHeader(args.fromName, emailFrom()) : emailFrom();
+  // A bare address shows up in inboxes as its local part ("noreply"), so mail
+  // without an org name goes out as the product.
+  const sender = emailFrom();
+  const fromName = args.fromName || (sender.includes("<") ? undefined : PRODUCT_NAME);
+  const from = fromName ? formatFromHeader(fromName, sender) : sender;
   const replyTo = isPlainEmailAddress(args.replyTo) ? args.replyTo : undefined;
 
   try {

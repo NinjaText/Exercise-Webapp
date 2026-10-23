@@ -35,7 +35,7 @@ describe('sendEmail', () => {
 
     expect(ok).toBe(true)
     expect(sendMock).toHaveBeenCalledWith({
-      from: 'noreply@send.goinmotus.com',
+      from: '"MIA Performance" <noreply@send.goinmotus.com>',
       to: 'a@example.com',
       subject: 'Subj',
       react: el,
@@ -262,12 +262,12 @@ describe('sendEmail — branded From and Reply-To', () => {
     expect(sendMock.mock.calls[0][0].from).toBe('MIA Performance <hello@example.com>')
   })
 
-  it('sends a bare RESEND_FROM_EMAIL unchanged when there is no fromName', async () => {
+  it('names a bare RESEND_FROM_EMAIL as the product when there is no fromName', async () => {
     vi.stubEnv('RESEND_FROM_EMAIL', 'hello@example.com')
 
     await sendEmail({ to: 'a@example.com', subject: 'S', react: el })
 
-    expect(sendMock.mock.calls[0][0].from).toBe('hello@example.com')
+    expect(sendMock.mock.calls[0][0].from).toBe('"MIA Performance" <hello@example.com>')
   })
 
   it('neutralises a header-injection attempt in fromName', async () => {
@@ -290,11 +290,11 @@ describe('sendEmail — branded From and Reply-To', () => {
     expect('replyTo' in sendMock.mock.calls[0][0]).toBe(false)
   })
 
-  it('sends neither a display name nor replyTo when not asked', async () => {
+  it('sends as the product with no replyTo when not asked', async () => {
     await sendEmail({ to: 'a@example.com', subject: 'S', react: el })
 
     const call = sendMock.mock.calls[0][0]
-    expect(call.from).toBe('noreply@send.goinmotus.com')
+    expect(call.from).toBe('"MIA Performance" <noreply@send.goinmotus.com>')
     expect('replyTo' in call).toBe(false)
   })
 
