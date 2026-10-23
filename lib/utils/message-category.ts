@@ -4,7 +4,7 @@
  * `InboxThreadPreview.lastItemIsVoiceNote`); `getMessageCategory` never
  * returns it.
  */
-export type MessageCategory = "message" | "workout" | "exercise" | "voice_note";
+export type MessageCategory = "message" | "workout" | "exercise" | "reflection" | "voice_note";
 
 /**
  * Derives an Inbox category badge from fields already on a Message row —
@@ -13,7 +13,10 @@ export type MessageCategory = "message" | "workout" | "exercise" | "voice_note";
 export function getMessageCategory(message: {
   replyToExerciseName?: string | null;
   planId?: string | null;
+  contextKind?: string | null;
 }): Exclude<MessageCategory, "voice_note"> {
+  if (message.contextKind === "REFLECTION") return "reflection";
+  if (message.contextKind === "WORKOUT_FEEDBACK") return "workout";
   if (message.replyToExerciseName) return "exercise";
   if (message.planId) return "workout";
   return "message";
@@ -23,5 +26,6 @@ export const MESSAGE_CATEGORY_LABEL: Record<MessageCategory, string> = {
   message: "Message",
   workout: "Workout",
   exercise: "Exercise",
+  reflection: "Reflection",
   voice_note: "Voice Note",
 };

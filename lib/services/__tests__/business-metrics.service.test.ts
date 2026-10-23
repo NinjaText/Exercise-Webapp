@@ -6,11 +6,12 @@ vi.mock('@/lib/prisma', () => ({
       findMany: vi.fn(),
       count: vi.fn(),
     },
-    invoice: {
+    offerPurchase: {
       aggregate: vi.fn(),
-    },
-    clientSubscription: {
       count: vi.fn(),
+    },
+    offerSubscription: {
+      findMany: vi.fn(),
     },
     workoutSessionV2: {
       findMany: vi.fn(),
@@ -31,8 +32,9 @@ import {
 
 const mockUserFindMany = vi.mocked(prisma.user.findMany)
 const mockUserCount = vi.mocked(prisma.user.count)
-const mockInvoiceAggregate = vi.mocked(prisma.invoice.aggregate)
-const mockSubscriptionCount = vi.mocked(prisma.clientSubscription.count)
+const mockPurchaseAggregate = vi.mocked(prisma.offerPurchase.aggregate)
+const mockPurchaseCount = vi.mocked(prisma.offerPurchase.count)
+const mockSubscriptionFindMany = vi.mocked(prisma.offerSubscription.findMany)
 const mockSessionFindMany = vi.mocked(prisma.workoutSessionV2.findMany)
 
 // A fixed reference point so month math is deterministic across CI/local runs.
@@ -72,29 +74,43 @@ describe('getRevenueCents', () => {
   it('returns 0 without querying when there are no trainers', async () => {
     const result = await getRevenueCents([], NOW, NOW)
     expect(result).toBe(0)
-    expect(mockInvoiceAggregate).not.toHaveBeenCalled()
+    expect(mockPurchaseAggregate).not.toHaveBeenCalled()
+    expect(mockSubscriptionFindMany).not.toHaveBeenCalled()
   })
 
-  it('sums paid invoice amounts for the org trainers within the window', async () => {
-    mockInvoiceAggregate.mockResolvedValue({ _sum: { amountInCents: 12500 } } as never)
+  it('adds paid program sales to one monthly charge per billing membership', async () => {
+    mockPurchaseAggregate.mockResolvedValue({ _sum: { amountInCents: 12500 } } as never)
+    mockSubscriptionFindMany.mockResolvedValue([
+      { offer: { priceInCents: 9900 } },
+      { offer: { priceInCents: 4900 } },
+    ] as never)
     const start = new Date('2026-07-01')
     const end = new Date('2026-07-31')
 
     const result = await getRevenueCents(['t1', 't2'], start, end)
 
-    expect(result).toBe(12500)
-    expect(mockInvoiceAggregate).toHaveBeenCalledWith({
+    expect(result).toBe(12500 + 9900 + 4900)
+    expect(mockPurchaseAggregate).toHaveBeenCalledWith({
       _sum: { amountInCents: true },
       where: {
+        trainerId: { in: ['t1', 't2'] },
         status: 'PAID',
         paidAt: { gte: start, lte: end },
-        subscription: { trainerId: { in: ['t1', 't2'] } },
       },
+    })
+    expect(mockSubscriptionFindMany).toHaveBeenCalledWith({
+      where: {
+        trainerId: { in: ['t1', 't2'] },
+        activatedAt: { lte: end },
+        OR: [{ status: 'ACTIVE' }, { status: 'CANCELED', canceledAt: { gte: start } }],
+      },
+      select: { offer: { select: { priceInCents: true } } },
     })
   })
 
-  it('treats a null aggregate sum (no invoices) as 0', async () => {
-    mockInvoiceAggregate.mockResolvedValue({ _sum: { amountInCents: null } } as never)
+  it('treats no sales and no memberships as 0', async () => {
+    mockPurchaseAggregate.mockResolvedValue({ _sum: { amountInCents: null } } as never)
+    mockSubscriptionFindMany.mockResolvedValue([] as never)
     const result = await getRevenueCents(['t1'], NOW, NOW)
     expect(result).toBe(0)
   })
@@ -104,19 +120,19 @@ describe('getProgramsSold', () => {
   it('returns 0 without querying when there are no trainers', async () => {
     const result = await getProgramsSold([], NOW, NOW)
     expect(result).toBe(0)
-    expect(mockSubscriptionCount).not.toHaveBeenCalled()
+    expect(mockPurchaseCount).not.toHaveBeenCalled()
   })
 
-  it('counts client subscriptions started in the window for the org trainers', async () => {
-    mockSubscriptionCount.mockResolvedValue(3 as never)
+  it('counts paid program purchases in the window for the org trainers', async () => {
+    mockPurchaseCount.mockResolvedValue(3 as never)
     const start = new Date('2026-07-01')
     const end = new Date('2026-07-31')
 
     const result = await getProgramsSold(['t1'], start, end)
 
     expect(result).toBe(3)
-    expect(mockSubscriptionCount).toHaveBeenCalledWith({
-      where: { trainerId: { in: ['t1'] }, createdAt: { gte: start, lte: end } },
+    expect(mockPurchaseCount).toHaveBeenCalledWith({
+      where: { trainerId: { in: ['t1'] }, status: 'PAID', paidAt: { gte: start, lte: end } },
     })
   })
 })
@@ -198,8 +214,9 @@ describe('getBusinessMetrics', () => {
       .mockResolvedValueOnce([{ id: 'c1' }, { id: 'c2' }] as never) // clients
       .mockResolvedValueOnce([{ id: 't1' }] as never) // trainers
     mockUserCount.mockResolvedValue(4 as never)
-    mockInvoiceAggregate.mockResolvedValue({ _sum: { amountInCents: 9900 } } as never)
-    mockSubscriptionCount.mockResolvedValue(2 as never)
+    mockPurchaseAggregate.mockResolvedValue({ _sum: { amountInCents: 9900 } } as never)
+    mockSubscriptionFindMany.mockResolvedValue([] as never)
+    mockPurchaseCount.mockResolvedValue(2 as never)
     mockSessionFindMany.mockResolvedValue([] as never)
 
     const result = await getBusinessMetrics({ orgId: 'org_1', months: 3, now: NOW })

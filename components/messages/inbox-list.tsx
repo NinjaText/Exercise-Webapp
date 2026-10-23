@@ -42,6 +42,7 @@ interface Thread {
     deletedAt?: Date | null;
     replyToExerciseName?: string | null;
     planId?: string | null;
+    contextKind?: string | null;
     isInternal?: boolean | null;
   };
   unreadCount: number;

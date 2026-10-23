@@ -42,7 +42,9 @@ import {
   createProgramSchema,
   updateProgramSchema,
   assignProgramSchema,
+  getFollowAlongWorkoutIssues,
 } from "@/lib/validators/program";
+import { isFollowAlongProgram } from "@/lib/utils/follow-along";
 import type {
   CreateProgramInput,
   UpdateProgramInput,
@@ -267,6 +269,7 @@ export async function updateProgramAction(
       clientId: true,
       startDate: true,
       schedulingType: true,
+      contentFormat: true,
     },
   });
   if (!program || program.trainerId !== user.id) {
@@ -276,6 +279,14 @@ export async function updateProgramAction(
   const parsed = updateProgramSchema.safeParse(input);
   if (!parsed.success) {
     return { success: false as const, error: parsed.error.issues[0].message };
+  }
+
+  // The schema only enforces follow-along rules when the payload says
+  // FOLLOW_ALONG; a stored follow-along program edited without contentFormat
+  // (e.g. a workouts-only update) must still keep every day a video.
+  if (isFollowAlongProgram(program) && parsed.data.contentFormat === undefined && parsed.data.workouts) {
+    const [issue] = getFollowAlongWorkoutIssues(parsed.data.workouts);
+    if (issue) return { success: false as const, error: issue.message };
   }
 
   // A client's Scheduled program is dated from its start date — without one
@@ -289,7 +300,12 @@ export async function updateProgramAction(
   }
 
   try {
-    const updated = await programService.updateProgram(programId, parsed.data);
+    // Follow-along days are edited in place so a client's completed sessions
+    // (ratings, comments) survive; normal programs keep the rebuild path.
+    const keepsFollowAlong = isFollowAlongProgram(program) && parsed.data.contentFormat !== null;
+    const updated = keepsFollowAlong
+      ? await programService.updateFollowAlongProgram(programId, parsed.data)
+      : await programService.updateProgram(programId, parsed.data);
     if (program.clientId) {
       await programService.syncClientProgramSessions(programId);
       revalidatePath(`/clients/${program.clientId}`);

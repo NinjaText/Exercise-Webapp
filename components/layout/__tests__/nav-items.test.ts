@@ -10,16 +10,16 @@ import {
 } from "../nav-items";
 
 describe("getTabLayout", () => {
-  it("gives clients five tabs and nothing under More", () => {
+  it("gives clients five tabs plus Journal and Store under More", () => {
     const { tabs, more } = getTabLayout("CLIENT");
     expect(tabs.map((t) => t.href)).toEqual(["/dashboard", "/programs", "/calendar", "/nutrition", "/messages"]);
-    expect(more).toEqual([]);
+    expect(more.map((m) => m.href)).toEqual(["/journal", "/store"]);
   });
 
   it("gives trainers four tabs plus the rest under More", () => {
     const { tabs, more } = getTabLayout("TRAINER");
     expect(tabs.map((t) => t.href)).toEqual(["/dashboard", "/clients", "/programs", "/messages"]);
-    expect(more.map((m) => m.href)).toEqual(["/exercises", "/nutrition", "/analytics"]);
+    expect(more.map((m) => m.href)).toEqual(["/exercises", "/nutrition", "/reflections", "/payments", "/analytics"]);
   });
 
   it("uses tabLabel when the sidebar label is too long", () => {

@@ -120,6 +120,8 @@ export async function getSessionsForClient(
         select: {
           id: true,
           name: true,
+          videoUrl: true,
+          videoDurationSec: true,
           program: { select: { trainerId: true } },
           blocks: {
             select: {
@@ -184,6 +186,10 @@ export async function getClientCalendarSessions(
           dayIndex: true,
           weekIndex: true,
           estimatedMinutes: true,
+          // Follow-along days show "Follow-along · N min" instead of "0 exercises".
+          videoUrl: true,
+          videoDurationSec: true,
+          program: { select: { contentFormat: true } },
           blocks: {
             select: { exercises: { select: { id: true } } },
           },

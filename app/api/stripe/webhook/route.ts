@@ -48,6 +48,14 @@ export async function POST(req: Request) {
     });
   }
 
+  // Events on a trainer's connected account (trainer payments) belong to
+  // /api/stripe/connect/webhook. This endpoint only handles MIA's own
+  // billing, so it must never claim a connected-account object even if the
+  // endpoints are ever misconfigured in the Stripe dashboard.
+  if (event.account) {
+    return NextResponse.json({ received: true, ignored: "connect_event" });
+  }
+
   try {
     switch (event.type) {
       case "checkout.session.completed": {

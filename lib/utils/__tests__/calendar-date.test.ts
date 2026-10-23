@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { toLocalCalendarDate, toUtcCalendarDate } from "../calendar-date";
+import { toLocalCalendarDate, toUtcCalendarDate, utcToday } from "../calendar-date";
 
 describe("toLocalCalendarDate", () => {
   it("maps a UTC-midnight-anchored date to the same calendar day locally", () => {
@@ -17,5 +17,12 @@ describe("toLocalCalendarDate", () => {
     const droppedLocal = new Date(2026, 8, 20, 0, 0, 0);
     const roundTripped = toUtcCalendarDate(droppedLocal);
     expect(roundTripped.getUTCDate()).toBe(20);
+  });
+});
+
+describe("utcToday", () => {
+  it("anchors any time of day to that UTC calendar day's midnight", () => {
+    expect(utcToday(new Date("2026-10-23T18:54:06.353Z")).toISOString()).toBe("2026-10-23T00:00:00.000Z");
+    expect(utcToday(new Date("2026-10-23T00:00:00.000Z")).toISOString()).toBe("2026-10-23T00:00:00.000Z");
   });
 });

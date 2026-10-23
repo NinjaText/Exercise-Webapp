@@ -472,6 +472,7 @@ function MessageBubble({
   const canEdit = isOwn && !isDeleted && !isVoice;
   const canDelete = isOwn && !isDeleted;
   const hasQuote = !!message.replyToExerciseName && !!message.replyToNoteExcerpt;
+  const hasContext = !hasQuote && !!message.contextTitle;
 
   function startEditing() {
     setDraft(message.content);
@@ -543,6 +544,16 @@ function MessageBubble({
               {message.replyToExerciseName}
             </p>
             <p className="italic text-muted-foreground/80">{message.replyToNoteExcerpt}</p>
+          </div>
+        )}
+
+        {/* Shared reflection / follow-along check-in this message came from */}
+        {hasContext && !isDeleted && (
+          <div className="mb-1 rounded border-l-2 border-primary/40 bg-muted/40 px-2 py-1 text-left text-xs">
+            <p className="font-semibold text-muted-foreground">{message.contextTitle}</p>
+            {message.contextExcerpt && (
+              <p className="italic text-muted-foreground/80">{message.contextExcerpt}</p>
+            )}
           </div>
         )}
 

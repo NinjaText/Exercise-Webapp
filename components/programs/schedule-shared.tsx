@@ -2,6 +2,8 @@ import { Badge } from "@/components/ui/badge";
 import { Clock, Play, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { hasRealVideoUrl } from "@/lib/utils/video";
+import { isVideoWorkout, formatDuration } from "@/lib/utils/follow-along";
+import { UniversalVideoPlayer } from "@/components/exercises/universal-video-player";
 
 export interface ExerciseSet {
   id: string;
@@ -46,6 +48,10 @@ export interface WorkoutData {
   dayIndex: number;
   weekIndex: number;
   estimatedMinutes?: number | null;
+  /** Follow-along video day: zero blocks, played start to finish. */
+  videoUrl?: string | null;
+  videoDurationSec?: number | null;
+  description?: string | null;
   blocks: WorkoutBlock[];
 }
 
@@ -115,8 +121,21 @@ export function castWorkout(raw: Record<string, unknown>): WorkoutData {
     dayIndex: (raw.dayIndex as number) || 0,
     weekIndex: (raw.weekIndex as number) || 0,
     estimatedMinutes: raw.estimatedMinutes as number | null,
+    videoUrl: (raw.videoUrl as string | null | undefined) ?? null,
+    videoDurationSec: (raw.videoDurationSec as number | null | undefined) ?? null,
+    description: (raw.description as string | null | undefined) ?? null,
     blocks,
   };
+}
+
+/** "Video · 15 min" for a follow-along day, otherwise "6 exercises" — never "0 exercises" for a video. */
+export function formatWorkoutContentLabel(workout: WorkoutData): string {
+  if (isVideoWorkout(workout)) {
+    const duration = formatDuration(workout.videoDurationSec);
+    return duration ? `Video · ${duration}` : "Video";
+  }
+  const count = workout.blocks.reduce((sum, b) => sum + b.exercises.length, 0);
+  return `${count} exercise${count !== 1 ? "s" : ""}`;
 }
 
 export function castSession(raw: Record<string, unknown>): SessionData {
@@ -151,10 +170,6 @@ export function ReadOnlyPanel({
   workout: WorkoutData;
   status?: string;
 }) {
-  const totalExercises = workout.blocks.reduce(
-    (s, b) => s + b.exercises.length,
-    0
-  );
   const statusCfg = status ? (STATUS_CONFIG[status] ?? STATUS_CONFIG.SCHEDULED) : null;
 
   return (
@@ -169,7 +184,7 @@ export function ReadOnlyPanel({
             </span>
           )}
           <span className="text-xs text-muted-foreground">
-            {totalExercises} exercise{totalExercises !== 1 ? "s" : ""}
+            {formatWorkoutContentLabel(workout)}
           </span>
           {statusCfg && (
             <span className="inline-flex items-center gap-1 rounded border border-border bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
@@ -182,6 +197,14 @@ export function ReadOnlyPanel({
 
       <div className="flex-1 min-h-0 max-h-[60vh] overflow-y-auto">
         <div className="p-3 space-y-4">
+          {isVideoWorkout(workout) && workout.videoUrl && (
+            <div className="space-y-2">
+              <UniversalVideoPlayer url={workout.videoUrl} />
+              {workout.description && (
+                <p className="whitespace-pre-line text-xs text-muted-foreground">{workout.description}</p>
+              )}
+            </div>
+          )}
           {workout.blocks.map((block) => (
             <div key={block.id}>
               <div className="flex items-center gap-1.5 mb-2">

@@ -204,6 +204,7 @@ export interface InboxThreadPreview {
     deletedAt: Date | null;
     replyToExerciseName: string | null;
     planId: string | null;
+    contextKind: string | null;
     isInternal: boolean | null;
   };
   unreadCount: number;
@@ -301,6 +302,7 @@ function voiceNotePreview(
     deletedAt: null,
     replyToExerciseName: null,
     planId: null,
+    contextKind: null,
     isInternal: false,
   };
 }
@@ -328,6 +330,7 @@ export async function getInboxThreadsWithVoiceNotes(
       deletedAt: thread.lastMessage.deletedAt,
       replyToExerciseName: thread.lastMessage.replyToExerciseName,
       planId: thread.lastMessage.planId,
+      contextKind: thread.lastMessage.contextKind,
       isInternal: thread.lastMessage.isInternal,
     },
     unreadCount: thread.unreadCount,

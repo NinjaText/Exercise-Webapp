@@ -15,6 +15,7 @@ import {
   formatDayLabel,
   formatWorkoutMetaLine,
 } from "@/lib/utils/workout-format";
+import { isVideoWorkout } from "@/lib/utils/follow-along";
 import { ClientSessionCalendar } from "./client-session-calendar";
 
 export interface ClientCalendarSessionItem {
@@ -26,6 +27,9 @@ export interface ClientCalendarSessionItem {
     dayIndex?: number | null;
     weekIndex?: number | null;
     estimatedMinutes?: number | null;
+    videoUrl?: string | null;
+    videoDurationSec?: number | null;
+    program?: { contentFormat?: string | null } | null;
     blocks: { exercises: { id: string }[] }[];
   } | null;
 }
@@ -92,7 +96,8 @@ export function ClientCalendarView({ sessions }: { sessions: ClientCalendarSessi
                   <p className="mt-1 text-body text-muted-foreground">
                     {formatWorkoutMetaLine(
                       selectedSession.workout?.estimatedMinutes,
-                      countExercises(selectedSession.workout)
+                      countExercises(selectedSession.workout),
+                      selectedSession.workout
                     )}
                   </p>
                 </div>
@@ -100,7 +105,7 @@ export function ClientCalendarView({ sessions }: { sessions: ClientCalendarSessi
                   <Button size="lg" className="h-11 shrink-0 sm:h-10" asChild>
                     <Link href={`/sessions/${selectedSession.id}`}>
                       <Play className="mr-2 size-4 fill-current" />
-                      Start Workout
+                      {isVideoWorkout(selectedSession.workout) ? "Start session" : "Start Workout"}
                     </Link>
                   </Button>
                 ) : (

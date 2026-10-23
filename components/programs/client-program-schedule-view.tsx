@@ -12,6 +12,7 @@ import {
   castSession,
   STATUS_CONFIG,
   ReadOnlyPanel,
+  formatWorkoutContentLabel,
   type SessionData,
 } from "./schedule-shared";
 
@@ -84,9 +85,6 @@ export function ClientProgramScheduleView({ rawSessions }: Props) {
           const session = sessionsByDay.get(key);
           const statusCfg = session ? STATUS_CONFIG[session.status] ?? STATUS_CONFIG.SCHEDULED : null;
           const dotClass = session ? ROLE_CLASSES[statusRole(session.status)].dot : null;
-          const exerciseCount = session
-            ? session.workout.blocks.reduce((sum, b) => sum + b.exercises.length, 0)
-            : 0;
           const today = isToday(day);
 
           return (
@@ -124,7 +122,7 @@ export function ClientProgramScheduleView({ rawSessions }: Props) {
                         </span>
                       )}
                       <span>
-                        {exerciseCount} exercise{exerciseCount !== 1 ? "s" : ""}
+                        {formatWorkoutContentLabel(session.workout)}
                       </span>
                       <span className="font-medium">{statusCfg!.label}</span>
                     </div>
@@ -149,9 +147,6 @@ export function ClientProgramScheduleView({ rawSessions }: Props) {
             const session = sessionsByDay.get(key);
             const statusCfg = session ? STATUS_CONFIG[session.status] ?? STATUS_CONFIG.SCHEDULED : null;
             const dotClass = session ? ROLE_CLASSES[statusRole(session.status)].dot : null;
-            const exerciseCount = session
-              ? session.workout.blocks.reduce((sum, b) => sum + b.exercises.length, 0)
-              : 0;
             const today = isToday(day);
 
             return (
@@ -188,7 +183,7 @@ export function ClientProgramScheduleView({ rawSessions }: Props) {
                         </span>
                       )}
                       <span>
-                        {exerciseCount} exercise{exerciseCount !== 1 ? "s" : ""}
+                        {formatWorkoutContentLabel(session.workout)}
                       </span>
                       <span className="font-medium">{statusCfg!.label}</span>
                     </div>

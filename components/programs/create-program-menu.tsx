@@ -8,7 +8,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Pencil, Sparkles, Upload, Library } from "lucide-react";
+import { Pencil, Sparkles, Upload, Library, PlayCircle } from "lucide-react";
 
 interface CreateProgramMenuProps {
   /** Pre-select a client in the "Generate with AI" flow, e.g. from a client-specific alert. */
@@ -26,6 +26,7 @@ export function CreateProgramMenu({ clientId, onUseTemplate, trigger, children }
   const generateHref = clientId ? `/programs/generate?clientId=${clientId}` : "/programs/generate";
   const newHref = clientId ? `/programs/new?clientId=${clientId}` : "/programs/new";
   const uploadHref = clientId ? `/programs/upload?clientId=${clientId}` : "/programs/upload";
+  const followAlongHref = clientId ? `/programs/new/follow-along?clientId=${clientId}` : "/programs/new/follow-along";
 
   return (
     <DropdownMenu>
@@ -42,6 +43,10 @@ export function CreateProgramMenu({ clientId, onUseTemplate, trigger, children }
         <DropdownMenuItem onClick={() => router.push(uploadHref)}>
           <Upload className="mr-2 h-4 w-4 text-success" />
           Upload a program/document
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => router.push(followAlongHref)}>
+          <PlayCircle className="mr-2 h-4 w-4 text-info" />
+          Follow-along videos
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => (onUseTemplate ? onUseTemplate() : router.push("/programs?tab=templates"))}>
           <Library className="mr-2 h-4 w-4 text-muted-foreground" />

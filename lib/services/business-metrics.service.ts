@@ -105,33 +105,46 @@ export async function getNewClientsTrend(orgId: string, months = DEFAULT_TREND_M
 }
 
 /**
- * Sum of paid invoice amounts (in cents) for the given trainers within [start, end].
- *
- * Sourced from the `Invoice` table (client→trainer payments). Returns 0 when the
- * table has no matching rows — which is the current real state until a
- * client-billing pipeline populates it.
+ * Client revenue (in cents) for the given trainers within [start, end], from
+ * trainer payments (Stripe Connect):
+ * - one-time program sales: OfferPurchase rows PAID within the window
+ *   (refunded sales drop out because their status leaves PAID);
+ * - coaching memberships: one monthly charge for every membership that was
+ *   activated (ever paid) by the window's end and was still billing during
+ *   it (ACTIVE, or CANCELED within it), at the
+ *   offer's current price. MIA stores no per-invoice rows, so this is an
+ *   estimate — exact for monthly windows unless a price changed mid-way.
  */
 export async function getRevenueCents(trainerIds: string[], start: Date, end: Date): Promise<number> {
   if (trainerIds.length === 0) return 0;
-  const result = await prisma.invoice.aggregate({
-    _sum: { amountInCents: true },
-    where: {
-      status: "PAID",
-      paidAt: { gte: start, lte: end },
-      subscription: { trainerId: { in: trainerIds } },
-    },
-  });
-  return result._sum.amountInCents ?? 0;
+  const [sales, memberships] = await Promise.all([
+    prisma.offerPurchase.aggregate({
+      _sum: { amountInCents: true },
+      where: {
+        trainerId: { in: trainerIds },
+        status: "PAID",
+        paidAt: { gte: start, lte: end },
+      },
+    }),
+    prisma.offerSubscription.findMany({
+      where: {
+        trainerId: { in: trainerIds },
+        // Checkouts that never paid (incomplete → incomplete_expired) have no activatedAt.
+        activatedAt: { lte: end },
+        OR: [{ status: "ACTIVE" }, { status: "CANCELED", canceledAt: { gte: start } }],
+      },
+      select: { offer: { select: { priceInCents: true } } },
+    }),
+  ]);
+  const membershipCents = memberships.reduce((sum, m) => sum + m.offer.priceInCents, 0);
+  return (sales._sum.amountInCents ?? 0) + membershipCents;
 }
 
-/**
- * Count of client package subscriptions started within [start, end] for the org's
- * trainers. Sourced from the `ClientSubscription` table; 0 until billing data exists.
- */
+/** Programs sold (paid, not refunded) within [start, end] by the org's trainers. */
 export async function getProgramsSold(trainerIds: string[], start: Date, end: Date): Promise<number> {
   if (trainerIds.length === 0) return 0;
-  return prisma.clientSubscription.count({
-    where: { trainerId: { in: trainerIds }, createdAt: { gte: start, lte: end } },
+  return prisma.offerPurchase.count({
+    where: { trainerId: { in: trainerIds }, status: "PAID", paidAt: { gte: start, lte: end } },
   });
 }
 

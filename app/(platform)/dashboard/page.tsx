@@ -13,6 +13,7 @@ import { getTrainerCoachingRequests } from "@/lib/clubs/trainer-coaching";
 import { getDashboardInsights } from "@/lib/services/dashboard-insights.service";
 import { computeCurrentStreak } from "@/lib/utils/streak";
 import { getProgramSchedulingType } from "@/lib/utils/program-scheduling";
+import { getTodaysReflectionCardData } from "@/lib/reflections/todays-reflection-card-data";
 import type { TrainerMessagePreview } from "@/components/dashboard/trainer-message-banner";
 import type { QuickResourceItem } from "@/components/dashboard/quick-resources-list";
 import { startOfWeek, endOfWeek, startOfDay } from "date-fns";
@@ -104,6 +105,8 @@ export default async function DashboardPage() {
     getCapabilitiesForUser(user),
     getCoachingViewModel(user),
   ]);
+  // Started now, awaited at render: runs alongside the queries below. Never throws.
+  const todaysReflectionPromise = getTodaysReflectionCardData(user, { messaging: showInbox, day: now });
 
   const [
     calendarSessions,
@@ -191,6 +194,7 @@ export default async function DashboardPage() {
         inboxThreads={inboxThreads}
         showInbox={showInbox}
         coaching={coaching}
+        todaysReflection={await todaysReflectionPromise}
       />
     </PageShell>
   );

@@ -25,6 +25,7 @@ import {
 } from "@/lib/org-capabilities.server";
 import { MESSAGING_UNAVAILABLE } from "@/lib/org-capabilities";
 import { getActingAdminFor } from "@/lib/clubs/acting-admin-for";
+import * as journalService from "@/lib/services/journal.service";
 
 const MESSAGE_PREVIEW_MAX_LENGTH = 200;
 
@@ -73,6 +74,9 @@ export async function broadcastNewMessage(message: DeliveredMessage) {
     deletedAt: message.deletedAt?.toISOString() ?? null,
     replyToExerciseName: message.replyToExerciseName,
     replyToNoteExcerpt: message.replyToNoteExcerpt,
+    contextKind: message.contextKind,
+    contextTitle: message.contextTitle,
+    contextExcerpt: message.contextExcerpt,
     sender: {
       firstName: message.sender.firstName,
       lastName: message.sender.lastName,
@@ -216,6 +220,9 @@ export async function editMessageAction(messageId: string, newContent: string) {
       dbUser.id,
       parsed.data.content,
     );
+    // A shared reflection's journal entry mirrors the edited text, so the
+    // trainer's Reflections views never show the old version.
+    await journalService.syncEntryBodyFromEditedMessage(message);
 
     broadcastMessageUpdate(message);
 
@@ -239,6 +246,10 @@ export async function deleteMessageAction(messageId: string) {
 
   try {
     const message = await messageService.deleteMessage(messageId, dbUser.id);
+    // Deleting a shared reflection withdraws the entry from the trainer (it
+    // goes back to PRIVATE). If this fails the action fails, and a retry is
+    // safe: deleteMessage returns the already-deleted row and this re-runs.
+    await journalService.unshareEntryForDeletedMessage(message);
 
     broadcastMessageUpdate(message);
 

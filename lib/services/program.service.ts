@@ -12,6 +12,7 @@ export {
 } from "@/lib/utils/program-scheduling";
 import { getProgramSchedulingType } from "@/lib/utils/program-scheduling";
 import { nullOrUnset } from "@/lib/db/mongo-null";
+import { isFollowAlongProgram, FOLLOW_ALONG_CONTENT_FORMAT } from "@/lib/utils/follow-along";
 
 export function computeDurationWeeksFromWorkouts(
   workouts: { weekIndex: number }[]
@@ -98,6 +99,8 @@ async function insertWorkoutTree(programId: string, workouts: CreateProgramInput
       weekIndex: w.weekIndex,
       orderIndex: w.orderIndex,
       estimatedMinutes: w.estimatedMinutes,
+      videoUrl: w.videoUrl ?? null,
+      videoDurationSec: w.videoDurationSec ?? null,
     });
     for (const b of w.blocks) {
       const blockId = newObjectId();
@@ -256,6 +259,9 @@ export interface ProgramNextSession {
   scheduledDate: Date;
   estimatedMinutes: number | null;
   exerciseCount: number;
+  /** Set for follow-along video days — the card shows "Follow-along · N min" instead of an exercise count. */
+  videoUrl?: string | null;
+  videoDurationSec?: number | null;
 }
 
 export interface ProgramProgress {
@@ -289,6 +295,8 @@ export async function getProgramProgressMap(
           programId: true,
           name: true,
           estimatedMinutes: true,
+          videoUrl: true,
+          videoDurationSec: true,
           blocks: { select: { exercises: { select: { id: true } } } },
         },
       },
@@ -319,6 +327,8 @@ export async function getProgramProgressMap(
         scheduledDate: session.scheduledDate,
         estimatedMinutes: session.workout.estimatedMinutes,
         exerciseCount: session.workout.blocks.reduce((n, b) => n + b.exercises.length, 0),
+        videoUrl: session.workout.videoUrl ?? null,
+        videoDurationSec: session.workout.videoDurationSec ?? null,
       };
     }
   }
@@ -357,6 +367,74 @@ export async function updateProgram(
   const full = await prisma.program.findUnique({ where: { id }, include: programDetailInclude });
   if (!full) throw new Error("Program not found immediately after update");
   return full;
+}
+
+/**
+ * Follow-along save that edits workouts IN PLACE instead of updateProgram's
+ * delete-and-rebuild. Rebuilding cascades away every WorkoutSessionV2 of the
+ * program — for a client's follow-along that's their completed days, ratings
+ * and comments. Here a day that comes back with its Workout id is updated
+ * (only if something changed), a day without one is created, and only days
+ * that disappeared are deleted (taking just their sessions with them). The
+ * caller still runs syncClientProgramSessions afterwards.
+ */
+export async function updateFollowAlongProgram(
+  id: string,
+  data: Partial<CreateProgramInput> & { status?: string }
+) {
+  const { workouts, ...rest } = data;
+  if (workouts) {
+    const existing = await prisma.workout.findMany({
+      where: { programId: id },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        dayIndex: true,
+        weekIndex: true,
+        orderIndex: true,
+        estimatedMinutes: true,
+        videoUrl: true,
+        videoDurationSec: true,
+      },
+    });
+    const existingById = new Map(existing.map((w) => [w.id, w]));
+    const claimedIds = new Set<string>();
+    const toCreate: CreateProgramInput["workouts"] = [];
+    const toUpdate: { id: string; data: Prisma.WorkoutUpdateInput }[] = [];
+
+    for (const w of workouts) {
+      const current = w.id ? existingById.get(w.id) : undefined;
+      // Unknown or repeated ids (another program's row, a stale tab) become new rows.
+      if (!current || claimedIds.has(current.id)) {
+        toCreate.push({ ...w, id: undefined });
+        continue;
+      }
+      claimedIds.add(current.id);
+      const next = {
+        name: w.name,
+        description: w.description ?? null,
+        dayIndex: w.dayIndex,
+        weekIndex: w.weekIndex,
+        orderIndex: w.orderIndex,
+        estimatedMinutes: w.estimatedMinutes ?? null,
+        videoUrl: w.videoUrl ?? null,
+        videoDurationSec: w.videoDurationSec ?? null,
+      };
+      const changed = (Object.keys(next) as (keyof typeof next)[]).some((k) => (current[k] ?? null) !== next[k]);
+      if (changed) toUpdate.push({ id: current.id, data: next });
+    }
+
+    const removedIds = existing.filter((w) => !claimedIds.has(w.id)).map((w) => w.id);
+    if (removedIds.length) {
+      await prisma.workout.deleteMany({ where: { programId: id, id: { in: removedIds } } });
+    }
+    await Promise.all(toUpdate.map((u) => prisma.workout.update({ where: { id: u.id }, data: u.data })));
+    if (toCreate.length) await insertWorkoutTree(id, toCreate);
+  }
+
+  // Program-level fields (and the detail read-back) — no workouts, so no rebuild.
+  return updateProgram(id, rest);
 }
 
 export async function deleteProgram(id: string) {
@@ -426,6 +504,10 @@ function mapWorkoutsForCopy(workouts: ProgramWithDetails["workouts"]) {
     weekIndex: w.weekIndex,
     orderIndex: wi,
     estimatedMinutes: w.estimatedMinutes,
+    // Follow-along days are zero-block video workouts — dropping these would
+    // turn every copied/assigned video day into an empty workout.
+    videoUrl: w.videoUrl,
+    videoDurationSec: w.videoDurationSec,
     blocks: w.blocks.map((b, bi) => ({
       name: b.name,
       type: b.type as "NORMAL" | "WARMUP" | "COOLDOWN" | "SUPERSET" | "CIRCUIT" | "AMRAP" | "EMOM",
@@ -481,6 +563,9 @@ export async function duplicateProgram(
     // On-Demand template (which assigns a clone) would silently produce a
     // Scheduled program.
     schedulingType: getProgramSchedulingType(source),
+    // A follow-along template must stay follow-along when assigned (assign
+    // clones the template), or the client gets exercise-less workouts.
+    contentFormat: isFollowAlongProgram(source) ? FOLLOW_ALONG_CONTENT_FORMAT : null,
     durationWeeks: source.durationWeeks,
     daysPerWeek: source.daysPerWeek,
     tags: source.tags,
@@ -521,6 +606,7 @@ export async function syncProgramToTemplate(id: string, trainerId: string) {
     workouts: mapWorkoutsForCopy(source.workouts),
     durationWeeks: source.durationWeeks,
     daysPerWeek: source.daysPerWeek,
+    contentFormat: isFollowAlongProgram(source) ? FOLLOW_ALONG_CONTENT_FORMAT : null,
   });
 }
 
@@ -756,6 +842,8 @@ export async function createGlobalProgram(data: CreateProgramInput) {
           weekIndex: w.weekIndex,
           orderIndex: w.orderIndex,
           estimatedMinutes: w.estimatedMinutes,
+          videoUrl: w.videoUrl ?? null,
+          videoDurationSec: w.videoDurationSec ?? null,
           blocks: {
             create: w.blocks.map((b) => ({
               name: b.name,
@@ -822,6 +910,8 @@ export async function updateGlobalProgram(
             weekIndex: w.weekIndex,
             orderIndex: w.orderIndex,
             estimatedMinutes: w.estimatedMinutes,
+            videoUrl: w.videoUrl ?? null,
+            videoDurationSec: w.videoDurationSec ?? null,
             blocks: {
               create: w.blocks.map((b) => ({
                 name: b.name,

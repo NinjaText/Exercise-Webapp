@@ -26,11 +26,16 @@ import {
   formatDayLabel,
   formatWorkoutMetaLine,
 } from "@/lib/utils/workout-format";
+import { isVideoWorkout } from "@/lib/utils/follow-along";
 import { TrainerMessageBanner, type TrainerMessagePreview } from "./trainer-message-banner";
 import { WeekStrip } from "./week-strip";
 import { QuickResourcesList, type QuickResourceItem } from "./quick-resources-list";
 import { DashboardInboxCard } from "@/components/dashboard/dashboard-inbox-card";
 import { CoachingCard } from "@/components/dashboard/coaching-card";
+import {
+  TodaysReflectionCard,
+  type TodaysReflectionCardData,
+} from "@/components/dashboard/todays-reflection-card";
 import type { CoachingViewModel } from "@/lib/clubs/coaching-view";
 import type { getInboxThreads } from "@/lib/services/message.service";
 
@@ -56,6 +61,10 @@ interface DashboardSession {
     dayIndex?: number | null;
     weekIndex?: number | null;
     estimatedMinutes?: number | null;
+    /** Follow-along video day — meta reads "Follow-along · N min" and the CTA "Start session". */
+    videoUrl?: string | null;
+    videoDurationSec?: number | null;
+    program?: { contentFormat?: string | null } | null;
     blocks: { exercises: { id: string }[] }[];
   } | null;
 }
@@ -76,6 +85,8 @@ interface ClientDashboardProps {
   showInbox?: boolean;
   /** Club members only, and only when the club offers coaching; null/absent renders no card. */
   coaching?: CoachingViewModel | null;
+  /** Today's Reflection card (sits between Up next and Resources/Inbox); null/absent renders nothing. */
+  todaysReflection?: TodaysReflectionCardData | null;
 }
 
 /**
@@ -96,6 +107,7 @@ export function ClientDashboard({
   inboxThreads,
   showInbox = true,
   coaching = null,
+  todaysReflection = null,
 }: ClientDashboardProps) {
   const today = new Date();
   const todayWorkout =
@@ -107,7 +119,9 @@ export function ClientDashboard({
     id: s.id,
     scheduledDate: s.scheduledDate,
     status: s.status,
-    workout: s.workout ? { name: s.workout.name ?? null } : null,
+    workout: s.workout
+      ? { name: s.workout.name ?? null, videoUrl: s.workout.videoUrl, videoDurationSec: s.workout.videoDurationSec }
+      : null,
   }));
 
   // With no Resources the card renders nothing, so the two-column split would
@@ -166,13 +180,14 @@ export function ClientDashboard({
           title={formatDayLabel(todayWorkout.workout)}
           meta={formatWorkoutMetaLine(
             todayWorkout.workout?.estimatedMinutes,
-            countExercises(todayWorkout.workout)
+            countExercises(todayWorkout.workout),
+            todayWorkout.workout
           )}
           href={`/sessions/${todayWorkout.id}`}
           action={
             <>
               <Play className="mr-2 size-4 fill-current" />
-              Start workout
+              {isVideoWorkout(todayWorkout.workout) ? "Start session" : "Start workout"}
             </>
           }
         />
@@ -182,7 +197,8 @@ export function ClientDashboard({
           title={formatDayLabel(nextFutureSession.workout)}
           meta={formatWorkoutMetaLine(
             nextFutureSession.workout?.estimatedMinutes,
-            countExercises(nextFutureSession.workout)
+            countExercises(nextFutureSession.workout),
+            nextFutureSession.workout
           )}
           href={`/sessions/${nextFutureSession.id}`}
           action={
@@ -202,6 +218,8 @@ export function ClientDashboard({
           />
         </SectionCard>
       )}
+
+      {todaysReflection && <TodaysReflectionCard data={todaysReflection} />}
 
       {/* What the client can pull on their own, next to what's waiting for them.
           Both cards take `h-full` so the column stretch gives them a matching

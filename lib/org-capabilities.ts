@@ -107,12 +107,20 @@ export const CAPABILITY_ROUTES = {
 /** Trainer billing settings page, hidden when `trainerBilling` is off. */
 export const TRAINER_BILLING_ROUTE = "/settings/billing";
 
+/**
+ * Trainer client-payments (Stripe Connect) surfaces: the trainer's Payments
+ * page and the client Store. Clubs bill members through MemberSubscription,
+ * so both are hidden for every club user.
+ */
+export const CLIENT_PAYMENTS_ROUTES = ["/payments", "/store"] as const;
+
 /** Nav hrefs to drop for a user, in a stable order. */
 export function hiddenNavHrefs(caps: OrgCapabilities): string[] {
   const hidden: string[] = [];
   if (!caps.messaging) hidden.push(CAPABILITY_ROUTES.messaging);
   if (!caps.checkIns) hidden.push(CAPABILITY_ROUTES.checkIns);
   if (!caps.trainerBilling) hidden.push(TRAINER_BILLING_ROUTE);
+  if (caps.billing === "member") hidden.push(...CLIENT_PAYMENTS_ROUTES);
   return hidden;
 }
 
