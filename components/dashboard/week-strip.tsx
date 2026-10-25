@@ -4,9 +4,10 @@ import { useMemo } from "react";
 import Link from "next/link";
 import { addDays, format, isSameDay, isToday, startOfWeek } from "date-fns";
 import { SectionCard } from "@/components/shared/section-card";
-import { CalendarDays, Check } from "lucide-react";
+import { CalendarDays, Check, Play } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toLocalCalendarDate } from "@/lib/utils/calendar-date";
+import { isVideoWorkout, formatFollowAlongMetaLine } from "@/lib/utils/follow-along";
 import {
   SESSION_STATUS_LEGEND,
   getSessionStatusDot,
@@ -17,7 +18,7 @@ export interface WeekStripSession {
   id: string;
   scheduledDate: Date;
   status: string;
-  workout: { name: string | null } | null;
+  workout: { name: string | null; videoUrl?: string | null; videoDurationSec?: number | null } | null;
 }
 
 interface Props {
@@ -80,6 +81,7 @@ function WeekStripCell({ day }: { day: WeekStripDay }) {
   const currentDay = isToday(date);
   const completed = session?.status === "COMPLETED";
   const label = session?.workout?.name ?? null;
+  const isVideo = isVideoWorkout(session?.workout);
 
   const content = (
     <>
@@ -98,7 +100,11 @@ function WeekStripCell({ day }: { day: WeekStripDay }) {
           <span className="size-1 rounded-full bg-border-strong" />
         )}
       </span>
-      <span className="line-clamp-2 min-h-8 text-center text-caption">
+      <span
+        className="line-clamp-2 min-h-8 text-center text-caption"
+        title={isVideo ? formatFollowAlongMetaLine(session?.workout?.videoDurationSec) : undefined}
+      >
+        {isVideo && <Play className="mr-0.5 inline size-2.5 fill-current align-[-1px]" aria-label="Follow-along video" />}
         {label ?? "Rest"}
       </span>
     </>

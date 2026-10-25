@@ -4,6 +4,8 @@ import { getOrgCapabilities } from "@/lib/org-capabilities";
 import { getOrgForUser } from "@/lib/org-capabilities.server";
 import { getCoachingForUser } from "@/lib/services/coaching.service";
 import { formatStripeAmount } from "@/lib/utils/money";
+import { LIVE_READ_REQUEST_OPTIONS } from "@/lib/payments/connect-config";
+import { withLiveReadDeadline } from "@/lib/payments/live-read";
 
 /** What the member UI needs to render the coaching add-on. */
 export interface CoachingViewModel {
@@ -24,7 +26,8 @@ export async function getCoachingViewModel(user: Pick<User, "id" | "role" | "cle
 
   const [coaching, price] = await Promise.all([
     getCoachingForUser(user.id),
-    stripe.prices.retrieve(org.coachingStripePriceId).catch(() => null),
+    // Rendered on every member dashboard: never wait on Stripe for a label.
+    withLiveReadDeadline(stripe.prices.retrieve(org.coachingStripePriceId, {}, LIVE_READ_REQUEST_OPTIONS)).catch(() => null),
   ]);
   const priceLabel =
     price?.unit_amount != null

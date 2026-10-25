@@ -116,6 +116,9 @@ function mapWorkoutToInput(w: Record<string, unknown>): WorkoutInput {
     weekIndex: w.weekIndex as number,
     orderIndex: w.orderIndex as number,
     estimatedMinutes: w.estimatedMinutes as number | null | undefined,
+    // Passed through untouched so a save from this editor never strips a video day.
+    videoUrl: w.videoUrl as string | null | undefined,
+    videoDurationSec: w.videoDurationSec as number | null | undefined,
     blocks: ((w.blocks as Record<string, unknown>[]) || []).map(
       (b: Record<string, unknown>, bi: number) => ({
         id: b.id as string,

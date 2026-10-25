@@ -39,9 +39,12 @@ import { AssignedProgramsList } from "@/components/clients/assigned-programs-lis
 import { ClientAdherenceSummary } from "@/components/clients/client-adherence-summary";
 import { MessageThread } from "@/components/messages/message-thread";
 import { getDisplayName } from "@/lib/utils/display-name";
+import * as reflectionService from "@/lib/services/reflection.service";
+import * as journalService from "@/lib/services/journal.service";
+import { ClientReflectionsTab } from "@/components/clients/client-reflections-tab";
 
 /** Tabs that `?tab=` may select. Anything else falls back to the Calendar default. */
-const CLIENT_DETAIL_TABS = ["calendar", "programs", "messages"] as const;
+const CLIENT_DETAIL_TABS = ["calendar", "programs", "reflections", "messages"] as const;
 type ClientDetailTab = (typeof CLIENT_DETAIL_TABS)[number];
 
 function resolveInitialTab(tab: string | undefined): ClientDetailTab {
@@ -93,6 +96,12 @@ export default async function ClientDetailPage({ params, searchParams }: Props) 
       // null (and no coaching query) unless this is a house coach.
       getClientCoachingPanel(user, client.id),
     ]);
+  // Reflections tab: dated reflections ahead for this client, and only the
+  // entries they SHARED with this trainer (private journal entries never load here).
+  const [upcomingReflections, sharedReflections] = await Promise.all([
+    reflectionService.listUpcomingForClient(client.id, new Date()),
+    journalService.listSharedEntriesForTrainer(user.id, { clientId: client.id }),
+  ]);
 
   const adherence = sessionService.computeAdherenceStats(pastSessions);
 
@@ -197,6 +206,7 @@ export default async function ClientDetailPage({ params, searchParams }: Props) 
           <TabsList variant="line">
             <TabsTrigger value="calendar">Calendar</TabsTrigger>
             <TabsTrigger value="programs">Programs ({assignedPrograms.length})</TabsTrigger>
+            <TabsTrigger value="reflections">Reflections</TabsTrigger>
             {canMessage && <TabsTrigger value="messages">Messages</TabsTrigger>}
           </TabsList>
         </div>
@@ -216,6 +226,21 @@ export default async function ClientDetailPage({ params, searchParams }: Props) 
           <SectionCard title="Assigned programs" icon={Library} count={assignedPrograms.length}>
             <AssignedProgramsList programs={assignedPrograms} />
           </SectionCard>
+        </TabsContent>
+
+        <TabsContent value="reflections">
+          <ClientReflectionsTab
+            upcoming={upcomingReflections}
+            shared={sharedReflections.map((entry) => ({
+              id: entry.id,
+              clientId: entry.clientId,
+              clientName: displayName,
+              promptText: entry.promptText,
+              promptAuthor: entry.promptAuthor,
+              body: entry.body,
+              createdAt: entry.createdAt,
+            }))}
+          />
         </TabsContent>
 
         {canMessage && (

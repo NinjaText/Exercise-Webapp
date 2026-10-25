@@ -9,6 +9,8 @@ import { StatusBanner } from "@/components/billing/status-banner";
 import { hasScheduledSubscription, trialDaysLeft } from "@/lib/billing/access";
 import { isFreeClub } from "@/lib/clubs/free-club";
 import { formatStripeAmount } from "@/lib/utils/money";
+import { LIVE_READ_REQUEST_OPTIONS } from "@/lib/payments/connect-config";
+import { withLiveReadDeadline } from "@/lib/payments/live-read";
 import { getCoachingViewModel } from "@/lib/clubs/coaching-view";
 import { memberCoachingLinkLabel } from "@/lib/clubs/coaching-state";
 import Link from "next/link";
@@ -28,12 +30,17 @@ const COACHING_COPY: Record<string, string> = {
 export async function MemberBillingView({
   org, sub, reason, userId,
 }: { org: Organization; sub: MemberSubscription | null; reason: string | null; userId: string }) {
-  const branding = await getOrgBranding(org.clerkOrgId);
-  const price = org.stripePriceId ? await stripe.prices.retrieve(org.stripePriceId).catch(() => null) : null;
+  // Both Stripe reads in parallel so a slow Stripe costs one deadline, not two.
+  const [branding, price, coaching] = await Promise.all([
+    getOrgBranding(org.clerkOrgId),
+    org.stripePriceId
+      ? withLiveReadDeadline(stripe.prices.retrieve(org.stripePriceId, {}, LIVE_READ_REQUEST_OPTIONS)).catch(() => null)
+      : null,
+    getCoachingViewModel({ id: userId, role: "CLIENT", clerkOrgId: org.clerkOrgId }),
+  ]);
   const priceLabel = price?.unit_amount != null
     ? { price: formatStripeAmount(price.unit_amount, price.currency), interval: price.recurring?.interval ?? "month" }
     : null;
-  const coaching = await getCoachingViewModel({ id: userId, role: "CLIENT", clerkOrgId: org.clerkOrgId });
   const coachingLink = coaching ? memberCoachingLinkLabel(coaching.status) : null;
   const daysLeft = trialDaysLeft(sub, new Date());
   const isActive = sub?.status === "ACTIVE" || sub?.status === "PAST_DUE";

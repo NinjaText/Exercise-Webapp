@@ -3,6 +3,7 @@ import type Stripe from "stripe";
 import { stripe } from "@/lib/stripe";
 import { ClubError } from "@/lib/services/club-error";
 import { formatStripeAmount } from "@/lib/utils/money";
+import { withLiveReadDeadline } from "@/lib/payments/live-read";
 
 /**
  * Stripe products/prices for a club, created from the dollar amounts the
@@ -189,8 +190,12 @@ export type ClubPriceView =
 export async function describeClubPrice(priceId: string | null): Promise<ClubPriceView> {
   if (!priceId) return { status: "none" };
   try {
-    // Short and unretried so admin pages degrade quickly during an outage.
-    const price = await stripe.prices.retrieve(priceId, {}, { timeout: 5000, maxNetworkRetries: 0 });
+    // Short and unretried so admin pages degrade quickly during an outage. The
+    // deadline also covers a connect that never completes (the timeout doesn't).
+    const price = await withLiveReadDeadline(
+      stripe.prices.retrieve(priceId, {}, { timeout: 5000, maxNetworkRetries: 0 }),
+      5000
+    );
     if (price.unit_amount == null) return { status: "unsupported" };
     const monthly = price.recurring?.interval === "month" && (price.recurring.interval_count ?? 1) === 1;
     const per = monthly ? "mo" : (price.recurring?.interval ?? "one-time");

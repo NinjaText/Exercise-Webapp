@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 vi.mock("@/actions/coaching-actions", () => ({ requestCoachingAction: vi.fn(), withdrawCoachingRequestAction: vi.fn() }));
+vi.mock("@/actions/journal-actions", () => ({ saveTodaysReflectionEntryAction: vi.fn() }));
 import { formatDayLabel, formatWorkoutMetaLine, countExercises } from '../client-dashboard'
 
 describe('formatDayLabel', () => {

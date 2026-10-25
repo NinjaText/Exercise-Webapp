@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 vi.mock("@/actions/coaching-actions", () => ({ requestCoachingAction: vi.fn(), withdrawCoachingRequestAction: vi.fn() }));
+vi.mock("@/actions/journal-actions", () => ({ saveTodaysReflectionEntryAction: vi.fn() }));
 import { renderToStaticMarkup } from "react-dom/server";
 import { addDays } from "date-fns";
 import { ClientDashboard } from "../client-dashboard";

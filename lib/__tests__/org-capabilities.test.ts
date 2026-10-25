@@ -67,19 +67,19 @@ describe("getUserCapabilities (spec §4)", () => {
   it("club trainer coaches but never pays", () => {
     const caps = getUserCapabilities({ orgType: "CLUB", role: "TRAINER", coachingActive: false });
     expect(caps).toEqual({ billing: "member", ...full, trainerBilling: false });
-    expect(hiddenNavHrefs(caps)).toEqual(["/settings/billing"]);
+    expect(hiddenNavHrefs(caps)).toEqual(["/settings/billing", "/payments", "/store"]);
   });
 
   it("uncoached club member is self-guided", () => {
     const caps = getUserCapabilities({ orgType: "CLUB", role: "CLIENT", coachingActive: false });
     expect(caps).toEqual({ billing: "member", ...off, trainerBilling: true });
-    expect(hiddenNavHrefs(caps)).toEqual(["/messages", "/check-ins"]);
+    expect(hiddenNavHrefs(caps)).toEqual(["/messages", "/check-ins", "/payments", "/store"]);
   });
 
   it("coached club member gets messaging, check-ins and coach notifications", () => {
     const caps = getUserCapabilities({ orgType: "CLUB", role: "CLIENT", coachingActive: true });
     expect(caps).toEqual({ billing: "member", ...full, trainerBilling: true });
-    expect(hiddenNavHrefs(caps)).toEqual([]);
+    expect(hiddenNavHrefs(caps)).toEqual(["/payments", "/store"]);
   });
 });
 
@@ -121,7 +121,7 @@ describe("hiddenNavHrefs", () => {
     expect(hiddenNavHrefs(getOrgCapabilities(null))).toEqual([]);
   });
   it("hides inbox and check-ins for clubs", () => {
-    expect(hiddenNavHrefs(getOrgCapabilities({ type: "CLUB" }))).toEqual(["/messages", "/check-ins"]);
+    expect(hiddenNavHrefs(getOrgCapabilities({ type: "CLUB" }))).toEqual(["/messages", "/check-ins", "/payments", "/store"]);
   });
 });
 
@@ -137,7 +137,7 @@ describe("MESSAGING_UNAVAILABLE", () => {
 describe("hiddenSettingsTabHrefs", () => {
   const caps = getUserCapabilities({ orgType: "CLUB", role: "TRAINER", coachingActive: false });
   it("adds the Account tab only for a house coach", () => {
-    expect(hiddenSettingsTabHrefs(caps)).toEqual(["/settings/billing"]);
-    expect(hiddenSettingsTabHrefs(caps, { houseCoach: true })).toEqual(["/settings/billing", "/settings"]);
+    expect(hiddenSettingsTabHrefs(caps)).toEqual(["/settings/billing", "/payments", "/store"]);
+    expect(hiddenSettingsTabHrefs(caps, { houseCoach: true })).toEqual(["/settings/billing", "/payments", "/store", "/settings"]);
   });
 });

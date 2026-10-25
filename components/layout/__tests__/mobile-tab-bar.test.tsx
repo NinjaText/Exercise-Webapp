@@ -6,14 +6,14 @@ vi.mock("next/navigation", () => ({ usePathname: () => "/clients/abc123" }));
 import { MobileTabBar } from "../mobile-tab-bar";
 
 describe("MobileTabBar", () => {
-  it("renders five client tabs and no More button", () => {
+  it("renders five client tabs plus More", () => {
     const html = renderToStaticMarkup(<MobileTabBar role="CLIENT" unreadMessageCount={0} />);
     expect(html).toContain('data-slot="mobile-tab-bar"');
     for (const href of ["/dashboard", "/programs", "/calendar", "/nutrition", "/messages"]) {
       expect(html).toContain(`href="${href}"`);
     }
     expect(html).toContain(">Programs<");
-    expect(html).not.toContain(">More<");
+    expect(html).toContain(">More<"); // Journal + Store overflow into the More sheet
   });
 
   it("renders four trainer tabs plus More, and marks Clients active on a nested path", () => {

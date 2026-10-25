@@ -231,4 +231,22 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, RegistryEntry> = {
     cooldownMinutes: null,
     subject: () => "Your refund has been processed",
   },
+  // Trainer payments (Stripe Connect). In-app only: Stripe already emails
+  // receipts and failed-payment notices from the trainer's own account.
+  [NOTIFICATION_TYPES.OFFER_PAYMENT_RECEIVED]: {
+    category: "billing",
+    clientFacing: false,
+    transactional: true,
+    template: null,
+    cooldownMinutes: null,
+    subject: () => "Payment received",
+  },
+  [NOTIFICATION_TYPES.OFFER_PAYMENT_FAILED]: {
+    category: "billing",
+    clientFacing: false,
+    transactional: true,
+    template: null,
+    cooldownMinutes: null,
+    subject: () => "Payment failed",
+  },
 };

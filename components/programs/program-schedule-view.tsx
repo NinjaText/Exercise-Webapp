@@ -85,12 +85,14 @@ import { VoiceMemoPlayer } from "@/components/voice-memo/VoiceMemoPlayer";
 import { getWorkoutVoiceMemos } from "@/actions/voice-memo-actions";
 import type { VoiceMemoData } from "@/actions/voice-memo-actions";
 import { Mic } from "lucide-react";
+import { isVideoWorkout } from "@/lib/utils/follow-along";
 import {
   STATUS_CONFIG,
   BLOCK_BADGE,
   castWorkout,
   castSession,
   ReadOnlyPanel,
+  formatWorkoutContentLabel,
   type WorkoutData,
   type ExerciseInfo,
 } from "./schedule-shared";
@@ -255,10 +257,6 @@ const DnDCalendar = withDragAndDrop<ScheduleEvent>(Calendar);
 function EventPill({ event }: { event: ScheduleEvent }) {
   const { readOnly, onRefresh, totalProgramWeeks } = useContext(SchedulePillCtx);
   const cfg = STATUS_CONFIG[event.status] ?? STATUS_CONFIG.SCHEDULED;
-  const exerciseCount = event.workout.blocks.reduce(
-    (sum, b) => sum + b.exercises.length,
-    0
-  );
   const [dupeOpen, setDupeOpen] = useState(false);
   const [dupeDate, setDupeDate] = useState("");
   const [dupeLoading, setDupeLoading] = useState(false);
@@ -360,7 +358,7 @@ function EventPill({ event }: { event: ScheduleEvent }) {
                 {event.title}
               </p>
               <p className="mt-0.5 text-[10px] text-muted-foreground">
-                {exerciseCount} exercise{exerciseCount !== 1 ? "s" : ""}
+                {formatWorkoutContentLabel(event.workout)}
                 {event.isSession && ` · ${cfg?.label}`}
               </p>
             </div>
@@ -1558,13 +1556,7 @@ export function ProgramScheduleView({
               borderRadius: "5px",
             },
           })}
-          tooltipAccessor={(event: ScheduleEvent) => {
-            const count = event.workout.blocks.reduce(
-              (s, b) => s + b.exercises.length,
-              0
-            );
-            return `${event.title} · ${count} exercises`;
-          }}
+          tooltipAccessor={(event: ScheduleEvent) => `${event.title} · ${formatWorkoutContentLabel(event.workout)}`}
         />
         </div>
       </div>
@@ -1575,13 +1567,14 @@ export function ProgramScheduleView({
         onOpenChange={(open) => { if (!open) handleClose(); }}
       >
         <DialogContent className="sm:max-w-lg max-h-[85dvh] p-0 flex flex-col overflow-hidden gap-0">
-          {selectedEvent && readOnly && (
+          {/* A follow-along video day has no exercises to edit — show it read-only. */}
+          {selectedEvent && (readOnly || isVideoWorkout(selectedEvent.workout)) && (
             <ReadOnlyPanel
               workout={selectedEvent.workout}
               status={selectedEvent.isSession ? selectedEvent.status : undefined}
             />
           )}
-          {selectedEvent && !readOnly && (
+          {selectedEvent && !readOnly && !isVideoWorkout(selectedEvent.workout) && (
             <EditPanel
               event={selectedEvent}
               editBlocks={editBlocks}

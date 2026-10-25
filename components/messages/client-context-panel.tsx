@@ -31,7 +31,11 @@ export function ClientContextPanel({ client, data }: ClientContextPanelProps) {
             <div className="flex min-w-0 flex-col gap-0.5">
               <p className="text-label text-foreground">
                 {MESSAGE_CATEGORY_LABEL[category]}
-                {lastMessage.replyToExerciseName ? `: ${lastMessage.replyToExerciseName}` : ""}
+                {lastMessage.replyToExerciseName
+                  ? `: ${lastMessage.replyToExerciseName}`
+                  : lastMessage.contextTitle
+                    ? `: ${lastMessage.contextTitle}`
+                    : ""}
               </p>
               {program && (
                 <Link href={`/programs/${program.id}`} className="w-fit rounded-sm text-caption text-primary outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring">

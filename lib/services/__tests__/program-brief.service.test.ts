@@ -414,6 +414,24 @@ describe('mergeChunkSessions', () => {
     ])
   })
 
+  it('splits a week label carried over more than 7 sessions into fixed-size weeks (regression: "Week 1" stated once put all 26 sessions of a 4-week plan into one week, which then failed to save with daysPerWeek > 7)', () => {
+    const chunkResults = [
+      {
+        sessions: Array.from({ length: 26 }, (_, i) => ({
+          weekLabel: i === 0 ? 'Week 1' : null, dayLabel: null, title: `Run ${i + 1}`, blocks: [],
+        })),
+        warnings: [],
+      },
+    ]
+
+    const { sessionBlueprint, daysPerWeek } = mergeChunkSessions(chunkResults, 7)
+
+    expect(daysPerWeek).toBe(7)
+    expect(new Set(sessionBlueprint.map((s) => s.weekIndex)).size).toBe(4)
+    expect(sessionBlueprint[7]).toMatchObject({ weekIndex: 1, dayIndex: 0, title: 'Run 8' })
+    expect(sessionBlueprint[25]).toMatchObject({ weekIndex: 3, dayIndex: 4, title: 'Run 26' })
+  })
+
   it('derives daysPerWeek as the largest week size for irregular week lengths', () => {
     const chunkResults = [
       {

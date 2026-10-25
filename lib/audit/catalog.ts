@@ -16,6 +16,7 @@ export const AUDIT_CATEGORIES = {
   ENGAGEMENT: "Check-ins & feedback",
   HEALTH: "Nutrition & progress",
   ORGANIZATION: "Clinic & branding",
+  PAYMENTS: "Payments",
 } as const;
 
 export type AuditCategory = keyof typeof AUDIT_CATEGORIES;
@@ -73,6 +74,11 @@ export const AUDIT_ACTION_CATALOG = {
   COACHING_DECLINED: { label: "Declined coaching request", category: "ENGAGEMENT", tone: "warning" },
   COACHING_WITHDRAWN: { label: "Withdrew coaching", category: "ENGAGEMENT", tone: "warning" },
   COACHING_ENDED: { label: "Ended coaching", category: "ENGAGEMENT", tone: "danger" },
+  REFLECTION_SCHEDULED: { label: "Scheduled reflection(s)", category: "ENGAGEMENT", tone: "success" },
+  REFLECTION_UPDATED: { label: "Updated reflection", category: "ENGAGEMENT", tone: "info" },
+  REFLECTION_DELETED: { label: "Deleted reflection", category: "ENGAGEMENT", tone: "danger" },
+  REFLECTION_SHARED: { label: "Shared reflection with trainer", category: "ENGAGEMENT", tone: "info" },
+  WORKOUT_FEEDBACK_SUBMITTED: { label: "Rated follow-along workout", category: "ENGAGEMENT", tone: "info" },
 
   MEAL_LOGGED: { label: "Logged meal", category: "HEALTH", tone: "info" },
   MEAL_DELETED: { label: "Deleted meal", category: "HEALTH", tone: "danger" },
@@ -93,6 +99,15 @@ export const AUDIT_ACTION_CATALOG = {
   CLUB_TRAINER_ONBOARDED: { label: "Club trainer completed onboarding", category: "USERS", tone: "success" },
   ORG_TYPE_CHANGED: { label: "Changed org type", category: "ORGANIZATION", tone: "warning" },
   MEMBER_TRIAL_EXTENDED: { label: "Extended member trial", category: "USERS", tone: "info" },
+
+  PAYMENT_ACCOUNT_CONNECTED: { label: "Connected Stripe account", category: "PAYMENTS", tone: "success" },
+  PAYMENT_ACCOUNT_DISCONNECTED: { label: "Disconnected Stripe account", category: "PAYMENTS", tone: "warning" },
+  OFFER_CREATED: { label: "Created paid offer", category: "PAYMENTS", tone: "success" },
+  OFFER_UPDATED: { label: "Updated paid offer", category: "PAYMENTS", tone: "info" },
+  OFFER_ARCHIVED: { label: "Archived paid offer", category: "PAYMENTS", tone: "warning" },
+  OFFER_CHECKOUT_STARTED: { label: "Started checkout", category: "PAYMENTS", tone: "info" },
+  OFFER_SUBSCRIPTION_CANCELED: { label: "Canceled coaching subscription", category: "PAYMENTS", tone: "warning" },
+  OFFER_SUBSCRIPTION_RESUMED: { label: "Resumed coaching subscription", category: "PAYMENTS", tone: "success" },
 } as const satisfies Record<string, AuditActionMeta>;
 
 export type AuditAction = keyof typeof AUDIT_ACTION_CATALOG;

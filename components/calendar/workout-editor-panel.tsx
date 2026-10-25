@@ -1,6 +1,7 @@
 import {  getClientExerciseHistory } from "@/actions/exercise-history-actions";
 import { cn } from "@/lib/utils";
 import { hasRealVideoUrl } from "@/lib/utils/video";
+import { isVideoWorkout, formatDuration, formatFollowAlongMetaLine, getFeelingLabel } from "@/lib/utils/follow-along";
 import { useClipboard, stripIds } from "@/lib/clipboard-context";
 import { useBuilderKeyboard } from "@/hooks/use-builder-keyboard";
 import {
@@ -9,7 +10,7 @@ import {
 } from "@/actions/calendar-workout-actions";
 import { History } from "lucide-react";
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { GripVertical, Dumbbell, Trash2, Loader2, X, Plus, MoreVertical, Calendar as CalendarIcon, ChevronDown, ChevronRight, Settings, CheckCircle, Info, Sparkles, Copy } from "lucide-react";
+import { GripVertical, Dumbbell, Trash2, Loader2, X, Plus, MoreVertical, Calendar as CalendarIcon, ChevronDown, ChevronRight, Settings, CheckCircle, Info, Sparkles, Copy, PlayCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -1453,14 +1454,32 @@ export function WorkoutEditorPanel({
               ) : session ? (
                 /* Edit mode - show blocks & exercises */
                 <>
-                  {session.status === "COMPLETED" && (session.overallRPE !== null || session.overallNotes) && (
+                  {/* Follow-along video day: the video stands in for exercise blocks. */}
+                  {isVideoWorkout(session.workout) && session.workout.videoUrl && (
+                    <div className="space-y-2 rounded-lg border border-border bg-surface-muted p-3">
+                      <p className="flex items-center gap-1.5 text-label text-foreground">
+                        <PlayCircle className="size-4" aria-hidden />
+                        {formatFollowAlongMetaLine(session.workout.videoDurationSec)}
+                      </p>
+                      <UniversalVideoPlayer url={session.workout.videoUrl} />
+                    </div>
+                  )}
+                  {session.status === "COMPLETED" &&
+                    ((session.overallRPE ?? null) !== null || session.overallNotes || session.feelingRating) && (
                     <div className="rounded-lg border border-success-border bg-success-soft p-4 text-body text-success-foreground">
                       <div className="mb-1 flex items-center gap-2 text-label">
                         <CheckCircle className="size-4" aria-hidden />
                         Client Feedback
                       </div>
                       <div className="grid gap-1">
-                        {session.overallRPE !== null && (
+                        {getFeelingLabel(session.feelingRating) && (
+                          <div>
+                            <span className="font-medium text-success-foreground">Felt:</span>{" "}
+                            {getFeelingLabel(session.feelingRating)}
+                            {session.watchedSeconds ? ` · watched ${formatDuration(session.watchedSeconds)}` : ""}
+                          </div>
+                        )}
+                        {(session.overallRPE ?? null) !== null && (
                           <div>
                             <span className="font-medium text-success-foreground">Overall RPE:</span> {session.overallRPE}/10
                           </div>
@@ -1621,8 +1640,8 @@ export function WorkoutEditorPanel({
                     );
                   })}
 
-                  {/* Add block */}
-                  {addingBlockType ? (
+                  {/* Add block — not on a follow-along video day, which must stay zero-block. */}
+                  {isVideoWorkout(session.workout) ? null : addingBlockType ? (
                       <div className="flex flex-col gap-3 rounded-lg border border-dashed border-border-strong bg-surface-muted p-4">
                         <p className="text-label text-muted-foreground">Select block type</p>                                                                             
                         <div className="flex flex-wrap gap-2">

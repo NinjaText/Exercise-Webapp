@@ -21,7 +21,7 @@ import { enUS } from "date-fns/locale";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, ChevronLeft, ChevronRight, MoreHorizontal, Copy } from "lucide-react";
+import { Plus, ChevronLeft, ChevronRight, MoreHorizontal, Copy, Play } from "lucide-react";
 import { rescheduleSessionAction } from "@/actions/session-actions";
 import { toLocalCalendarDate, toUtcCalendarDate } from "@/lib/utils/calendar-date";
 import {
@@ -45,6 +45,7 @@ import {
 } from "@/actions/calendar-workout-actions";
 import { WorkoutEditorPanel } from "@/components/calendar/workout-editor-panel";
 import type { ExerciseSourcePreference } from "@/lib/utils/exercise-picker";
+import { isVideoWorkout, formatDuration } from "@/lib/utils/follow-along";
 import { AiGenerateProgramDialog } from "@/components/calendar/ai-generate-program-dialog";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -91,6 +92,9 @@ type SessionSummary = {
   workout: {
     id: string;
     name: string;
+    /** Follow-along video day (zero blocks) — the card shows the video length instead of "0 ex". */
+    videoUrl?: string | null;
+    videoDurationSec?: number | null;
     program: { trainerId: string | null };
     blocks: { exercises: { id: string }[] }[];
   };
@@ -199,8 +203,15 @@ function EventComponent({ event }: { event: SessionEvent }) {
               <p className="truncate text-[11px] font-semibold leading-tight text-foreground">
                 {event.workoutName}
               </p>
-              <p className="mt-0.5 text-[10px] text-muted-foreground">
-                {event.exerciseCount} ex
+              <p className="mt-0.5 flex items-center gap-0.5 text-[10px] text-muted-foreground">
+                {isVideoWorkout(event.resource.workout) ? (
+                  <>
+                    <Play className="h-2.5 w-2.5 shrink-0 fill-current" aria-hidden />
+                    {formatDuration(event.resource.workout.videoDurationSec) ?? "Video"}
+                  </>
+                ) : (
+                  <>{event.exerciseCount} ex</>
+                )}
               </p>
             </div>
           </div>

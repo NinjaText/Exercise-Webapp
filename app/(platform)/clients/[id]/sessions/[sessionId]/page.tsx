@@ -4,7 +4,7 @@ import { toLocalCalendarDate } from "@/lib/utils/calendar-date";
 
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/current-user";
-import { Dumbbell, Gauge, ListChecks, StickyNote, TriangleAlert } from "lucide-react";
+import { Clock, Dumbbell, Gauge, ListChecks, PlayCircle, Smile, StickyNote, TriangleAlert } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/shared/page-header";
 import { PageShell } from "@/components/shared/page-shell";
@@ -12,6 +12,8 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import { SectionCard } from "@/components/shared/section-card";
 import { StatCard } from "@/components/shared/stat-card";
 import { ClientNoteReply } from "@/components/sessions/client-note-reply";
+import { UniversalVideoPlayer } from "@/components/exercises/universal-video-player";
+import { formatDuration, getFeelingLabel, isVideoWorkout } from "@/lib/utils/follow-along";
 
 // ---------- Types derived from the Prisma query ----------
 
@@ -123,6 +125,10 @@ export default async function SessionReviewPage({ params }: Props) {
   const couldntComplete = allSetLogs.filter(isCouldntComplete).length;
 
   const clientName = `${session.client.firstName} ${session.client.lastName}`;
+  // Follow-along video day: no exercises to review — show the client's
+  // "How did it go?" answer and how much they watched instead.
+  const isVideo = isVideoWorkout(session.workout);
+  const feelingLabel = getFeelingLabel(session.feelingRating);
 
   return (
     <PageShell>
@@ -145,6 +151,9 @@ export default async function SessionReviewPage({ params }: Props) {
             {session.overallRPE != null && (
               <StatusBadge status="rpe" role="brand" dot={false} label={`RPE ${session.overallRPE}`} />
             )}
+            {feelingLabel && (
+              <StatusBadge status="feeling" role="brand" dot={false} label={`Felt: ${feelingLabel}`} />
+            )}
             {session.durationMinutes != null && (
               <StatusBadge
                 status="duration"
@@ -157,22 +166,50 @@ export default async function SessionReviewPage({ params }: Props) {
         }
       />
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard size="compact" label="Exercises" value={totalExercises} icon={Dumbbell} />
-        <StatCard size="compact" label="Sets logged" value={setsLogged} icon={ListChecks} role="success" />
-        <StatCard
-          size="compact"
-          label="Couldn't complete"
-          value={couldntComplete}
-          icon={TriangleAlert}
-          role={couldntComplete > 0 ? "warning" : "neutral"}
-        />
-        <StatCard size="compact" label="Overall RPE" value={session.overallRPE ?? "—"} icon={Gauge} />
-      </div>
+      {isVideo ? (
+        <div className="grid gap-4 sm:grid-cols-3">
+          <StatCard size="compact" label="Felt" value={feelingLabel ?? "—"} icon={Smile} role="info" />
+          <StatCard
+            size="compact"
+            label="Watched"
+            value={formatDuration(session.watchedSeconds) ?? "—"}
+            icon={PlayCircle}
+            role="success"
+          />
+          <StatCard
+            size="compact"
+            label="Video length"
+            value={formatDuration(session.workout.videoDurationSec) ?? "—"}
+            icon={Clock}
+          />
+        </div>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <StatCard size="compact" label="Exercises" value={totalExercises} icon={Dumbbell} />
+          <StatCard size="compact" label="Sets logged" value={setsLogged} icon={ListChecks} role="success" />
+          <StatCard
+            size="compact"
+            label="Couldn't complete"
+            value={couldntComplete}
+            icon={TriangleAlert}
+            role={couldntComplete > 0 ? "warning" : "neutral"}
+          />
+          <StatCard size="compact" label="Overall RPE" value={session.overallRPE ?? "—"} icon={Gauge} />
+        </div>
+      )}
 
       {session.overallNotes && (
-        <SectionCard title="Session notes" icon={StickyNote}>
+        <SectionCard title={isVideo ? "Client comment" : "Session notes"} icon={StickyNote}>
           <p className="whitespace-pre-wrap text-body text-foreground">{session.overallNotes}</p>
+        </SectionCard>
+      )}
+
+      {isVideo && session.workout.videoUrl && (
+        <SectionCard title="Follow-along video" icon={PlayCircle} contentClassName="space-y-3">
+          <UniversalVideoPlayer url={session.workout.videoUrl} className="max-w-2xl" />
+          {session.workout.description && (
+            <p className="whitespace-pre-wrap text-body text-muted-foreground">{session.workout.description}</p>
+          )}
         </SectionCard>
       )}
 

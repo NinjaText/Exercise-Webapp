@@ -26,11 +26,18 @@ describe("PUBLIC_ROUTES", () => {
     expect(isPublicRoute(req("/settings/branding"))).toBe(false);
   });
 
+  it("keeps trainer payments and the client store protected", () => {
+    expect(isPublicRoute(req("/payments"))).toBe(false);
+    expect(isPublicRoute(req("/payments/oauth/callback"))).toBe(false);
+    expect(isPublicRoute(req("/store/success"))).toBe(false);
+  });
+
   it.each([
     "/",
     "/sign-in",
     "/api/webhooks/clerk",
     "/api/stripe/webhook",
+    "/api/stripe/connect/webhook",
     "/api/cron/nutrition-nudges",
     "/api/reminders",
     "/api/notifications/unsubscribe",

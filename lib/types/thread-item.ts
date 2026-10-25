@@ -28,6 +28,9 @@ export interface ThreadMessage {
   deletedAt?: Date | string | null;
   replyToExerciseName?: string | null;
   replyToNoteExcerpt?: string | null;
+  contextKind?: string | null;
+  contextTitle?: string | null;
+  contextExcerpt?: string | null;
   isInternal?: boolean | null;
   /** Staff-only: the super admin who sent this as the house coach. Never sent to clients. */
   sentByAdminId?: string | null;

@@ -84,6 +84,8 @@ export async function duplicateWorkoutToDayAction(
         dayIndex,
         orderIndex: weekIndex * 7 + dayIndex,
         estimatedMinutes: workout.estimatedMinutes,
+        videoUrl: workout.videoUrl,
+        videoDurationSec: workout.videoDurationSec,
         blocks: {
           create: workout.blocks.map((block) => ({
             name: block.name,

@@ -1,7 +1,9 @@
 import type { LucideIcon } from "lucide-react";
 import {
   Apple,
+  BookOpen,
   CalendarDays,
+  CreditCard,
   ClipboardList,
   Dumbbell,
   Inbox,
@@ -9,6 +11,8 @@ import {
   Library,
   Settings,
   Shield,
+  ShoppingBag,
+  Sparkles,
   TrendingUp,
   Users,
 } from "lucide-react";
@@ -38,6 +42,8 @@ export const TRAINER_NAV: NavItem[] = [
   { href: "/exercises", label: "Exercises", icon: Dumbbell, tier: 2 },
   { href: "/nutrition", label: "Nutrition", icon: Apple, tier: 2 },
   { href: "/messages", label: "Inbox", icon: Inbox, tier: 1 },
+  { href: "/reflections", label: "Reflections", icon: Sparkles, tier: 2 },
+  { href: "/payments", label: "Payments", icon: CreditCard, tier: 2 },
   { href: "/analytics", label: "Analytics", icon: TrendingUp, tier: 2 },
 ];
 
@@ -49,6 +55,9 @@ export const CLIENT_NAV: NavItem[] = [
   { href: "/calendar", label: "Calendar", icon: CalendarDays, tier: 1 },
   { href: "/nutrition", label: "Nutrition", icon: Apple, tier: 1 },
   { href: "/messages", label: "Inbox", icon: Inbox, tier: 1 },
+  { href: "/journal", label: "Journal", icon: BookOpen, tier: 1 },
+  // Programs and coaching the client's trainer sells (Stripe Connect).
+  { href: "/store", label: "Store", icon: ShoppingBag, tier: 1 },
 ];
 
 // Settings sections (account, notifications, organization, branding,

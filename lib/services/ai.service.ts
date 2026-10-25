@@ -1418,8 +1418,8 @@ export async function generateProgram(
           : ex.durationSeconds != null
             ? `${ex.durationSeconds}s`
             : "10",
-        notes: ex.notes,
-        restSeconds: ex.restSeconds,
+        notes: ex.notes ?? undefined,
+        restSeconds: ex.restSeconds ?? undefined,
       });
     } else {
       // Legacy: group by phase
@@ -1444,8 +1444,8 @@ export async function generateProgram(
         orderIndex: block.exercises.length,
         sets: ex.sets || 3,
         reps: ex.reps?.toString() || "10",
-        notes: ex.notes,
-        restSeconds: ex.restSeconds,
+        notes: ex.notes ?? undefined,
+        restSeconds: ex.restSeconds ?? undefined,
       });
     }
   });

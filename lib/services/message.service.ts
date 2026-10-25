@@ -1,5 +1,10 @@
 import { prisma } from "@/lib/prisma";
-import { NOTE_EXCERPT_MAX_LENGTH, type ReplyContextInput } from "@/lib/validators/message";
+import {
+  CONTEXT_EXCERPT_MAX_LENGTH,
+  NOTE_EXCERPT_MAX_LENGTH,
+  type MessageContextInput,
+  type ReplyContextInput,
+} from "@/lib/validators/message";
 
 /**
  * Blank out the content of soft-deleted messages before it leaves the server.
@@ -32,11 +37,12 @@ export async function sendMessage(data: {
   planId?: string;
   planExerciseId?: string;
   replyContext?: ReplyContextInput;
+  context?: MessageContextInput;
   isInternal?: boolean;
   /** Super admin operating the house coach account, when one sent this. */
   sentByAdminId?: string | null;
 }) {
-  const { replyContext, ...messageData } = data;
+  const { replyContext, context, ...messageData } = data;
 
   return prisma.message.create({
     data: {
@@ -45,6 +51,12 @@ export async function sendMessage(data: {
         replyToSessionExerciseLogId: replyContext.sessionExerciseLogId,
         replyToExerciseName: replyContext.exerciseName,
         replyToNoteExcerpt: replyContext.noteExcerpt.slice(0, NOTE_EXCERPT_MAX_LENGTH),
+      }),
+      ...(context && {
+        contextKind: context.kind,
+        contextRefId: context.refId,
+        contextTitle: context.title,
+        contextExcerpt: context.excerpt?.slice(0, CONTEXT_EXCERPT_MAX_LENGTH) ?? null,
       }),
     },
     include: { sender: true, recipient: true },

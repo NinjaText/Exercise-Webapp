@@ -674,9 +674,15 @@ export async function getSessionWithWorkout(
         id: session.id,
         scheduledDate: session.scheduledDate.toISOString(),
         status: session.status,
+        overallRPE: session.overallRPE,
+        overallNotes: session.overallNotes,
+        feelingRating: session.feelingRating,
+        watchedSeconds: session.watchedSeconds,
         workout: {
           id: session.workout.id,
           name: session.workout.name,
+          videoUrl: session.workout.videoUrl,
+          videoDurationSec: session.workout.videoDurationSec,
           blocks: session.workout.blocks.map((b) => ({
             id: b.id,
             name: b.name,
@@ -1155,6 +1161,13 @@ export async function duplicateWorkoutToDateAction(
         data: {
           programId: program.id,
           name: workout.name,
+          description: workout.description,
+          estimatedMinutes: workout.estimatedMinutes,
+          // A duplicated follow-along day is still a video, not an empty workout.
+          // The wrapper stays a plain program (no contentFormat): a lone copied
+          // day at week 0/day 0 would otherwise read as "Day 1 of 1".
+          videoUrl: workout.videoUrl,
+          videoDurationSec: workout.videoDurationSec,
           dayIndex: 0,
           weekIndex: 0,
           orderIndex: 0,
@@ -1240,6 +1253,9 @@ export type SessionWithFullWorkout = {
   }[];
   overallRPE?: number | null;
   overallNotes?: string | null;
+  /** Follow-along "How did it go?" answer (see lib/utils/follow-along.ts). */
+  feelingRating?: string | null;
+  watchedSeconds?: number | null;
   feedback?: any[];
   id: string;
   scheduledDate: string;
@@ -1247,6 +1263,9 @@ export type SessionWithFullWorkout = {
   workout: {
     id: string;
     name: string;
+    /** Set on follow-along video days, which have zero blocks. */
+    videoUrl?: string | null;
+    videoDurationSec?: number | null;
     blocks: {
       id: string;
       name: string | null;

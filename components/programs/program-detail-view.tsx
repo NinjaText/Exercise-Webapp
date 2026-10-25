@@ -55,6 +55,12 @@ import { getWorkoutVoiceMemos } from "@/actions/voice-memo-actions";
 import type { VoiceMemoData } from "@/actions/voice-memo-actions";
 import { cn } from "@/lib/utils";
 import { getProgramSchedulingType } from "@/lib/utils/program-scheduling";
+import {
+  isFollowAlongProgram,
+  isVideoWorkout,
+  dayNumberFromIndices,
+  formatDuration,
+} from "@/lib/utils/follow-along";
 
 
 interface ProgramDetailViewProps {
@@ -98,6 +104,8 @@ export function ProgramDetailView({
   const [startingWorkoutId, setStartingWorkoutId] = useState<string | null>(null);
   const workouts = (program.workouts as Record<string, unknown>[]) || [];
   const isResource = getProgramSchedulingType(program) === "ON_DEMAND";
+  // Follow-along days are numbered across the whole run ("Day 12"), not per week.
+  const isFollowAlong = isFollowAlongProgram(program as { contentFormat?: string | null });
 
   const trainerData = program.trainer as { firstName?: string; lastName?: string } | null;
   const trainerName = trainerNameProp ?? (trainerData ? `${trainerData.firstName ?? ""} ${trainerData.lastName ?? ""}`.trim() : "Trainer");
@@ -434,6 +442,8 @@ export function ProgramDetailView({
                           const isExpanded = expandedWorkouts.has(wId);
                           const blocks = (workout.blocks as Record<string, unknown>[]) || [];
                           const scheduledDate = workout.scheduledDate as string | null | undefined;
+                          const videoUrl = workout.videoUrl as string | null | undefined;
+                          const isVideo = isVideoWorkout({ videoUrl });
 
                           return (
                             <div
@@ -459,7 +469,10 @@ export function ProgramDetailView({
                                   <div className="flex items-center gap-2.5 flex-1 min-w-0">
                                     {!(isResource && workouts.length === 1) && (
                                       <span className="shrink-0 rounded-md bg-surface-muted px-2 py-0.5 text-caption font-medium ring-1 ring-border">
-                                        Day {dayPos + 1}
+                                        Day{" "}
+                                        {isFollowAlong
+                                          ? dayNumberFromIndices((workout.weekIndex as number) ?? 0, (workout.dayIndex as number) ?? 0)
+                                          : dayPos + 1}
                                       </span>
                                     )}
                                     <span className="truncate text-label text-foreground">
@@ -472,14 +485,23 @@ export function ProgramDetailView({
                                     )}
                                   </div>
                                   <div className="flex items-center gap-3 shrink-0 ml-auto">
-                                    {!!workout.estimatedMinutes && (
-                                      <span className="text-xs text-muted-foreground">
-                                        ~{workout.estimatedMinutes as number} min
+                                    {isVideo ? (
+                                      <span className="inline-flex items-center gap-1 rounded-sm bg-info-soft px-1.5 py-0.5 text-xs font-medium text-info-foreground ring-1 ring-info-border">
+                                        <Play className="h-3 w-3 fill-current" aria-hidden />
+                                        {formatDuration(workout.videoDurationSec as number | null) ?? "Video"}
                                       </span>
+                                    ) : (
+                                      <>
+                                        {!!workout.estimatedMinutes && (
+                                          <span className="text-xs text-muted-foreground">
+                                            ~{workout.estimatedMinutes as number} min
+                                          </span>
+                                        )}
+                                        <span className="text-xs text-muted-foreground">
+                                          {blocks.reduce((sum, b) => sum + ((b.exercises as unknown[]) || []).length, 0)} exercises
+                                        </span>
+                                      </>
                                     )}
-                                    <span className="text-xs text-muted-foreground">
-                                      {blocks.reduce((sum, b) => sum + ((b.exercises as unknown[]) || []).length, 0)} exercises
-                                    </span>
                                   </div>
                                 </button>
                                 {isResource && !isTrainer && (
@@ -513,6 +535,16 @@ export function ProgramDetailView({
                               {/* Expanded blocks */}
                               {isExpanded && (
                                 <div className="space-y-3 bg-surface-muted/50 px-5 pt-1 pb-4">
+                                  {isVideo && videoUrl && (
+                                    <div className="space-y-3 rounded-lg border border-border bg-card p-4">
+                                      <UniversalVideoPlayer url={videoUrl} className="max-w-xl" />
+                                      {!!workout.description && (
+                                        <p className="whitespace-pre-line text-body text-muted-foreground">
+                                          {workout.description as string}
+                                        </p>
+                                      )}
+                                    </div>
+                                  )}
                                   {blocks.map((block) => {
                                     const bExercises = (block.exercises as Record<string, unknown>[]) || [];
                                     return (

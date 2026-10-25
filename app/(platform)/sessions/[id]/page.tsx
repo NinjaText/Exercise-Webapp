@@ -10,6 +10,14 @@ import { getWorkoutVoiceMemos } from "@/actions/voice-memo-actions";
 import { VoiceMemoPlayer } from "@/components/voice-memo/VoiceMemoPlayer";
 import { PageShell } from "@/components/shared/page-shell";
 import { PageHeader } from "@/components/shared/page-header";
+import { FollowAlongSession } from "@/components/workout/follow-along/follow-along-session";
+import { getCapabilitiesForUser } from "@/lib/org-capabilities.server";
+import {
+  isVideoWorkout,
+  isFollowAlongProgram,
+  dayNumberFromIndices,
+  getFollowAlongTotalDays,
+} from "@/lib/utils/follow-along";
 
 export default async function SessionPage({
   params,
@@ -88,6 +96,54 @@ export default async function SessionPage({
 
   const workoutName = session.workout.name;
   const description = `${session.workout.program.name} · ${format(toLocalCalendarDate(session.scheduledDate), "MMM d, yyyy")}`;
+  const trainerName =
+    [session.workout.program.trainer?.firstName, session.workout.program.trainer?.lastName]
+      .filter(Boolean)
+      .join(" ") || null;
+
+  // A follow-along video day replaces the exercise tracker entirely.
+  if (isVideoWorkout(session.workout) && session.workout.videoUrl) {
+    const isFollowAlong = isFollowAlongProgram(session.workout.program);
+    const [programWorkouts, caps] = await Promise.all([
+      isFollowAlong
+        ? prisma.workout.findMany({
+            where: { programId: session.workout.programId },
+            select: { weekIndex: true, dayIndex: true },
+          })
+        : Promise.resolve([]),
+      isClientOwner ? getCapabilitiesForUser(user) : Promise.resolve(null),
+    ]);
+
+    return (
+      <PageShell width="narrow">
+        <PageHeader
+          back={{ label: "Back to dashboard", href: "/dashboard" }}
+          breadcrumb={[{ label: "Dashboard", href: "/dashboard" }, { label: workoutName }]}
+          title={workoutName}
+          description={description}
+        />
+        <FollowAlongSession
+          session={{
+            id: session.id,
+            status: session.status,
+            feelingRating: session.feelingRating,
+            overallNotes: session.overallNotes,
+          }}
+          workout={{
+            name: workoutName,
+            description: session.workout.description,
+            videoUrl: session.workout.videoUrl,
+            videoDurationSec: session.workout.videoDurationSec,
+          }}
+          dayNumber={isFollowAlong ? dayNumberFromIndices(session.workout.weekIndex, session.workout.dayIndex) : null}
+          totalDays={isFollowAlong ? getFollowAlongTotalDays(programWorkouts, session.workout.program.durationWeeks) : null}
+          trainerName={trainerName}
+          canStart={isClientOwner}
+          canMessageTrainer={!!caps?.messaging}
+        />
+      </PageShell>
+    );
+  }
 
   return (
     // Wider than "narrow" so the guided workout can sit its video beside the
@@ -104,14 +160,7 @@ export default async function SessionPage({
             {trainerMemo && (
               <VoiceMemoPlayer
                 memo={trainerMemo}
-                authorName={
-                  [
-                    session.workout.program.trainer?.firstName,
-                    session.workout.program.trainer?.lastName,
-                  ]
-                    .filter(Boolean)
-                    .join(" ") || "Trainer"
-                }
+                authorName={trainerName ?? "Trainer"}
               />
             )}
             {clientMemo && (

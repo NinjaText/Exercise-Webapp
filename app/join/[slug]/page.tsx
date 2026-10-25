@@ -37,6 +37,7 @@ export default async function JoinClubPage({ params }: { params: Promise<{ slug:
           <SignUp
             routing="hash"
             forceRedirectUrl={completeUrl}
+            signInUrl={`/join/${slug}/sign-in`}
             signInForceRedirectUrl={completeUrl}
             appearance={clerkAuthAppearance()}
           />

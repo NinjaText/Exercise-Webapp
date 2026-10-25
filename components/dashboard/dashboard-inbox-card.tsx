@@ -18,6 +18,7 @@ const TABS: { key: "all" | MessageCategory; label: string }[] = [
   { key: "message", label: "Messages" },
   { key: "workout", label: "Workout" },
   { key: "exercise", label: "Exercise" },
+  { key: "reflection", label: "Reflection" },
 ];
 
 export function DashboardInboxCard({

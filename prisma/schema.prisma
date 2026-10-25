@@ -591,6 +591,15 @@ model Message {
   // the client, regardless of recipientId. See lib/db/scripts/backfill-message-is-internal.ts;
   // MongoDB does not retroactively apply this default to pre-existing rows.
   isInternal Boolean @default(false)
+
+  // Structured context a message was sent from — a client sharing a daily
+  // reflection, or a follow-along workout check-in. Denormalized like the
+  // replyTo* fields above so the quote card stays stable if the source row is
+  // later edited. null → a plain chat message. See lib/validators/message.ts.
+  contextKind    String? // "REFLECTION" | "WORKOUT_FEEDBACK"
+  contextRefId   String? @db.ObjectId
+  contextTitle   String?
+  contextExcerpt String?
 }
 
 // --- Phase 1 Models ---
@@ -638,6 +647,12 @@ model Program {
   activities    String[] @default([])
   level         String?
 
+  // "FOLLOW_ALONG" → every workout is one long-form video the client plays
+  // start to finish (Workout.videoUrl) instead of logged exercise blocks.
+  // Optional (no @default): existing documents lack the key — read it via
+  // isFollowAlongProgram() in lib/utils/follow-along.ts.
+  contentFormat String?
+
   @@index([trainerId])
   @@index([clientId])
   @@index([isGlobal])
@@ -680,6 +695,10 @@ model Workout {
   weekIndex        Int                @default(0)
   orderIndex       Int
   estimatedMinutes Int?
+  /// Follow-along video (R2 upload or YouTube URL). null → a normal workout.
+  videoUrl         String?
+  /// Video length; drives the client's countdown timer.
+  videoDurationSec Int?
   createdAt        DateTime           @default(now())
   updatedAt        DateTime           @updatedAt
   blocks           WorkoutBlockV2[]
@@ -756,6 +775,10 @@ model WorkoutSessionV2 {
   overallRPE            Int?
   overallNotes          String?
   durationMinutes       Int?
+  /// Follow-along "How did it go?": HARD | CHALLENGING | JUST_RIGHT | EASY | GREAT.
+  feelingRating         String?
+  /// Follow-along: seconds of video actually played before finishing/stopping.
+  watchedSeconds        Int?
   createdAt             DateTime             @default(now())
   updatedAt             DateTime             @updatedAt
   exerciseLogs          SessionExerciseLog[]
@@ -1258,4 +1281,167 @@ model JoinCodeAttempt {
   createdAt DateTime @default(now())
 
   @@index([key, createdAt])
+}
+
+// --- Daily Reflections ---
+
+/// A reflection prompt a trainer scheduled. Exactly one target:
+///  - a client on a calendar date (clientId + date, date = UTC midnight), or
+///  - a program day (programId + dayIndex, 0-based from the program start).
+///    Program reflections live on the template; client copies resolve them
+///    through Program.sourceTemplateId, so editing the template's plan
+///    updates every client running it.
+model Reflection {
+  id           String    @id @default(auto()) @map("_id") @db.ObjectId
+  trainerId    String    @db.ObjectId
+  clientId     String?   @db.ObjectId
+  date         DateTime?
+  programId    String?   @db.ObjectId
+  dayIndex     Int?
+  kind         String // QUOTE | QUESTION | PROMPT
+  text         String
+  /// Quote attribution.
+  author       String?
+  /// Optional extra guidance shown under the prompt.
+  guidance     String?
+  theme        String?
+  imageUrl     String?
+  source       String // CUSTOM | AI | LIBRARY
+  allowJournal Boolean   @default(true)
+  allowShare   Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([clientId, date])
+  @@index([programId, dayIndex])
+  @@index([trainerId, createdAt])
+}
+
+/// A client's journal entry. PRIVATE entries are visible to the client only —
+/// never returned to a trainer. SHARED entries were also sent to the trainer
+/// as a Message (messageId) the trainer can reply to.
+model JournalEntry {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  clientId     String   @db.ObjectId
+  /// Trainer the entry was shared with (SHARED only).
+  trainerId    String?  @db.ObjectId
+  reflectionId String?  @db.ObjectId
+  /// Snapshot of the prompt answered; null for a free-form entry.
+  promptText   String?
+  promptAuthor String?
+  promptKind   String?
+  body         String
+  visibility   String // PRIVATE | SHARED
+  messageId    String?  @db.ObjectId
+  /// Calendar day the entry belongs to (UTC midnight).
+  entryDate    DateTime
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([clientId, createdAt])
+  @@index([trainerId, visibility, createdAt])
+}
+
+// --- Trainer payments (Stripe Connect, direct charges) ---
+// Entirely separate from MIA's own trainer SaaS billing (TrainerSubscription)
+// and club member billing: different Stripe accounts, a separate webhook
+// endpoint/secret (app/api/stripe/connect/webhook).
+
+/// A trainer's connected Stripe account (full dashboard, Stripe-managed fees).
+model ConnectedAccount {
+  id               String    @id @default(auto()) @map("_id") @db.ObjectId
+  trainerId        String    @unique @db.ObjectId
+  stripeAccountId  String    @unique
+  /// CREATED (onboarded through MIA) | OAUTH (linked an existing account)
+  onboardingMethod String
+  chargesEnabled   Boolean   @default(false)
+  payoutsEnabled   Boolean   @default(false)
+  detailsSubmitted Boolean   @default(false)
+  country          String?
+  defaultCurrency  String?
+  disconnectedAt   DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+}
+
+/// Something a trainer sells: a one-time program purchase or a monthly
+/// coaching membership. Product/price live on the trainer's connected account.
+model PaidOffer {
+  id                 String              @id @default(auto()) @map("_id") @db.ObjectId
+  trainerId          String              @db.ObjectId
+  stripeAccountId    String
+  kind               String // PROGRAM | COACHING
+  name               String
+  description        String?
+  priceInCents       Int
+  currency           String              @default("usd")
+  /// PROGRAM: the template cloned + assigned on purchase. COACHING: optional
+  /// program assigned when the membership starts.
+  programTemplateId  String?             @db.ObjectId
+  /// COACHING: END_OF_PERIOD (access until the paid period ends) | IMMEDIATE
+  cancellationPolicy String              @default("END_OF_PERIOD")
+  stripeProductId    String
+  stripePriceId      String
+  isActive           Boolean             @default(true)
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  purchases          OfferPurchase[]
+  subscriptions      OfferSubscription[]
+
+  @@index([trainerId, isActive])
+}
+
+/// One Checkout for a PROGRAM offer. stripeCheckoutSessionId is the
+/// idempotency key for webhook fulfillment.
+model OfferPurchase {
+  id                      String    @id @default(auto()) @map("_id") @db.ObjectId
+  offerId                 String    @db.ObjectId
+  offer                   PaidOffer @relation(fields: [offerId], references: [id])
+  trainerId               String    @db.ObjectId
+  clientId                String    @db.ObjectId
+  stripeAccountId         String
+  stripeCheckoutSessionId String    @unique
+  stripePaymentIntentId   String?
+  amountInCents           Int
+  currency                String    @default("usd")
+  /// PENDING | PAID | FAILED | REFUNDED
+  status                  String    @default("PENDING")
+  /// PENDING | FULFILLED | FAILED — program access, retried by cron.
+  fulfillmentStatus       String    @default("PENDING")
+  assignedProgramId       String?   @db.ObjectId
+  failureReason           String?
+  paidAt                  DateTime?
+  refundedAt              DateTime?
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+
+  @@index([trainerId, createdAt])
+  @@index([clientId])
+  @@index([stripePaymentIntentId])
+  @@index([status, fulfillmentStatus])
+}
+
+/// A client's COACHING membership with a trainer.
+model OfferSubscription {
+  id                   String    @id @default(auto()) @map("_id") @db.ObjectId
+  offerId              String    @db.ObjectId
+  offer                PaidOffer @relation(fields: [offerId], references: [id])
+  trainerId            String    @db.ObjectId
+  clientId             String    @db.ObjectId
+  stripeAccountId      String
+  stripeSubscriptionId String    @unique
+  stripeCustomerId     String
+  /// INCOMPLETE | ACTIVE | PAST_DUE | PAUSED (unpaid/paused in Stripe: access paused) | CANCELED
+  status               String
+  currentPeriodEnd     DateTime?
+  cancelAtPeriodEnd    Boolean   @default(false)
+  canceledAt           DateTime?
+  /// First time the membership became ACTIVE (paid). Null for checkouts that never completed.
+  activatedAt          DateTime?
+  assignedProgramId    String?   @db.ObjectId
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  @@index([trainerId, status])
+  @@index([clientId])
 }

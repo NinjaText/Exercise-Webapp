@@ -208,7 +208,7 @@ function ScheduledProgramCard({
                 </span>
                 <span className="inline-flex items-center gap-1">
                   <Clock className="h-3.5 w-3.5" />
-                  {formatWorkoutMetaLine(next.estimatedMinutes, next.exerciseCount)}
+                  {formatWorkoutMetaLine(next.estimatedMinutes, next.exerciseCount, next)}
                 </span>
               </p>
             </div>

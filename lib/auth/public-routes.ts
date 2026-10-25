@@ -12,6 +12,8 @@ export const PUBLIC_ROUTES = [
   "/onboarding(.*)",
   "/api/webhooks(.*)",
   "/api/stripe/webhook",
+  // Stripe Connect events (trainer payments). Signed with its own secret.
+  "/api/stripe/connect/webhook",
   "/p/(.*)",
   // Club join pages: the code form and Clerk sign-up render before any
   // session exists. /join/<slug>/complete checks auth itself.

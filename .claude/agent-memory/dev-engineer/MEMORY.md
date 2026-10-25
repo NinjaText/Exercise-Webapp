@@ -8,3 +8,6 @@
 - [patterns_shared_helpers_client_server.md](patterns_shared_helpers_client_server.md) — pure helpers shared by client + server belong in lib/utils, not lib/services (Prisma bundle + action tests vi.mock whole service modules)
 - [patterns_local_type_duplication.md](patterns_local_type_duplication.md) — components/pages re-declare Prisma field shapes locally instead of importing; use `tsc --noEmit` full-pass, not iterative `next build`, to find every stale copy during a schema migration
 - [patterns_react_lint_rules.md](patterns_react_lint_rules.md) — setState-in-effect is a lint ERROR here (tsc/build won't catch it); sanctioned workarounds + Clerk metadata index-signature gotcha
+- [patterns_client_component_action_tests.md](patterns_client_component_action_tests.md) — client component importing an action that reaches `server-only` breaks parent render tests; vi.mock the action module
+- [project_follow_along.md](project_follow_along.md) — follow-along video programs: copy paths must carry video fields + contentFormat
+- [project_trainer_payments_connect.md](project_trainer_payments_connect.md) — 2026-10-22 Stripe Connect trainer payments (uncommitted); rollout gates + fake-db test helper

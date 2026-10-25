@@ -3,13 +3,28 @@
 import { activeCallerOnly } from "@/lib/auth/active-user";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
+import type { User } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { notifyUser, NOTIFICATION_TYPES } from "@/lib/services/notification.service";
 import { appBaseUrl } from "@/lib/utils/app-url";
 import { computeScheduleVariance } from "@/lib/services/session.service";
 import { getProgramSchedulingType } from "@/lib/services/program.service";
 import { logUserAudit, AUDIT_ACTIONS } from "@/lib/services/audit-log.service";
-import { getCapabilitiesForUser } from "@/lib/org-capabilities.server";
+import { getCapabilitiesForUser, canCoachInteract } from "@/lib/org-capabilities.server";
+import { sendContextMessageToTrainer } from "@/lib/services/context-message.service";
+import {
+  completeFollowAlongSessionSchema,
+  type CompleteFollowAlongSessionInput,
+} from "@/lib/validators/follow-along";
+import {
+  isVideoWorkout,
+  isFollowAlongProgram,
+  dayNumberFromIndices,
+  getFollowAlongTotalDays,
+  formatDayOfTotal,
+  getFeelingLabel,
+  watchedSecondsToMinutes,
+} from "@/lib/utils/follow-along";
 
 type NotifyingClient = { id: string; firstName: string; lastName: string };
 
@@ -400,6 +415,101 @@ export async function updateExerciseClientNoteAction(
   }
 }
 
+type CompletingClient = User;
+
+/**
+ * Everything "finish a session" means, shared by the logged-workout tracker
+ * (completeSessionV2Action) and the follow-along player
+ * (completeFollowAlongSessionAction) so the two can't drift: stamp status,
+ * completedAt and scheduleVariance, write the audit entry, and notify the
+ * trainer. Callers own auth and must have already confirmed the session
+ * belongs to `dbUser`.
+ */
+async function finalizeSessionCompletion(
+  dbUser: CompletingClient,
+  session: { id: string; scheduledDate: Date; startedAt: Date | null; workoutName: string },
+  result: {
+    overallRPE?: number;
+    overallNotes?: string;
+    /** Follow-along only — see lib/utils/follow-along.ts. */
+    feelingRating?: string | null;
+    watchedSeconds?: number;
+    durationMinutes?: number;
+  },
+  options: { onlyIfNotCompleted?: boolean } = {}
+): Promise<{ completed: boolean }> {
+  const { overallRPE, overallNotes, feelingRating, watchedSeconds, durationMinutes } = result;
+  const completedAt = new Date();
+  const scheduleVariance = computeScheduleVariance(session.scheduledDate, completedAt);
+  const data = {
+    status: "COMPLETED",
+    completedAt,
+    overallRPE,
+    overallNotes,
+    scheduleVariance,
+    ...(feelingRating !== undefined && { feelingRating }),
+    ...(watchedSeconds !== undefined && { watchedSeconds }),
+    ...(durationMinutes !== undefined && { durationMinutes }),
+  };
+
+  if (options.onlyIfNotCompleted) {
+    // Atomic claim: of two concurrent submits only one flips the row, so only
+    // one sends the audit entry, notifications and trainer message.
+    const { count } = await prisma.workoutSessionV2.updateMany({
+      where: { id: session.id, clientId: dbUser.id, status: { not: "COMPLETED" } },
+      data,
+    });
+    if (count === 0) return { completed: false };
+  } else {
+    await prisma.workoutSessionV2.update({ where: { id: session.id, clientId: dbUser.id }, data });
+  }
+
+  const elapsedMinutes =
+    durationMinutes ??
+    (session.startedAt ? Math.round((completedAt.getTime() - session.startedAt.getTime()) / 60000) : undefined);
+  await logUserAudit(dbUser, () => ({
+    action: AUDIT_ACTIONS.WORKOUT_COMPLETED,
+    targetType: "WorkoutSession",
+    targetId: session.id,
+    targetLabel: session.workoutName,
+    metadata: {
+      ...(overallRPE != null && { rpe: overallRPE }),
+      ...(elapsedMinutes !== undefined && { durationMinutes: elapsedMinutes }),
+      scheduleVariance,
+    },
+  }));
+
+  // Fire trainer notifications — non-blocking, failures must not break completion.
+  // Uncoached club members have no coach to notify (coachNotifications off).
+  try {
+    const caps = await getCapabilitiesForUser(dbUser);
+    if (caps.coachNotifications) {
+      const client: NotifyingClient = {
+        id: dbUser.id,
+        firstName: dbUser.firstName,
+        lastName: dbUser.lastName,
+      };
+      try {
+        await notifyTrainerOnCompletion(session.id, client);
+      } catch (notifyErr) {
+        console.error("Completion notification failed (non-fatal):", notifyErr);
+      }
+
+      try {
+        await notifyTrainerOfClientNotes(session.id, client);
+      } catch (notifyErr) {
+        console.error("Exercise note notification failed (non-fatal):", notifyErr);
+      }
+    }
+  } catch (capsErr) {
+    console.error("Coach notification lookup failed (non-fatal):", capsErr);
+  }
+
+  revalidatePath("/dashboard");
+  revalidatePath("/sessions/" + session.id);
+  return { completed: true };
+}
+
 export async function completeSessionV2Action(
   sessionId: string,
   overallRPE?: number,
@@ -418,61 +528,188 @@ export async function completeSessionV2Action(
     });
     if (!session) return { success: false, error: "Session not found" };
 
-    const completedAt = new Date();
-    const scheduleVariance = computeScheduleVariance(session.scheduledDate, completedAt);
-
-    await prisma.workoutSessionV2.update({
-      where: { id: sessionId, clientId: dbUser.id },
-      data: { status: "COMPLETED", completedAt, overallRPE, overallNotes, scheduleVariance },
-    });
-
-    await logUserAudit(dbUser, () => ({
-      action: AUDIT_ACTIONS.WORKOUT_COMPLETED,
-      targetType: "WorkoutSession",
-      targetId: sessionId,
-      targetLabel: session.workout.name,
-      metadata: {
-        ...(overallRPE != null && { rpe: overallRPE }),
-        ...(session.startedAt && {
-          durationMinutes: Math.round((completedAt.getTime() - session.startedAt.getTime()) / 60000),
-        }),
-        scheduleVariance,
+    await finalizeSessionCompletion(
+      dbUser,
+      {
+        id: sessionId,
+        scheduledDate: session.scheduledDate,
+        startedAt: session.startedAt,
+        workoutName: session.workout?.name,
       },
-    }));
-
-    // Fire trainer notifications — non-blocking, failures must not break completion.
-    // Uncoached club members have no coach to notify (coachNotifications off).
-    try {
-      const caps = await getCapabilitiesForUser(dbUser);
-      if (caps.coachNotifications) {
-        const client: NotifyingClient = {
-          id: dbUser.id,
-          firstName: dbUser.firstName,
-          lastName: dbUser.lastName,
-        };
-        try {
-          await notifyTrainerOnCompletion(sessionId, client);
-        } catch (notifyErr) {
-          console.error("Completion notification failed (non-fatal):", notifyErr);
-        }
-
-        try {
-          await notifyTrainerOfClientNotes(sessionId, client);
-        } catch (notifyErr) {
-          console.error("Exercise note notification failed (non-fatal):", notifyErr);
-        }
-      }
-    } catch (capsErr) {
-      console.error("Coach notification lookup failed (non-fatal):", capsErr);
-    }
-
-    revalidatePath("/dashboard");
-    revalidatePath("/sessions/" + sessionId);
+      { overallRPE, overallNotes }
+    );
     return { success: true };
   } catch (error) {
     console.error(error);
     return { success: false, error: "Failed to complete session" };
   }
+}
+
+/**
+ * Finishes a follow-along video session from the "How did it go?" dialog.
+ *
+ * Same ownership check as every session action (the session must belong to
+ * the caller), then the shared completion path with the follow-along fields.
+ * When the client wrote a comment and their org allows messaging, the comment
+ * also lands in the trainer's inbox as a WORKOUT_FEEDBACK context message so
+ * the trainer can reply in the normal thread.
+ */
+export async function completeFollowAlongSessionAction(input: CompleteFollowAlongSessionInput) {
+  const { userId } = await auth();
+  if (!userId) return { success: false as const, error: "Unauthorized" };
+
+  const parsed = completeFollowAlongSessionSchema.safeParse(input);
+  if (!parsed.success) return { success: false as const, error: parsed.error.issues[0].message };
+  const { sessionId, feelingRating, watchedSeconds, videoEnded } = parsed.data;
+  const comment = parsed.data.comment?.trim() || null;
+  // A session that never actually played (load error, instant stop) isn't a
+  // workout — keep it open rather than recording a 0-second completion.
+  if (watchedSeconds === 0 && !videoEnded) {
+    return { success: false as const, error: "Play the video before finishing this session" };
+  }
+
+  try {
+    const dbUser = await activeCallerOnly(await prisma.user.findUnique({ where: { clerkId: userId } }));
+    if (!dbUser) return { success: false as const, error: "User not found" };
+
+    const session = await prisma.workoutSessionV2.findUnique({
+      where: { id: sessionId, clientId: dbUser.id },
+      select: {
+        status: true,
+        scheduledDate: true,
+        startedAt: true,
+        workout: {
+          select: {
+            name: true,
+            videoUrl: true,
+            weekIndex: true,
+            dayIndex: true,
+            program: {
+              select: {
+                trainerId: true,
+                contentFormat: true,
+                durationWeeks: true,
+                workouts: { select: { weekIndex: true, dayIndex: true } },
+              },
+            },
+          },
+        },
+      },
+    });
+    if (!session) return { success: false as const, error: "Session not found" };
+    if (!isVideoWorkout(session.workout)) {
+      return { success: false as const, error: "This session isn't a follow-along video" };
+    }
+    // A double submit (or a second tab) is not an error for the client — the
+    // session is done either way — but must not re-send the comment.
+    const alreadyCompleted = { success: true as const, data: { messageSent: false, alreadyCompleted: true } };
+    if (session.status === "COMPLETED") return alreadyCompleted;
+
+    const { completed } = await finalizeSessionCompletion(
+      dbUser,
+      {
+        id: sessionId,
+        scheduledDate: session.scheduledDate,
+        startedAt: session.startedAt,
+        workoutName: session.workout.name,
+      },
+      {
+        overallNotes: comment ?? undefined,
+        feelingRating: feelingRating ?? null,
+        watchedSeconds,
+        durationMinutes: watchedSecondsToMinutes(watchedSeconds),
+      },
+      { onlyIfNotCompleted: true }
+    );
+    if (!completed) return alreadyCompleted;
+
+    if (feelingRating || comment) {
+      await logUserAudit(dbUser, () => ({
+        action: AUDIT_ACTIONS.WORKOUT_FEEDBACK_SUBMITTED,
+        targetType: "WorkoutSession",
+        targetId: sessionId,
+        targetLabel: session.workout.name,
+        metadata: { ...(feelingRating && { feelingRating }), hasComment: !!comment },
+      }));
+    }
+
+    // The session is already complete; a failed message must not undo that.
+    let messageSent = false;
+    if (comment) {
+      try {
+        messageSent = await sendFollowAlongFeedbackMessage(dbUser, {
+          sessionId,
+          comment,
+          feelingRating: feelingRating ?? null,
+          workout: session.workout,
+        });
+      } catch (messageErr) {
+        console.error("Follow-along feedback message failed (non-fatal):", messageErr);
+      }
+    }
+
+    return { success: true as const, data: { messageSent, alreadyCompleted: false } };
+  } catch (error) {
+    console.error(error);
+    return { success: false as const, error: "Failed to complete session" };
+  }
+}
+
+/**
+ * Sends the follow-along comment to the trainer who owns the program (not just
+ * any trainer in the org); false when messaging is off, the program has no
+ * trainer, or the pair rule (club coaching) doesn't let them interact.
+ */
+async function sendFollowAlongFeedbackMessage(
+  dbUser: CompletingClient,
+  input: {
+    sessionId: string;
+    comment: string;
+    feelingRating: string | null;
+    workout: {
+      name: string;
+      weekIndex: number;
+      dayIndex: number;
+      program: {
+        trainerId: string | null;
+        contentFormat: string | null;
+        durationWeeks: number | null;
+        workouts: { weekIndex: number; dayIndex: number }[];
+      };
+    };
+  }
+): Promise<boolean> {
+  const caps = await getCapabilitiesForUser(dbUser);
+  if (!caps.messaging) return false;
+  const { workout } = input;
+  const trainerId = workout.program.trainerId;
+  if (!trainerId) return false;
+  if (!(await canCoachInteract(dbUser, trainerId))) return false;
+
+  const excerptParts: string[] = [];
+  const feelingLabel = getFeelingLabel(input.feelingRating);
+  if (feelingLabel) excerptParts.push(`Felt: ${feelingLabel}`);
+  if (isFollowAlongProgram(workout.program)) {
+    excerptParts.push(
+      formatDayOfTotal(
+        dayNumberFromIndices(workout.weekIndex, workout.dayIndex),
+        getFollowAlongTotalDays(workout.program.workouts, workout.program.durationWeeks)
+      )
+    );
+  }
+
+  await sendContextMessageToTrainer({
+    client: { id: dbUser.id, firstName: dbUser.firstName, lastName: dbUser.lastName },
+    trainerId,
+    content: input.comment,
+    context: {
+      kind: "WORKOUT_FEEDBACK",
+      refId: input.sessionId,
+      title: workout.name,
+      excerpt: excerptParts.join(" · ") || null,
+    },
+  });
+  return true;
 }
 
 export async function markExerciseDoneAction(

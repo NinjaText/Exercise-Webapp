@@ -21,6 +21,11 @@ export function toLocalCalendarDate(value: Date | string): Date {
   return new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
 }
 
+/** Today as a canonical UTC-midnight-anchored calendar date — the start date for a program assigned "now" (e.g. on purchase). */
+export function utcToday(now: Date = new Date()): Date {
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+}
+
 /** Inverse of toLocalCalendarDate: reinterprets a local-time Date's Y/M/D as the canonical UTC-midnight-anchored calendar date for persistence. */
 export function toUtcCalendarDate(value: Date): Date {
   return new Date(Date.UTC(value.getFullYear(), value.getMonth(), value.getDate()));

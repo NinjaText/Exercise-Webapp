@@ -221,6 +221,7 @@ export async function scheduleProgramForClientAction({
         durationWeeks: sourceProgram.durationWeeks,
         daysPerWeek: sourceProgram.daysPerWeek,
         tags: sourceProgram.tags,
+        contentFormat: sourceProgram.contentFormat,
         startDate: sDate,
         workouts: {
           create: sortedWorkouts.map((w) => {
@@ -233,6 +234,8 @@ export async function scheduleProgramForClientAction({
               weekIndex: w.weekIndex,
               orderIndex: w.orderIndex,
               estimatedMinutes: w.estimatedMinutes,
+              videoUrl: w.videoUrl,
+              videoDurationSec: w.videoDurationSec,
               blocks: {
                 create: w.blocks.map((b) => ({
                   name: b.name,
