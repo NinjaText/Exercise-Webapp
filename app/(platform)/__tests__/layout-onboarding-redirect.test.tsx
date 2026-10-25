@@ -6,7 +6,7 @@ vi.mock("next/navigation", () => ({
     throw new Error(`REDIRECT:${to}`);
   }),
 }));
-vi.mock("@/lib/prisma", () => ({ prisma: { user: { findUnique: vi.fn() } } }));
+vi.mock("@/lib/prisma", () => ({ prisma: { user: { findUnique: vi.fn() }, trainerSubscription: { findUnique: vi.fn() } } }));
 vi.mock("@/lib/org-capabilities.server", () => ({ getCapabilitiesForUser: vi.fn() }));
 vi.mock("@/lib/current-user", () => ({ isSuperAdmin: vi.fn() }));
 vi.mock("@/components/layout/sidebar", () => ({ Sidebar: () => null }));
@@ -59,5 +59,19 @@ describe("platform layout onboarding redirects", () => {
     vi.mocked(prisma.user.findUnique).mockResolvedValue({ id: "t1", role: "TRAINER", clerkOrgId: null, onboarded: true, isActive: false } as any);
     vi.mocked(getCapabilitiesForUser).mockResolvedValue(caps("TRAINER", "TRAINER"));
     await expect(run()).rejects.toThrow(/^REDIRECT:\/account-deactivated$/);
+  });
+
+  it("sends an onboarded trainer-org trainer with no subscription back to /onboarding, not /billing", async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({ id: "t1", role: "TRAINER", clerkOrgId: "org_t", onboarded: true } as any);
+    vi.mocked(getCapabilitiesForUser).mockResolvedValue(caps("TRAINER", "TRAINER"));
+    vi.mocked(prisma.trainerSubscription.findUnique).mockResolvedValue(null);
+    await expect(run()).rejects.toThrow(/^REDIRECT:\/onboarding$/);
+  });
+
+  it("still sends a trainer whose trial ended to /billing", async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({ id: "t1", role: "TRAINER", clerkOrgId: "org_t", onboarded: true } as any);
+    vi.mocked(getCapabilitiesForUser).mockResolvedValue(caps("TRAINER", "TRAINER"));
+    vi.mocked(prisma.trainerSubscription.findUnique).mockResolvedValue({ status: "TRIALING", trialEndsAt: new Date(0) } as any);
+    await expect(run()).rejects.toThrow(/^REDIRECT:\/billing\?reason=trial_expired$/);
   });
 });

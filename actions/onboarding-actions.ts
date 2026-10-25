@@ -29,18 +29,34 @@ export async function completeTrainerOnboarding(data: {
 
   try {
     const organizationName = data.organizationName.trim();
-    const client = await clerkClient();
-    const org = await client.organizations.createOrganization({
-      name: organizationName,
-      createdBy: userId,
-      maxAllowedMemberships: ORG_MEMBER_LIMIT,
-    });
 
-    // The DB Organization row is the canonical org profile.
-    await prisma.organization.create({
-      data: { clerkOrgId: org.id, name: organizationName },
-    });
+    // A previous attempt can fail after the org exists (e.g. Stripe down while
+    // creating the customer). Reuse that org so a retry doesn't make a second one.
+    const previousOrg =
+      existing?.role === "TRAINER" && existing.clerkOrgId
+        ? await prisma.organization.findUnique({ where: { clerkOrgId: existing.clerkOrgId } })
+        : null;
 
+    let orgId: string;
+    if (previousOrg) {
+      orgId = previousOrg.clerkOrgId;
+    } else {
+      const client = await clerkClient();
+      const org = await client.organizations.createOrganization({
+        name: organizationName,
+        createdBy: userId,
+        maxAllowedMemberships: ORG_MEMBER_LIMIT,
+      });
+      orgId = org.id;
+
+      // The DB Organization row is the canonical org profile.
+      await prisma.organization.create({
+        data: { clerkOrgId: orgId, name: organizationName },
+      });
+    }
+
+    // `onboarded` is only set once the trial subscription exists (below): a
+    // trainer without one would otherwise be locked out on "trial ended".
     const user = await prisma.user.upsert({
       where: { clerkId: userId },
       update: {
@@ -48,8 +64,7 @@ export async function completeTrainerOnboarding(data: {
         lastName: data.lastName,
         role: "TRAINER",
         phone: data.phone ?? null,
-        clerkOrgId: org.id,
-        onboarded: true,
+        clerkOrgId: orgId,
       },
       create: {
         clerkId: userId,
@@ -59,8 +74,8 @@ export async function completeTrainerOnboarding(data: {
         role: "TRAINER",
         phone: data.phone ?? null,
         imageUrl: clerkUser.imageUrl,
-        clerkOrgId: org.id,
-        onboarded: true,
+        clerkOrgId: orgId,
+        onboarded: false,
       },
     });
 
@@ -89,10 +104,12 @@ export async function completeTrainerOnboarding(data: {
       });
     }
 
+    await prisma.user.update({ where: { id: user.id }, data: { onboarded: true } });
+
     await logUserAudit(user, () => ({
       action: AUDIT_ACTIONS.ONBOARDING_COMPLETED,
       targetType: "Organization",
-      targetId: org.id,
+      targetId: orgId,
       targetLabel: organizationName,
     }));
   } catch (err) {

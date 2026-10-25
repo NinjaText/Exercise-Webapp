@@ -1,6 +1,8 @@
 import type Stripe from "stripe";
 import { prisma } from "@/lib/prisma";
 import { stripe } from "@/lib/stripe";
+import { LIVE_READ_REQUEST_OPTIONS } from "@/lib/payments/connect-config";
+import { withLiveReadDeadline } from "@/lib/payments/live-read";
 
 /**
  * Live, read-only views of a trainer's connected account for /payments
@@ -111,7 +113,9 @@ export async function listRecentCharges(
   limit = 25
 ): Promise<LiveResult<ChargeRow[]>> {
   try {
-    const charges = await stripe.charges.list({ limit }, { stripeAccount: stripeAccountId });
+    const charges = await withLiveReadDeadline(
+      stripe.charges.list({ limit }, { stripeAccount: stripeAccountId, ...LIVE_READ_REQUEST_OPTIONS })
+    );
     const labels = await labelCustomers(stripeAccountId, trainerClerkOrgId, charges.data);
     return {
       ok: true,
@@ -146,11 +150,10 @@ export async function listRecentCharges(
 
 export async function getPayoutsOverview(stripeAccountId: string, limit = 10): Promise<LiveResult<PayoutsOverview>> {
   try {
-    const opts = { stripeAccount: stripeAccountId };
-    const [balance, payouts] = await Promise.all([
-      stripe.balance.retrieve({}, opts),
-      stripe.payouts.list({ limit }, opts),
-    ]);
+    const opts = { stripeAccount: stripeAccountId, ...LIVE_READ_REQUEST_OPTIONS };
+    const [balance, payouts] = await withLiveReadDeadline(
+      Promise.all([stripe.balance.retrieve({}, opts), stripe.payouts.list({ limit }, opts)])
+    );
     return {
       ok: true,
       data: {

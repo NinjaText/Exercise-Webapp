@@ -82,6 +82,66 @@ const programDetailInclude = {
 // parent, so the whole tree is 4 bulk inserts regardless of size. Shared by
 // createProgram and updateProgram — both build the same tree, just against a
 // new vs. existing programId.
+type WorkoutInput = CreateProgramInput["workouts"][number];
+type BlockInput = WorkoutInput["blocks"][number];
+type ExerciseInput = BlockInput["exercises"][number];
+type SetInput = ExerciseInput["sets"][number];
+
+// The stored columns of each tree level, minus id and parent key. Shared by the
+// bulk insert and the in-place sync so both write exactly the same fields.
+function workoutFields(w: WorkoutInput) {
+  return {
+    name: w.name,
+    description: w.description ?? null,
+    dayIndex: w.dayIndex,
+    weekIndex: w.weekIndex,
+    orderIndex: w.orderIndex,
+    estimatedMinutes: w.estimatedMinutes ?? null,
+    videoUrl: w.videoUrl ?? null,
+    videoDurationSec: w.videoDurationSec ?? null,
+  };
+}
+
+function blockFields(b: BlockInput) {
+  return {
+    name: b.name ?? null,
+    type: b.type,
+    orderIndex: b.orderIndex,
+    rounds: b.rounds,
+    restBetweenRounds: b.restBetweenRounds ?? null,
+    timeCap: b.timeCap ?? null,
+    notes: b.notes ?? null,
+  };
+}
+
+function exerciseFields(e: ExerciseInput) {
+  return {
+    exerciseId: e.exerciseId,
+    orderIndex: e.orderIndex,
+    activityType: e.activityType,
+    restSeconds: e.restSeconds ?? null,
+    notes: e.notes ?? null,
+    supersetGroup: e.supersetGroup ?? null,
+  };
+}
+
+function setFields(s: SetInput) {
+  return {
+    orderIndex: s.orderIndex,
+    setType: s.setType,
+    targetReps: s.targetReps ?? null,
+    targetWeight: s.targetWeight ?? null,
+    targetDuration: s.targetDuration ?? null,
+    targetDurationUnit: s.targetDurationUnit ?? null,
+    targetDistance: s.targetDistance ?? null,
+    targetPace: s.targetPace ?? null,
+    targetHrZone: s.targetHrZone ?? null,
+    repeatCount: s.repeatCount ?? null,
+    targetRPE: s.targetRPE ?? null,
+    restAfter: s.restAfter ?? null,
+  };
+}
+
 async function insertWorkoutTree(programId: string, workouts: CreateProgramInput["workouts"]) {
   const workoutRows: Prisma.WorkoutCreateManyInput[] = [];
   const blockRows: Prisma.WorkoutBlockV2CreateManyInput[] = [];
@@ -90,60 +150,15 @@ async function insertWorkoutTree(programId: string, workouts: CreateProgramInput
 
   for (const w of workouts) {
     const workoutId = newObjectId();
-    workoutRows.push({
-      id: workoutId,
-      programId,
-      name: w.name,
-      description: w.description,
-      dayIndex: w.dayIndex,
-      weekIndex: w.weekIndex,
-      orderIndex: w.orderIndex,
-      estimatedMinutes: w.estimatedMinutes,
-      videoUrl: w.videoUrl ?? null,
-      videoDurationSec: w.videoDurationSec ?? null,
-    });
+    workoutRows.push({ id: workoutId, programId, ...workoutFields(w) });
     for (const b of w.blocks) {
       const blockId = newObjectId();
-      blockRows.push({
-        id: blockId,
-        workoutId,
-        name: b.name,
-        type: b.type,
-        orderIndex: b.orderIndex,
-        rounds: b.rounds,
-        restBetweenRounds: b.restBetweenRounds,
-        timeCap: b.timeCap,
-        notes: b.notes,
-      });
+      blockRows.push({ id: blockId, workoutId, ...blockFields(b) });
       for (const e of b.exercises) {
         const blockExerciseId = newObjectId();
-        exerciseRows.push({
-          id: blockExerciseId,
-          blockId,
-          exerciseId: e.exerciseId,
-          orderIndex: e.orderIndex,
-          activityType: e.activityType,
-          restSeconds: e.restSeconds,
-          notes: e.notes,
-          supersetGroup: e.supersetGroup,
-        });
-        for (const s of e.sets) {
-          setRows.push({
-            id: newObjectId(),
-            blockExerciseId,
-            orderIndex: s.orderIndex,
-            setType: s.setType,
-            targetReps: s.targetReps,
-            targetWeight: s.targetWeight,
-            targetDuration: s.targetDuration,
-            targetDurationUnit: s.targetDurationUnit,
-            targetDistance: s.targetDistance,
-            targetPace: s.targetPace,
-            targetHrZone: s.targetHrZone,
-            repeatCount: s.repeatCount,
-            targetRPE: s.targetRPE,
-            restAfter: s.restAfter,
-          });
+        exerciseRows.push({ id: blockExerciseId, blockId, ...exerciseFields(e) });
+        for (const set of e.sets) {
+          setRows.push({ id: newObjectId(), blockExerciseId, ...setFields(set) });
         }
       }
     }
@@ -153,6 +168,174 @@ async function insertWorkoutTree(programId: string, workouts: CreateProgramInput
   if (blockRows.length) await prisma.workoutBlockV2.createMany({ data: blockRows });
   if (exerciseRows.length) await prisma.blockExerciseV2.createMany({ data: exerciseRows });
   if (setRows.length) await prisma.exerciseSet.createMany({ data: setRows });
+}
+
+/**
+ * Saves a program's workout tree IN PLACE rather than deleting and rebuilding
+ * it. A rebuild cascades away every WorkoutSessionV2 (Workout → sessions), so
+ * one editor save used to wipe a client's whole history on the program; and
+ * SessionExerciseLog.blockExerciseId is a bare id, so recreated exercises
+ * would orphan every logged set even if the sessions survived.
+ *
+ * Each row that comes back with an id this program already owns is kept —
+ * updated only if a field changed, re-parented if it was moved to another
+ * day/block. Rows without one (or with a foreign or repeated id, e.g. a
+ * duplicated day) are created, and only rows that disappeared are deleted.
+ * Ids are matched across the whole program at every level, so moving an
+ * exercise between days keeps its id and its logs. Still bulk-inserts new
+ * rows a level at a time, for the reason given on insertWorkoutTree.
+ */
+async function syncWorkoutTree(programId: string, workouts: CreateProgramInput["workouts"]) {
+  const existing = await prisma.workout.findMany({
+    where: { programId },
+    select: {
+      id: true,
+      name: true,
+      description: true,
+      dayIndex: true,
+      weekIndex: true,
+      orderIndex: true,
+      estimatedMinutes: true,
+      videoUrl: true,
+      videoDurationSec: true,
+      blocks: {
+        select: {
+          id: true,
+          workoutId: true,
+          name: true,
+          type: true,
+          orderIndex: true,
+          rounds: true,
+          restBetweenRounds: true,
+          timeCap: true,
+          notes: true,
+          exercises: {
+            select: {
+              id: true,
+              blockId: true,
+              exerciseId: true,
+              orderIndex: true,
+              activityType: true,
+              restSeconds: true,
+              notes: true,
+              supersetGroup: true,
+              sets: {
+                select: {
+                  id: true,
+                  blockExerciseId: true,
+                  orderIndex: true,
+                  setType: true,
+                  targetReps: true,
+                  targetWeight: true,
+                  targetDuration: true,
+                  targetDurationUnit: true,
+                  targetDistance: true,
+                  targetPace: true,
+                  targetHrZone: true,
+                  repeatCount: true,
+                  targetRPE: true,
+                  restAfter: true,
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  });
+
+  type Row = { id: string } & Record<string, unknown>;
+  const level = () => ({
+    existing: new Map<string, Row>(),
+    claimed: new Set<string>(),
+    updates: [] as { id: string; data: Record<string, unknown> }[],
+  });
+  const workoutsLvl = level();
+  const blocksLvl = level();
+  const exercisesLvl = level();
+  const setsLvl = level();
+  for (const w of existing) {
+    workoutsLvl.existing.set(w.id, w);
+    for (const b of w.blocks ?? []) {
+      blocksLvl.existing.set(b.id, b);
+      for (const e of b.exercises) {
+        exercisesLvl.existing.set(e.id, e);
+        for (const set of e.sets) setsLvl.existing.set(set.id, set);
+      }
+    }
+  }
+
+  // Returns the id to write under: the existing row's (queuing an update if
+  // anything differs), or null when the row has to be created.
+  function match(lvl: ReturnType<typeof level>, id: string | undefined, next: Record<string, unknown>) {
+    const current = id ? lvl.existing.get(id) : undefined;
+    if (!current || lvl.claimed.has(current.id)) return null;
+    lvl.claimed.add(current.id);
+    const changed = Object.keys(next).filter((k) => (current[k] ?? null) !== (next[k] ?? null));
+    if (changed.length) lvl.updates.push({ id: current.id, data: Object.fromEntries(changed.map((k) => [k, next[k]])) });
+    return current.id;
+  }
+
+  const workoutRows: Prisma.WorkoutCreateManyInput[] = [];
+  const blockRows: Prisma.WorkoutBlockV2CreateManyInput[] = [];
+  const exerciseRows: Prisma.BlockExerciseV2CreateManyInput[] = [];
+  const setRows: Prisma.ExerciseSetCreateManyInput[] = [];
+
+  for (const w of workouts) {
+    const wData = workoutFields(w);
+    let workoutId = match(workoutsLvl, w.id, wData);
+    if (!workoutId) {
+      workoutId = newObjectId();
+      workoutRows.push({ id: workoutId, programId, ...wData });
+    }
+    for (const b of w.blocks) {
+      const bData = { workoutId, ...blockFields(b) };
+      let blockId = match(blocksLvl, b.id, bData);
+      if (!blockId) {
+        blockId = newObjectId();
+        blockRows.push({ id: blockId, ...bData });
+      }
+      for (const e of b.exercises) {
+        const eData = { blockId, ...exerciseFields(e) };
+        let blockExerciseId = match(exercisesLvl, e.id, eData);
+        if (!blockExerciseId) {
+          blockExerciseId = newObjectId();
+          exerciseRows.push({ id: blockExerciseId, ...eData });
+        }
+        for (const set of e.sets) {
+          const sData = { blockExerciseId, ...setFields(set) };
+          if (!match(setsLvl, set.id, sData)) setRows.push({ id: newObjectId(), ...sData });
+        }
+      }
+    }
+  }
+
+  // Parents before children, then updates (which may re-parent rows onto the
+  // new ones), and deletes last so a cascade never takes a row that was moved.
+  if (workoutRows.length) await prisma.workout.createMany({ data: workoutRows });
+  if (blockRows.length) await prisma.workoutBlockV2.createMany({ data: blockRows });
+  if (exerciseRows.length) await prisma.blockExerciseV2.createMany({ data: exerciseRows });
+  if (setRows.length) await prisma.exerciseSet.createMany({ data: setRows });
+
+  await Promise.all([
+    ...workoutsLvl.updates.map((u) => prisma.workout.update({ where: { id: u.id }, data: u.data })),
+    ...blocksLvl.updates.map((u) => prisma.workoutBlockV2.update({ where: { id: u.id }, data: u.data })),
+    ...exercisesLvl.updates.map((u) => prisma.blockExerciseV2.update({ where: { id: u.id }, data: u.data })),
+    ...setsLvl.updates.map((u) => prisma.exerciseSet.update({ where: { id: u.id }, data: u.data })),
+  ]);
+
+  const removed = (lvl: ReturnType<typeof level>) =>
+    [...lvl.existing.keys()].filter((id) => !lvl.claimed.has(id));
+  const removedWorkouts = removed(workoutsLvl);
+  const removedBlocks = removed(blocksLvl);
+  const removedExercises = removed(exercisesLvl);
+  const removedSets = removed(setsLvl);
+  if (removedWorkouts.length) {
+    await prisma.workout.deleteMany({ where: { programId, id: { in: removedWorkouts } } });
+  }
+  if (removedBlocks.length) await prisma.workoutBlockV2.deleteMany({ where: { id: { in: removedBlocks } } });
+  if (removedExercises.length) await prisma.blockExerciseV2.deleteMany({ where: { id: { in: removedExercises } } });
+  if (removedSets.length) await prisma.exerciseSet.deleteMany({ where: { id: { in: removedSets } } });
 }
 
 export async function createProgram(
@@ -356,13 +539,8 @@ export async function updateProgram(
     },
   });
 
-  if (workouts) {
-    // Delete all existing workouts (cascades to blocks -> exercises -> sets),
-    // then bulk-rebuild the tree — see insertWorkoutTree for why this isn't a
-    // single nested `update`.
-    await prisma.workout.deleteMany({ where: { programId: id } });
-    await insertWorkoutTree(id, workouts);
-  }
+  // In place, so a client's sessions and logged sets survive the save.
+  if (workouts) await syncWorkoutTree(id, workouts);
 
   const full = await prisma.program.findUnique({ where: { id }, include: programDetailInclude });
   if (!full) throw new Error("Program not found immediately after update");
@@ -370,71 +548,15 @@ export async function updateProgram(
 }
 
 /**
- * Follow-along save that edits workouts IN PLACE instead of updateProgram's
- * delete-and-rebuild. Rebuilding cascades away every WorkoutSessionV2 of the
- * program — for a client's follow-along that's their completed days, ratings
- * and comments. Here a day that comes back with its Workout id is updated
- * (only if something changed), a day without one is created, and only days
- * that disappeared are deleted (taking just their sessions with them). The
- * caller still runs syncClientProgramSessions afterwards.
+ * Follow-along save. updateProgram now edits every program's workouts in place
+ * (see syncWorkoutTree), so a follow-along needs nothing extra — kept as its
+ * own entry point for the follow-along actions.
  */
 export async function updateFollowAlongProgram(
   id: string,
   data: Partial<CreateProgramInput> & { status?: string }
 ) {
-  const { workouts, ...rest } = data;
-  if (workouts) {
-    const existing = await prisma.workout.findMany({
-      where: { programId: id },
-      select: {
-        id: true,
-        name: true,
-        description: true,
-        dayIndex: true,
-        weekIndex: true,
-        orderIndex: true,
-        estimatedMinutes: true,
-        videoUrl: true,
-        videoDurationSec: true,
-      },
-    });
-    const existingById = new Map(existing.map((w) => [w.id, w]));
-    const claimedIds = new Set<string>();
-    const toCreate: CreateProgramInput["workouts"] = [];
-    const toUpdate: { id: string; data: Prisma.WorkoutUpdateInput }[] = [];
-
-    for (const w of workouts) {
-      const current = w.id ? existingById.get(w.id) : undefined;
-      // Unknown or repeated ids (another program's row, a stale tab) become new rows.
-      if (!current || claimedIds.has(current.id)) {
-        toCreate.push({ ...w, id: undefined });
-        continue;
-      }
-      claimedIds.add(current.id);
-      const next = {
-        name: w.name,
-        description: w.description ?? null,
-        dayIndex: w.dayIndex,
-        weekIndex: w.weekIndex,
-        orderIndex: w.orderIndex,
-        estimatedMinutes: w.estimatedMinutes ?? null,
-        videoUrl: w.videoUrl ?? null,
-        videoDurationSec: w.videoDurationSec ?? null,
-      };
-      const changed = (Object.keys(next) as (keyof typeof next)[]).some((k) => (current[k] ?? null) !== next[k]);
-      if (changed) toUpdate.push({ id: current.id, data: next });
-    }
-
-    const removedIds = existing.filter((w) => !claimedIds.has(w.id)).map((w) => w.id);
-    if (removedIds.length) {
-      await prisma.workout.deleteMany({ where: { programId: id, id: { in: removedIds } } });
-    }
-    await Promise.all(toUpdate.map((u) => prisma.workout.update({ where: { id: u.id }, data: u.data })));
-    if (toCreate.length) await insertWorkoutTree(id, toCreate);
-  }
-
-  // Program-level fields (and the detail read-back) — no workouts, so no rebuild.
-  return updateProgram(id, rest);
+  return updateProgram(id, data);
 }
 
 export async function deleteProgram(id: string) {

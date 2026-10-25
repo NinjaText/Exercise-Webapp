@@ -30,6 +30,15 @@ describe("getCoachingViewModel", () => {
     expect(await getCoachingViewModel(member)).toEqual({ status: null, priceLabel: null });
   });
 
+  it("doesn't hold the page when Stripe can't be reached (request never settles)", async () => {
+    vi.useFakeTimers();
+    vi.mocked(stripe.prices.retrieve).mockReturnValue(new Promise(() => undefined) as any);
+    const model = getCoachingViewModel(member);
+    await vi.advanceTimersByTimeAsync(8000);
+    await expect(model).resolves.toEqual({ status: null, priceLabel: null });
+    vi.useRealTimers();
+  });
+
   it("is null when the club does not offer coaching, with no queries", async () => {
     vi.mocked(getOrgForUser).mockResolvedValue({ ...club, coachingStripePriceId: null } as any);
     expect(await getCoachingViewModel(member)).toBeNull();

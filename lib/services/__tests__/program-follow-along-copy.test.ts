@@ -62,6 +62,8 @@ beforeEach(() => {
   vi.clearAllMocks()
   mockProgramCreate.mockResolvedValue({ id: 'new_1' } as never)
   mockProgramUpdate.mockResolvedValue({ id: 'tpl_1' } as never)
+  // updateProgram reads the current tree before syncing it in place.
+  vi.mocked(prisma.workout.findMany).mockResolvedValue([] as never)
 })
 
 describe('follow-along fields survive every copy path', () => {

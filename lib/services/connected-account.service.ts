@@ -8,7 +8,8 @@ import { logUserAudit } from "@/lib/services/audit-log.service";
 import { AUDIT_ACTIONS } from "@/lib/audit/catalog";
 import { assertPaymentsAvailable } from "@/lib/payments/payments-access";
 import { PaymentsError } from "@/lib/payments/connect-errors";
-import { isConnectOAuthEnabled } from "@/lib/payments/connect-config";
+import { isConnectOAuthEnabled, LIVE_READ_REQUEST_OPTIONS } from "@/lib/payments/connect-config";
+import { withLiveReadDeadline } from "@/lib/payments/live-read";
 import { signConnectOAuthState, verifyConnectOAuthState } from "@/lib/payments/connect-oauth-state";
 import { endMembershipsForAccount } from "@/lib/services/offer-subscription.service";
 
@@ -110,7 +111,9 @@ export async function getConnectOverview(trainer: Trainer): Promise<ConnectOverv
   if (!account || account.disconnectedAt) return base;
 
   try {
-    const live = await stripe.accounts.retrieve(account.stripeAccountId);
+    const live = await withLiveReadDeadline(
+      stripe.accounts.retrieve(account.stripeAccountId, {}, LIVE_READ_REQUEST_OPTIONS)
+    );
     account = (await syncConnectedAccountFromStripe(live)) ?? account;
     const due = new Set([...(live.requirements?.past_due ?? []), ...(live.requirements?.currently_due ?? [])]);
     return {

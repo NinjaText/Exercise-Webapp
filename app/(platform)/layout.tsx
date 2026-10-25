@@ -67,6 +67,9 @@ export default async function PlatformLayout({ children }: { children: React.Rea
 
   if (user.role === "TRAINER" && caps.billing === "trainer") {
     const sub = await prisma.trainerSubscription.findUnique({ where: { trainerId: user.id } });
+    // No subscription at all means signup never finished (e.g. Stripe failed
+    // mid-onboarding): let them finish it rather than show "trial ended".
+    if (!sub) redirect("/onboarding");
     const verdict = evaluateAccess(sub, now);
     if (verdict !== "ok") redirect(`/billing?reason=${verdict}`);
   }

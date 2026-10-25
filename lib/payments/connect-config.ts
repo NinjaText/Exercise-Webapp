@@ -16,6 +16,15 @@
  */
 export const PLATFORM_FEE_BPS = 0;
 
+/**
+ * Stripe request options for live reads made while rendering a page (/payments,
+ * club price labels on member pages). These only display data
+ * and every caller fails soft, so give up fast instead of the client default
+ * (80s per attempt + 2 retries ≈ 4 minutes of spinner when Stripe is slow or
+ * unreachable). Never use for writes or webhook handling.
+ */
+export const LIVE_READ_REQUEST_OPTIONS = { timeout: 8_000, maxNetworkRetries: 0 } as const;
+
 /** Metadata tag on every Connect Checkout Session, PaymentIntent and Subscription. */
 export const CONNECT_PURCHASE_TYPE = "connect_offer";
 

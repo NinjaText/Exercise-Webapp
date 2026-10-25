@@ -10,8 +10,8 @@ vi.mock("@clerk/nextjs/server", () => ({
 }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
-    user: { upsert: vi.fn(), findUnique: vi.fn() },
-    organization: { create: vi.fn() },
+    user: { upsert: vi.fn(), findUnique: vi.fn(), update: vi.fn() },
+    organization: { create: vi.fn(), findUnique: vi.fn() },
     trainerSubscription: { findUnique: vi.fn(), create: vi.fn() },
     clientProfile: { upsert: vi.fn() },
   },
@@ -62,7 +62,7 @@ describe("completeTrainerOnboarding club guard", () => {
   it("first-time trainer-org signup is unchanged (regression)", async () => {
     await expect(completeTrainerOnboarding(trainerForm)).rejects.toThrow(/^REDIRECT:\/dashboard$/);
     expect(getCapabilitiesForUser).not.toHaveBeenCalled();
-    expect(clerk.createOrganization).toHaveBeenCalledWith({ name: "Clinic", createdBy: "clerk_1" });
+    expect(clerk.createOrganization).toHaveBeenCalledWith({ name: "Clinic", createdBy: "clerk_1", maxAllowedMemberships: 20 });
     expect(prisma.trainerSubscription.create).toHaveBeenCalled();
   });
 

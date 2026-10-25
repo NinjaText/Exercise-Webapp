@@ -228,6 +228,15 @@ describe("describeClubPrice", () => {
     await describeClubPrice("price_old");
     expect(stripe.prices.retrieve).toHaveBeenCalledWith("price_old", {}, { timeout: 5000, maxNetworkRetries: 0 });
   });
+  it("returns unavailable when Stripe can't even be connected to (request never settles)", async () => {
+    vi.useFakeTimers();
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.mocked(stripe.prices.retrieve).mockReturnValue(new Promise(() => undefined) as any);
+    const view = describeClubPrice("price_old");
+    await vi.advanceTimersByTimeAsync(5000);
+    await expect(view).resolves.toEqual({ status: "unavailable" });
+    vi.useRealTimers();
+  });
   it("returns unavailable on a timeout", async () => {
     vi.mocked(stripe.prices.retrieve).mockRejectedValue(
       Object.assign(new Error("Request aborted due to timeout"), { type: "StripeConnectionError" })
