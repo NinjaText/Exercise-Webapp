@@ -16,7 +16,7 @@ import { getCurrentBranding, getOrgBranding } from "@/lib/services/branding.serv
 import { toViewModel } from "@/lib/branding/types";
 import { brandIconsMetadata, brandViewport } from "@/lib/branding/metadata";
 import { evaluateAccess, evaluateMemberAccess, memberTrialBannerDays } from "@/lib/billing/access";
-import { hiddenNavHrefs } from "@/lib/org-capabilities";
+import { hiddenNavHrefs, TEMPORARILY_HIDDEN_HREFS } from "@/lib/org-capabilities";
 import { getCapabilitiesForUser, getOrgForUser } from "@/lib/org-capabilities.server";
 import { isHouseCoach } from "@/lib/services/house-coach.service";
 import { getActingAdmin } from "@/lib/clubs/admin-session";
@@ -81,7 +81,7 @@ export default async function PlatformLayout({ children }: { children: React.Rea
     memberTrialDays = memberTrialBannerDays(sub, now);
   }
 
-  const hiddenHrefs = hiddenNavHrefs(caps);
+  const hiddenHrefs = [...hiddenNavHrefs(caps), ...TEMPORARILY_HIDDEN_HREFS];
 
   // A house coach is only ever reached through an admin's club session (getCurrentUser
   // enforces it). The marker must belong to *this* user: a stale cookie on an

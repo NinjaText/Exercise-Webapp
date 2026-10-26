@@ -114,6 +114,13 @@ export const TRAINER_BILLING_ROUTE = "/settings/billing";
  */
 export const CLIENT_PAYMENTS_ROUTES = ["/payments", "/store"] as const;
 
+/**
+ * Hidden for every user until Stripe Connect is set up: the trainer's Payments
+ * page and Billing settings tab, and the client Store. The routes still exist;
+ * only the nav links and settings tab go. Empty this list to bring them back.
+ */
+export const TEMPORARILY_HIDDEN_HREFS: readonly string[] = ["/payments", "/store", TRAINER_BILLING_ROUTE];
+
 /** Nav hrefs to drop for a user, in a stable order. */
 export function hiddenNavHrefs(caps: OrgCapabilities): string[] {
   const hidden: string[] = [];
