@@ -134,13 +134,13 @@ export default async function AdminProgramsPage({ searchParams }: PageProps) {
       />
 
       <PageToolbar>
-        <form method="GET" className="flex flex-wrap items-center gap-2">
-          <div className="relative">
+        <form method="GET" className="flex w-full flex-wrap items-center gap-2">
+          <div className="relative w-full sm:w-auto">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input name="search" defaultValue={search} placeholder="Search programs…" className="h-9 w-64 pl-9" />
+            <Input name="search" defaultValue={search} placeholder="Search programs…" className="h-10 w-full pl-9 sm:h-9 sm:w-64" />
           </div>
           <Select name="status" defaultValue={status}>
-            <SelectTrigger className="h-9 w-36">
+            <SelectTrigger className="h-10 min-w-0 flex-1 sm:h-9 sm:w-36 sm:flex-none">
               <SelectValue placeholder="All statuses" />
             </SelectTrigger>
             <SelectContent>
@@ -153,7 +153,7 @@ export default async function AdminProgramsPage({ searchParams }: PageProps) {
             </SelectContent>
           </Select>
           <Select name="visibility" defaultValue={visibility}>
-            <SelectTrigger className="h-9 w-40">
+            <SelectTrigger className="h-10 min-w-0 flex-1 sm:h-9 sm:w-40 sm:flex-none">
               <SelectValue placeholder="All programs" />
             </SelectTrigger>
             <SelectContent>
@@ -161,7 +161,7 @@ export default async function AdminProgramsPage({ searchParams }: PageProps) {
               <SelectItem value="UNIVERSAL">Universal only</SelectItem>
             </SelectContent>
           </Select>
-          <Button type="submit" variant="outline" className="h-9">
+          <Button type="submit" variant="outline" className="h-10 sm:h-9">
             Filter
           </Button>
         </form>

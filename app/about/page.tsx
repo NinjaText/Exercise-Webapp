@@ -28,7 +28,7 @@ export default function AboutPage() {
               <Badge className="mb-4 border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100">
                 About
               </Badge>
-              <h1 className="text-4xl font-extrabold tracking-tight text-slate-900 sm:text-5xl">
+              <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 min-[400px]:text-4xl sm:text-5xl">
                 Why MIA Performance Is Different
               </h1>
               <div className="mt-6 space-y-4 text-left text-lg leading-8 text-slate-600">
@@ -56,7 +56,7 @@ export default function AboutPage() {
               <Badge className="mb-4 border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100">
                 Credibility
               </Badge>
-              <h2 className="text-4xl font-extrabold tracking-tight text-slate-900 sm:text-5xl">
+              <h2 className="text-3xl font-extrabold tracking-tight text-slate-900 min-[400px]:text-4xl sm:text-5xl">
                 Designed by a Doctor of Physical Therapy
               </h2>
               <div className="mt-6 space-y-4 text-left text-lg leading-8 text-slate-600">
@@ -78,12 +78,12 @@ export default function AboutPage() {
         <section className="py-16 sm:py-20">
           <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
             <FadeUp className="mx-auto max-w-2xl text-center">
-              <h2 className="text-4xl font-extrabold tracking-tight text-slate-900 sm:text-5xl">
+              <h2 className="text-3xl font-extrabold tracking-tight text-slate-900 min-[400px]:text-4xl sm:text-5xl">
                 See the difference
               </h2>
             </FadeUp>
 
-            <FadeUp delay={0.1} className="mt-12 overflow-hidden rounded-2xl border border-slate-200">
+            <FadeUp delay={0.1} className="mt-8 overflow-hidden rounded-2xl border border-slate-200 sm:mt-12">
               <div className="grid grid-cols-2">
                 <div className="border-b border-slate-200 bg-slate-50 px-3 py-4 text-center text-sm font-semibold text-slate-500 sm:px-6">
                   Other Training Apps
@@ -121,7 +121,7 @@ export default function AboutPage() {
             </FadeUp>
 
             <FadeUp delay={0.1}>
-              <div className="mt-8 rounded-2xl border border-slate-200 bg-white p-10 shadow-sm">
+              <div className="mt-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-10">
                 <div className="flex flex-col items-center gap-6 text-center sm:flex-row sm:items-start sm:text-left">
                   <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-linear-to-br from-violet-500 to-purple-500 text-lg font-bold text-white shadow-md">
                     SA

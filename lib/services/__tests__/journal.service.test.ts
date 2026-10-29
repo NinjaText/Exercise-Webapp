@@ -18,6 +18,7 @@ import { prisma } from "@/lib/prisma";
 import {
   createJournalEntry,
   deletePrivateEntry,
+  listEntriesForClient,
   listSharedEntriesForTrainer,
   updatePrivateEntry,
 } from "../journal.service";
@@ -29,6 +30,29 @@ const mockDeleteMany = vi.mocked(prisma.journalEntry.deleteMany);
 
 beforeEach(() => {
   vi.clearAllMocks();
+});
+
+describe("listEntriesForClient — date range", () => {
+  it("lists every own entry when no range is given", async () => {
+    mockFindMany.mockResolvedValue([] as never);
+    await listEntriesForClient("client_1");
+    expect(mockFindMany.mock.calls[0][0]!.where).toEqual({ clientId: "client_1" });
+  });
+
+  it("bounds entryDate inclusively on both ends", async () => {
+    mockFindMany.mockResolvedValue([] as never);
+    const from = new Date("2026-10-01T00:00:00.000Z");
+    const to = new Date("2026-10-15T00:00:00.000Z");
+    await listEntriesForClient("client_1", { from, to });
+    expect(mockFindMany.mock.calls[0][0]!.where).toEqual({ clientId: "client_1", entryDate: { gte: from, lte: to } });
+  });
+
+  it("supports an open-ended range", async () => {
+    mockFindMany.mockResolvedValue([] as never);
+    const from = new Date("2026-10-01T00:00:00.000Z");
+    await listEntriesForClient("client_1", { from, to: null });
+    expect(mockFindMany.mock.calls[0][0]!.where).toEqual({ clientId: "client_1", entryDate: { gte: from } });
+  });
 });
 
 describe("listSharedEntriesForTrainer — private entries never reach a trainer", () => {

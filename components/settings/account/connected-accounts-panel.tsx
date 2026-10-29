@@ -50,7 +50,7 @@ export function ConnectedAccountsPanel() {
     >
       <ul className="flex flex-col divide-y divide-border rounded-lg ring-1 ring-border">
         {user.externalAccounts.map((account) => (
-          <li key={account.id} className="flex items-center gap-4 px-4 py-3">
+          <li key={account.id} className="flex items-center gap-3 px-4 py-3 sm:gap-4">
             <div className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-muted">
               {account.imageUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element -- provider avatar from Clerk's CDN

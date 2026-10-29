@@ -36,6 +36,7 @@ vi.mock("@/lib/services/reflection.service", async (importActual) => {
     getProgramPlan: vi.fn(),
     fillProgramDays: vi.fn(),
     deleteProgramReflection: vi.fn(),
+    setProgramDaysImage: vi.fn(),
   };
 });
 
@@ -52,6 +53,7 @@ import {
   fillProgramPlanWithAiAction,
   generateReflectionImageUploadUrlAction,
   updateReflectionsAction,
+  upsertProgramDayAction,
 } from "../reflection-actions";
 
 const TRAINER_ID = "a".repeat(24);
@@ -205,6 +207,48 @@ describe("createReflectionAction", () => {
 
     expect(result.success).toBe(true);
     expect(vi.mocked(reflectionService.upsertProgramReflection).mock.calls[0][0]).toMatchObject({ programId: PROGRAM_ID, dayIndex: 2 });
+  });
+});
+
+describe("upsertProgramDayAction — sharing the image with other days", () => {
+  const imageUrl = `https://cdn.example.com/reflections/${TRAINER_ID}/img.png`;
+
+  beforeEach(() => {
+    signInAs(trainer);
+    vi.mocked(reflectionService.getOwnedProgram).mockResolvedValue({ id: PROGRAM_ID, name: "P" } as never);
+    vi.mocked(reflectionService.upsertProgramReflection).mockResolvedValue({ id: "r1" } as never);
+    vi.mocked(reflectionService.setProgramDaysImage).mockResolvedValue({ count: 2 });
+  });
+
+  it("copies the image to the other chosen days as dayIndexes, skipping the saved day", async () => {
+    const result = await upsertProgramDayAction({
+      programId: PROGRAM_ID,
+      dayNumber: 2,
+      content: { ...content, imageUrl },
+      shareImageWithDays: [1, 2, 5, 5],
+    });
+
+    expect(result).toEqual({ success: true, data: { id: "r1", sharedImageCount: 2 } });
+    expect(reflectionService.setProgramDaysImage).toHaveBeenCalledWith(PROGRAM_ID, [0, 4], imageUrl);
+  });
+
+  it("saves only this day when nothing is shared", async () => {
+    const result = await upsertProgramDayAction({ programId: PROGRAM_ID, dayNumber: 2, content: { ...content, imageUrl } });
+
+    expect(result).toEqual({ success: true, data: { id: "r1", sharedImageCount: 0 } });
+    expect(reflectionService.setProgramDaysImage).not.toHaveBeenCalled();
+  });
+
+  it("never shares when the day has no image", async () => {
+    const result = await upsertProgramDayAction({
+      programId: PROGRAM_ID,
+      dayNumber: 2,
+      content,
+      shareImageWithDays: [1, 3],
+    });
+
+    expect(result).toEqual({ success: true, data: { id: "r1", sharedImageCount: 0 } });
+    expect(reflectionService.setProgramDaysImage).not.toHaveBeenCalled();
   });
 });
 

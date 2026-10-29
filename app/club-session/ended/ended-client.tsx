@@ -23,14 +23,14 @@ export function ClubSessionEnded() {
 
   if (isSignedIn && isHouseCoach) {
     return (
-      <Button variant="outline" onClick={() => void signOut({ redirectUrl: ADMIN_URL })}>
+      <Button variant="outline" className="w-full sm:w-auto" onClick={() => void signOut({ redirectUrl: ADMIN_URL })}>
         Back to admin
       </Button>
     );
   }
 
   return (
-    <Button asChild variant="outline">
+    <Button asChild variant="outline" className="w-full sm:w-auto">
       <Link href={ADMIN_URL}>Back to admin</Link>
     </Button>
   );

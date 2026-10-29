@@ -46,7 +46,8 @@ export function AdminInvitationsDialog({ clerkOrgId, trainerName }: Props) {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger render={<Button variant="ghost" size="sm" className="gap-1.5" />}>
         <Mail className="h-3.5 w-3.5" />
-        Invitations
+        {/* Icon-only on phones, where the row actions share a card corner. */}
+        <span className="max-sm:sr-only">Invitations</span>
       </DialogTrigger>
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>

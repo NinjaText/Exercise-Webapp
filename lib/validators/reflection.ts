@@ -122,7 +122,11 @@ export const programDaySchema = z.object({
   dayNumber: z.number().int().min(1).max(MAX_PROGRAM_PLAN_DAYS),
 });
 
-export const upsertProgramDaySchema = programDaySchema.extend({ content: reflectionContentSchema });
+export const upsertProgramDaySchema = programDaySchema.extend({
+  content: reflectionContentSchema,
+  /** Other planned days that should take this day's image too ("share image"). */
+  shareImageWithDays: z.array(z.number().int().min(1).max(MAX_PROGRAM_PLAN_DAYS)).max(MAX_PROGRAM_PLAN_DAYS).default([]),
+});
 
 export const programIdSchema = z.object({ programId: objectId });
 

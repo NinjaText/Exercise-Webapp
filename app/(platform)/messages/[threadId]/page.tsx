@@ -46,6 +46,8 @@ export default async function ThreadPage({ params }: Props) {
   return (
     <PageShell className={MESSAGES_VIEWPORT_HEIGHT}>
       <PageHeader
+        // Phones get a full-screen chat: the thread header carries the back arrow.
+        className="hidden md:flex"
         title="Conversation"
         back={{ label: "Back to inbox", href: "/messages" }}
         breadcrumb={[{ label: "Inbox", href: "/messages" }, { label: recipientName }]}
@@ -56,6 +58,7 @@ export default async function ThreadPage({ params }: Props) {
           currentUserId={user.id}
           recipientId={threadId}
           recipientName={recipientName}
+          backHref="/messages"
         />
       </div>
     </PageShell>

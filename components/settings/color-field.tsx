@@ -98,7 +98,7 @@ export function ColorField({ value, onChange, error, id = "brandPrimaryColor", o
           aria-label="Pick brand color"
           value={value ?? DEFAULT_PRIMARY_HEX}
           onChange={(e) => handlePickerChange(e.target.value)}
-          className="size-8 shrink-0 cursor-pointer rounded-lg border border-input bg-transparent p-0.5 outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+          className="size-10 shrink-0 cursor-pointer rounded-lg border border-input sm:size-8 bg-transparent p-0.5 outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
         />
         <Input
           id={id}

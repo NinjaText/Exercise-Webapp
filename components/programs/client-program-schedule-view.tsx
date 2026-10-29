@@ -56,7 +56,7 @@ export function ClientProgramScheduleView({ rawSessions }: Props) {
           onClick={() => setWeekIndex((i) => Math.max(0, i - 1))}
           disabled={clampedIndex === 0}
           aria-label="Previous week"
-          className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-background hover:text-foreground disabled:opacity-30 disabled:pointer-events-none"
+          className="flex size-10 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-background hover:text-foreground disabled:opacity-30 disabled:pointer-events-none sm:size-8"
         >
           <ChevronLeft className="h-4 w-4" />
         </button>
@@ -72,7 +72,7 @@ export function ClientProgramScheduleView({ rawSessions }: Props) {
           onClick={() => setWeekIndex((i) => Math.min(weeks.length - 1, i + 1))}
           disabled={clampedIndex === weeks.length - 1}
           aria-label="Next week"
-          className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-background hover:text-foreground disabled:opacity-30 disabled:pointer-events-none"
+          className="flex size-10 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-background hover:text-foreground disabled:opacity-30 disabled:pointer-events-none sm:size-8"
         >
           <ChevronRight className="h-4 w-4" />
         </button>

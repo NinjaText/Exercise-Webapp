@@ -16,6 +16,16 @@ import {
   startOfWeek,
   endOfWeek,
   getDay,
+  addMonths,
+  subMonths,
+  isSameDay,
+  isToday,
+  startOfMonth,
+  endOfMonth,
+  eachDayOfInterval,
+  isBefore,
+  isSameMonth,
+  startOfDay,
 } from "date-fns";
 import { enUS } from "date-fns/locale";
 import { toast } from "sonner";
@@ -143,11 +153,19 @@ const statusConfig: Record<string, { dot: string; label: string }> = {
 const DnDCalendar = withDragAndDrop<SessionEvent>(Calendar);
 
 // ---------------------------------------------------------------------------
-// Event pill component
+// Event actions — the ⋯ menu (duplicate / delete) shared by the grid pill and
+// the phone agenda row
 // ---------------------------------------------------------------------------
-function EventComponent({ event }: { event: SessionEvent }) {
+function EventActions({
+  event,
+  triggerClassName,
+  iconClassName,
+}: {
+  event: SessionEvent;
+  triggerClassName: string;
+  iconClassName: string;
+}) {
   const { onRefresh } = useContext(CalendarPillCtx);
-  const dotColor = (statusConfig[event.status] ?? statusConfig.SCHEDULED).dot;
   const [dupeOpen, setDupeOpen] = useState(false);
   const [dupeDate, setDupeDate] = useState("");
   const [dupeLoading, setDupeLoading] = useState(false);
@@ -192,59 +210,35 @@ function EventComponent({ event }: { event: SessionEvent }) {
 
   return (
     <>
-      <div className="h-full overflow-hidden rounded-md border border-border bg-card shadow-xs transition-colors hover:border-border-strong motion-reduce:transition-none">
-        <div className="px-2 py-1 flex items-start justify-between gap-1">
-          <div className="flex items-start gap-1.5 flex-1 min-w-0">
-            <span
-              className="mt-[3px] shrink-0 h-1.5 w-1.5 rounded-full"
-              style={{ backgroundColor: dotColor }}
-            />
-            <div className="min-w-0">
-              <p className="truncate text-[11px] font-semibold leading-tight text-foreground">
-                {event.workoutName}
-              </p>
-              <p className="mt-0.5 flex items-center gap-0.5 text-[10px] text-muted-foreground">
-                {isVideoWorkout(event.resource.workout) ? (
-                  <>
-                    <Play className="h-2.5 w-2.5 shrink-0 fill-current" aria-hidden />
-                    {formatDuration(event.resource.workout.videoDurationSec) ?? "Video"}
-                  </>
-                ) : (
-                  <>{event.exerciseCount} ex</>
-                )}
-              </p>
-            </div>
-          </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              className="shrink-0 flex h-5 w-5 items-center justify-center rounded opacity-60 hover:opacity-100 hover:bg-muted transition-opacity"
-              onMouseDown={(e) => e.stopPropagation()}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <MoreHorizontal className="h-3 w-3" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              align="end"
-              className="w-44"
-              onMouseDown={(e) => e.stopPropagation()}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <DropdownMenuItem onClick={() => setDupeOpen(true)}>
-                <Copy className="mr-2 h-4 w-4" />
-                Duplicate to date
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                variant="destructive"
-                disabled={deleting}
-                onClick={handleDelete}
-              >
-                Delete
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </div>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          aria-label={`Actions for ${event.workoutName}`}
+          className={triggerClassName}
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <MoreHorizontal className={iconClassName} />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent
+          align="end"
+          className="w-44"
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <DropdownMenuItem onClick={() => setDupeOpen(true)}>
+            <Copy className="mr-2 h-4 w-4" />
+            Duplicate to date
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            variant="destructive"
+            disabled={deleting}
+            onClick={handleDelete}
+          >
+            Delete
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
 
       <Dialog
         open={dupeOpen}
@@ -282,6 +276,203 @@ function EventComponent({ event }: { event: SessionEvent }) {
         </DialogContent>
       </Dialog>
     </>
+  );
+}
+
+/** Workout length line: video duration for follow-along days, else "N ex". */
+function EventMeta({ event, iconClassName }: { event: SessionEvent; iconClassName: string }) {
+  return isVideoWorkout(event.resource.workout) ? (
+    <>
+      <Play className={cn("shrink-0 fill-current", iconClassName)} aria-hidden />
+      {formatDuration(event.resource.workout.videoDurationSec) ?? "Video"}
+    </>
+  ) : (
+    <>{event.exerciseCount} ex</>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Event pill component (Month / Week / Day grid)
+// ---------------------------------------------------------------------------
+function EventComponent({ event }: { event: SessionEvent }) {
+  const dotColor = (statusConfig[event.status] ?? statusConfig.SCHEDULED).dot;
+
+  return (
+    <div className="h-full overflow-hidden rounded-md border border-border bg-card shadow-xs transition-colors hover:border-border-strong motion-reduce:transition-none">
+      <div className="px-2 py-1 flex items-start justify-between gap-1">
+        <div className="flex items-start gap-1.5 flex-1 min-w-0">
+          <span
+            className="mt-[3px] shrink-0 h-1.5 w-1.5 rounded-full"
+            style={{ backgroundColor: dotColor }}
+          />
+          <div className="min-w-0">
+            <p className="truncate text-[11px] font-semibold leading-tight text-foreground">
+              {event.workoutName}
+            </p>
+            <p className="mt-0.5 flex items-center gap-0.5 text-[10px] text-muted-foreground">
+              <EventMeta event={event} iconClassName="h-2.5 w-2.5" />
+            </p>
+          </div>
+        </div>
+        <EventActions
+          event={event}
+          triggerClassName="shrink-0 flex h-5 w-5 items-center justify-center rounded opacity-60 hover:opacity-100 hover:bg-muted transition-opacity"
+          iconClassName="h-3 w-3"
+        />
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Phone agenda — a Month/Week grid is unusable at phone width, so phones get
+// the month as a day list instead: every day keeps a + to schedule on it
+// (what tapping an empty grid cell does), workouts open the editor on tap and
+// ⋯ for duplicate / delete. Drag-to-reschedule stays a tablet/desktop
+// affordance; "Duplicate to date" covers moving a workout here.
+// ---------------------------------------------------------------------------
+function PhoneAgenda({
+  events,
+  date,
+  onNavigate,
+  onCreateClick,
+  onCreateOnDay,
+  onSelectEvent,
+}: {
+  events: SessionEvent[];
+  date: Date;
+  onNavigate: (date: Date) => void;
+  onCreateClick: () => void;
+  onCreateOnDay: (day: Date) => void;
+  onSelectEvent: (event: SessionEvent) => void;
+}) {
+  const days = useMemo(
+    () =>
+      eachDayOfInterval({ start: startOfMonth(date), end: endOfMonth(date) }).map((day) => ({
+        day,
+        events: events.filter((e) => isSameDay(e.start, day)),
+      })),
+    [events, date]
+  );
+
+  // In the current month the list opens at today: earlier days fold behind a
+  // toggle so the trainer isn't scrolling past weeks of history first.
+  const [showEarlier, setShowEarlier] = useState(false);
+  const [lastMonth, setLastMonth] = useState(date.getMonth());
+  if (lastMonth !== date.getMonth()) {
+    setLastMonth(date.getMonth());
+    setShowEarlier(false);
+  }
+  const today = startOfDay(new Date());
+  const earlierCount = isSameMonth(date, today) ? days.filter(({ day }) => isBefore(day, today)).length : 0;
+  const visibleDays = showEarlier || earlierCount === 0 ? days : days.filter(({ day }) => !isBefore(day, today));
+
+  const navButton =
+    "flex size-10 items-center justify-center text-muted-foreground transition-colors hover:bg-surface-muted hover:text-foreground outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring motion-reduce:transition-none";
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-3">
+        <h2 className="w-full text-heading text-foreground">{format(date, "MMMM yyyy")}</h2>
+        <div className="flex items-center overflow-hidden rounded-md border border-input bg-surface shadow-xs">
+          <button
+            type="button"
+            onClick={() => onNavigate(subMonths(date, 1))}
+            aria-label="Previous month"
+            className={cn(navButton, "border-r border-border")}
+          >
+            <ChevronLeft className="size-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => onNavigate(new Date())}
+            className="h-10 px-3 text-label text-foreground transition-colors hover:bg-surface-muted outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring motion-reduce:transition-none"
+          >
+            Today
+          </button>
+          <button
+            type="button"
+            onClick={() => onNavigate(addMonths(date, 1))}
+            aria-label="Next month"
+            className={cn(navButton, "border-l border-border")}
+          >
+            <ChevronRight className="size-4" />
+          </button>
+        </div>
+        <Button variant="outline" className="ml-auto h-10" onClick={onCreateClick}>
+          <Plus />
+          Create
+        </Button>
+      </div>
+
+      {earlierCount > 0 && (
+        <Button variant="ghost" className="h-10 w-full text-muted-foreground" onClick={() => setShowEarlier((v) => !v)}>
+          {showEarlier ? "Hide earlier days" : `Show ${earlierCount} earlier ${earlierCount === 1 ? "day" : "days"}`}
+        </Button>
+      )}
+
+      <ol className="space-y-1">
+        {visibleDays.map(({ day, events: dayEvents }) => (
+          <li key={day.toISOString()} className={cn(dayEvents.length > 0 && "pb-2")}>
+            <div className="flex items-center gap-2">
+              <p
+                className={cn(
+                  "min-w-0 flex-1 truncate text-label",
+                  isToday(day) ? "text-primary" : dayEvents.length > 0 ? "text-foreground" : "text-muted-foreground"
+                )}
+              >
+                {format(day, "EEE, MMM d")}
+                {isToday(day) && " · Today"}
+              </p>
+              <button
+                type="button"
+                onClick={() => onCreateOnDay(day)}
+                aria-label={`Create workout on ${format(day, "EEEE, MMMM d")}`}
+                className="flex size-10 shrink-0 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-surface-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none"
+              >
+                <Plus className="size-4" />
+              </button>
+            </div>
+            {dayEvents.length > 0 && (
+              <ul className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-card">
+                {dayEvents.map((event) => {
+                  const status = statusConfig[event.status] ?? statusConfig.SCHEDULED;
+                  return (
+                    <li key={event.id} className="flex items-center">
+                      <button
+                        type="button"
+                        onClick={() => onSelectEvent(event)}
+                        className="flex min-h-14 min-w-0 flex-1 items-center gap-3 px-4 py-2.5 text-left outline-none transition-colors hover:bg-surface-muted focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring motion-reduce:transition-none"
+                      >
+                        <span
+                          className="size-2 shrink-0 rounded-full"
+                          style={{ backgroundColor: status.dot }}
+                          aria-hidden
+                        />
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-body font-medium text-foreground">
+                            {event.workoutName}
+                          </span>
+                          <span className="flex items-center gap-1 text-caption">
+                            {status.label} ·
+                            <EventMeta event={event} iconClassName="size-3" />
+                          </span>
+                        </span>
+                      </button>
+                      <EventActions
+                        event={event}
+                        triggerClassName="mr-1 flex size-10 shrink-0 items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-surface-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+                        iconClassName="size-4"
+                      />
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </li>
+        ))}
+      </ol>
+    </div>
   );
 }
 
@@ -343,8 +534,8 @@ function CustomToolbar({
       </h2>
 
       {/* View toggle — Month/Week grids need real width to be usable, so they're
-          desktop/tablet-only; phones are steered to Day view (see the mount
-          effect below) and only get that option here. */}
+          desktop/tablet-only. Phones normally get the agenda list instead of
+          this toolbar; Day is the fallback if the grid ever renders narrow. */}
       <div role="group" aria-label="Calendar view" className="flex items-center overflow-hidden rounded-md bg-surface-muted p-0.5 ring-1 ring-border">
         {([Views.MONTH, Views.WEEK, Views.DAY] as View[]).map((v) => (
           <button
@@ -397,14 +588,17 @@ export function ClientCalendar({
   const [panelState, setPanelState] = useState<PanelState>({ mode: "closed" });
   const [aiDialogDate, setAiDialogDate] = useState<Date | null>(null);
 
-  // Month/Week grids are unreadable at phone widths — default to Day view there.
-  // Runs once on mount so it doesn't fight a view the user picks afterward.
+  // Month/Week grids are unreadable at phone widths — phones get the agenda
+  // list instead (tracked live so rotating a tablet swaps cleanly).
+  const [isPhone, setIsPhone] = useState(false);
   useEffect(() => {
-    if (window.matchMedia("(max-width: 640px)").matches) {
-      // Reading the viewport is only possible after mount (SSR has no window).
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setView(Views.DAY);
-    }
+    const mq = window.matchMedia("(max-width: 639px)");
+    // Reading the viewport is only possible after mount (SSR has no window).
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setIsPhone(mq.matches);
+    const onChange = (e: MediaQueryListEvent) => setIsPhone(e.matches);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
   }, []);
 
   // Build calendar events
@@ -493,7 +687,17 @@ export function ClientCalendar({
         ))}
       </div>
 
-      {/* Calendar */}
+      {/* Calendar — agenda list on phones, the drag-and-drop grid from `sm` */}
+      {isPhone ? (
+        <PhoneAgenda
+          events={events}
+          date={date}
+          onNavigate={setDate}
+          onCreateClick={handleCreateClick}
+          onCreateOnDay={(day) => setPanelState({ mode: "creating", date: day })}
+          onSelectEvent={handleSelectEvent}
+        />
+      ) : (
       <div className="min-h-160 overflow-x-auto">
         <div className={cn(view === Views.DAY ? "min-w-full" : "min-w-[640px]", "rbc-no-time-grid")}>
         <DnDCalendar
@@ -534,6 +738,7 @@ export function ClientCalendar({
         />
         </div>
       </div>
+      )}
       <style jsx global>{`
         /* Sessions are always all-day (day-granularity scheduling, no time-of-day) —
            hide the empty scrollable hour grid in Week/Day view and keep just the

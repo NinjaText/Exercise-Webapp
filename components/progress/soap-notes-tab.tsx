@@ -55,7 +55,7 @@ function NoteCard({
     note.subjective || note.objective || note.assessment || note.plan;
 
   return (
-    <div className="rounded-xl border-0 shadow-sm ring-1 ring-border/50 bg-card p-5 space-y-3">
+    <div className="rounded-xl border-0 shadow-sm ring-1 ring-border/50 bg-card p-4 sm:p-5 space-y-3">
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
@@ -71,7 +71,8 @@ function NoteCard({
           <Button
             size="icon"
             variant="ghost"
-            className="h-7 w-7"
+            className="size-9 sm:size-7"
+            aria-label="Edit note"
             onClick={onEdit}
           >
             <Edit2 className="h-3.5 w-3.5" />
@@ -79,7 +80,8 @@ function NoteCard({
           <Button
             size="icon"
             variant="ghost"
-            className="h-7 w-7 text-destructive hover:text-destructive"
+            className="size-9 text-destructive hover:text-destructive sm:size-7"
+            aria-label="Delete note"
             onClick={onDelete}
           >
             <Trash2 className="h-3.5 w-3.5" />
@@ -176,7 +178,7 @@ export function SoapNotesTab({ notes: initialNotes, clientId }: SoapNotesTabProp
 
       {/* Inline new note form */}
       {showNewForm && !editingNote && (
-        <div className="rounded-xl border-0 shadow-sm ring-1 ring-border/50 bg-card p-5">
+        <div className="rounded-xl border-0 shadow-sm ring-1 ring-border/50 bg-card p-4 sm:p-5">
           <h3 className="font-semibold text-sm mb-4">New SOAP Note</h3>
           <ClinicalNoteForm
             clientId={clientId}
@@ -188,7 +190,7 @@ export function SoapNotesTab({ notes: initialNotes, clientId }: SoapNotesTabProp
 
       {/* Edit form */}
       {editingNote && (
-        <div className="rounded-xl border-0 shadow-sm ring-1 ring-border/50 bg-card p-5">
+        <div className="rounded-xl border-0 shadow-sm ring-1 ring-border/50 bg-card p-4 sm:p-5">
           <h3 className="font-semibold text-sm mb-4">Edit SOAP Note</h3>
           <ClinicalNoteForm
             clientId={clientId}

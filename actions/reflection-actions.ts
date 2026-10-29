@@ -230,7 +230,9 @@ export async function getProgramPlanAction(input: unknown): Promise<
   }
 }
 
-export async function upsertProgramDayAction(input: unknown): Promise<ActionResult<{ id: string }>> {
+export async function upsertProgramDayAction(
+  input: unknown
+): Promise<ActionResult<{ id: string; sharedImageCount: number }>> {
   const parsed = upsertProgramDaySchema.safeParse(input);
   if (!parsed.success) return { success: false, error: firstIssue(parsed.error) };
 
@@ -248,15 +250,22 @@ export async function upsertProgramDayAction(input: unknown): Promise<ActionResu
       dayIndex: parsed.data.dayNumber - 1,
       content: parsed.data.content,
     });
+    const otherDayIndexes = [...new Set(parsed.data.shareImageWithDays)]
+      .filter((day) => day !== parsed.data.dayNumber)
+      .map((day) => day - 1);
+    const { count: sharedImageCount } =
+      parsed.data.content.imageUrl && otherDayIndexes.length > 0
+        ? await reflectionService.setProgramDaysImage(program.id, otherDayIndexes, parsed.data.content.imageUrl)
+        : { count: 0 };
     await logUserAudit(user, () => ({
       action: AUDIT_ACTIONS.REFLECTION_UPDATED,
       targetType: "Program",
       targetId: program.id,
       targetLabel: program.name,
-      metadata: { reflectionId: reflection.id, dayNumber: parsed.data.dayNumber },
+      metadata: { reflectionId: reflection.id, dayNumber: parsed.data.dayNumber, sharedImageCount },
     }));
     revalidateReflectionViews();
-    return { success: true, data: { id: reflection.id } };
+    return { success: true, data: { id: reflection.id, sharedImageCount } };
   } catch (error) {
     console.error("[reflections] program day save error:", error);
     return { success: false, error: "Failed to save reflection" };

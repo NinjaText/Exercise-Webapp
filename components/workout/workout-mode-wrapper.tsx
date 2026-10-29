@@ -12,17 +12,9 @@ import { formatDate } from "@/lib/utils/formatting";
 import { toLocalCalendarDate } from "@/lib/utils/calendar-date";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { WORKOUT_STATE } from "./workout-tokens";
+import { WorkoutExercisePreview, type PreviewBlock } from "./workout-exercise-preview";
 
 type Mode = "pick" | "checklist" | "session";
-
-/** The slice of a workout block the mode picker summarises. */
-type PickerBlock = {
-  id: string;
-  type: string;
-  name?: string | null;
-  rounds?: number | null;
-  exercises?: { id: string }[];
-};
 
 interface Props {
   // The raw Prisma include from the session page; each tracker narrows it to
@@ -149,7 +141,7 @@ export function WorkoutModeWrapper({ session, initialMode }: Props) {
   }
 
   // ── Mode picker ──────────────────────────────────────────────────────────
-  const blocks: PickerBlock[] = session.workout?.blocks ?? [];
+  const blocks: PreviewBlock[] = session.workout?.blocks ?? [];
   const totalExercises = blocks.reduce(
     (n, b) => n + (b.exercises?.length ?? 0),
     0
@@ -162,7 +154,7 @@ export function WorkoutModeWrapper({ session, initialMode }: Props) {
       {/* The page header already names the workout; this summary answers
           "what am I in for" before the client picks how to train. */}
       <Card>
-        <CardContent className="flex flex-col gap-3">
+        <CardContent className="flex flex-col gap-3 px-4 sm:px-5">
           {isReturning && (
             <Badge variant="outline" className="w-fit">
               {alreadyDone > 0 ? `${alreadyDone} exercises done — continuing` : "In Progress"}
@@ -185,19 +177,10 @@ export function WorkoutModeWrapper({ session, initialMode }: Props) {
             </div>
           )}
           {blocks.length > 0 && (
-            <ul className="mt-1 divide-y divide-border overflow-hidden rounded-lg border border-border">
-              {blocks.map((block) => (
-                <li key={block.id} className="flex min-h-11 items-center gap-3 bg-surface-muted/50 px-3 py-2">
-                  <span className="flex-1 truncate text-label text-foreground">{block.name || block.type}</span>
-                  {(block.rounds ?? 0) > 1 && (
-                    <Badge variant="secondary" className="shrink-0">
-                      {block.rounds} rounds
-                    </Badge>
-                  )}
-                  <span className="shrink-0 text-caption tabular-nums">{block.exercises?.length ?? 0} ex.</span>
-                </li>
-              ))}
-            </ul>
+            <div className="mt-1 flex flex-col gap-2">
+              <p className="text-caption">Tap an exercise to see the demo and instructions.</p>
+              <WorkoutExercisePreview blocks={blocks} />
+            </div>
           )}
         </CardContent>
       </Card>

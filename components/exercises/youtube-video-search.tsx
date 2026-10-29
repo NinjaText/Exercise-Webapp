@@ -57,7 +57,7 @@ export function YouTubeVideoSearch({ onSelect }: Props) {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="e.g. Single Leg RDL"
-          className="h-8 text-sm flex-1"
+          className="h-10 text-base flex-1 sm:h-8 sm:text-sm"
           onKeyDown={(e) => {
             if (e.key === "Enter") {
               e.preventDefault();

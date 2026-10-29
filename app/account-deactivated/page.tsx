@@ -24,7 +24,7 @@ export default async function AccountDeactivatedPage() {
           for help.
         </p>
         <SignOutButton>
-          <Button variant="outline">Sign out</Button>
+          <Button variant="outline" className="w-full sm:w-auto">Sign out</Button>
         </SignOutButton>
       </div>
     </AuthShell>

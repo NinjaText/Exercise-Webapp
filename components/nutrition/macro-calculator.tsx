@@ -229,7 +229,7 @@ function SegmentedToggle<T extends string>({
             aria-checked={active}
             onClick={() => onChange(option.value)}
             className={cn(
-              "h-8 flex-1 rounded-[5px] px-3 text-label whitespace-nowrap transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/50 motion-reduce:transition-none sm:flex-none",
+              "h-10 flex-1 rounded-[5px] px-3 text-label whitespace-nowrap sm:h-8 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/50 motion-reduce:transition-none sm:flex-none",
               active ? "bg-surface text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"
             )}
           >

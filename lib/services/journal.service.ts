@@ -11,7 +11,7 @@ import { toUtcDay } from "@/lib/reflections/dates";
  * private entry.
  */
 
-const CLIENT_PAGE_SIZE = 50;
+export const CLIENT_PAGE_SIZE = 50;
 const TRAINER_PAGE_SIZE = 50;
 
 export interface JournalPromptSnapshot {
@@ -61,9 +61,24 @@ export async function discardEntry(entryId: string) {
 
 // ─── Client paths (own entries only) ─────────────────────────────────────────
 
-export async function listEntriesForClient(clientId: string, take = CLIENT_PAGE_SIZE) {
+export interface JournalDateRange {
+  /** Inclusive UTC-midnight bounds; either may be omitted for an open end. */
+  from?: Date | null;
+  to?: Date | null;
+}
+
+export async function listEntriesForClient(
+  clientId: string,
+  { from, to }: JournalDateRange = {},
+  take = CLIENT_PAGE_SIZE
+) {
   return prisma.journalEntry.findMany({
-    where: { clientId },
+    where: {
+      clientId,
+      ...(from || to
+        ? { entryDate: { ...(from && { gte: toUtcDay(from) }), ...(to && { lte: toUtcDay(to) }) } }
+        : {}),
+    },
     orderBy: [{ entryDate: "desc" }, { createdAt: "desc" }],
     take,
   });

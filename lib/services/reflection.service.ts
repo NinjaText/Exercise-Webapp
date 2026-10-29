@@ -306,6 +306,19 @@ export async function upsertProgramReflection(input: {
   });
 }
 
+/**
+ * Sets the image on the program's existing day reflections at `dayIndexes`
+ * (empty days have no reflection to carry it, so they're left alone).
+ */
+export async function setProgramDaysImage(programId: string, dayIndexes: number[], imageUrl: string | null) {
+  if (dayIndexes.length === 0) return { count: 0 };
+  const result = await prisma.reflection.updateMany({
+    where: { programId, dayIndex: { in: dayIndexes } },
+    data: { imageUrl },
+  });
+  return { count: result.count };
+}
+
 export async function deleteProgramReflection(programId: string, dayIndex: number) {
   const result = await prisma.reflection.deleteMany({ where: { programId, dayIndex } });
   return { count: result.count };

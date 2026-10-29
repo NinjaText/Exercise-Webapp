@@ -36,7 +36,8 @@ export function AdminBulkInviteDialog({ clerkOrgId, trainerName }: Props) {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger render={<Button variant="ghost" size="sm" className="gap-1.5" />}>
         <Upload className="h-3.5 w-3.5" />
-        Bulk Invite
+        {/* Icon-only on phones, where the row actions share a card corner. */}
+        <span className="max-sm:sr-only">Bulk Invite</span>
       </DialogTrigger>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>

@@ -59,7 +59,7 @@ export function CommentThread({
       <button
         type="button"
         onClick={() => setExpanded(true)}
-        className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+        className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground max-sm:min-h-10"
       >
         <MessageCircle className="h-3.5 w-3.5" />
         {placeholder ?? "Leave feedback"}
@@ -92,13 +92,13 @@ export function CommentThread({
           placeholder="Write a comment…"
           disabled={isPending}
           maxLength={2000}
-          className="h-8 flex-1 rounded-md border border-input bg-transparent px-2.5 text-xs shadow-sm outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50"
+          className="h-8 min-w-0 flex-1 rounded-md border border-input bg-transparent px-2.5 text-xs shadow-sm max-sm:h-10 max-sm:text-base outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50"
         />
         <button
           type="submit"
           disabled={isPending || !body.trim()}
           aria-label="Post comment"
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground disabled:opacity-50"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary max-sm:size-10 text-primary-foreground disabled:opacity-50"
         >
           {isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
         </button>

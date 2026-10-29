@@ -71,7 +71,7 @@ const MEAL_LABELS: Record<string, string> = {
   SNACK: "Snack",
 };
 
-function DeleteLogButton({ logId }: { logId: string }) {
+function DeleteLogButton({ logId, className }: { logId: string; className?: string }) {
   const [isPending, startTransition] = useTransition();
 
   function handleDelete() {
@@ -87,7 +87,7 @@ function DeleteLogButton({ logId }: { logId: string }) {
       onClick={handleDelete}
       disabled={isPending}
       aria-label="Delete item"
-      className="rounded-md p-1 text-muted-foreground hover:text-destructive"
+      className={cn("rounded-md p-1 text-muted-foreground hover:text-destructive", className)}
     >
       {isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
     </button>
@@ -169,7 +169,144 @@ export function MealsTable({ clientId, logs, comments, canDelete, canEdit, empty
   const groups = groupByDay(logs);
 
   return (
-    <div className="rounded-xl ring-1 ring-border/50">
+    <>
+    {/* Phones: one card per meal instead of a squeezed 8-column table. */}
+    <div className="space-y-4 sm:hidden">
+      {groups.map((group) => (
+        <section key={group.dateKey} className="space-y-2">
+          {groups.length > 1 && (
+            <h3 className="px-1 text-caption font-semibold text-muted-foreground">{formatUtcDate(group.date)}</h3>
+          )}
+          <div className="divide-y divide-border overflow-hidden rounded-xl ring-1 ring-border/50">
+            {group.meals.map((meal) => {
+              const mealKey = `${group.dateKey}:${meal.mealType}`;
+              const isOpen = openMeals.has(mealKey);
+              const mealLogIds = new Set(meal.logs.map((l) => l.id));
+              const mealCommentCount = comments.filter((c) => c.logId && mealLogIds.has(c.logId)).length;
+              const photoUrl = meal.logs.find((l) => l.photoUrl)?.photoUrl;
+              const itemNames = meal.logs.map((l) => l.description).join(", ");
+
+              return (
+                <div key={mealKey} className={cn(isOpen && "bg-muted/30")}>
+                  <div className="flex items-start gap-1 p-3 pr-1.5">
+                    <button
+                      type="button"
+                      onClick={() => toggleMeal(mealKey)}
+                      aria-expanded={isOpen}
+                      className="flex min-w-0 flex-1 items-start gap-2.5 rounded-md text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      {photoUrl && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={photoUrl} alt="" className="h-11 w-11 shrink-0 rounded-md object-cover" />
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                          <Badge variant="secondary" className={cn("font-medium", MEAL_BADGE_STYLE[meal.mealType])}>
+                            {MEAL_LABELS[meal.mealType] ?? meal.mealType}
+                          </Badge>
+                          <span className="text-caption text-muted-foreground">
+                            {format(new Date(meal.logs[0].loggedAt), "h:mm a")} · {meal.logs.length} item
+                            {meal.logs.length !== 1 ? "s" : ""}
+                          </span>
+                        </div>
+                        <p className="mt-1 line-clamp-2 text-body">{itemNames}</p>
+                        <p className="mt-1 text-caption tabular-nums text-muted-foreground">
+                          <span className="font-medium text-foreground">{sumField(meal.logs, "calories") ?? "—"} kcal</span>
+                          {" · "}P {formatGrams(sumField(meal.logs, "proteinG"))} · C{" "}
+                          {formatGrams(sumField(meal.logs, "carbsG"))} · F {formatGrams(sumField(meal.logs, "fatG"))}
+                        </p>
+                      </div>
+                      <ChevronRight
+                        className={cn(
+                          "mt-1 h-4 w-4 shrink-0 text-muted-foreground transition-transform motion-reduce:transition-none",
+                          isOpen && "rotate-90"
+                        )}
+                      />
+                    </button>
+                    <div className="flex shrink-0 items-center [&_[data-slot=dialog-trigger]]:inline-flex [&_[data-slot=dialog-trigger]]:size-10 [&_[data-slot=dialog-trigger]]:items-center [&_[data-slot=dialog-trigger]]:justify-center">
+                      {mealCommentCount > 0 && (
+                        <span className="flex items-center gap-0.5 px-1 text-xs text-primary">
+                          <MessageCircle className="h-3.5 w-3.5" />
+                          {mealCommentCount}
+                        </span>
+                      )}
+                      {canEdit && (
+                        <EditMealGroupDialog
+                          clientId={clientId}
+                          date={group.date}
+                          mealType={meal.mealType}
+                          logs={meal.logs}
+                        />
+                      )}
+                    </div>
+                  </div>
+
+                  {isOpen && (
+                    <ul className="divide-y divide-border/60 border-t border-border/60 bg-muted/20">
+                      {meal.logs.map((log) => {
+                        const logComments = comments.filter((c) => c.logId === log.id);
+                        const isExpanded = expandedLogId === log.id;
+
+                        return (
+                          <li key={log.id}>
+                            <div className="flex items-center gap-2 py-2 pr-1.5 pl-4">
+                              <div className="min-w-0 flex-1">
+                                <p className="text-body leading-tight break-words">{log.description}</p>
+                                <p className="mt-0.5 text-caption tabular-nums text-muted-foreground">
+                                  {log.quantity && <>{log.quantity} · </>}
+                                  {log.calories ?? "—"} kcal · P {formatGrams(log.proteinG)} · C{" "}
+                                  {formatGrams(log.carbsG)} · F {formatGrams(log.fatG)}
+                                </p>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => setExpandedLogId(isExpanded ? null : log.id)}
+                                aria-label="Toggle feedback"
+                                aria-expanded={isExpanded}
+                                className={cn(
+                                  "relative inline-flex size-10 shrink-0 items-center justify-center rounded-md hover:bg-muted",
+                                  logComments.length > 0 ? "text-primary" : "text-muted-foreground"
+                                )}
+                              >
+                                <MessageCircle className="h-4 w-4" />
+                                {logComments.length > 0 && (
+                                  <span className="absolute top-1.5 right-1.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-primary text-[9px] font-bold text-primary-foreground">
+                                    {logComments.length}
+                                  </span>
+                                )}
+                              </button>
+                              {canDelete && (
+                                <DeleteLogButton
+                                  logId={log.id}
+                                  className="inline-flex size-10 shrink-0 items-center justify-center p-0"
+                                />
+                              )}
+                            </div>
+                            {isExpanded && (
+                              <div className="px-4 pb-3">
+                                <CommentThread
+                                  clientId={clientId}
+                                  date={group.date}
+                                  logId={log.id}
+                                  comments={logComments}
+                                  forceExpanded
+                                />
+                              </div>
+                            )}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      ))}
+    </div>
+
+    <div className="hidden rounded-xl ring-1 ring-border/50 sm:block">
       <Table>
         <TableHeader>
           <TableRow>
@@ -350,5 +487,6 @@ export function MealsTable({ clientId, logs, comments, canDelete, canEdit, empty
         </TableBody>
       </Table>
     </div>
+    </>
   );
 }

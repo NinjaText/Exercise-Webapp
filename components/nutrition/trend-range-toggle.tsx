@@ -28,7 +28,7 @@ export function TrendRangeToggle({ history7, history30, streak }: TrendRangeTogg
             type="button"
             onClick={() => setRange(r)}
             className={cn(
-              "rounded-lg px-3 py-1.5 text-xs font-semibold transition-all",
+              "rounded-lg px-3 py-1.5 text-xs font-semibold transition-all max-sm:py-2.5",
               range === r ? "bg-primary text-primary-foreground" : "ring-1 ring-border/50 text-muted-foreground"
             )}
           >

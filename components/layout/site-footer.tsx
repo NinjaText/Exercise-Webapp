@@ -31,11 +31,11 @@ const FOOTER_COLUMNS = [
 
 export function SiteFooter() {
   return (
-    <footer className="border-t border-border bg-background py-16">
+    <footer className="border-t border-border bg-background py-12 sm:py-16">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="grid gap-12 lg:grid-cols-5">
+        <div className="grid grid-cols-2 gap-x-6 gap-y-10 sm:gap-12 lg:grid-cols-5">
           {/* Brand */}
-          <div className="lg:col-span-2">
+          <div className="col-span-2">
             <ProductLogo surface="light" className="h-5" />
             <p className="mt-3 text-[11px] font-medium tracking-[0.3em] text-muted-foreground uppercase">
               {PRODUCT_EXPANSION}
@@ -69,7 +69,7 @@ export function SiteFooter() {
           ))}
         </div>
 
-        <div className="mt-16 flex flex-col items-center justify-between gap-4 border-t border-border pt-8 sm:flex-row">
+        <div className="mt-12 flex flex-col items-center justify-between gap-4 border-t border-border pt-8 text-center sm:mt-16 sm:flex-row sm:text-left">
           <p className="text-sm text-muted-foreground">
             &copy; {new Date().getFullYear()} {PRODUCT_NAME}. All rights reserved.
           </p>

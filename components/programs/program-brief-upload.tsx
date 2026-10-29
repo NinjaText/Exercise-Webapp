@@ -1006,12 +1006,12 @@ export function ProgramBriefUpload({
                       {isOpen && (
                         <div className="divide-y border-t">
                           {items.map(({ workout, index: wIdx }) => (
-                            <div key={`${workout.name}-${wIdx}`} className="p-4">
-                              <div className="flex items-center gap-2 font-medium">
+                            <div key={`${workout.name}-${wIdx}`} className="p-3 sm:p-4">
+                              <div className="flex min-w-0 items-center gap-2 font-medium">
                                 <Badge variant="secondary" className="shrink-0">
                                   {sessionDayLabel(workout)}
                                 </Badge>
-                                <span>{workout.name}</span>
+                                <span className="min-w-0 break-words">{workout.name}</span>
                               </div>
                               <div className="mt-3 space-y-3">
                                 {workout.blocks.map((block, bIdx) => {
@@ -1023,7 +1023,7 @@ export function ProgramBriefUpload({
                                     );
                                   return (
                                     <div key={`${block.name || block.type}-${bIdx}`}>
-                                      <div className="flex items-center justify-between gap-2">
+                                      <div className="flex flex-wrap items-center justify-between gap-2">
                                         <div className="text-sm font-semibold flex items-center gap-2">
                                           <span>{block.name || "Block"}</span>
                                           {block.type !== "NORMAL" && <Badge variant="outline">{block.type}</Badge>}

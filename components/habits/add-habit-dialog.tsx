@@ -114,7 +114,7 @@ export function AddHabitDialog({
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       {/* base-ui DialogTrigger does not accept asChild — apply button styling directly */}
-      <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 px-3 py-2 text-sm font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+      <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 px-3 py-2 text-sm font-semibold transition-all max-sm:h-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
         <Plus className="h-4 w-4" />
         {triggerLabel}
       </DialogTrigger>
@@ -139,7 +139,7 @@ export function AddHabitDialog({
                   onChange={(e) => setClientId(e.target.value)}
                   required
                   disabled={isPending}
-                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm max-sm:h-10 max-sm:text-base transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <option value="">Select a client…</option>
                   {clients!.map((p) => (
@@ -230,7 +230,7 @@ export function AddHabitDialog({
                     onClick={() => setFrequency(opt.value as "DAILY" | "WEEKLY")}
                     disabled={isPending}
                     className={cn(
-                      "flex-1 rounded-lg py-2 text-sm font-medium transition-all",
+                      "flex-1 rounded-lg py-2.5 text-sm font-medium transition-all sm:py-2",
                       frequency === opt.value
                         ? "bg-primary text-primary-foreground"
                         : "ring-1 ring-border/50 hover:ring-border text-muted-foreground hover:text-foreground"

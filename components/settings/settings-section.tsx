@@ -76,8 +76,10 @@ export function SettingsPanel({
             tone === "danger" ? "border-danger-border bg-danger-soft/40" : "border-border bg-muted/40"
           )}
         >
-          <div className="text-sm text-muted-foreground">{footerHint}</div>
-          {footer && <div className="flex shrink-0 items-center gap-2 sm:justify-end">{footer}</div>}
+          {/* The hint slot stays on desktop to push the action right; on phones an
+              empty one would only add a gap above the full-width action. */}
+          <div className={cn("text-sm text-muted-foreground", !footerHint && "hidden sm:block")}>{footerHint}</div>
+          {footer && <div className="flex shrink-0 items-center gap-2 *:flex-1 sm:justify-end sm:*:flex-none">{footer}</div>}
         </div>
       )}
     </section>

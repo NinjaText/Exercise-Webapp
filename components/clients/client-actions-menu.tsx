@@ -39,7 +39,7 @@ export function ClientActionsMenu({ clientId, isActive }: ClientActionsMenuProps
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
-        render={<Button variant="ghost" size="icon-sm" aria-label="Client actions" />}
+        render={<Button variant="ghost" size="icon-sm" className="size-10 sm:size-8" aria-label="Client actions" />}
         onClick={(e) => e.stopPropagation()}
         onMouseDown={(e) => e.stopPropagation()}
         disabled={isPending}

@@ -177,11 +177,11 @@ function ScheduledGroupCard({
           </p>
         </div>
         <div className="flex shrink-0 gap-1">
-          <Button size="sm" variant="ghost" onClick={onEdit}>
+          <Button size="sm" variant="ghost" className="h-10 sm:h-8" onClick={onEdit}>
             <Pencil className="size-4" />
             Edit
           </Button>
-          <Button size="icon-sm" variant="ghost" aria-label="Delete batch" onClick={onDeleteGroup}>
+          <Button size="icon-sm" variant="ghost" className="size-10 sm:size-8" aria-label="Delete batch" onClick={onDeleteGroup}>
             <Trash2 className="size-4" />
           </Button>
         </div>
@@ -192,7 +192,7 @@ function ScheduledGroupCard({
             type="button"
             aria-expanded={expanded}
             onClick={() => setExpanded((v) => !v)}
-            className="flex w-full items-center justify-between px-4 py-2 text-label text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+            className="flex min-h-11 w-full items-center justify-between px-4 py-2 text-label sm:min-h-0 text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
           >
             {expanded ? "Hide" : "Show"} individual days
             <ChevronDown className={expanded ? "size-4 rotate-180 transition-transform" : "size-4 transition-transform"} aria-hidden />

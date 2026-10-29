@@ -279,7 +279,7 @@ export function FollowAlongEditor({ program, assignClientId }: FollowAlongEditor
       {/* Same pinned bar as the program editor: Save is always one tap away. */}
       <div className="sticky -top-4 z-30 -mx-4 -mt-4 mb-6 border-b border-border bg-canvas/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-canvas/90 lg:-top-6 lg:-mx-6 lg:-mt-6 lg:px-6 2xl:-top-8 2xl:-mx-8 2xl:-mt-8 2xl:px-8">
         <div className="mx-auto flex min-h-10 max-w-[1440px] items-center gap-3">
-          <Button asChild variant="ghost" size="icon-sm" className="shrink-0">
+          <Button asChild variant="ghost" size="icon-sm" className="shrink-0 max-sm:size-10">
             <Link href={backHref} aria-label="Back">
               <ArrowLeft />
             </Link>

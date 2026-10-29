@@ -232,6 +232,14 @@
   html {
     @apply font-sans;
     scroll-behavior: smooth;
+    /* Phones: no font inflation in landscape, no grey flash on every tap. */
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+  }
+  /* Touch screens: tap acts immediately (no double-tap-zoom wait) on controls. */
+  a, button, [role="button"], input, select, textarea, label {
+    touch-action: manipulation;
   }
   /* App-shell density scale. Every size in the app is rem-based, so dropping
      the root size on laptop-width screens shrinks text, spacing, and component
@@ -295,6 +303,15 @@
 @utility bg-sidebar-gradient {
   background-color: var(--sidebar);
   background-image: linear-gradient(180deg, var(--sidebar), var(--sidebar-gradient-end, var(--sidebar)));
+}
+
+/* Horizontal scrollers (tab lists, chip rows) on touch screens: keep the
+   scroll, hide the bar. */
+@utility scrollbar-none {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 /* Typography scale (spec §2.1). Sizes are rem so they follow the app-shell

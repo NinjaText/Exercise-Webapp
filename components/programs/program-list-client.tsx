@@ -220,7 +220,7 @@ function SchedulingPillFilter({
 }) {
   return (
     <Select value={value} onValueChange={(v) => onChange((v as SchedulingPill) ?? "all")}>
-      <SelectTrigger className="h-9 w-44">
+      <SelectTrigger className="h-10 min-w-0 grow basis-[calc(50%-0.25rem)] sm:h-9 sm:grow-0 sm:basis-auto sm:w-44 sm:flex-none">
         <SelectValue>
           {(v: string | null) => SCHEDULING_PILLS.find((o) => o.value === v)?.label ?? "All Programs"}
         </SelectValue>
@@ -409,6 +409,117 @@ function UpdatedAt({ date }: { date: Date }) {
   );
 }
 
+// Row-actions menu for a Library program, shared by the desktop table row and
+// the phone card.
+function LibraryProgramMenu({
+  program,
+  onDuplicate,
+  onArchive,
+  onRequestHardDelete,
+  onTogglePublic,
+  togglingPublicId,
+  onAddToCollection,
+}: {
+  program: ProgramListItem;
+  onDuplicate: (id: string) => void;
+  onArchive: (id: string) => void;
+  onRequestHardDelete: (id: string, name: string) => void;
+  onTogglePublic: (id: string, isPublic: boolean) => void;
+  togglingPublicId: string | null;
+  onAddToCollection: (program: ProgramListItem) => void;
+}) {
+  const router = useRouter();
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        aria-label="Program actions"
+        className="flex size-10 shrink-0 items-center justify-center rounded-md text-muted-foreground outline-none transition-opacity hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring sm:size-8"
+      >
+        <MoreVertical className="h-4 w-4" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-48">
+        <DropdownMenuItem onClick={() => router.push(`/programs/${program.id}/edit`)}>
+          <Pencil className="mr-2 h-4 w-4" /> Edit
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => onDuplicate(program.id)}>
+          <Copy className="mr-2 h-4 w-4" /> Duplicate
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => router.push(`/programs/${program.id}?assign=true`)}>
+          <UserPlus className="mr-2 h-4 w-4" /> Assign Client
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => onAddToCollection(program)}>
+          <Folder className="mr-2 h-4 w-4" /> Add to Collection
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => onTogglePublic(program.id, !program.isPublic)} disabled={togglingPublicId === program.id}>
+          {program.isPublic ? <Lock className="mr-2 h-4 w-4" /> : <Globe className="mr-2 h-4 w-4" />}
+          {program.isPublic ? "Make Private" : "Make Public"}
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        {program.status === "ARCHIVED" ? (
+          <DropdownMenuItem
+            onClick={() => onRequestHardDelete(program.id, program.name)}
+            className="text-destructive focus:text-destructive"
+          >
+            <Trash2 className="mr-2 h-4 w-4" /> Delete Permanently
+          </DropdownMenuItem>
+        ) : (
+          <DropdownMenuItem
+            onClick={() => onArchive(program.id)}
+            className="text-destructive focus:text-destructive"
+          >
+            <Archive className="mr-2 h-4 w-4" /> Archive
+          </DropdownMenuItem>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+function AssignedProgramMenu({
+  program,
+  onDuplicate,
+  onArchive,
+  onRequestHardDelete,
+}: {
+  program: ProgramListItem;
+  onDuplicate: (id: string) => void;
+  onArchive: (id: string) => void;
+  onRequestHardDelete: (id: string, name: string) => void;
+}) {
+  const router = useRouter();
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        aria-label="Program actions"
+        className="flex size-10 shrink-0 items-center justify-center rounded-md text-muted-foreground outline-none transition-opacity hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring sm:size-8"
+      >
+        <MoreVertical className="h-4 w-4" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-44">
+        <DropdownMenuItem onClick={() => router.push(`/programs/${program.id}/edit`)}>
+          <Pencil className="mr-2 h-4 w-4" /> Edit
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => onDuplicate(program.id)}>
+          <Copy className="mr-2 h-4 w-4" /> Duplicate
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          onClick={() => onRequestHardDelete(program.id, program.name)}
+          className="text-destructive focus:text-destructive"
+        >
+          <Trash2 className="mr-2 h-4 w-4" /> Delete Permanently
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={() => onArchive(program.id)}
+          className="text-destructive focus:text-destructive"
+        >
+          <Archive className="mr-2 h-4 w-4" /> Archive
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 // --- Library tab row: Program | Collection | Tags | Workouts | Updated | Actions
 function LibraryProgramRow({
   program,
@@ -437,7 +548,6 @@ function LibraryProgramRow({
   onAddToCollection: (program: ProgramListItem) => void;
   search?: string;
 }) {
-  const router = useRouter();
   const matchedWorkoutId = search ? findMatchedWorkoutId(program, search) : null;
   const detailHref = matchedWorkoutId
     ? `/programs/${program.id}?workoutId=${matchedWorkoutId}`
@@ -525,48 +635,15 @@ function LibraryProgramRow({
           >
             <Eye className="h-4 w-4" />
           </Link>
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              aria-label="Program actions"
-              className="flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground outline-none transition-opacity hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <MoreVertical className="h-4 w-4" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuItem onClick={() => router.push(`/programs/${program.id}/edit`)}>
-                <Pencil className="mr-2 h-4 w-4" /> Edit
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onDuplicate(program.id)}>
-                <Copy className="mr-2 h-4 w-4" /> Duplicate
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => router.push(`/programs/${program.id}?assign=true`)}>
-                <UserPlus className="mr-2 h-4 w-4" /> Assign Client
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onAddToCollection(program)}>
-                <Folder className="mr-2 h-4 w-4" /> Add to Collection
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onTogglePublic(program.id, !program.isPublic)} disabled={togglingPublicId === program.id}>
-                {program.isPublic ? <Lock className="mr-2 h-4 w-4" /> : <Globe className="mr-2 h-4 w-4" />}
-                {program.isPublic ? "Make Private" : "Make Public"}
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              {program.status === "ARCHIVED" ? (
-                <DropdownMenuItem
-                  onClick={() => onRequestHardDelete(program.id, program.name)}
-                  className="text-destructive focus:text-destructive"
-                >
-                  <Trash2 className="mr-2 h-4 w-4" /> Delete Permanently
-                </DropdownMenuItem>
-              ) : (
-                <DropdownMenuItem
-                  onClick={() => onArchive(program.id)}
-                  className="text-destructive focus:text-destructive"
-                >
-                  <Archive className="mr-2 h-4 w-4" /> Archive
-                </DropdownMenuItem>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <LibraryProgramMenu
+            program={program}
+            onDuplicate={onDuplicate}
+            onArchive={onArchive}
+            onRequestHardDelete={onRequestHardDelete}
+            onTogglePublic={onTogglePublic}
+            togglingPublicId={togglingPublicId}
+            onAddToCollection={onAddToCollection}
+          />
         </div>
       </TableCell>
     </TableRow>
@@ -650,7 +727,6 @@ function AssignedProgramRow({
   onArchive: (id: string) => void;
   onRequestHardDelete: (id: string, name: string) => void;
 }) {
-  const router = useRouter();
   const derivedStatus = deriveAssignedStatus(program);
   const assignedStatus = assignedStatusConfig[derivedStatus];
   const total = progress?.total ?? 0;
@@ -748,38 +824,205 @@ function AssignedProgramRow({
           >
             <Eye className="h-4 w-4" />
           </Link>
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              aria-label="Program actions"
-              className="flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground outline-none transition-opacity hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <MoreVertical className="h-4 w-4" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-44">
-              <DropdownMenuItem onClick={() => router.push(`/programs/${program.id}/edit`)}>
-                <Pencil className="mr-2 h-4 w-4" /> Edit
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onDuplicate(program.id)}>
-                <Copy className="mr-2 h-4 w-4" /> Duplicate
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={() => onRequestHardDelete(program.id, program.name)}
-                className="text-destructive focus:text-destructive"
-              >
-                <Trash2 className="mr-2 h-4 w-4" /> Delete Permanently
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => onArchive(program.id)}
-                className="text-destructive focus:text-destructive"
-              >
-                <Archive className="mr-2 h-4 w-4" /> Archive
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <AssignedProgramMenu
+            program={program}
+            onDuplicate={onDuplicate}
+            onArchive={onArchive}
+            onRequestHardDelete={onRequestHardDelete}
+          />
         </div>
       </TableCell>
     </TableRow>
+  );
+}
+
+// --- Phone cards (below sm): the tables above hide most columns at this width
+// and the remaining ones still overflow, so each row gets a stacked layout with
+// the actions pinned top-right.
+
+function LibraryProgramCard({
+  program,
+  updatableSet,
+  onToggleFavorite,
+  togglingFavoriteId,
+  search,
+  ...menuProps
+}: {
+  program: ProgramListItem;
+  updatableSet: Set<string>;
+  onDuplicate: (id: string) => void;
+  onArchive: (id: string) => void;
+  onRequestHardDelete: (id: string, name: string) => void;
+  onTogglePublic: (id: string, isPublic: boolean) => void;
+  togglingPublicId: string | null;
+  onToggleFavorite: (id: string, next: boolean) => void;
+  togglingFavoriteId: string | null;
+  onAddToCollection: (program: ProgramListItem) => void;
+  search?: string;
+}) {
+  const matchedWorkoutId = search ? findMatchedWorkoutId(program, search) : null;
+  const detailHref = matchedWorkoutId
+    ? `/programs/${program.id}?workoutId=${matchedWorkoutId}`
+    : `/programs/${program.id}`;
+
+  return (
+    <li className="flex items-start gap-3 p-4">
+      <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+        <Dumbbell className="size-4" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <Link href={detailHref} className="line-clamp-2 font-medium break-words hover:text-primary hover:underline">
+          {program.name}
+        </Link>
+        <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-caption">
+          <SchedulingTypeBadge program={program} />
+          <WorkoutCount count={program._count.workouts} />
+          <UpdatedAt date={program.updatedAt} />
+        </div>
+        {updatableSet.has(program.id) && (
+          <Badge variant="outline" className="mt-1.5 text-[10px] font-medium">Update available</Badge>
+        )}
+      </div>
+      <div className="-mt-1.5 -mr-2 flex shrink-0 items-center">
+        <button
+          type="button"
+          disabled={togglingFavoriteId === program.id}
+          onClick={() => onToggleFavorite(program.id, !program.isFavorite)}
+          title={program.isFavorite ? "Remove from favorites" : "Add to favorites"}
+          aria-label={program.isFavorite ? "Remove from favorites" : "Add to favorites"}
+          className={cn(
+            "inline-flex size-10 items-center justify-center rounded-md hover:bg-muted disabled:opacity-60",
+            program.isFavorite ? "text-warning" : "text-muted-foreground"
+          )}
+        >
+          <Star className={cn("h-4 w-4", program.isFavorite && "fill-current")} />
+        </button>
+        <LibraryProgramMenu program={program} {...menuProps} />
+      </div>
+    </li>
+  );
+}
+
+function GlobalProgramCard({
+  program,
+  copying,
+  onCopy,
+}: {
+  program: GlobalProgramItem;
+  copying: string | null;
+  onCopy: (id: string, name: string) => void;
+}) {
+  return (
+    <li className="flex flex-col gap-3 p-4">
+      <div className="flex items-start gap-3">
+        <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted text-primary/60">
+          <Globe className="size-4" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="line-clamp-2 font-medium break-words">{program.name}</p>
+          {program.description && (
+            <p className="mt-0.5 line-clamp-2 text-caption">{program.description}</p>
+          )}
+          <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-caption">
+            <SchedulingTypeBadge program={program} />
+            <Badge variant="secondary" className="text-[11px] font-medium">
+              {program.isGlobal ? "Global" : "Community"}
+            </Badge>
+            <WorkoutCount count={program._count.workouts} />
+          </div>
+        </div>
+      </div>
+      <Button
+        variant="outline"
+        className="h-10 w-full"
+        disabled={copying === program.id}
+        onClick={() => onCopy(program.id, program.name)}
+      >
+        {copying === program.id ? "Copying…" : "Copy to My Library"}
+      </Button>
+    </li>
+  );
+}
+
+function AssignedProgramCard({
+  program,
+  progress,
+  usage,
+  onDuplicate,
+  onArchive,
+  onRequestHardDelete,
+}: {
+  program: ProgramListItem;
+  progress?: ProgramProgress;
+  usage?: ProgramUsage;
+  onDuplicate: (id: string) => void;
+  onArchive: (id: string) => void;
+  onRequestHardDelete: (id: string, name: string) => void;
+}) {
+  const derivedStatus = deriveAssignedStatus(program);
+  const assignedStatus = assignedStatusConfig[derivedStatus];
+  const total = progress?.total ?? 0;
+  const completed = progress?.completed ?? 0;
+  const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
+  const resource = isResource(program);
+  const usageCount = usage?.count ?? 0;
+
+  return (
+    <li className="flex flex-col gap-3 p-4">
+      <div className="flex items-start gap-3">
+        <div className="min-w-0 flex-1">
+          {program.client ? (
+            <Link href={`/clients/${program.client.id}`} className="flex min-w-0 items-center gap-2.5 hover:underline">
+              <Avatar size="sm" className="h-8 w-8 shrink-0">
+                <AvatarFallback className="text-xs">{initials(program.client)}</AvatarFallback>
+              </Avatar>
+              <span className="truncate font-medium">{clientLabel(program.client)}</span>
+            </Link>
+          ) : (
+            <span className="text-muted-foreground">Unassigned</span>
+          )}
+          <Link
+            href={`/programs/${program.id}`}
+            className="mt-1.5 line-clamp-2 text-body break-words text-muted-foreground hover:text-primary hover:underline"
+          >
+            {program.name}
+          </Link>
+        </div>
+        <div className="-mt-1.5 -mr-2 flex shrink-0 items-center gap-1">
+          <StatusBadge status={derivedStatus} label={assignedStatus.label} size="sm" />
+          <AssignedProgramMenu
+            program={program}
+            onDuplicate={onDuplicate}
+            onArchive={onArchive}
+            onRequestHardDelete={onRequestHardDelete}
+          />
+        </div>
+      </div>
+      {resource ? (
+        <p className="flex items-center gap-1.5 text-caption">
+          <Repeat className="h-3.5 w-3.5 shrink-0" />
+          Used {usageCount} time{usageCount === 1 ? "" : "s"}
+          {usage?.lastUsedAt && ` · last ${format(new Date(usage.lastUsedAt), "d MMM yyyy")}`}
+        </p>
+      ) : total === 0 ? (
+        <p className="text-caption">Not started</p>
+      ) : (
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between gap-2 text-caption">
+            <span>{completed} of {total} workouts</span>
+            <span className="font-medium text-foreground tabular-nums">{percent}%</span>
+          </div>
+          <Progress value={percent} className="h-1.5" />
+          {progress?.nextSession && (
+            <p className="truncate text-caption">
+              Next: <span className="text-foreground">{progress.nextSession.workoutName}</span>
+              {" · "}
+              {formatDueLabel(new Date(progress.nextSession.scheduledDate))}
+            </p>
+          )}
+        </div>
+      )}
+    </li>
   );
 }
 
@@ -973,7 +1216,7 @@ function ProgramFiltersPanel({
   onApply: () => void;
 }) {
   return (
-    <div className="flex flex-col gap-5 rounded-xl bg-card p-5 shadow-xs ring-1 ring-border">
+    <div className="flex flex-col gap-5 rounded-xl bg-card p-4 shadow-xs ring-1 ring-border sm:p-5">
       <div className="flex items-center justify-between">
         <h2 className="text-heading text-foreground">Filters</h2>
         <button
@@ -1631,7 +1874,7 @@ export function ProgramListClient({
       {/* ================= LIBRARY TAB ================= */}
       {activeTab === "templates" && (
         <div className="flex flex-col gap-4">
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="-mx-4 flex scrollbar-none items-center gap-2 overflow-x-auto px-4 *:shrink-0 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
             <CollectionChip
               label="All programs"
               count={programs.filter((p) => p.status !== "ARCHIVED").length}
@@ -1657,7 +1900,7 @@ export function ProgramListClient({
 
           {selectedCollectionId && (
             <div className="flex items-center justify-between gap-2">
-              <h2 className="text-heading text-foreground">
+              <h2 className="min-w-0 text-heading break-words text-foreground">
                 {allCollections.find((c) => c.id === selectedCollectionId)?.name} · {collectionPrograms.length} program{collectionPrograms.length === 1 ? "" : "s"}
               </h2>
               <Button variant="outline" size="sm" onClick={openManageMembers}>
@@ -1672,7 +1915,7 @@ export function ProgramListClient({
               (search || activeFilterCount > 0 || chipFilter !== "all") && (
                 <Button
                   variant="ghost"
-                  className="h-9"
+                  className="h-10 sm:h-9"
                   onClick={() => {
                     setSearch("");
                     setChipFilter("all");
@@ -1685,18 +1928,18 @@ export function ProgramListClient({
               )
             }
           >
-            <div className="relative min-w-48 max-w-sm flex-1">
+            <div className="relative basis-full sm:max-w-sm sm:min-w-48 sm:flex-1 sm:basis-auto">
               <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 placeholder="Search programs..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="h-9 pl-9"
+                className="h-10 pl-9 sm:h-9"
               />
             </div>
             <SchedulingPillFilter value={schedulingPill} onChange={handleSchedulingPillChange} />
             <Select value={chipFilter} onValueChange={(v) => setChipFilter((v as typeof chipFilter) ?? "all")}>
-              <SelectTrigger className="h-9 w-40">
+              <SelectTrigger className="h-10 min-w-0 grow basis-[calc(50%-0.25rem)] sm:h-9 sm:grow-0 sm:basis-auto sm:w-40 sm:flex-none">
                 <SelectValue>
                   {(value: string | null) => `View: ${VIEW_OPTIONS.find((o) => o.value === value)?.label ?? "All"}`}
                 </SelectValue>
@@ -1708,7 +1951,7 @@ export function ProgramListClient({
               </SelectContent>
             </Select>
             <Select value={librarySort} onValueChange={(v) => setLibrarySort((v as LibrarySort) ?? "recent")}>
-              <SelectTrigger className="h-9 w-44">
+              <SelectTrigger className="h-10 min-w-0 grow basis-[calc(50%-0.25rem)] sm:h-9 sm:grow-0 sm:basis-auto sm:w-44 sm:flex-none">
                 <SelectValue>
                   {(value: string | null) => `Sort: ${LIBRARY_SORT_OPTIONS.find((o) => o.value === value)?.label ?? "Recently Used"}`}
                 </SelectValue>
@@ -1722,7 +1965,7 @@ export function ProgramListClient({
             <Button
               variant="outline"
               aria-pressed={filtersOpen}
-              className="h-9"
+              className="h-10 grow basis-[calc(50%-0.25rem)] sm:h-9 sm:grow-0 sm:basis-auto"
               onClick={() => setFiltersOpen((v) => !v)}
             >
               <SlidersHorizontal className="h-3.5 w-3.5" />
@@ -1770,46 +2013,69 @@ export function ProgramListClient({
             />
           ) : (
             <div className="overflow-hidden rounded-xl bg-card shadow-xs ring-1 ring-border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Program</TableHead>
-                    <TableHead className="hidden sm:table-cell">Type</TableHead>
-                    <TableHead className="hidden md:table-cell">Collection</TableHead>
-                    <TableHead className="hidden lg:table-cell">Tags</TableHead>
-                    <TableHead className="hidden sm:table-cell">Workouts</TableHead>
-                    <TableHead className="hidden md:table-cell">Updated</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredClinical.map((program) => (
-                    <LibraryProgramRow
-                      key={program.id}
-                      program={program}
-                      updatableSet={updatableSet}
-                      collectionsById={collectionsById}
-                      onDuplicate={handleDuplicate}
-                      onArchive={handleArchive}
-                      onRequestHardDelete={(id, name) => setPendingHardDelete({ id, name })}
-                      onTogglePublic={handleTogglePublic}
-                      togglingPublicId={togglingPublicId}
-                      onToggleFavorite={handleToggleFavorite}
-                      togglingFavoriteId={togglingFavoriteId}
-                      onAddToCollection={openAddToCollections}
-                      search={search}
-                    />
-                  ))}
-                  {filteredGlobal.map((prog) => (
-                    <GlobalProgramRow
-                      key={prog.id}
-                      program={prog}
-                      copying={copying}
-                      onCopy={handleCopyGlobal}
-                    />
-                  ))}
-                </TableBody>
-              </Table>
+              <ul className="divide-y divide-border lg:hidden">
+                {filteredClinical.map((program) => (
+                  <LibraryProgramCard
+                    key={program.id}
+                    program={program}
+                    updatableSet={updatableSet}
+                    onDuplicate={handleDuplicate}
+                    onArchive={handleArchive}
+                    onRequestHardDelete={(id, name) => setPendingHardDelete({ id, name })}
+                    onTogglePublic={handleTogglePublic}
+                    togglingPublicId={togglingPublicId}
+                    onToggleFavorite={handleToggleFavorite}
+                    togglingFavoriteId={togglingFavoriteId}
+                    onAddToCollection={openAddToCollections}
+                    search={search}
+                  />
+                ))}
+                {filteredGlobal.map((prog) => (
+                  <GlobalProgramCard key={prog.id} program={prog} copying={copying} onCopy={handleCopyGlobal} />
+                ))}
+              </ul>
+              <div className="hidden lg:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Program</TableHead>
+                      <TableHead className="hidden sm:table-cell">Type</TableHead>
+                      <TableHead className="hidden md:table-cell">Collection</TableHead>
+                      <TableHead className="hidden lg:table-cell">Tags</TableHead>
+                      <TableHead className="hidden sm:table-cell">Workouts</TableHead>
+                      <TableHead className="hidden md:table-cell">Updated</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredClinical.map((program) => (
+                      <LibraryProgramRow
+                        key={program.id}
+                        program={program}
+                        updatableSet={updatableSet}
+                        collectionsById={collectionsById}
+                        onDuplicate={handleDuplicate}
+                        onArchive={handleArchive}
+                        onRequestHardDelete={(id, name) => setPendingHardDelete({ id, name })}
+                        onTogglePublic={handleTogglePublic}
+                        togglingPublicId={togglingPublicId}
+                        onToggleFavorite={handleToggleFavorite}
+                        togglingFavoriteId={togglingFavoriteId}
+                        onAddToCollection={openAddToCollections}
+                        search={search}
+                      />
+                    ))}
+                    {filteredGlobal.map((prog) => (
+                      <GlobalProgramRow
+                        key={prog.id}
+                        program={prog}
+                        copying={copying}
+                        onCopy={handleCopyGlobal}
+                      />
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             </div>
           )}
         </div>
@@ -1818,7 +2084,7 @@ export function ProgramListClient({
       {/* ================= ASSIGNED TAB ================= */}
       {activeTab === "programs" && (
         <div className="flex flex-col gap-4">
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-5">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 xl:grid-cols-5">
             <StatCard size="compact" label="Active" value={assignedStatCounts.ACTIVE} icon={CheckCircle2} href={hrefWithParams({ status: "ACTIVE" })} role="success" />
             <StatCard size="compact" label="Starting Soon" value={assignedStatCounts.STARTING_SOON} icon={CalendarClock} href={hrefWithParams({ status: "STARTING_SOON" })} role="info" />
             <StatCard size="compact" label="Total Assigned" value={assignedPrograms.length} icon={ClipboardList} href={hrefWithParams({ status: null })} role="brand" />
@@ -1828,24 +2094,24 @@ export function ProgramListClient({
 
           <PageToolbar
             end={
-              <Button variant="outline" className="h-9" onClick={handleExportAssigned}>
+              <Button variant="outline" className="h-10 sm:h-9" onClick={handleExportAssigned}>
                 <Download className="h-3.5 w-3.5" />
                 Export
               </Button>
             }
           >
-            <div className="relative min-w-48 max-w-sm flex-1">
+            <div className="relative basis-full sm:max-w-sm sm:min-w-48 sm:flex-1 sm:basis-auto">
               <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 placeholder="Search client or program..."
                 value={assignedSearch}
                 onChange={(e) => setAssignedSearch(e.target.value)}
-                className="h-9 pl-9"
+                className="h-10 pl-9 sm:h-9"
               />
             </div>
             <SchedulingPillFilter value={schedulingPill} onChange={handleSchedulingPillChange} />
             <Select value={assignedStatusFilter} onValueChange={handleAssignedStatusChange}>
-              <SelectTrigger className="h-9 w-40">
+              <SelectTrigger className="h-10 min-w-0 grow basis-[calc(50%-0.25rem)] sm:h-9 sm:grow-0 sm:basis-auto sm:w-40 sm:flex-none">
                 <SelectValue>
                   {(value: string | null) => `Status: ${value && value !== "all" ? assignedStatusConfig[value as AssignedStatus]?.label : "All"}`}
                 </SelectValue>
@@ -1863,7 +2129,7 @@ export function ProgramListClient({
               </SelectContent>
             </Select>
             <Select value={assignedSort} onValueChange={(v) => setAssignedSort((v as AssignedSort) ?? "updated_desc")}>
-              <SelectTrigger className="h-9 w-52">
+              <SelectTrigger className="h-10 min-w-0 grow basis-[calc(50%-0.25rem)] sm:h-9 sm:grow-0 sm:basis-auto sm:w-52 sm:flex-none">
                 <SelectValue>
                   {(value: string | null) => `Sort by: ${SORT_OPTIONS.find((o) => o.value === value)?.label ?? "Recently Updated"}`}
                 </SelectValue>
@@ -1889,33 +2155,48 @@ export function ProgramListClient({
             />
           ) : (
             <div className="overflow-hidden rounded-xl bg-card shadow-xs ring-1 ring-border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Client</TableHead>
-                    <TableHead>Program</TableHead>
-                    <TableHead className="hidden md:table-cell">Type</TableHead>
-                    <TableHead>Progress</TableHead>
-                    <TableHead className="hidden sm:table-cell">Next Workout</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="hidden lg:table-cell">Last Updated</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredAssigned.map((program) => (
-                    <AssignedProgramRow
-                      key={program.id}
-                      program={program}
-                      progress={progressByProgramId[program.id]}
-                      usage={usageByProgramId[program.id]}
-                      onDuplicate={handleDuplicate}
-                      onArchive={handleArchive}
-                      onRequestHardDelete={(id, name) => setPendingHardDelete({ id, name })}
-                    />
-                  ))}
-                </TableBody>
-              </Table>
+              <ul className="divide-y divide-border lg:hidden">
+                {filteredAssigned.map((program) => (
+                  <AssignedProgramCard
+                    key={program.id}
+                    program={program}
+                    progress={progressByProgramId[program.id]}
+                    usage={usageByProgramId[program.id]}
+                    onDuplicate={handleDuplicate}
+                    onArchive={handleArchive}
+                    onRequestHardDelete={(id, name) => setPendingHardDelete({ id, name })}
+                  />
+                ))}
+              </ul>
+              <div className="hidden lg:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Client</TableHead>
+                      <TableHead>Program</TableHead>
+                      <TableHead className="hidden md:table-cell">Type</TableHead>
+                      <TableHead>Progress</TableHead>
+                      <TableHead className="hidden sm:table-cell">Next Workout</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="hidden lg:table-cell">Last Updated</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredAssigned.map((program) => (
+                      <AssignedProgramRow
+                        key={program.id}
+                        program={program}
+                        progress={progressByProgramId[program.id]}
+                        usage={usageByProgramId[program.id]}
+                        onDuplicate={handleDuplicate}
+                        onArchive={handleArchive}
+                        onRequestHardDelete={(id, name) => setPendingHardDelete({ id, name })}
+                      />
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             </div>
           )}
         </div>

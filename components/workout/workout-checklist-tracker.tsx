@@ -28,6 +28,7 @@ import {
 import { cn } from "@/lib/utils";
 import { SKIP_REASONS, type SetLogEntry, type SetLogCache } from "./types";
 import { instructionsToBullets } from "./format-instructions";
+import { getPrescriptionText, isCircuitBlock, prescriptionSummary, segmentLabel } from "./prescription";
 import {
   WORKOUT_STATE,
   WORKOUT_TOUCH,
@@ -100,58 +101,6 @@ type WorkoutSessionV2 = {
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-function isCircuitBlock(type: string) {
-  const t = type.toUpperCase();
-  return t === "CIRCUIT" || t === "SUPERSET" || t === "WARMUP" || t === "COOLDOWN";
-}
-
-const SEGMENT_LABELS: Record<string, string> = {
-  WARMUP: "Warm-up",
-  WORK: "Work",
-  RECOVERY: "Recovery",
-  COOLDOWN: "Cool-down",
-};
-
-// Only meaningful for Run / Interval Run exercises — labels an interval
-// segment by what it is (not "Set 1"), and folds in the repeat count so
-// "6 x 400m" reads as one row instead of six identical ones.
-function segmentLabel(setType?: string | null, repeatCount?: number | null): string | null {
-  if (!setType) return null;
-  const base = SEGMENT_LABELS[setType];
-  if (!base) return null;
-  return setType === "WORK" && repeatCount ? `${base} ×${repeatCount}` : base;
-}
-
-// Renders a Run/Interval Run set's prescription as a single glance-able
-// line — distance, duration, target pace, HR zone — since none of those
-// are things a client fills in an input for the way reps/weight are.
-function prescriptionSummary(set: BlockExerciseSet): string {
-  const parts: string[] = [];
-  if (set.targetDistance != null) parts.push(`${set.targetDistance} mi`);
-  if (set.targetDuration != null) {
-    parts.push(`${set.targetDuration}${set.targetDurationUnit === "MIN" ? "min" : "s"}`);
-  }
-  if (set.targetPace) parts.push(`@ ${set.targetPace}`);
-  if (set.targetHrZone) parts.push(set.targetHrZone);
-  return parts.join(" · ");
-}
-
-function getPrescriptionText(ex: BlockExercise, block: WorkoutBlock): string {
-  const isCircuit = isCircuitBlock(block.type);
-  const rounds = isCircuit ? block.rounds : 1;
-  const set = ex.sets[0];
-  if (!set) return "";
-  if ((ex.activityType || "STRENGTH") !== "STRENGTH") {
-    return prescriptionSummary(set) || `${ex.sets.length} ${ex.sets.length === 1 ? "segment" : "segments"}`;
-  }
-  const setsLabel = isCircuit
-    ? `${rounds} ${rounds === 1 ? "set" : "sets"}`
-    : `${ex.sets.length} ${ex.sets.length === 1 ? "set" : "sets"}`;
-  if (set.targetReps) return `${setsLabel} × ${set.targetReps} reps`;
-  if (set.targetDuration) return `${setsLabel} × ${set.targetDuration}${set.targetDurationUnit === "MIN" ? "min" : "s"}`;
-  return setsLabel;
-}
-
 function getSetCount(ex: BlockExercise, block: WorkoutBlock): number {
   // Interval Run's segments are an ordered sequence, not repeating rounds —
   // never collapsed to the block's round count the way a circuit set is.
@@ -529,8 +478,8 @@ export function WorkoutChecklistTracker({
           gutter (p-4 / lg:p-6 / 2xl:p-8) so the opaque bar sits flush with the
           top of the scroll area and scrolled-past content can't peek above it. */}
       <div className="sticky -top-4 z-20 -mx-4 border-b border-border bg-canvas/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-canvas/80 sm:mx-0 sm:rounded-xl sm:rounded-t-none sm:border sm:bg-surface sm:shadow-xs lg:-top-6 2xl:-top-8">
-        <div className="flex items-center gap-2.5">
-          <div className={`flex size-6 shrink-0 items-center justify-center rounded-full ${WORKOUT_STATE.completed.soft}`}>
+        <div className="flex items-center gap-2 sm:gap-2.5">
+          <div className={`hidden size-6 shrink-0 items-center justify-center rounded-full sm:flex ${WORKOUT_STATE.completed.soft}`}>
             <Check className={`size-3.5 ${WORKOUT_STATE.completed.text}`} aria-hidden />
           </div>
           <span className="shrink-0 text-heading">Checklist</span>
@@ -573,7 +522,7 @@ export function WorkoutChecklistTracker({
             <button
               type="button"
               aria-expanded={isBlockExpanded}
-              className="flex min-h-14 w-full items-center gap-3 px-5 py-3 text-left outline-none transition-colors hover:bg-surface-muted focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring motion-reduce:transition-none"
+              className="flex min-h-14 w-full items-center gap-3 px-4 py-3 text-left sm:px-5 outline-none transition-colors hover:bg-surface-muted focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring motion-reduce:transition-none"
               onClick={() =>
                 setExpandedBlocks((prev) => {
                   const next = new Set(prev);
@@ -639,7 +588,7 @@ export function WorkoutChecklistTracker({
                         tabIndex={0}
                         aria-expanded={isExOpen}
                         className={cn(
-                          "flex min-h-16 w-full cursor-pointer items-center gap-3 px-5 py-3 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring motion-reduce:transition-none",
+                          "flex min-h-16 w-full cursor-pointer items-center gap-3 px-4 py-3 text-left sm:px-5 outline-none transition-colors focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring motion-reduce:transition-none",
                           isFullyDone
                             ? WORKOUT_STATE.completed.soft
                             : isPartial
@@ -730,7 +679,7 @@ export function WorkoutChecklistTracker({
 
                       {/* Exercise body */}
                       {isExOpen && (
-                        <div className="space-y-4 bg-surface-muted/50 px-5 pt-3 pb-5">
+                        <div className="space-y-4 bg-surface-muted/50 px-4 pt-3 pb-4 sm:px-5 sm:pb-5">
                           {/* Meta line — one quiet line instead of a wall of pills */}
                           <div className="flex items-center justify-between gap-2">
                             <p className="text-body text-muted-foreground">
@@ -833,6 +782,7 @@ export function WorkoutChecklistTracker({
                                   <div className="flex items-center gap-1">
                                     <Input
                                       type="number"
+                                      inputMode="numeric"
                                       min={0}
                                       placeholder="—"
                                       value={actualSetsByExercise[ex.id] ?? ""}
@@ -972,8 +922,11 @@ export function WorkoutChecklistTracker({
                                       )}
                                     </div>
 
-                                    {/* Inputs */}
-                                    <div className="flex flex-wrap items-end gap-2">
+                                    {/* Inputs — on phones an even grid of fields over a
+                                        full-width Done / Skip pair; from `sm` the grid
+                                        dissolves (sm:contents) into one wrapping row. */}
+                                    <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:gap-2">
+                                      <div className="grid grid-cols-[repeat(auto-fit,minmax(3.75rem,1fr))] items-end gap-2 sm:contents">
                                         {/* Reps: always show for extra sets; for prescribed show when target reps or no duration */}
                                         {!isRunType && (isExtra || setDef?.targetReps != null || !setDef?.targetDuration) && (
                                           <label className={SET_FIELD}>
@@ -982,13 +935,14 @@ export function WorkoutChecklistTracker({
                                             </span>
                                             <Input
                                               type="number"
+                                              inputMode="numeric"
                                               min={0}
                                               placeholder={setDef?.targetReps?.toString() ?? "0"}
                                               value={pending.actualReps ?? ""}
                                               onChange={(e) =>
                                                 handleInputChange(ex.id, i, "actualReps", e.target.value)
                                               }
-                                              className={cn(SET_FIELD_INPUT, "w-24")}
+                                              className={cn(SET_FIELD_INPUT, "w-full sm:w-24")}
                                             />
                                           </label>
                                         )}
@@ -999,6 +953,7 @@ export function WorkoutChecklistTracker({
                                             </span>
                                             <Input
                                               type="number"
+                                              inputMode="decimal"
                                               min={0}
                                               step={0.1}
                                               placeholder={setDef?.targetDistance?.toString() ?? "0"}
@@ -1006,7 +961,7 @@ export function WorkoutChecklistTracker({
                                               onChange={(e) =>
                                                 handleInputChange(ex.id, i, "actualDistance", e.target.value)
                                               }
-                                              className={cn(SET_FIELD_INPUT, "w-24")}
+                                              className={cn(SET_FIELD_INPUT, "w-full sm:w-24")}
                                             />
                                           </label>
                                         )}
@@ -1017,13 +972,14 @@ export function WorkoutChecklistTracker({
                                             </span>
                                             <Input
                                               type="number"
+                                              inputMode="numeric"
                                               min={0}
                                               placeholder={setDef?.targetDuration?.toString() ?? "0"}
                                               value={pending.actualDuration ?? ""}
                                               onChange={(e) =>
                                                 handleInputChange(ex.id, i, "actualDuration", e.target.value)
                                               }
-                                              className={cn(SET_FIELD_INPUT, "w-24")}
+                                              className={cn(SET_FIELD_INPUT, "w-full sm:w-24")}
                                             />
                                           </label>
                                         )}
@@ -1034,13 +990,14 @@ export function WorkoutChecklistTracker({
                                             </span>
                                             <Input
                                               type="number"
+                                              inputMode="decimal"
                                               min={0}
                                               placeholder={setDef?.targetWeight?.toString() ?? "0"}
                                               value={pending.actualWeight ?? ""}
                                               onChange={(e) =>
                                                 handleInputChange(ex.id, i, "actualWeight", e.target.value)
                                               }
-                                              className={cn(SET_FIELD_INPUT, "w-24")}
+                                              className={cn(SET_FIELD_INPUT, "w-full sm:w-24")}
                                             />
                                           </label>
                                         )}
@@ -1050,6 +1007,7 @@ export function WorkoutChecklistTracker({
                                           </span>
                                           <Input
                                             type="number"
+                                            inputMode="numeric"
                                             min={0}
                                             max={10}
                                             placeholder={setDef?.targetRPE?.toString() ?? "—"}
@@ -1057,7 +1015,7 @@ export function WorkoutChecklistTracker({
                                             onChange={(e) =>
                                               handleInputChange(ex.id, i, "actualRPE", e.target.value)
                                             }
-                                            className={cn(SET_FIELD_INPUT, "w-16")}
+                                            className={cn(SET_FIELD_INPUT, "w-full sm:w-16")}
                                           />
                                         </label>
                                         {setDef?.restAfter != null && (
@@ -1071,7 +1029,8 @@ export function WorkoutChecklistTracker({
                                           </div>
                                         )}
 
-                                        <div className="ml-auto flex gap-2">
+                                      </div>
+                                        <div className="grid grid-cols-2 gap-2 sm:ml-auto sm:flex">
                                           <Button
                                             size="sm"
                                             className={cn(WORKOUT_TOUCH, "gap-1")}
@@ -1220,15 +1179,19 @@ export function WorkoutChecklistTracker({
         );
       })}
 
-      {/* Finish button */}
-      <Button
-        size="lg"
-        className="h-12 w-full sm:h-10"
-        onClick={() => setShowEndDialog(true)}
-      >
-        <Trophy className="mr-2 h-4 w-4" />
-        Finish Workout
-      </Button>
+      {/* Finish button — below `lg` it rides in a thumb-reach bar pinned flush
+          on top of the bottom tab bar (the negative offset cancels <main>'s 1rem
+          bottom gutter); from `lg` it sits inline after the last block. */}
+      <div className="sticky -bottom-4 z-20 -mx-4 border-t border-border bg-canvas/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-canvas/80 sm:mx-0 sm:rounded-xl sm:rounded-b-none sm:border sm:bg-surface sm:shadow-xs lg:contents">
+        <Button
+          size="lg"
+          className="h-12 w-full sm:h-10"
+          onClick={() => setShowEndDialog(true)}
+        >
+          <Trophy className="mr-2 h-4 w-4" />
+          Finish Workout
+        </Button>
+      </div>
 
       {/* End dialog */}
       <Dialog open={showEndDialog} onOpenChange={setShowEndDialog}>

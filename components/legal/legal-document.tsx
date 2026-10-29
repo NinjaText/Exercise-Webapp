@@ -7,7 +7,7 @@ export function LegalDocument({ doc }: { doc: LegalDocumentData }) {
   return (
     <div className="min-h-screen bg-background">
       <SiteNavbar alwaysSolid />
-      <main className="mx-auto max-w-3xl px-4 pb-24 pt-32 sm:px-6">
+      <main className="mx-auto max-w-3xl break-words px-4 pb-16 pt-24 sm:px-6 sm:pb-24 sm:pt-32">
         <h1 className="text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">{doc.title}</h1>
         <p className="mt-2 text-sm text-muted-foreground">Last updated {doc.lastUpdated}</p>
         <p className="mt-8 text-base leading-relaxed text-foreground">{doc.intro}</p>

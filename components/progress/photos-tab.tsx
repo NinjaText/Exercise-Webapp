@@ -76,7 +76,7 @@ export function PhotosTab({ photos, clientId: _clientId }: PhotosTabProps) {
           <h3 className="mb-3 text-sm font-semibold text-muted-foreground uppercase tracking-wide">
             {month}
           </h3>
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 md:grid-cols-4">
             {monthPhotos.map((photo) => (
               <div key={photo.id} className="group relative">
                 <div className="relative aspect-square overflow-hidden rounded-xl border border-border/50 shadow-sm">
@@ -94,11 +94,13 @@ export function PhotosTab({ photos, clientId: _clientId }: PhotosTabProps) {
                   )}
 
                   {/* Delete overlay */}
-                  <div className="absolute inset-0 flex items-start justify-end p-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  {/* Hover-revealed on mouse; always visible on touch, which has no hover. */}
+                  <div className="absolute inset-0 flex items-start justify-end p-2 transition-opacity group-hover:opacity-100 pointer-fine:opacity-0">
                     <Button
                       size="icon"
                       variant="destructive"
-                      className="h-7 w-7 shadow-md"
+                      className="size-9 shadow-md sm:size-7"
+                      aria-label="Delete photo"
                       disabled={deleting === photo.id}
                       onClick={() => handleDelete(photo.id)}
                     >

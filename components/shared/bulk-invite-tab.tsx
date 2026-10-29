@@ -145,7 +145,7 @@ export function BulkInviteTab({ onInvite, onDone }: Props) {
           <button
             type="button"
             onClick={() => setSource("csv")}
-            className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
+            className={`rounded-md px-3 py-1.5 text-xs font-medium sm:py-1 transition-colors ${
               source === "csv" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"
             }`}
           >
@@ -154,7 +154,7 @@ export function BulkInviteTab({ onInvite, onDone }: Props) {
           <button
             type="button"
             onClick={() => setSource("paste")}
-            className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
+            className={`rounded-md px-3 py-1.5 text-xs font-medium sm:py-1 transition-colors ${
               source === "paste" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"
             }`}
           >
@@ -165,8 +165,8 @@ export function BulkInviteTab({ onInvite, onDone }: Props) {
 
       {/* Template download */}
       {state === "idle" && source === "csv" && (
-        <div className="flex items-center justify-between rounded-xl border border-border bg-muted/40 px-4 py-3">
-          <div>
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-border bg-muted/40 px-4 py-3">
+          <div className="min-w-0">
             <p className="text-sm font-medium text-foreground">
               Download the CSV template
             </p>
@@ -177,7 +177,7 @@ export function BulkInviteTab({ onInvite, onDone }: Props) {
           <a
             href="/invite-template.csv"
             download
-            className="inline-flex items-center gap-1.5 rounded-lg bg-background px-3 py-1.5 text-sm font-medium text-foreground ring-1 ring-border hover:bg-muted transition-colors"
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-background px-3 py-2 text-sm sm:py-1.5 font-medium text-foreground ring-1 ring-border hover:bg-muted transition-colors"
           >
             <Download className="h-4 w-4" />
             Template
@@ -191,7 +191,7 @@ export function BulkInviteTab({ onInvite, onDone }: Props) {
           onDragOver={(e) => e.preventDefault()}
           onDrop={handleDrop}
           onClick={() => inputRef.current?.click()}
-          className="flex cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-border bg-muted/20 px-8 py-12 text-center hover:border-primary/40 hover:bg-muted/40 transition-colors"
+          className="flex cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-border bg-muted/20 px-4 py-8 text-center sm:px-8 sm:py-12 hover:border-primary/40 hover:bg-muted/40 transition-colors"
         >
           <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
             <UploadCloud className="h-6 w-6 text-primary" />
@@ -239,9 +239,9 @@ export function BulkInviteTab({ onInvite, onDone }: Props) {
       {/* Error state */}
       {state === "errors" && (
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <AlertCircle className="h-5 w-5 text-destructive" />
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-2">
+              <AlertCircle className="h-5 w-5 shrink-0 text-destructive" />
               <p className="font-medium text-foreground">
                 {errors.length} error{errors.length === 1 ? "" : "s"} found
                 {fileName ? (
@@ -294,9 +294,9 @@ export function BulkInviteTab({ onInvite, onDone }: Props) {
       {/* Preview state */}
       {(state === "preview" || state === "sending") && (
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="h-5 w-5 text-success" />
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-2">
+              <CheckCircle2 className="h-5 w-5 shrink-0 text-success" />
               <p className="font-medium text-foreground">
                 <span className="text-success-foreground">
                   {validEmails.length} email
@@ -331,19 +331,19 @@ export function BulkInviteTab({ onInvite, onDone }: Props) {
               {validEmails.slice(0, 5).map((email, i) => (
                 <div key={i} className="flex items-center gap-2 px-4 py-2.5">
                   <Mail className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                  <span className="text-sm text-foreground">{email}</span>
+                  <span className="min-w-0 truncate text-sm text-foreground">{email}</span>
                 </div>
               ))}
             </div>
           </div>
           <div className="flex justify-end">
             {state === "preview" ? (
-              <Button onClick={handleSend} className="min-w-44">
+              <Button onClick={handleSend} className="w-full sm:w-auto sm:min-w-44">
                 Send {validEmails.length} Invitation
                 {validEmails.length !== 1 ? "s" : ""}
               </Button>
             ) : (
-              <Button disabled className="min-w-44">
+              <Button disabled className="w-full sm:w-auto sm:min-w-44">
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Sending…
               </Button>
@@ -384,7 +384,7 @@ export function BulkInviteTab({ onInvite, onDone }: Props) {
                 <tbody className="divide-y divide-border">
                   {results.map((r, i) => (
                     <tr key={i}>
-                      <td className="px-4 py-2 text-xs text-foreground">
+                      <td className="px-4 py-2 text-xs text-foreground break-all">
                         {r.email}
                       </td>
                       <td className="px-4 py-2">

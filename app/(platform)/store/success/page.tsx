@@ -93,7 +93,7 @@ export default async function StoreSuccessPage({ searchParams }: Props) {
     <PageShell width="narrow">
       {!view.ready && <RefreshUntilReady />}
       <Card>
-        <CardContent className="flex flex-col items-center gap-4 px-6 py-10 text-center">
+        <CardContent className="flex flex-col items-center gap-4 px-4 py-10 text-center sm:px-6">
           <span
             className={cn(
               "flex size-14 items-center justify-center rounded-full",

@@ -430,15 +430,17 @@ export function ProgramEditor({ program, exercises, onSave, redirectTo, organiza
           data-slot="program-editor-bar"
           className="sticky -top-4 z-30 -mx-4 -mt-4 mb-6 border-b border-border bg-canvas/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-canvas/90 lg:-top-6 lg:-mx-6 lg:-mt-6 lg:px-6 2xl:-top-8 2xl:-mx-8 2xl:-mt-8 2xl:px-8"
         >
-          <div className="mx-auto flex min-h-10 max-w-[1440px] items-center gap-3">
+          {/* Wraps on phones when "Save to master" is shown, so the title keeps
+              at least 10rem instead of truncating to nothing. */}
+          <div className="mx-auto flex min-h-10 max-w-[1440px] flex-wrap items-center gap-x-3 gap-y-2 sm:flex-nowrap">
             {backHref && (
-              <Button asChild variant="ghost" size="icon-sm" className="shrink-0">
+              <Button asChild variant="ghost" size="icon-sm" className="shrink-0 max-sm:size-10">
                 <Link href={backHref} aria-label="Back">
                   <ArrowLeft />
                 </Link>
               </Button>
             )}
-            <div className="min-w-0 flex-1">
+            <div className="min-w-40 flex-1 sm:min-w-0">
               <div className="flex min-w-0 items-center gap-2">
                 <h1 className="truncate text-heading text-foreground">{heading}</h1>
                 {isDirty && (
@@ -453,7 +455,7 @@ export function ProgramEditor({ program, exercises, onSave, redirectTo, organiza
               </div>
               <p className="truncate text-caption text-muted-foreground">{subtitle}</p>
             </div>
-            <div className="flex shrink-0 items-center gap-2">
+            <div className="ml-auto flex shrink-0 items-center gap-2">
               {isAssignedCopyOfTemplate && (
                 <Button
                   type="button"
@@ -687,7 +689,7 @@ export function ProgramEditor({ program, exercises, onSave, redirectTo, organiza
                             )
                           }
                           className={cn(
-                            "inline-flex h-7 items-center rounded-full border px-3 text-label transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none",
+                            "inline-flex h-9 items-center rounded-full border px-3 text-label transition-colors sm:h-7 outline-none focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none",
                             on
                               ? "border-primary bg-primary/10 text-primary"
                               : "border-border bg-surface text-muted-foreground hover:border-border-strong hover:text-foreground"

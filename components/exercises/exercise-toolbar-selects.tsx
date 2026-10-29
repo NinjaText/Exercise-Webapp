@@ -24,12 +24,12 @@ export function ExerciseToolbarSelects({
   const router = useRouter();
 
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex min-w-0 flex-1 items-center gap-2 sm:flex-none sm:gap-3">
       <Select
         value={activeSource}
         onValueChange={(v) => v && router.push(sourceUrls[v as "UNIVERSAL" | "ORGANIZATION"])}
       >
-        <SelectTrigger className="h-9 w-44">
+        <SelectTrigger className="h-10 min-w-0 flex-1 sm:h-9 sm:w-44 sm:flex-none">
           <SelectValue>{activeSource === "ORGANIZATION" ? "Library: My Organization" : "Library: Universal"}</SelectValue>
         </SelectTrigger>
         <SelectContent>
@@ -41,7 +41,7 @@ export function ExerciseToolbarSelects({
         value={sort}
         onValueChange={(v) => v && router.push(sortUrls[v as "name_asc" | "name_desc"])}
       >
-        <SelectTrigger className="h-9 w-32">
+        <SelectTrigger className="h-10 w-32 shrink-0 sm:h-9">
           <SelectValue>{sort === "name_desc" ? "Sort: Z-A" : "Sort: A-Z"}</SelectValue>
         </SelectTrigger>
         <SelectContent>

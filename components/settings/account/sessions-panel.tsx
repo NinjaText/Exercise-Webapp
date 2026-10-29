@@ -99,7 +99,7 @@ export function SessionsPanel() {
             const Icon = session.latestActivity?.isMobile ? Smartphone : Monitor;
             const location = locationLabel(session);
             return (
-              <li key={session.id} className="flex items-center gap-4 px-4 py-3">
+              <li key={session.id} className="flex items-center gap-3 px-4 py-3 sm:gap-4">
                 <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted">
                   <Icon className="size-4 text-muted-foreground" aria-hidden />
                 </div>

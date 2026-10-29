@@ -51,7 +51,7 @@ export function CollapsedExerciseRow({
       <button
         type="button"
         aria-label={`Drag to reorder ${name}`}
-        className="flex size-6 shrink-0 cursor-grab touch-none items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
+        className="flex size-8 shrink-0 cursor-grab touch-none items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground sm:size-6"
         {...dragHandleProps}
       >
         <GripVertical className="h-4 w-4" />
@@ -60,14 +60,14 @@ export function CollapsedExerciseRow({
         type="button"
         onClick={onToggle}
         aria-label={`Expand ${name}`}
-        className="flex size-6 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
+        className="flex size-8 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground sm:size-6"
       >
         <ChevronRight className="h-4 w-4" />
       </button>
       <button
         type="button"
         onClick={onSelect}
-        className="flex min-h-7 min-w-0 flex-1 items-center gap-2 rounded px-1 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="flex min-h-9 min-w-0 flex-1 items-center gap-2 rounded px-1 sm:min-h-7 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <span className="truncate text-sm font-medium">{name}</span>
         {hasVideo && (

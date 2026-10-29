@@ -219,7 +219,7 @@ export function WeekWorkoutsCard({
         </Tabs>
         {clients.length > 0 && (
           <Select value={clientFilter} onValueChange={(v) => setClientFilter(v ?? "all")}>
-            <SelectTrigger className="w-44" size="sm">
+            <SelectTrigger className="w-full sm:w-44" size="sm">
               <SelectValue placeholder="All Clients">
                 {(value: string | null) =>
                   !value || value === "all"

@@ -100,8 +100,11 @@ function WeekStripCell({ day }: { day: WeekStripDay }) {
           <span className="size-1 rounded-full bg-border-strong" />
         )}
       </span>
+      {/* Seven cells leave ~40px each on a phone — too narrow for a workout
+          name, so phones show day + status dot and keep the name for readers. */}
+      <span className="sr-only sm:hidden">{label ?? "Rest"}</span>
       <span
-        className="line-clamp-2 min-h-8 text-center text-caption"
+        className="hidden min-h-8 text-center text-caption sm:line-clamp-2"
         title={isVideo ? formatFollowAlongMetaLine(session?.workout?.videoDurationSec) : undefined}
       >
         {isVideo && <Play className="mr-0.5 inline size-2.5 fill-current align-[-1px]" aria-label="Follow-along video" />}
@@ -111,7 +114,7 @@ function WeekStripCell({ day }: { day: WeekStripDay }) {
   );
 
   const className = cn(
-    "flex min-w-0 flex-col items-center gap-1 rounded-lg border px-1 py-2 transition-colors motion-reduce:transition-none",
+    "flex min-h-11 min-w-0 flex-col items-center gap-1 rounded-lg border px-1 py-2 transition-colors motion-reduce:transition-none",
     currentDay ? "border-primary bg-primary/5" : "border-border",
     session &&
       "outline-none hover:border-border-strong hover:bg-surface-muted focus-visible:ring-2 focus-visible:ring-ring"

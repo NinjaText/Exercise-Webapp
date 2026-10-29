@@ -20,7 +20,8 @@ import {
 } from "@/actions/reflection-actions";
 import type { ProgramPlanDay } from "@/lib/services/reflection.service";
 import { AiStyleFields, defaultAiStyle, toAiStyleInput, type AiStyleDraft } from "./ai-style-fields";
-import { ReflectionEditDialog } from "./reflection-edit-dialog";
+import { ReflectionEditDialog, type ReflectionSaveOptions } from "./reflection-edit-dialog";
+import type { ShareableDay } from "./image-share-field";
 import { draftFromStored, emptyDraft, toContentInput, type ReflectionDraft } from "./reflection-draft";
 import { programOptionLabel, type PlanProgramOption } from "./create-reflection-flow";
 
@@ -53,13 +54,21 @@ export function ProgramPlansPanel({ programs }: { programs: PlanProgramOption[] 
     });
   }
 
-  async function saveDay(day: ProgramPlanDay, draft: ReflectionDraft): Promise<boolean> {
-    const result = await upsertProgramDayAction({ programId, dayNumber: day.dayNumber, content: toContentInput(draft) });
+  async function saveDay(day: ProgramPlanDay, draft: ReflectionDraft, options: ReflectionSaveOptions): Promise<boolean> {
+    const result = await upsertProgramDayAction({
+      programId,
+      dayNumber: day.dayNumber,
+      content: toContentInput(draft),
+      shareImageWithDays: options.shareImageWithDays,
+    });
     if (!result.success) {
       toast.error(result.error);
       return false;
     }
-    toast.success(`Day ${day.dayNumber} saved`);
+    const shared = result.data.sharedImageCount;
+    toast.success(
+      shared > 0 ? `Day ${day.dayNumber} saved · image added to ${shared} other day${shared === 1 ? "" : "s"}` : `Day ${day.dayNumber} saved`
+    );
     load(programId);
     return true;
   }
@@ -83,6 +92,13 @@ export function ProgramPlansPanel({ programs }: { programs: PlanProgramOption[] 
         actionLabel="Go to programs"
         actionHref="/programs"
       />
+    );
+  }
+
+  /** The plan's other planned days — the ones that can take a shared image. */
+  function shareableDaysFor(current: ProgramPlanDay): ShareableDay[] {
+    return (plan?.days ?? []).flatMap((day) =>
+      day.reflection && day.dayNumber !== current.dayNumber ? [{ dayNumber: day.dayNumber, hint: day.reflection.text }] : []
     );
   }
 
@@ -144,7 +160,7 @@ export function ProgramPlansPanel({ programs }: { programs: PlanProgramOption[] 
         >
           <ol className="divide-y divide-border border-t border-border" aria-label="Program days">
             {plan.days.map((day) => (
-              <li key={day.dayNumber} className="flex flex-col gap-2 px-5 py-3 sm:flex-row sm:items-start sm:gap-4">
+              <li key={day.dayNumber} className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-start sm:gap-4 sm:px-5">
                 <div className="flex w-full shrink-0 items-center justify-between gap-2 sm:w-32 sm:flex-col sm:items-start sm:justify-start">
                   <span className="text-label text-foreground tabular-nums">Day {day.dayNumber}</span>
                   {day.workoutName ? (
@@ -177,12 +193,12 @@ export function ProgramPlansPanel({ programs }: { programs: PlanProgramOption[] 
                   )}
                 </div>
                 <div className="flex shrink-0 gap-1 self-end sm:self-start">
-                  <Button size="sm" variant="ghost" onClick={() => setEditingDay(day)}>
+                  <Button size="sm" variant="ghost" className="h-10 sm:h-8" onClick={() => setEditingDay(day)}>
                     {day.reflection ? <Pencil className="size-4" /> : <Plus className="size-4" />}
                     {day.reflection ? "Edit" : "Add"}
                   </Button>
                   {day.reflection && (
-                    <Button size="icon-sm" variant="ghost" aria-label={`Clear day ${day.dayNumber}`} onClick={() => setDeletingDay(day)}>
+                    <Button size="icon-sm" variant="ghost" className="size-10 sm:size-8" aria-label={`Clear day ${day.dayNumber}`} onClick={() => setDeletingDay(day)}>
                       <Trash2 className="size-4" />
                     </Button>
                   )}
@@ -198,7 +214,8 @@ export function ProgramPlansPanel({ programs }: { programs: PlanProgramOption[] 
         onOpenChange={(open) => !open && setEditingDay(null)}
         title={editingDay ? `Day ${editingDay.dayNumber} reflection` : "Reflection"}
         initial={editingDay?.reflection ? draftFromStored(editingDay.reflection) : emptyDraft()}
-        onSave={(draft) => (editingDay ? saveDay(editingDay, draft) : Promise.resolve(false))}
+        shareableDays={editingDay ? shareableDaysFor(editingDay) : []}
+        onSave={(draft, options) => (editingDay ? saveDay(editingDay, draft, options) : Promise.resolve(false))}
       />
 
       <ConfirmDialog

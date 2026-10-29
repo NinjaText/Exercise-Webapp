@@ -141,8 +141,10 @@ export function ClientDashboard({
 
       {coaching && <CoachingCard coaching={coaching} />}
 
-      {/* Lifetime totals — paired on phones, one row from tablet up */}
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+      {/* Lifetime totals — paired on phones, one row from tablet up. On phones
+          they drop to the end of the page so the Up next hero (the one thing
+          to act on) sits above the fold. */}
+      <div className="grid grid-cols-2 gap-3 max-sm:order-1 sm:gap-4 md:grid-cols-4">
         <StatCard
           size="compact"
           label="Current streak"

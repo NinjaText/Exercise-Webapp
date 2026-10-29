@@ -54,7 +54,7 @@ const columns: Column<ClientAdherenceRow>[] = [
       const displayName = getDisplayName(client);
       return (
         <div className="flex min-w-0 items-center gap-3">
-          <Avatar className="size-8">
+          <Avatar className="size-8 shrink-0">
             <AvatarImage src={client.imageUrl ?? undefined} alt="" />
             <AvatarFallback>{getInitials(client)}</AvatarFallback>
           </Avatar>

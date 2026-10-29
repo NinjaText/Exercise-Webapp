@@ -63,7 +63,7 @@ export default async function BillingPage({
         <OrgIdentity branding={toViewModel(branding)} surface="light" />
       </header>
 
-      <main className="flex-1 px-4 py-10 sm:px-6 sm:py-14">
+      <main className="flex-1 px-4 py-6 sm:px-6 sm:py-14">
         <div className="mx-auto flex w-full max-w-3xl flex-col gap-4">
           {reason === "payment_failed" && (
             <StatusBanner tone="danger">
@@ -91,7 +91,7 @@ export default async function BillingPage({
           )}
         </div>
 
-        <div className="mx-auto mt-6 mb-10 max-w-3xl text-center">
+        <div className="mx-auto mt-6 mb-6 max-w-3xl text-center sm:mb-10">
           <h1 className="text-display text-balance text-foreground">Choose your plan</h1>
           <p className="mt-3 text-body text-muted-foreground">All plans include a 14-day free trial</p>
         </div>

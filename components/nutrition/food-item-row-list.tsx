@@ -63,14 +63,14 @@ export function FoodItemRowList({
               onChange={(e) => onChange(i, "description", e.target.value)}
               disabled={disabled}
               placeholder={descriptionPlaceholder}
-              className="h-8 flex-1 text-sm"
+              className="h-8 flex-1 text-sm max-sm:h-10 max-sm:text-base"
             />
             <button
               type="button"
               onClick={() => onRemove(i)}
               disabled={disabled}
               aria-label="Remove item"
-              className="shrink-0 text-muted-foreground hover:text-destructive"
+              className="-mr-2 flex size-10 shrink-0 items-center justify-center text-muted-foreground hover:text-destructive sm:mr-0 sm:size-auto"
             >
               <Trash2 className="h-3.5 w-3.5" />
             </button>
@@ -81,7 +81,7 @@ export function FoodItemRowList({
               onChange={(e) => onChange(i, "quantity", e.target.value)}
               disabled={disabled}
               placeholder="Serving size (e.g. 1 cup)"
-              className="h-7 flex-1 text-xs"
+              className="h-7 flex-1 text-xs max-sm:h-10 max-sm:text-base"
             />
             {onReestimate && (
               <button
@@ -90,8 +90,8 @@ export function FoodItemRowList({
                 disabled={disabled || item.description.trim().length === 0}
                 className={
                   isStale
-                    ? "inline-flex shrink-0 items-center gap-1 rounded-md bg-primary px-2 py-1 text-[11px] font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-                    : "inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-[11px] font-semibold text-primary hover:bg-primary/10 disabled:opacity-50"
+                    ? "inline-flex shrink-0 items-center gap-1 rounded-md bg-primary px-2 py-1 max-sm:min-h-10 text-[11px] font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                    : "inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1 max-sm:min-h-10 text-[11px] font-semibold text-primary hover:bg-primary/10 disabled:opacity-50"
                 }
               >
                 {isReestimating ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
@@ -114,44 +114,48 @@ export function FoodItemRowList({
               <Label className="text-[10px] font-normal text-muted-foreground">Calories (kcal)</Label>
               <Input
                 type="number"
+                inputMode="decimal"
                 value={item.calories}
                 onChange={(e) => onChange(i, "calories", e.target.value)}
                 disabled={disabled}
                 placeholder="kcal"
-                className="h-7 text-xs"
+                className="h-7 text-xs max-sm:h-10 max-sm:text-base"
               />
             </div>
             <div className="space-y-0.5">
               <Label className="text-[10px] font-normal text-muted-foreground">Protein (g)</Label>
               <Input
                 type="number"
+                inputMode="decimal"
                 value={item.proteinG}
                 onChange={(e) => onChange(i, "proteinG", e.target.value)}
                 disabled={disabled}
                 placeholder="protein"
-                className="h-7 text-xs"
+                className="h-7 text-xs max-sm:h-10 max-sm:text-base"
               />
             </div>
             <div className="space-y-0.5">
               <Label className="text-[10px] font-normal text-muted-foreground">Carbs (g)</Label>
               <Input
                 type="number"
+                inputMode="decimal"
                 value={item.carbsG}
                 onChange={(e) => onChange(i, "carbsG", e.target.value)}
                 disabled={disabled}
                 placeholder="carbs"
-                className="h-7 text-xs"
+                className="h-7 text-xs max-sm:h-10 max-sm:text-base"
               />
             </div>
             <div className="space-y-0.5">
               <Label className="text-[10px] font-normal text-muted-foreground">Fat (g)</Label>
               <Input
                 type="number"
+                inputMode="decimal"
                 value={item.fatG}
                 onChange={(e) => onChange(i, "fatG", e.target.value)}
                 disabled={disabled}
                 placeholder="fat"
-                className="h-7 text-xs"
+                className="h-7 text-xs max-sm:h-10 max-sm:text-base"
               />
             </div>
           </div>

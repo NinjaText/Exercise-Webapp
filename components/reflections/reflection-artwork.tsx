@@ -24,8 +24,9 @@ function kindMeta(kind: string): { label: string; Icon: LucideIcon } {
 /**
  * The visual half of a reflection: the trainer's image (with a brand-tinted
  * scrim so the text stays legible) or a soft token gradient, plus the kind
- * label, text and attribution. Shared by the client dashboard card and the
- * trainer's preview step so both always look the same.
+ * label, text and attribution (centred when there's no image). Shared by
+ * the client dashboard card and the trainer's preview step so both always
+ * look the same.
  */
 export function ReflectionArtwork({
   reflection,
@@ -45,11 +46,13 @@ export function ReflectionArtwork({
   return (
     <div
       className={cn(
-        "relative isolate flex flex-col justify-end overflow-hidden",
+        "relative isolate flex flex-col overflow-hidden",
         compact ? "min-h-40 p-4" : "min-h-56 p-5 sm:p-6",
+        // On a photo the text sits low, under the scrim; on the plain
+        // gradient there's nothing to stay clear of, so it's centred.
         hasImage
-          ? "text-primary-foreground"
-          : "bg-[linear-gradient(140deg,var(--brand-soft),var(--info-soft))] text-foreground",
+          ? "justify-end text-primary-foreground"
+          : "items-center justify-center bg-[linear-gradient(140deg,var(--brand-soft),var(--info-soft))] text-center text-foreground",
         className
       )}
     >

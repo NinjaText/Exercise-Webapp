@@ -124,7 +124,7 @@ function ProgramsTab({
   return (
     <div className="flex flex-col gap-4">
       <QuickTipCallout />
-      <div className="grid gap-4 xl:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         {programs.map((program) => (
           <ScheduledProgramCard
             key={program.id}
@@ -163,7 +163,7 @@ function ScheduledProgramCard({
           <div className="flex flex-wrap items-center gap-2">
             <Link
               href={`/programs/${program.id}`}
-              className="truncate rounded-sm text-heading text-foreground outline-none hover:text-primary hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+              className="block truncate rounded-sm text-heading text-foreground outline-none hover:text-primary hover:underline focus-visible:ring-2 focus-visible:ring-ring"
             >
               {program.name}
             </Link>
@@ -256,7 +256,7 @@ function ResourcesTab({ resources }: { resources: ClientProgramCard[] }) {
   }
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
       {resources.map((resource) => (
         <ResourceCard key={resource.id} resource={resource} />
       ))}

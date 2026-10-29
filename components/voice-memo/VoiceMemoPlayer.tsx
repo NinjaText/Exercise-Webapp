@@ -122,7 +122,7 @@ export function VoiceMemoPlayer({ memo, authorName }: VoiceMemoPlayerProps) {
           </span>
         </div>
       </div>
-      <Button size="icon" variant="ghost" className="h-9 w-9 shrink-0" onClick={togglePlay}>
+      <Button size="icon" variant="ghost" className="h-9 w-9 shrink-0 max-sm:size-11" onClick={togglePlay}>
         {playing ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
       </Button>
       <audio ref={audioRef} src={memo.r2Url} preload="metadata" />

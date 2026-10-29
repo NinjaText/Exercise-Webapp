@@ -234,7 +234,7 @@ export function BarcodeScanForm({
               autoComplete="off"
               placeholder="e.g. 5000159407236"
               maxLength={20}
-              className="h-9 flex-1"
+              className="h-9 flex-1 max-sm:h-10"
               autoFocus
             />
             <Button type="submit" size="sm" disabled={typedCode.trim().length === 0}>
@@ -409,7 +409,7 @@ function ScannedItemCard({
               onClick={() => onModeChange(m.value)}
               disabled={disabled}
               className={cn(
-                "flex-1 rounded-md py-1.5 text-xs font-medium transition-all",
+                "flex-1 rounded-md py-1.5 text-xs font-medium transition-all max-sm:py-2.5",
                 item.mode === m.value
                   ? "bg-primary text-primary-foreground"
                   : "ring-1 ring-border/50 text-muted-foreground hover:text-foreground"
@@ -427,7 +427,7 @@ function ScannedItemCard({
             inputMode="decimal"
             aria-label="Amount eaten"
             aria-invalid={quantity === null}
-            className="h-9 w-24"
+            className="h-9 w-24 max-sm:h-10"
           />
           <span className="text-xs text-muted-foreground">
             {item.mode === "amount" ? food.unit : item.mode === "package" ? "package(s)" : "serving(s)"}

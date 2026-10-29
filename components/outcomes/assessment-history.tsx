@@ -1,20 +1,56 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { formatDate, formatDateTime } from "@/lib/utils/dates";
+import { DataList, type Column } from "@/components/shared/data-list";
+import { formatDate } from "@/lib/utils/dates";
 import { formatAssessmentType } from "@/lib/utils/formatting";
 import { ArrowUp, ArrowDown, Minus } from "lucide-react";
 import type { Assessment } from "@prisma/client";
 
 interface AssessmentHistoryProps {
   assessments: Assessment[];
+}
+
+/** An assessment plus its direction vs. the previous (older) reading of the same type. */
+type AssessmentRow = Assessment & { trend: "up" | "down" | "same" | null };
+
+const columns: Column<AssessmentRow>[] = [
+  { key: "date", header: "Date", render: (item) => formatDate(item.createdAt) },
+  {
+    key: "value",
+    header: "Value",
+    className: "font-medium",
+    render: (item) => `${item.value} ${item.unit}`,
+  },
+  {
+    key: "trend",
+    header: "Trend",
+    render: (item) =>
+      item.trend === null ? (
+        "—"
+      ) : (
+        <span className="flex items-center gap-1">
+          {item.trend === "up" && <ArrowUp className="h-3.5 w-3.5 text-success" />}
+          {item.trend === "down" && <ArrowDown className="h-3.5 w-3.5 text-danger" />}
+          {item.trend === "same" && <Minus className="h-3.5 w-3.5 text-muted-foreground" />}
+        </span>
+      ),
+  },
+  {
+    key: "notes",
+    header: "Notes",
+    className: "max-w-[200px] text-muted-foreground sm:truncate max-sm:col-span-2 max-sm:max-w-none",
+    render: (item) => item.notes ?? "-",
+  },
+];
+
+function withTrends(items: Assessment[]): AssessmentRow[] {
+  return items.map((item, index) => {
+    const prevItem = items[index + 1];
+    if (!prevItem) return { ...item, trend: null };
+    const currentVal = Number(item.value);
+    const prevVal = Number(prevItem.value);
+    const trend = currentVal > prevVal ? "up" : currentVal < prevVal ? "down" : "same";
+    return { ...item, trend };
+  });
 }
 
 export function AssessmentHistory({ assessments }: AssessmentHistoryProps) {
@@ -40,60 +76,7 @@ export function AssessmentHistory({ assessments }: AssessmentHistoryProps) {
             {Object.entries(grouped).map(([type, items]) => (
               <div key={type}>
                 <h4 className="font-medium mb-2">{formatAssessmentType(type)}</h4>
-                <div className="rounded-md border">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Date</TableHead>
-                        <TableHead>Value</TableHead>
-                        <TableHead>Trend</TableHead>
-                        <TableHead>Notes</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {items.map((item, index) => {
-                        const prevItem = items[index + 1];
-                        const currentVal = Number(item.value);
-                        const prevVal = prevItem ? Number(prevItem.value) : null;
-
-                        let trend: "up" | "down" | "same" = "same";
-                        if (prevVal !== null) {
-                          if (currentVal > prevVal) trend = "up";
-                          else if (currentVal < prevVal) trend = "down";
-                        }
-
-                        return (
-                          <TableRow key={item.id}>
-                            <TableCell className="text-sm">
-                              {formatDate(item.createdAt)}
-                            </TableCell>
-                            <TableCell className="text-sm font-medium">
-                              {item.value} {item.unit}
-                            </TableCell>
-                            <TableCell>
-                              {prevVal !== null && (
-                                <span className="flex items-center gap-1">
-                                  {trend === "up" && (
-                                    <ArrowUp className="h-3.5 w-3.5 text-success" />
-                                  )}
-                                  {trend === "down" && (
-                                    <ArrowDown className="h-3.5 w-3.5 text-danger" />
-                                  )}
-                                  {trend === "same" && (
-                                    <Minus className="h-3.5 w-3.5 text-muted-foreground" />
-                                  )}
-                                </span>
-                              )}
-                            </TableCell>
-                            <TableCell className="text-sm text-muted-foreground max-w-[200px] truncate">
-                              {item.notes ?? "-"}
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                </div>
+                <DataList columns={columns} data={withTrends(items)} keyExtractor={(item) => item.id} />
               </div>
             ))}
           </div>

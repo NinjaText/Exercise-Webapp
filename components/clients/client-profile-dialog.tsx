@@ -277,7 +277,7 @@ function ProfileForm({
                 id="cp-activity"
                 value={form.activityLevel}
                 onChange={(e) => set("activityLevel", e.target.value)}
-                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                className="h-10 w-full rounded-md border border-input bg-background px-3 text-base sm:h-9 sm:text-sm"
               >
                 <option value="">Not recorded</option>
                 {ACTIVITY_LEVELS.map((level) => (

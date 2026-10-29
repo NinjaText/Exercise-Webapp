@@ -616,7 +616,7 @@ export function BulkImportForm() {
                 value={youtubeInput}
                 onChange={(e) => setYoutubeInput(e.target.value)}
                 rows={6}
-                className="font-mono text-sm resize-none"
+                className="font-mono text-base resize-none sm:text-sm"
                 disabled={ytProcessing}
               />
 
@@ -684,7 +684,7 @@ export function BulkImportForm() {
                       setSelectedVideoIds(new Set());
                     }
                   }}
-                  className="font-mono text-sm"
+                  className="font-mono text-base sm:text-sm"
                   disabled={playlistLoading || ytProcessing}
                 />
                 <Button
@@ -768,7 +768,7 @@ export function BulkImportForm() {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); runSearch(); } }}
-                  className="text-sm"
+                  className="text-base sm:text-sm"
                   disabled={searchLoading || ytProcessing}
                 />
                 <Button
@@ -865,10 +865,11 @@ export function BulkImportForm() {
             ))}
           </div>
 
-          {/* Sticky publish bar */}
+          {/* Sticky publish bar. Sticky offsets are measured inside <main>'s
+              padding, which already clears the phone tab bar. */}
           <div className="sticky bottom-4 z-10">
-            <div className="flex items-center justify-between rounded-xl bg-card px-5 py-4 shadow-lg ring-1 ring-border">
-              <div>
+            <div className="flex flex-col gap-3 rounded-xl bg-card px-4 py-3 shadow-lg ring-1 ring-border sm:flex-row sm:items-center sm:justify-between sm:px-5 sm:py-4">
+              <div className="min-w-0">
                 <p className="font-semibold">
                   {readyCount} of {rows.length} ready to publish
                 </p>
@@ -876,7 +877,7 @@ export function BulkImportForm() {
                   Needs name + body region + difficulty
                 </p>
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-2 *:flex-1 sm:*:flex-none">
                 <Button variant="outline" onClick={() => router.back()} disabled={publishing}>Cancel</Button>
                 <Button onClick={handlePublish} disabled={publishing || readyCount === 0 || ytProcessing}>
                   {publishing
@@ -935,7 +936,7 @@ export function ExerciseRowCard({ row, index, onUpdate, onRemove, onGenerate, on
         <button
           type="button"
           onClick={() => onUpdate({ expanded: !row.expanded })}
-          className="rounded p-1 text-muted-foreground hover:text-foreground"
+          className="rounded p-2 text-muted-foreground hover:text-foreground sm:p-1"
           aria-label={row.expanded ? "Collapse row" : "Expand row"}
         >
           {row.expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
@@ -943,7 +944,7 @@ export function ExerciseRowCard({ row, index, onUpdate, onRemove, onGenerate, on
         <button
           type="button"
           onClick={onRemove}
-          className="rounded p-1 text-muted-foreground hover:text-destructive"
+          className="rounded p-2 text-muted-foreground hover:text-destructive sm:p-1"
           aria-label="Remove row"
         >
           <Trash2 className="h-4 w-4" />
@@ -1002,7 +1003,7 @@ export function ExerciseRowCard({ row, index, onUpdate, onRemove, onGenerate, on
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label className="text-xs font-medium">Difficulty *</Label>
-              <select value={row.difficultyLevel} onChange={(e) => onUpdate({ difficultyLevel: e.target.value })} className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm">
+              <select value={row.difficultyLevel} onChange={(e) => onUpdate({ difficultyLevel: e.target.value })} className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-base sm:h-9 sm:text-sm">
                 <option value="">Select…</option>
                 {DIFFICULTY_LEVELS.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
               </select>

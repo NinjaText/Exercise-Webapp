@@ -23,7 +23,7 @@ export default async function AdminOverviewPage() {
         description="Real-time snapshot of all activity across the MIA Performance platform."
       />
 
-      <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         <StatCard
           label="Total Users"
           value={stats.totalUsers.toLocaleString()}
@@ -42,7 +42,7 @@ export default async function AdminOverviewPage() {
         />
       </div>
 
-      <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         <StatCard
           label="Exercises"
           value={stats.totalExercises.toLocaleString()}
@@ -65,7 +65,7 @@ export default async function AdminOverviewPage() {
         <SectionCard title="Recent Sign-ups" action={{ label: "View all", href: "/admin/users" }} contentClassName="px-0 pb-0">
           <div className="divide-y divide-border">
             {recentUsers.map((u) => (
-              <div key={u.id} className="flex items-center gap-3 px-5 py-3">
+              <div key={u.id} className="flex items-center gap-3 px-4 py-3 sm:px-5">
                 <div className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted overflow-hidden">
                   {u.imageUrl ? (
                     <Image src={u.imageUrl} alt="" fill className="object-cover" />
@@ -99,7 +99,7 @@ export default async function AdminOverviewPage() {
         >
           <div className="divide-y divide-border">
             {topTrainers.map((c, i) => (
-              <div key={c.id} className="flex items-center gap-3 px-5 py-3">
+              <div key={c.id} className="flex items-center gap-2 px-4 py-3 sm:gap-3 sm:px-5">
                 <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-muted text-label font-bold text-muted-foreground">
                   {i + 1}
                 </span>
@@ -114,7 +114,7 @@ export default async function AdminOverviewPage() {
                   <p className="truncate text-body font-medium text-foreground">{c.name}</p>
                   <p className="truncate text-caption">{c.email}</p>
                 </div>
-                <div className="flex items-center gap-3 text-right">
+                <div className="flex shrink-0 items-center gap-3 text-right">
                   <div>
                     <p className="text-body font-bold tabular-nums text-foreground">{c.clientCount}</p>
                     <p className="text-caption">clients</p>

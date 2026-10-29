@@ -288,9 +288,9 @@ export function AdminExercisesGrid({ exercises, total, totalPages, page, search,
       </div>
 
       {selectedIds.size > 0 && (
-        <div className="fixed inset-x-0 bottom-6 z-50 flex justify-center px-4">
-          <div className="flex items-center gap-3 rounded-full border border-border bg-background/95 px-4 py-2 shadow-lg backdrop-blur">
-            <span className="text-body font-medium">{selectedIds.size} selected</span>
+        <div className="fixed inset-x-0 bottom-[calc(1.5rem_+_var(--safe-bottom))] z-50 flex justify-center px-4">
+          <div className="flex items-center gap-2 rounded-full border border-border bg-background/95 px-3 py-2 shadow-lg backdrop-blur sm:gap-3 sm:px-4">
+            <span className="whitespace-nowrap text-body font-medium">{selectedIds.size} selected</span>
             <Button size="sm" variant="destructive" onClick={() => setConfirmOpen(true)} disabled={isPending}>
               {isPending ? (
                 <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />

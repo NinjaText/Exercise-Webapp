@@ -24,13 +24,13 @@ export function ClientSearch() {
   }
 
   return (
-    <div className="relative max-w-sm">
+    <div className="relative w-full sm:max-w-sm">
       <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
       <Input
         placeholder="Search clients..."
         defaultValue={searchParams.get("q") ?? ""}
         onChange={handleChange}
-        className="h-9 pl-9"
+        className="h-10 pl-9 sm:h-9"
       />
     </div>
   );
