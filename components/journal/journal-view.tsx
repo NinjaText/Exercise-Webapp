@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { BookOpen, Lock, MoreHorizontal, Pencil, Plus, Send, Trash2 } from "lucide-react";
+import { BookOpen, CalendarSearch, Lock, MoreHorizontal, Pencil, Plus, Send, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -24,6 +24,7 @@ import {
   deleteJournalEntryAction,
   updateJournalEntryAction,
 } from "@/actions/journal-actions";
+import { describeRange, JournalDateFilter, type JournalRangeKeys } from "./journal-date-filter";
 
 export interface JournalEntryView {
   id: string;
@@ -37,8 +38,21 @@ export interface JournalEntryView {
   createdAt: string;
 }
 
-/** The client's journal: a composer for free-form entries and the entry list, newest first. */
-export function JournalView({ entries }: { entries: JournalEntryView[] }) {
+/**
+ * The client's journal: a composer for free-form entries, a date-range filter
+ * and the entry list, newest first.
+ */
+export function JournalView({
+  entries,
+  range,
+  limitReached,
+}: {
+  entries: JournalEntryView[];
+  range: JournalRangeKeys;
+  /** The server capped the list — older entries in range need a narrower filter. */
+  limitReached: boolean;
+}) {
+  const rangeLabel = describeRange(range);
   const router = useRouter();
   const [composing, setComposing] = useState(false);
   const [draft, setDraft] = useState("");
@@ -113,20 +127,37 @@ export function JournalView({ entries }: { entries: JournalEntryView[] }) {
         )}
       </SectionCard>
 
+      {(entries.length > 0 || rangeLabel) && <JournalDateFilter range={range} />}
+
       {entries.length === 0 ? (
-        <EmptyState
-          icon={BookOpen}
-          title="Your journal is empty"
-          description="Answer today's reflection from your dashboard, or write a free-form entry above."
-        />
+        rangeLabel ? (
+          <EmptyState
+            icon={CalendarSearch}
+            title="No entries in this range"
+            description={`Nothing in your journal for this period (${rangeLabel}). Try a wider range or clear the filter.`}
+          />
+        ) : (
+          <EmptyState
+            icon={BookOpen}
+            title="Your journal is empty"
+            description="Answer today's reflection from your dashboard, or write a free-form entry above."
+          />
+        )
       ) : (
-        <ol className="flex flex-col gap-3" aria-label="Journal entries">
-          {entries.map((entry) => (
-            <li key={entry.id}>
-              <JournalEntryCard entry={entry} />
-            </li>
-          ))}
-        </ol>
+        <div className="flex flex-col gap-3">
+          <p className="text-caption text-muted-foreground" aria-live="polite">
+            {limitReached
+              ? `Showing the ${entries.length} most recent entries${rangeLabel ? ` · ${rangeLabel}` : ""}. Narrow the dates to see older ones.`
+              : `${entries.length} entr${entries.length === 1 ? "y" : "ies"}${rangeLabel ? ` · ${rangeLabel}` : ""}`}
+          </p>
+          <ol className="flex flex-col gap-3" aria-label="Journal entries">
+            {entries.map((entry) => (
+              <li key={entry.id}>
+                <JournalEntryCard entry={entry} />
+              </li>
+            ))}
+          </ol>
+        </div>
       )}
     </div>
   );
@@ -181,7 +212,7 @@ function JournalEntryCard({ entry }: { entry: JournalEntryView }) {
         {isPrivate && !editing && (
           <DropdownMenu>
             <DropdownMenuTrigger
-              render={<Button variant="ghost" size="icon-sm" aria-label="Entry actions" disabled={isPending} />}
+              render={<Button variant="ghost" size="icon-sm" aria-label="Entry actions" disabled={isPending} className="max-sm:size-10" />}
             >
               <MoreHorizontal className="size-4" />
             </DropdownMenuTrigger>
@@ -238,7 +269,7 @@ function JournalEntryCard({ entry }: { entry: JournalEntryView }) {
           </div>
         </form>
       ) : (
-        <p className="mt-3 text-body whitespace-pre-wrap text-foreground">{entry.body}</p>
+        <p className="mt-3 text-body break-words whitespace-pre-wrap text-foreground">{entry.body}</p>
       )}
 
       <p className="mt-3 flex items-center gap-1.5 text-caption text-muted-foreground">

@@ -83,7 +83,7 @@ export function WaterTracker({ clientId, date, consumedMl, targetMl, readOnly = 
             type="button"
             onClick={() => addOz(8)}
             disabled={isPending}
-            className="rounded-md bg-info-soft px-2.5 py-1 text-[11px] font-semibold text-info-foreground hover:bg-info-soft/70 disabled:opacity-50"
+            className="rounded-md bg-info-soft px-2.5 py-1 text-[11px] font-semibold max-sm:h-10 max-sm:px-3.5 max-sm:text-xs text-info-foreground hover:bg-info-soft/70 disabled:opacity-50"
           >
             +8oz
           </button>
@@ -91,7 +91,7 @@ export function WaterTracker({ clientId, date, consumedMl, targetMl, readOnly = 
             type="button"
             onClick={() => addOz(16)}
             disabled={isPending}
-            className="rounded-md bg-info-soft px-2.5 py-1 text-[11px] font-semibold text-info-foreground hover:bg-info-soft/70 disabled:opacity-50"
+            className="rounded-md bg-info-soft px-2.5 py-1 text-[11px] font-semibold max-sm:h-10 max-sm:px-3.5 max-sm:text-xs text-info-foreground hover:bg-info-soft/70 disabled:opacity-50"
           >
             +16oz
           </button>
@@ -99,6 +99,7 @@ export function WaterTracker({ clientId, date, consumedMl, targetMl, readOnly = 
             <div className="flex items-center gap-1">
               <Input
                 type="number"
+                inputMode="decimal"
                 min={0}
                 step="any"
                 placeholder="oz"
@@ -106,13 +107,13 @@ export function WaterTracker({ clientId, date, consumedMl, targetMl, readOnly = 
                 value={customOz}
                 onChange={(e) => setCustomOz(e.target.value)}
                 disabled={isPending}
-                className="h-6 w-14 px-1.5 text-[11px]"
+                className="h-6 w-14 px-1.5 text-[11px] max-sm:h-10 max-sm:w-20 max-sm:text-base"
               />
               <button
                 type="button"
                 onClick={handleCustomAdd}
                 disabled={isPending || !customOz}
-                className="rounded-md bg-muted px-2 py-1 text-[11px] font-semibold hover:bg-muted/70 disabled:opacity-50"
+                className="rounded-md bg-muted px-2 py-1 text-[11px] font-semibold max-sm:h-10 max-sm:px-3.5 max-sm:text-xs hover:bg-muted/70 disabled:opacity-50"
               >
                 {isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : "Add"}
               </button>
@@ -122,7 +123,7 @@ export function WaterTracker({ clientId, date, consumedMl, targetMl, readOnly = 
               type="button"
               onClick={() => setShowCustom(true)}
               aria-label="Add custom water amount"
-              className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+              className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground max-sm:size-10 hover:bg-muted hover:text-foreground"
             >
               <Plus className="h-3 w-3" />
             </button>

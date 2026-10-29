@@ -95,6 +95,7 @@ export function AuditLogFilters({
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Tabs
+          className="min-w-0 max-w-full"
           value={filters.role ?? ALL}
           onValueChange={(v) => apply({ role: v === ALL ? undefined : (v as AuditActorTypeKey) })}
         >
@@ -122,13 +123,13 @@ export function AuditLogFilters({
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <div className="relative min-w-[220px] flex-1 sm:max-w-xs">
+        <div className="relative w-full sm:w-auto sm:min-w-[220px] sm:flex-1 sm:max-w-xs">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search user or target…"
-            className="h-9 pl-9"
+            className="h-10 pl-9 sm:h-9"
             aria-label="Search audit log"
           />
         </div>
@@ -144,7 +145,7 @@ export function AuditLogFilters({
             apply({ category, action: keepAction ? filters.action : undefined });
           }}
         >
-          <SelectTrigger className="h-9 w-48" aria-label="Category">
+          <SelectTrigger className="h-10 min-w-0 flex-1 basis-[calc(50%-0.25rem)] sm:h-9 sm:w-48 sm:flex-none sm:basis-auto" aria-label="Category">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -161,7 +162,7 @@ export function AuditLogFilters({
           items={actionItems}
           onValueChange={(v) => apply({ action: v === ALL || !v ? undefined : String(v) })}
         >
-          <SelectTrigger className="h-9 w-56" aria-label="Action">
+          <SelectTrigger className="h-10 min-w-0 flex-1 basis-[calc(50%-0.25rem)] sm:h-9 sm:w-56 sm:flex-none sm:basis-auto" aria-label="Action">
             <SelectValue />
           </SelectTrigger>
           <SelectContent className="max-h-80">
@@ -188,7 +189,7 @@ export function AuditLogFilters({
             items={orgItems}
             onValueChange={(v) => apply({ org: v === ALL || !v ? undefined : String(v) })}
           >
-            <SelectTrigger className="h-9 w-52" aria-label="Organization">
+            <SelectTrigger className="h-10 min-w-0 flex-1 basis-[calc(50%-0.25rem)] sm:h-9 sm:w-52 sm:flex-none sm:basis-auto" aria-label="Organization">
               <SelectValue />
             </SelectTrigger>
             <SelectContent className="max-h-80">
@@ -208,7 +209,7 @@ export function AuditLogFilters({
             apply({ range: v === ALL || !v ? undefined : (v as AuditLogFilterState["range"]) })
           }
         >
-          <SelectTrigger className="h-9 w-40" aria-label="Date range">
+          <SelectTrigger className="h-10 min-w-0 flex-1 basis-[calc(50%-0.25rem)] sm:h-9 sm:w-40 sm:flex-none sm:basis-auto" aria-label="Date range">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>

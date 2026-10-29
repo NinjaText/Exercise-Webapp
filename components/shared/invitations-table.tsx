@@ -105,7 +105,7 @@ export function InvitationsTable({ invitations, clerkOrgId, onChanged }: Props) 
             key={f.key}
             type="button"
             onClick={() => setFilter(f.key)}
-            className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+            className={`rounded-full px-3 py-1.5 text-xs font-medium sm:py-1 transition-colors ${
               filter === f.key
                 ? "bg-primary text-primary-foreground"
                 : "bg-muted text-muted-foreground hover:bg-muted/70"
@@ -119,8 +119,10 @@ export function InvitationsTable({ invitations, clerkOrgId, onChanged }: Props) 
 
       <div className="rounded-2xl border border-border bg-card overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
+          {/* Phones: each row becomes a compact card (email on top, status and
+              sent time below, the row action in the top-right corner). */}
+          <table className="w-full text-sm max-sm:block">
+            <thead className="max-sm:sr-only">
               <tr className="border-b border-border">
                 <th className="px-5 py-3 text-left text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Email</th>
                 <th className="px-5 py-3 text-left text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Status</th>
@@ -129,16 +131,16 @@ export function InvitationsTable({ invitations, clerkOrgId, onChanged }: Props) 
                 <th className="px-5 py-3 w-24" />
               </tr>
             </thead>
-            <tbody className="divide-y divide-border">
+            <tbody className="divide-y divide-border max-sm:block">
               {filtered.map((invite) => {
                 const isRowPending = isPending && pendingId === invite.id;
                 return (
-                  <tr key={invite.id} className="hover:bg-muted/40 transition-colors">
-                    <td className="px-5 py-3 text-foreground">{invite.email}</td>
-                    <td className="px-5 py-3">
+                  <tr key={invite.id} className="hover:bg-muted/40 transition-colors max-sm:relative max-sm:flex max-sm:flex-wrap max-sm:items-center max-sm:gap-x-3 max-sm:gap-y-1.5 max-sm:px-4 max-sm:py-3">
+                    <td className="px-5 py-3 text-foreground max-sm:block max-sm:w-full max-sm:p-0 max-sm:pr-24 max-sm:break-all">{invite.email}</td>
+                    <td className="px-5 py-3 max-sm:p-0">
                       <StatusBadge status={invite.status} role={STATUS_ROLE[invite.status]} size="sm" />
                     </td>
-                    <td className="px-5 py-3 text-xs text-muted-foreground whitespace-nowrap">
+                    <td className="px-5 py-3 text-xs text-muted-foreground whitespace-nowrap max-sm:p-0">
                       {formatDistanceToNow(new Date(invite.createdAt), { addSuffix: true })}
                     </td>
                     <td className="px-5 py-3 text-xs text-muted-foreground whitespace-nowrap hidden sm:table-cell">
@@ -146,7 +148,7 @@ export function InvitationsTable({ invitations, clerkOrgId, onChanged }: Props) 
                         ? formatDistanceToNow(new Date(invite.expiresAt), { addSuffix: true })
                         : "—"}
                     </td>
-                    <td className="px-5 py-3">
+                    <td className="px-5 py-3 max-sm:absolute max-sm:top-2 max-sm:right-2 max-sm:p-0">
                       <div className="flex justify-end">
                         {isRowPending ? (
                           <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
@@ -154,7 +156,7 @@ export function InvitationsTable({ invitations, clerkOrgId, onChanged }: Props) 
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="h-7 gap-1 px-2 text-xs text-destructive hover:text-destructive"
+                            className="h-9 gap-1 px-2 text-xs text-destructive hover:text-destructive sm:h-7"
                             onClick={() => setRevokeTarget(invite)}
                           >
                             <Ban className="h-3.5 w-3.5" />
@@ -164,7 +166,7 @@ export function InvitationsTable({ invitations, clerkOrgId, onChanged }: Props) 
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="h-7 gap-1 px-2 text-xs"
+                            className="h-9 gap-1 px-2 text-xs sm:h-7"
                             onClick={() => handleResend(invite)}
                           >
                             <RotateCw className="h-3.5 w-3.5" />

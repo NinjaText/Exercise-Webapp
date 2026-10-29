@@ -89,7 +89,7 @@ export function ClientNoteReply({
             placeholder={`Reply to ${clientFirstName}...`}
             rows={2}
             autoFocus
-            className="min-h-[3rem] resize-none bg-background text-sm"
+            className="min-h-[3rem] resize-none bg-background text-sm max-sm:text-base"
           />
           <div className="flex justify-end gap-2">
             <Button

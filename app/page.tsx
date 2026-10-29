@@ -296,7 +296,7 @@ function TestimonialCarousel() {
           <ChevronLeft className="h-4 w-4" />
         </button>
 
-        <div className="relative min-h-[220px] flex-1 overflow-hidden rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
+        <div className="relative min-h-[220px] min-w-0 flex-1 overflow-hidden rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
           <AnimatePresence mode="wait">
             <motion.div
               key={t.name}
@@ -311,7 +311,7 @@ function TestimonialCarousel() {
               </div>
               <div>
                 <Quote className="mb-2 h-5 w-5 text-slate-300" />
-                <p className="text-lg leading-relaxed text-slate-700">&ldquo;{t.quote}&rdquo;</p>
+                <p className="text-base leading-relaxed text-slate-700 sm:text-lg">&ldquo;{t.quote}&rdquo;</p>
                 <p className="mt-4 font-semibold text-slate-900">{t.name}</p>
                 <p className="text-sm text-slate-500">{t.role}</p>
               </div>
@@ -337,7 +337,7 @@ function TestimonialCarousel() {
             onClick={() => setIndex(i)}
             aria-label={`Show testimonial ${i + 1}`}
             aria-current={i === index}
-            className={`h-2 rounded-full transition-all ${i === index ? "w-6 bg-slate-800" : "w-2 bg-slate-300 hover:bg-slate-400"}`}
+            className={`relative h-2 rounded-full transition-all after:absolute after:-inset-x-1 after:-inset-y-4 ${i === index ? "w-6 bg-slate-800" : "w-2 bg-slate-300 hover:bg-slate-400"}`}
           />
         ))}
       </div>
@@ -377,7 +377,7 @@ export default function LandingPage() {
           />
         </div>
 
-        <div className="relative mx-auto grid w-full max-w-7xl items-center gap-14 px-4 py-20 sm:px-6 sm:py-28 lg:grid-cols-[1fr_1.1fr] lg:px-8">
+        <div className="relative mx-auto grid w-full max-w-7xl items-center gap-14 px-4 py-14 sm:px-6 sm:py-28 lg:grid-cols-[1fr_1.1fr] lg:px-8">
           {/* Copy */}
           <div>
             <motion.p
@@ -390,7 +390,7 @@ export default function LandingPage() {
             </motion.p>
 
             <motion.h1
-              className="text-5xl font-extrabold leading-[1.05] tracking-tight text-white sm:text-6xl"
+              className="text-4xl font-extrabold leading-[1.05] tracking-tight text-white min-[400px]:text-5xl sm:text-6xl"
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.7, delay: 0.35, ease: [0.22, 1, 0.36, 1] }}
@@ -421,7 +421,7 @@ export default function LandingPage() {
             </motion.p>
 
             <motion.div
-              className="mt-10 flex flex-col gap-4 sm:flex-row sm:items-center"
+              className="mt-8 flex flex-col gap-3 sm:mt-10 sm:flex-row sm:items-center sm:gap-4"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.65 }}
@@ -497,13 +497,13 @@ export default function LandingPage() {
       </section>
 
       {/* ── Meet MIA ──────────────────────────────────────────────────────── */}
-      <section id="meet-mia" className="bg-white py-24 sm:py-28">
+      <section id="meet-mia" className="bg-white py-16 sm:py-28">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <FadeUp className="mx-auto max-w-3xl text-center">
             <p className="mb-4 text-xs font-semibold tracking-[0.3em] text-primary uppercase">
               {PRODUCT_EXPANSION}
             </p>
-            <h2 className="text-4xl font-extrabold tracking-tight text-slate-900 sm:text-5xl">
+            <h2 className="text-3xl font-extrabold tracking-tight text-slate-900 min-[400px]:text-4xl sm:text-5xl">
               Meet MIA.
             </h2>
             <p className="mt-4 text-lg text-slate-600">
@@ -511,7 +511,7 @@ export default function LandingPage() {
             </p>
           </FadeUp>
 
-          <div className="mt-16 grid border-y border-slate-200 sm:grid-cols-3 sm:divide-x sm:divide-slate-200">
+          <div className="mt-10 grid sm:mt-16 border-y border-slate-200 sm:grid-cols-3 sm:divide-x sm:divide-slate-200">
             {miaPillars.map(({ letter, word, description }, i) => (
               <FadeUp
                 key={word}
@@ -533,13 +533,13 @@ export default function LandingPage() {
       </section>
 
       {/* ── Three ways to create ──────────────────────────────────────────── */}
-      <section id="how-it-works" className="bg-slate-50 py-24 sm:py-28">
+      <section id="how-it-works" className="bg-slate-50 py-16 sm:py-28">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <FadeUp className="mx-auto max-w-2xl text-center">
             <Badge className="mb-4 border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100">
               How It Works
             </Badge>
-            <h2 className="text-4xl font-extrabold tracking-tight text-slate-900 sm:text-5xl">
+            <h2 className="text-3xl font-extrabold tracking-tight text-slate-900 min-[400px]:text-4xl sm:text-5xl">
               Three Ways to Create Programs
             </h2>
             <p className="mt-4 text-lg text-slate-600">
@@ -547,14 +547,14 @@ export default function LandingPage() {
             </p>
           </FadeUp>
 
-          <div className="mt-16 grid gap-6 lg:grid-cols-3">
+          <div className="mt-10 grid sm:mt-16 gap-6 lg:grid-cols-3">
             {creationPaths.map((path, i) => {
               const Icon = path.icon;
               return (
                 <FadeUp key={path.title} delay={i * 0.1}>
                   <Link
                     href="/sign-up"
-                    className="group relative flex h-full items-start gap-5 overflow-hidden rounded-2xl border border-slate-200 bg-white p-8 transition-all duration-300 hover:-translate-y-1 hover:border-slate-300 hover:shadow-xl"
+                    className="group relative flex h-full items-start gap-4 overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 sm:gap-5 sm:p-8 transition-all duration-300 hover:-translate-y-1 hover:border-slate-300 hover:shadow-xl"
                   >
                     <div className={`inline-flex shrink-0 rounded-xl bg-linear-to-br ${path.gradient} p-3 text-white shadow-lg`}>
                       <Icon className="h-6 w-6" />
@@ -580,16 +580,16 @@ export default function LandingPage() {
       </section>
 
       {/* ── Platform features ─────────────────────────────────────────────── */}
-      <section id="features" className="py-24 sm:py-28">
+      <section id="features" className="py-16 sm:py-28">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <FadeUp className="mx-auto max-w-2xl text-center">
-            <h2 className="text-4xl font-extrabold tracking-tight text-slate-900 sm:text-5xl">
+            <h2 className="text-3xl font-extrabold tracking-tight text-slate-900 min-[400px]:text-4xl sm:text-5xl">
               A complete platform for exercise professionals
             </h2>
             <p className="mt-4 text-lg text-slate-600">Program. Deliver. Monitor. All in one place.</p>
           </FadeUp>
 
-          <div className="mt-16 grid grid-cols-2 gap-y-12 sm:grid-cols-3 lg:grid-cols-5 lg:divide-x lg:divide-slate-200">
+          <div className="mt-10 grid sm:mt-16 grid-cols-2 gap-y-12 sm:grid-cols-3 lg:grid-cols-5 lg:divide-x lg:divide-slate-200">
             {platformFeatures.map(({ icon: Icon, title, description }, i) => (
               <FadeUp key={title} delay={i * 0.08} className="px-4 text-center">
                 <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10">
@@ -604,13 +604,13 @@ export default function LandingPage() {
       </section>
 
       {/* ── Testimonials ──────────────────────────────────────────────────── */}
-      <section className="bg-slate-50 py-24 sm:py-28">
+      <section className="bg-slate-50 py-16 sm:py-28">
         <div className="mx-auto grid max-w-7xl items-center gap-12 px-4 sm:px-6 lg:grid-cols-[1fr_1.6fr] lg:px-8">
           <FadeUp>
             <p className="mb-4 text-xs font-semibold tracking-[0.2em] text-slate-500 uppercase">
               Real professionals. Real impact.
             </p>
-            <h2 className="text-4xl font-extrabold tracking-tight text-slate-900 sm:text-5xl">
+            <h2 className="text-3xl font-extrabold tracking-tight text-slate-900 min-[400px]:text-4xl sm:text-5xl">
               Trusted by exercise professionals.
             </h2>
           </FadeUp>
@@ -627,7 +627,7 @@ export default function LandingPage() {
             <Badge className="mb-4 border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100">
               Pricing
             </Badge>
-            <h2 className="text-4xl font-extrabold tracking-tight text-slate-900 sm:text-5xl">
+            <h2 className="text-3xl font-extrabold tracking-tight text-slate-900 min-[400px]:text-4xl sm:text-5xl">
               Simple, transparent pricing
             </h2>
             <p className="mt-4 text-lg text-slate-600">
@@ -635,7 +635,7 @@ export default function LandingPage() {
             </p>
           </FadeUp>
 
-          <div className="mt-16 grid gap-8 lg:grid-cols-3">
+          <div className="mt-10 grid sm:mt-16 gap-8 lg:grid-cols-3">
             {pricingPlans.map((plan, i) => (
               <FadeUp key={plan.name} delay={i * 0.1}>
                 <div
@@ -704,7 +704,7 @@ export default function LandingPage() {
       </section> */}
 
       {/* ── CTA Banner ────────────────────────────────────────────────────── */}
-      <section className="relative overflow-hidden bg-[#0a0f1e] py-24">
+      <section className="relative overflow-hidden bg-[#0a0f1e] py-16 sm:py-24">
         {/* Animated orbs */}
         <div className="pointer-events-none absolute inset-0">
           <motion.div
@@ -720,7 +720,7 @@ export default function LandingPage() {
         </div>
         <div className="relative mx-auto max-w-4xl px-4 text-center sm:px-6 lg:px-8">
           <FadeUp>
-            <h2 className="text-4xl font-extrabold text-white sm:text-5xl">
+            <h2 className="text-3xl font-extrabold text-white min-[400px]:text-4xl sm:text-5xl">
               Movement creates possibility.
             </h2>
             <p className="mt-4 text-lg text-slate-400">

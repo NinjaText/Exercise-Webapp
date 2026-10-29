@@ -31,7 +31,13 @@ function makeSession() {
           type: "STRENGTH",
           name: "Main Block",
           rounds: 1,
-          exercises: [{ id: "ex-1", sets: [{}] }],
+          exercises: [
+            {
+              id: "ex-1",
+              sets: [{ targetReps: 10 }, { targetReps: 10 }, { targetReps: 10 }],
+              exercise: { name: "Goblet Squat", imageUrl: null, videoUrl: null, media: [] },
+            },
+          ],
         },
       ],
     },
@@ -44,6 +50,10 @@ describe("WorkoutModeWrapper static render", () => {
 
     expect(html).toContain("Quick Checklist");
     expect(html).toContain("Guided Workout");
+
+    // Every exercise is previewable before starting, with its prescription.
+    expect(html).toContain("Goblet Squat");
+    expect(html).toContain("3 sets × 10 reps");
 
     // The mode-pick screen intentionally has no `variant="default"` Button —
     // both options are custom cards styled with the success/info roles (see

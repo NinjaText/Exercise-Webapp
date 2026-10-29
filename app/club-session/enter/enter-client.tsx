@@ -58,7 +58,7 @@ export function EnterClubSession({ ticket }: { ticket: string | null }) {
     return (
       <div className="flex flex-col items-start gap-6">
         <p className="text-body text-muted-foreground">{error}</p>
-        <Button asChild variant="outline">
+        <Button asChild variant="outline" className="w-full sm:w-auto">
           <Link href="/admin/clubs">Back to clubs</Link>
         </Button>
       </div>

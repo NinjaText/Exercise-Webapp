@@ -17,6 +17,12 @@ export interface Column<T> {
   className?: string;
   align?: "left" | "right";
   render?: (item: T) => React.ReactNode;
+  /**
+   * Below 640px each row becomes a card: the first column is the card title,
+   * a column with an empty header (row actions) sits in its top-right corner,
+   * and the rest are labelled fields. "hide" leaves a column out of the card.
+   */
+  mobile?: "hide";
 }
 
 export interface DataListProps<T> {
@@ -58,6 +64,9 @@ export interface DataListProps<T> {
  *
  * `stickyHeader` only has an effect together with `maxHeight`, which makes
  * the list its own vertical scroll container.
+ *
+ * Phones get the same markup restyled as stacked cards (`max-sm:` classes
+ * below), so there is one DOM for both and no sideways-scrolling table.
  */
 export function DataList<T>({
   columns,
@@ -75,7 +84,20 @@ export function DataList<T>({
   // TableCell is 44px tall by default (spec §2.3); compact tightens it to 36px.
   const cellSize = density === "compact" ? "h-9 py-1.5" : undefined;
   // A little more breathing room at the card edges than between columns.
-  const edgePad = "first:pl-4 last:pr-4";
+  const edgePad = "sm:first:pl-4 sm:last:pr-4";
+
+  // Phone card layout. The row is a two-column grid of labelled fields
+  // (label from data-label), the title spans it, and the action cell is
+  // pinned top-right above the stretched row link.
+  const cardRow = "max-sm:grid max-sm:grid-cols-2 max-sm:gap-x-4 max-sm:gap-y-2.5 max-sm:px-4 max-sm:py-3.5";
+  const cardCell =
+    "max-sm:flex max-sm:h-auto max-sm:min-w-0 max-sm:flex-col max-sm:items-start max-sm:gap-0.5 max-sm:p-0 max-sm:text-left max-sm:whitespace-normal max-sm:before:text-caption max-sm:before:font-medium max-sm:before:content-[attr(data-label)]";
+  const cardTitle = "max-sm:col-span-2 max-sm:pr-10 max-sm:before:hidden";
+  const cardAction = "max-sm:absolute max-sm:top-2.5 max-sm:right-2.5 max-sm:z-10 max-sm:before:hidden";
+  // A column the table already hides on narrow screens stays out of the card.
+  const hiddenNarrow = (col: Column<T>) => /(^|\s)hidden(\s|$)/.test(col.className ?? "");
+  const mobileClass = (col: Column<T>, i: number) =>
+    col.mobile === "hide" || hiddenNarrow(col) ? "max-sm:hidden" : i === 0 ? cardTitle : col.header === "" ? cardAction : undefined;
 
   const cellContent = (item: T, col: Column<T>) =>
     col.render ? col.render(item) : String((item as Record<string, unknown>)[col.key] ?? "");
@@ -91,8 +113,8 @@ export function DataList<T>({
         className={cn("relative w-full overflow-x-auto", maxHeight && "overflow-y-auto")}
         style={maxHeight ? { maxHeight } : undefined}
       >
-        <table className="w-full caption-bottom text-sm">
-          <TableHeader className={cn(stickyHeader && "sticky top-0 z-10 bg-surface-muted")}>
+        <table className="w-full caption-bottom text-sm max-sm:block">
+          <TableHeader className={cn("max-sm:sr-only", stickyHeader && "sticky top-0 z-10 bg-surface-muted")}>
           <TableRow className="hover:bg-transparent">
             {columns.map((col) => (
               <TableHead
@@ -108,10 +130,10 @@ export function DataList<T>({
             ))}
           </TableRow>
         </TableHeader>
-        <TableBody>
+        <TableBody className="max-sm:block">
           {data.length === 0 ? (
-            <TableRow className="hover:bg-transparent">
-              <TableCell colSpan={columns.length} className="p-0">
+            <TableRow className="hover:bg-transparent max-sm:block">
+              <TableCell colSpan={columns.length} className="p-0 max-sm:block max-sm:whitespace-normal">
                 {emptyState ?? <EmptyState icon={Inbox} title={emptyMessage} size="compact" />}
               </TableCell>
             </TableRow>
@@ -121,11 +143,14 @@ export function DataList<T>({
               const cells = columns.map((col, i) => (
                 <TableCell
                   key={col.key}
+                  data-label={col.header || undefined}
                   className={cn(
                     cellSize,
                     edgePad,
                     col.align === "right" && "text-right tabular-nums",
-                    col.className
+                    cardCell,
+                    col.className,
+                    mobileClass(col, i)
                   )}
                 >
                   {i === 0 && href ? (
@@ -142,7 +167,7 @@ export function DataList<T>({
 
               if (!href && onRowClick) {
                 return (
-                  <ClickableRow key={keyExtractor(item)} onActivate={() => onRowClick(item)}>
+                  <ClickableRow key={keyExtractor(item)} onActivate={() => onRowClick(item)} className={cardRow}>
                     {cells}
                   </ClickableRow>
                 );
@@ -152,7 +177,7 @@ export function DataList<T>({
                 <TableRow
                   key={keyExtractor(item)}
                   data-clickable={href ? "true" : undefined}
-                  className={cn("relative", href && "cursor-pointer")}
+                  className={cn("relative", cardRow, href && "cursor-pointer")}
                 >
                   {cells}
                 </TableRow>

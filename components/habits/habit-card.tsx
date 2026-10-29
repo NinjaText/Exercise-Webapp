@@ -85,7 +85,7 @@ export function HabitCard({ habit, onToggle, showDelete = false }: HabitCardProp
   return (
     <div
       className={cn(
-        "group relative flex flex-col gap-4 rounded-xl bg-card p-5 shadow-xs ring-1 ring-border transition-shadow motion-reduce:transition-none",
+        "group relative flex flex-col gap-4 rounded-xl bg-card p-4 shadow-xs sm:p-5 ring-1 ring-border transition-shadow motion-reduce:transition-none",
         "hover:shadow-sm hover:ring-border-strong",
         isCompleted && "bg-success-soft ring-success-border"
       )}
@@ -128,7 +128,7 @@ export function HabitCard({ habit, onToggle, showDelete = false }: HabitCardProp
             {/* base-ui AlertDialogTrigger does not support asChild — render the
                 button as children so the primitive wraps it with the open handler. */}
             <AlertDialogTrigger
-              className="flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 outline-none transition-opacity group-hover:opacity-100 hover:bg-surface-muted hover:text-destructive focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none [@media(hover:none)]:opacity-100"
+              className="flex size-10 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 sm:size-8 outline-none transition-opacity group-hover:opacity-100 hover:bg-surface-muted hover:text-destructive focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none [@media(hover:none)]:opacity-100"
               aria-label="Remove habit"
               disabled={isPending}
             >

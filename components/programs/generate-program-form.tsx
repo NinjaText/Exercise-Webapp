@@ -534,7 +534,7 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
                         const v = parseInt(e.target.value);
                         if (!isNaN(v) && v >= 1) setEffectiveDurationWeeks(v);
                       }}
-                      className="h-8 w-16 text-center text-body"
+                      className="h-10 w-16 text-center text-base sm:h-8 sm:text-body"
                     />
                     <span className="whitespace-nowrap text-body text-muted-foreground">weeks</span>
                   </div>
@@ -599,7 +599,7 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
 
               {/* Circuit Structure */}
               <div className="space-y-3">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <p className="text-label text-foreground">Circuit structure</p>
                     <p className="mt-0.5 text-caption">
@@ -612,7 +612,7 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
                     variant="outline"
                     size="sm"
                     onClick={addCircuit}
-                    className="shrink-0"
+                    className="shrink-0 self-start sm:self-auto"
                   >
                     <Plus className="h-4 w-4 mr-1" />
                     Add Circuit
@@ -623,7 +623,9 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
                   {circuits.map((circuit, index) => (
                     <div
                       key={circuit.id}
-                      className="flex items-center gap-2 rounded-lg border border-border bg-surface-muted p-3"
+                      // Phones wrap into three rows: name + delete, focus, then the
+                      // counts (max-sm:order-2 pushes focus/counts after delete).
+                      className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-surface-muted p-3 sm:flex-nowrap"
                     >
                       <div className="flex flex-col shrink-0">
                         <button
@@ -631,7 +633,7 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
                           disabled={index === 0}
                           onClick={() => moveCircuit(circuit.id, "up")}
                           aria-label={`Move circuit ${index + 1} up`}
-                          className="h-4 w-4 flex items-center justify-center text-muted-foreground hover:text-foreground disabled:opacity-20 disabled:cursor-not-allowed"
+                          className="flex size-6 items-center justify-center text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-20 sm:size-4"
                         >
                           <ChevronUp className="h-3 w-3" />
                         </button>
@@ -640,7 +642,7 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
                           disabled={index === circuits.length - 1}
                           onClick={() => moveCircuit(circuit.id, "down")}
                           aria-label={`Move circuit ${index + 1} down`}
-                          className="h-4 w-4 flex items-center justify-center text-muted-foreground hover:text-foreground disabled:opacity-20 disabled:cursor-not-allowed"
+                          className="flex size-6 items-center justify-center text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-20 sm:size-4"
                         >
                           <ChevronDown className="h-3 w-3" />
                         </button>
@@ -655,14 +657,14 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
                         onChange={(e) => updateCircuit(circuit.id, { name: e.target.value })}
                         placeholder="Circuit name"
                         aria-label={`Circuit ${index + 1} name`}
-                        className="h-8 min-w-0 flex-1 text-body"
+                        className="h-10 min-w-0 flex-1 text-base sm:h-8 sm:text-body"
                       />
 
                       <select
                         value={circuit.focusType}
                         onChange={(e) => updateCircuit(circuit.id, { focusType: e.target.value })}
                         aria-label={`Circuit ${index + 1} focus`}
-                        className={cn(NATIVE_SELECT_CLASS, "h-8 min-w-0 flex-1 px-2")}
+                        className={cn(NATIVE_SELECT_CLASS, "h-10 min-w-0 flex-1 px-2 max-sm:order-2 max-sm:basis-full sm:h-8")}
                       >
                         {CIRCUIT_FOCUS_OPTIONS.map((opt) => (
                           <option key={opt.value} value={opt.value}>
@@ -671,7 +673,7 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
                         ))}
                       </select>
 
-                      <div className="flex items-center gap-1 shrink-0">
+                      <div className="flex shrink-0 items-center gap-1 max-sm:order-2">
                         <Input
                           type="number"
                           min={1}
@@ -683,12 +685,12 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
                             })
                           }
                           aria-label={`Circuit ${index + 1} exercise count`}
-                          className="h-8 w-14 text-center text-body"
+                          className="h-10 w-14 text-center text-base sm:h-8 sm:text-body"
                         />
                         <span className="whitespace-nowrap text-caption">ex.</span>
                       </div>
 
-                      <div className="flex items-center gap-1 shrink-0">
+                      <div className="flex shrink-0 items-center gap-1 max-sm:order-2">
                         <Input
                           type="number"
                           min={1}
@@ -700,12 +702,12 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
                             })
                           }
                           aria-label={`Circuit ${index + 1} sets`}
-                          className="h-8 w-14 text-center text-body disabled:opacity-50"
+                          className="h-10 w-14 text-center text-base disabled:opacity-50 sm:h-8 sm:text-body"
                         />
                         <span className="whitespace-nowrap text-caption">sets</span>
                       </div>
 
-                      <div className="flex items-center gap-1 shrink-0">
+                      <div className="flex shrink-0 items-center gap-1 max-sm:order-2">
                         <Input
                           type="number"
                           min={0}
@@ -719,7 +721,7 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
                           }
                           disabled={circuit.rounds <= 1}
                           aria-label={`Circuit ${index + 1} rest between sets (seconds)`}
-                          className="h-8 w-14 text-center text-body disabled:opacity-50"
+                          className="h-10 w-14 text-center text-base disabled:opacity-50 sm:h-8 sm:text-body"
                         />
                         <span className="whitespace-nowrap text-caption">s rest</span>
                       </div>
@@ -728,7 +730,7 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
                         type="button"
                         variant="ghost"
                         size="icon"
-                        className="size-8 shrink-0 text-muted-foreground hover:text-destructive"
+                        className="size-10 shrink-0 text-muted-foreground hover:text-destructive sm:size-8"
                         onClick={() => removeCircuit(circuit.id)}
                         aria-label={`Remove circuit ${index + 1}`}
                       >

@@ -157,7 +157,7 @@ function ProfilesPanel({ profiles }: { profiles: EquipmentProfileView[] }) {
                   {profile.items.length > 6 ? "…" : ""}
                 </p>
               </div>
-              <Button type="button" variant="ghost" size="icon-sm" aria-label={`Edit ${profile.name}`} onClick={() => setEditing(profile)}>
+              <Button type="button" variant="ghost" size="icon-sm" className="size-10 sm:size-8" aria-label={`Edit ${profile.name}`} onClick={() => setEditing(profile)}>
                 <Pencil className="size-4" />
               </Button>
               <Button
@@ -165,7 +165,7 @@ function ProfilesPanel({ profiles }: { profiles: EquipmentProfileView[] }) {
                 variant="ghost"
                 size="icon-sm"
                 aria-label={`Delete ${profile.name}`}
-                className="text-muted-foreground hover:text-danger-foreground"
+                className="size-10 text-muted-foreground hover:text-danger-foreground sm:size-8"
                 onClick={() => setDeleting(profile)}
               >
                 <Trash2 className="size-4" />

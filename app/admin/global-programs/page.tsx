@@ -135,12 +135,12 @@ export default async function AdminGlobalProgramsPage({ searchParams }: PageProp
       />
 
       <PageToolbar>
-        <form method="GET" className="flex items-center gap-2">
-          <div className="relative">
+        <form method="GET" className="flex w-full items-center gap-2">
+          <div className="relative min-w-0 flex-1 sm:flex-none">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input name="search" defaultValue={search} placeholder="Search global programs…" className="h-9 w-64 pl-9" />
+            <Input name="search" defaultValue={search} placeholder="Search global programs…" className="h-10 w-full pl-9 sm:h-9 sm:w-64" />
           </div>
-          <Button type="submit" variant="outline" className="h-9">
+          <Button type="submit" variant="outline" className="h-10 sm:h-9">
             Search
           </Button>
         </form>

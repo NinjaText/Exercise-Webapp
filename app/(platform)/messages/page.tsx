@@ -21,7 +21,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { PageShell } from "@/components/shared/page-shell";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { EmptyState } from "@/components/shared/empty-state";
-import { MessageSquare, ArrowLeft } from "lucide-react";
+import { MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MESSAGES_PANE_SURFACE, MESSAGES_VIEWPORT_HEIGHT } from "@/components/messages/layout-classes";
 import { getDisplayName } from "@/lib/utils/display-name";
@@ -129,6 +129,9 @@ async function TrainerInbox({
   return (
     <PageShell width="full" className={MESSAGES_VIEWPORT_HEIGHT}>
       <PageHeader
+        // On phones an open conversation is full-screen like a chat app; its own
+        // header carries the back arrow, so the page header steps aside.
+        className={isExplicitSelection && threads.length > 0 ? "hidden md:flex" : undefined}
         title="Inbox"
         description="All messages, workout comments, and exercise feedback"
         primaryAction={<NewMessageDialog contacts={contacts} />}
@@ -198,26 +201,18 @@ async function TrainerInbox({
 
           <div className={cn("min-h-0", isExplicitSelection ? "flex flex-col" : "hidden md:flex md:flex-col")}>
             {selectedThread && threadData ? (
-              <>
-                <Link
-                  href="/messages"
-                  scroll={false}
-                  className="flex min-h-11 shrink-0 items-center gap-2 border-b border-border px-4 text-label text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring md:hidden"
-                >
-                  <ArrowLeft className="size-4" /> Back to inbox
-                </Link>
-                <div className="min-h-0 flex-1">
-                  <MessageThread
-                    key={selectedId}
-                    items={threadData.items}
-                    currentUserId={trainerId}
-                    recipientId={selectedThread.otherUser.id}
-                    recipientName={getDisplayName(selectedThread.otherUser)}
-                    allowInternalNotes
-                    headerRight={<ClientContextSheet client={selectedThread.otherUser} data={threadData} />}
-                  />
-                </div>
-              </>
+              <div className="min-h-0 flex-1">
+                <MessageThread
+                  key={selectedId}
+                  items={threadData.items}
+                  currentUserId={trainerId}
+                  recipientId={selectedThread.otherUser.id}
+                  recipientName={getDisplayName(selectedThread.otherUser)}
+                  allowInternalNotes
+                  backHref="/messages"
+                  headerRight={<ClientContextSheet client={selectedThread.otherUser} data={threadData} />}
+                />
+              </div>
             ) : (
               <EmptyState
                 icon={MessageSquare}

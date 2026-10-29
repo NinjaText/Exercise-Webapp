@@ -97,14 +97,14 @@ export function PlanReviewStep({ plan, onConfirm, onBack, isGenerating }: PlanRe
                           value={editGuidance}
                           onChange={e => setEditGuidance(e.target.value)}
                           rows={3}
-                          className="text-sm"
+                          className="text-base sm:text-sm"
                         />
                         <label className="text-xs font-medium text-muted-foreground">Goal</label>
                         <Textarea
                           value={editGoal}
                           onChange={e => setEditGoal(e.target.value)}
                           rows={2}
-                          className="text-sm"
+                          className="text-base sm:text-sm"
                           placeholder="Goal"
                           aria-label="Goal"
                         />
@@ -113,7 +113,7 @@ export function PlanReviewStep({ plan, onConfirm, onBack, isGenerating }: PlanRe
                           value={editAvoid}
                           onChange={e => setEditAvoid(e.target.value)}
                           rows={2}
-                          className="text-sm"
+                          className="text-base sm:text-sm"
                           placeholder="What to avoid"
                           aria-label="What to avoid"
                         />

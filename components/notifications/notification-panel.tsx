@@ -101,7 +101,7 @@ export function NotificationPanel({
       <PopoverContent
         align="end"
         sideOffset={8}
-        className="w-80 rounded-xl border border-border bg-card p-0 shadow-md"
+        className="w-[min(20rem,calc(100vw-1.5rem))] rounded-xl border border-border bg-card p-0 shadow-md"
       >
         {/* Panel header */}
         <div className="flex items-center justify-between px-4 py-3">
@@ -113,7 +113,7 @@ export function NotificationPanel({
               type="button"
               onClick={handleMarkAllRead}
               disabled={isPending}
-              className="inline-flex h-7 items-center gap-1.5 rounded-md px-2 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
+              className="inline-flex h-9 items-center gap-1.5 rounded-md px-2 text-xs sm:h-7 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
             >
               <CheckCheck className="h-3.5 w-3.5" />
               Mark all read
@@ -128,7 +128,7 @@ export function NotificationPanel({
             an ancestor sized only by max-height, which browsers don't treat
             as a definite reference, so content silently overflowed past the
             popover instead of scrolling inside it. */}
-        <div className="max-h-105 overflow-x-hidden overflow-y-auto">
+        <div className="max-h-[min(26.25rem,60dvh)] overflow-x-hidden overflow-y-auto">
           {notifications.length === 0 ? (
             <EmptyState />
           ) : (

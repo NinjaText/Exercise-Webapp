@@ -356,16 +356,20 @@ export function ProgramDetailView({
               {adminMode && trainerName && <span>Owned by {trainerName}</span>}
             </>
           }
+          // A resource has no dates, so it has no schedule to show — and a lone
+          // Overview tab would be noise, so the tab bar goes with it.
           tabs={
-            <TabsList variant="line">
-              <TabsTrigger value="overview">Overview</TabsTrigger>
-              <TabsTrigger value="schedule">Schedule</TabsTrigger>
-            </TabsList>
+            isResource ? undefined : (
+              <TabsList variant="line">
+                <TabsTrigger value="overview">Overview</TabsTrigger>
+                <TabsTrigger value="schedule">Schedule</TabsTrigger>
+              </TabsList>
+            )
           }
         />
 
         {startableSession && (
-          <div className="flex flex-col gap-3 rounded-xl bg-card p-5 shadow-xs ring-1 ring-border sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-3 rounded-xl bg-card p-4 shadow-xs ring-1 ring-border sm:flex-row sm:items-center sm:justify-between sm:p-5">
             <div className="min-w-0">
               <p className="text-caption">Up next</p>
               <p className="truncate text-heading text-foreground">
@@ -419,7 +423,7 @@ export function ProgramDetailView({
                     {!isSingleWeek && (
                       <button
                         type="button"
-                        className="flex w-full items-center gap-3 px-5 py-4 text-left outline-none transition-colors hover:bg-surface-muted focus-visible:bg-surface-muted motion-reduce:transition-none"
+                        className="flex w-full items-center gap-3 px-4 py-4 text-left outline-none sm:px-5 transition-colors hover:bg-surface-muted focus-visible:bg-surface-muted motion-reduce:transition-none"
                         onClick={() => toggleWeek(weekIdx)}
                       >
                         {isWeekExpanded ? (
@@ -458,7 +462,8 @@ export function ProgramDetailView({
                               <div className="flex items-center transition-colors hover:bg-surface-muted/60 motion-reduce:transition-none">
                                 <button
                                   type="button"
-                                  className="flex min-w-0 flex-1 items-center gap-3 px-5 py-3.5 text-left outline-none focus-visible:bg-surface-muted"
+                                  // Phones: the counts drop to a second line so the name isn't squeezed out.
+                                  className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3.5 text-left outline-none focus-visible:bg-surface-muted sm:flex-nowrap sm:px-5"
                                   onClick={() => toggleWorkout(wId)}
                                 >
                                   {isExpanded ? (
@@ -484,7 +489,7 @@ export function ProgramDetailView({
                                       </span>
                                     )}
                                   </div>
-                                  <div className="flex items-center gap-3 shrink-0 ml-auto">
+                                  <div className="flex shrink-0 items-center gap-3 max-sm:basis-full max-sm:pl-7 sm:ml-auto">
                                     {isVideo ? (
                                       <span className="inline-flex items-center gap-1 rounded-sm bg-info-soft px-1.5 py-0.5 text-xs font-medium text-info-foreground ring-1 ring-info-border">
                                         <Play className="h-3 w-3 fill-current" aria-hidden />
@@ -522,7 +527,7 @@ export function ProgramDetailView({
                                 {isTrainer && (
                                   <button
                                     type="button"
-                                    className="mr-3 flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+                                    className="mr-2 flex size-10 shrink-0 items-center justify-center rounded-md text-muted-foreground outline-none sm:mr-3 sm:size-8 transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
                                     title="Voice note"
                                     aria-label={`Voice note for ${workout.name as string}`}
                                     onClick={() => setVoiceMemoWorkout({ id: wId, name: workout.name as string })}
@@ -534,9 +539,9 @@ export function ProgramDetailView({
 
                               {/* Expanded blocks */}
                               {isExpanded && (
-                                <div className="space-y-3 bg-surface-muted/50 px-5 pt-1 pb-4">
+                                <div className="space-y-3 bg-surface-muted/50 px-3 pt-1 pb-3 sm:px-5 sm:pb-4">
                                   {isVideo && videoUrl && (
-                                    <div className="space-y-3 rounded-lg border border-border bg-card p-4">
+                                    <div className="space-y-3 rounded-lg border border-border bg-card p-3 sm:p-4">
                                       <UniversalVideoPlayer url={videoUrl} className="max-w-xl" />
                                       {!!workout.description && (
                                         <p className="whitespace-pre-line text-body text-muted-foreground">
@@ -548,8 +553,8 @@ export function ProgramDetailView({
                                   {blocks.map((block) => {
                                     const bExercises = (block.exercises as Record<string, unknown>[]) || [];
                                     return (
-                                      <div key={block.id as string} className="rounded-lg border border-border bg-card p-4">
-                                        <div className="flex items-center gap-2 mb-3">
+                                      <div key={block.id as string} className="rounded-lg border border-border bg-card p-3 sm:p-4">
+                                        <div className="mb-3 flex flex-wrap items-center gap-2">
                                           <span className="text-label text-foreground">
                                             {(block.name as string) || "Block"}
                                           </span>
@@ -635,18 +640,20 @@ export function ProgramDetailView({
             </div>
           )}
         </TabsContent>
-        <TabsContent value="schedule">
-          {isTrainer || adminMode ? (
-            <ProgramScheduleView
-              rawWorkouts={workouts}
-              rawSessions={sessions}
-              trainerName={trainerName}
-              readOnly={!isTrainer}
-            />
-          ) : (
-            <ClientProgramScheduleView rawSessions={sessions} />
-          )}
-        </TabsContent>
+        {!isResource && (
+          <TabsContent value="schedule">
+            {isTrainer || adminMode ? (
+              <ProgramScheduleView
+                rawWorkouts={workouts}
+                rawSessions={sessions}
+                trainerName={trainerName}
+                readOnly={!isTrainer}
+              />
+            ) : (
+              <ClientProgramScheduleView rawSessions={sessions} />
+            )}
+          </TabsContent>
+        )}
       </Tabs>
 
       {/* Assign Dialog */}

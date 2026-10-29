@@ -243,14 +243,14 @@ export function AssignProgramDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden p-0 sm:max-h-[90dvh] sm:max-w-2xl">
-        <DialogHeader className="shrink-0 border-b border-border px-6 pt-6 pb-4">
+        <DialogHeader className="shrink-0 border-b border-border px-4 pt-5 pb-4 sm:px-6 sm:pt-6">
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
 
         {/* Header and footer stay pinned; only this body scrolls, so the title
             and the Assign button are always on screen. min-w-0 stops the
             picker's min-content width stretching past max-w-2xl. */}
-        <div className="min-h-0 min-w-0 flex-1 space-y-5 overflow-y-auto overscroll-contain px-6 py-5">
+        <div className="min-h-0 min-w-0 flex-1 space-y-5 overflow-y-auto overscroll-contain px-4 py-5 sm:px-6">
           {person && (
             <div className="flex items-center gap-3">
               <Avatar className="h-10 w-10">
@@ -363,7 +363,7 @@ export function AssignProgramDialog({
           )}
         </div>
 
-        <DialogFooter className="shrink-0 border-t border-border px-6 py-4">
+        <DialogFooter className="shrink-0 border-t border-border px-4 py-4 sm:px-6">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>

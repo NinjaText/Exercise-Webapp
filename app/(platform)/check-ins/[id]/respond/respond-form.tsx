@@ -44,7 +44,8 @@ function ScaleSelector({
   onChange: (v: number) => void;
 }) {
   return (
-    <div className="flex flex-wrap gap-2">
+    // Phones: an even 5×2 keypad instead of a ragged wrap.
+    <div className="grid grid-cols-5 gap-2 sm:flex sm:flex-wrap">
       {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
         <button
           key={n}
@@ -52,7 +53,7 @@ function ScaleSelector({
           onClick={() => onChange(n)}
           aria-pressed={value === n}
           className={cn(
-            "size-10 rounded-lg border text-label tabular-nums outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50 motion-reduce:transition-none",
+            "h-11 w-full rounded-lg border text-label tabular-nums sm:size-10 outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50 motion-reduce:transition-none",
             value === n
               ? "border-transparent bg-primary text-primary-foreground shadow-none"
               : "border-input bg-surface text-foreground hover:border-border-strong hover:bg-surface-muted"
@@ -272,11 +273,11 @@ export function RespondForm({ assignment, questions }: Props) {
       </div>
 
       {/* Submit */}
-      <div className="flex items-center justify-end gap-2 border-t border-border pt-6">
-        <Button variant="outline" asChild>
+      <div className="grid grid-cols-2 gap-2 border-t border-border pt-6 sm:flex sm:items-center sm:justify-end">
+        <Button variant="outline" className="h-11 sm:h-9" asChild>
           <Link href="/check-ins">Cancel</Link>
         </Button>
-        <Button onClick={handleSubmit} disabled={submitting}>
+        <Button onClick={handleSubmit} disabled={submitting} className="h-11 sm:h-9">
           <Send />
           {submitting ? "Submitting..." : "Submit Check-in"}
         </Button>

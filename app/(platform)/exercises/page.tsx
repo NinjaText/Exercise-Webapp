@@ -181,7 +181,10 @@ export default async function ExercisesPage({ searchParams }: Props) {
         tabs={kindTabs}
       />
 
+      {/* Phones: search + filters on one row, the library/sort selects on the
+          next — side by side the selects squeeze the search to nothing. */}
       <PageToolbar
+        className="flex-col items-stretch sm:flex-row sm:items-start"
         end={
           <ExerciseToolbarSelects
             activeSource={activeSource}

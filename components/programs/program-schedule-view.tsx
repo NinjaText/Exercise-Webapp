@@ -565,20 +565,20 @@ function CalToolbar({
       <div className="flex items-center overflow-hidden rounded-lg border border-border bg-muted/40">
         <button
           onClick={() => onNavigate("PREV")}
-          className="flex h-8 w-8 items-center justify-center border-r border-border text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
+          className="flex size-10 items-center justify-center border-r border-border text-muted-foreground transition-colors hover:bg-background hover:text-foreground sm:size-8"
           aria-label="Previous"
         >
           <ChevronLeft className="h-3.5 w-3.5" />
         </button>
         <button
           onClick={() => onNavigate("TODAY")}
-          className="h-8 px-3 text-xs font-medium text-foreground transition-colors hover:bg-background"
+          className="h-10 px-3 text-xs font-medium text-foreground transition-colors hover:bg-background sm:h-8"
         >
           Today
         </button>
         <button
           onClick={() => onNavigate("NEXT")}
-          className="flex h-8 w-8 items-center justify-center border-l border-border text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
+          className="flex size-10 items-center justify-center border-l border-border text-muted-foreground transition-colors hover:bg-background hover:text-foreground sm:size-8"
           aria-label="Next"
         >
           <ChevronRight className="h-3.5 w-3.5" />
@@ -590,14 +590,14 @@ function CalToolbar({
           <h2 className="text-sm font-bold tracking-tight sm:text-base whitespace-nowrap">
             Program Week {currentProgramWeek + 1} of {totalProgramWeeks}
           </h2>
-          <div className="flex items-center gap-1 overflow-x-auto max-w-full">
+          <div className="flex max-w-full scrollbar-none items-center gap-1 overflow-x-auto">
             {weekPills.map((_, i) => (
               <button
                 key={i}
                 type="button"
                 onClick={() => onJumpToWeek(i)}
                 className={cn(
-                  "h-7 min-w-9 rounded-md border px-2 text-[11px] font-medium transition-colors",
+                  "h-9 min-w-10 shrink-0 rounded-md border px-2 text-[11px] font-medium transition-colors sm:h-7 sm:min-w-9",
                   i === currentProgramWeek
                     ? "bg-foreground text-background border-foreground"
                     : "bg-background text-muted-foreground border-border hover:border-foreground/40 hover:text-foreground"
@@ -614,7 +614,9 @@ function CalToolbar({
         </h2>
       )}
 
-      <div className="flex items-center overflow-hidden rounded-lg border border-border bg-muted/40 p-0.5">
+      {/* Hidden on phones: they're pinned to Day view (see ProgramScheduleView),
+          and Week/Month need a 640px grid that would scroll this toolbar away. */}
+      <div className="hidden items-center overflow-hidden rounded-lg border border-border bg-muted/40 p-0.5 sm:flex">
         {([Views.MONTH, Views.WEEK, Views.DAY] as View[]).map((v) => (
           <button
             key={v}
@@ -831,7 +833,8 @@ function ExerciseEditRow({
   ) => void;
   onRemove: (blockExerciseId: string) => Promise<void>;
 }) {
-  const numberFieldClass = "h-7 w-14 text-sm text-center px-1";
+  // text-base on phones: iOS zooms into inputs under 16px.
+  const numberFieldClass = "h-9 w-14 px-1 text-center text-base sm:h-7 sm:text-sm";
 
   return (
     <div
@@ -862,7 +865,7 @@ function ExerciseEditRow({
           type="button"
           variant="ghost"
           size="icon"
-          className="h-6 w-6 shrink-0 text-muted-foreground hover:text-destructive"
+          className="size-9 shrink-0 text-muted-foreground hover:text-destructive sm:size-6"
           onClick={() => onRemove(exercise.id)}
           disabled={removing}
           aria-label="Remove exercise"
@@ -1007,7 +1010,7 @@ function ExerciseEditRow({
           onUpdateField(blockId, exercise.id, "notes", e.target.value)
         }
         placeholder="Notes (optional)"
-        className="mt-1.5 min-h-7 text-xs resize-none"
+        className="mt-1.5 min-h-7 resize-none text-base sm:text-xs"
         rows={1}
       />
     </div>

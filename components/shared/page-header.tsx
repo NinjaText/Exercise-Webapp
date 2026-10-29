@@ -77,8 +77,8 @@ export function PageHeader({
           one-line title and an icon-only overflow trigger on the same axis. */}
       <div className="flex flex-col gap-3 sm:min-h-9 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
-          <h1 className="text-title text-foreground">{title}</h1>
-          {description && <p className="mt-1 text-body text-muted-foreground">{description}</p>}
+          <h1 className="text-title break-words text-foreground">{title}</h1>
+          {description && <p className="mt-1 text-body break-words text-muted-foreground">{description}</p>}
         </div>
 
         {hasActions && (

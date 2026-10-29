@@ -74,7 +74,7 @@ async function TrainerView({ trainerId }: { trainerId: string }) {
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {templates.map((t) => (
               <Card key={t.id} className="gap-0 py-0">
-                <CardContent className="flex h-full flex-col gap-4 p-5">
+                <CardContent className="flex h-full flex-col gap-4 p-4 sm:p-5">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-heading text-foreground">{t.name}</p>

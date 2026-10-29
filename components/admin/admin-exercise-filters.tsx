@@ -83,13 +83,13 @@ export function AdminExerciseFilters({ search, selected }: Props) {
 
   return (
     <>
-      <div className="relative max-w-sm flex-1">
+      <div className="relative w-full flex-1 sm:w-auto sm:max-w-sm">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           value={searchValue}
           onChange={(e) => setSearchValue(e.target.value)}
           placeholder="Search exercises…"
-          className="h-9 pl-9"
+          className="h-10 pl-9 sm:h-9"
         />
       </div>
       <div className="flex min-h-9 basis-full flex-wrap items-center gap-3 rounded-lg border border-input bg-background px-3 py-1.5">

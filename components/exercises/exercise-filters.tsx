@@ -100,7 +100,7 @@ export function ExerciseFilters({ equipmentOptions }: { equipmentOptions: string
 
   return (
     <>
-      <div className="relative w-full sm:w-64">
+      <div className="relative min-w-0 flex-1 sm:w-64 sm:flex-none">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
           placeholder="Search exercises..."
@@ -108,11 +108,11 @@ export function ExerciseFilters({ equipmentOptions }: { equipmentOptions: string
           onChange={(e) => setSearchValue(e.target.value)}
           onKeyDown={handleSearchKeyDown}
           onBlur={() => searchValue !== current.search && pushParams({ search: searchValue })}
-          className="h-9 pl-9"
+          className="h-10 pl-9 sm:h-9"
         />
       </div>
 
-      <Button variant="outline" className="h-9" onClick={() => setPanelOpen((v) => !v)}>
+      <Button variant="outline" className="h-10 shrink-0 sm:h-9" onClick={() => setPanelOpen((v) => !v)}>
         <SlidersHorizontal className="mr-2 h-4 w-4" />
         Filters
         {activeCount > 0 && (
@@ -123,7 +123,7 @@ export function ExerciseFilters({ equipmentOptions }: { equipmentOptions: string
       </Button>
 
       {panelOpen && (
-        <div className="basis-full mt-1 rounded-xl bg-card p-5 shadow-xs ring-1 ring-border">
+        <div className="basis-full mt-1 rounded-xl bg-card p-4 shadow-xs ring-1 ring-border sm:p-5">
           <div className="mb-4 flex items-center justify-between">
             <p className="font-semibold">Filters</p>
             <div className="flex items-center gap-3">
@@ -139,7 +139,7 @@ export function ExerciseFilters({ equipmentOptions }: { equipmentOptions: string
               <button
                 type="button"
                 onClick={() => setPanelOpen(false)}
-                className="text-muted-foreground hover:text-foreground"
+                className="-m-2 inline-flex size-10 items-center justify-center rounded-md text-muted-foreground hover:text-foreground sm:size-8"
                 aria-label="Close filters"
               >
                 <X className="h-4 w-4" />

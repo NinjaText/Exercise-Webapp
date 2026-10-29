@@ -197,7 +197,7 @@ export function ExerciseEditForm({ exercise }: Props) {
                 required
                 value={difficultyLevel}
                 onChange={(e) => setDifficultyLevel(e.target.value)}
-                className="flex h-9 w-full rounded-lg border border-input bg-background px-3 py-1.5 text-sm"
+                className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-1.5 text-base sm:h-9 sm:text-sm"
               >
                 <option value="">Select difficulty</option>
                 {DIFFICULTY_LEVELS.map((d) => (
@@ -211,7 +211,7 @@ export function ExerciseEditForm({ exercise }: Props) {
                 id="isActive"
                 value={isActive}
                 onChange={(e) => setIsActive(e.target.value)}
-                className="flex h-9 w-full rounded-lg border border-input bg-background px-3 py-1.5 text-sm"
+                className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-1.5 text-base sm:h-9 sm:text-sm"
               >
                 <option value="true">Active — visible to AI</option>
                 <option value="false">Inactive — hidden from AI</option>
@@ -261,7 +261,7 @@ export function ExerciseEditForm({ exercise }: Props) {
                   if (e.key === "Enter") { e.preventDefault(); addCustomEquipment(); }
                 }}
                 placeholder="Add custom equipment..."
-                className="h-8 text-sm"
+                className="h-10 text-base sm:h-8 sm:text-sm"
               />
               <Button
                 type="button"

@@ -17,7 +17,7 @@ export default async function StoreCanceledPage() {
   return (
     <PageShell width="narrow">
       <Card>
-        <CardContent className="flex flex-col items-center gap-4 px-6 py-10 text-center">
+        <CardContent className="flex flex-col items-center gap-4 px-4 py-10 text-center sm:px-6">
           <span className="flex size-14 items-center justify-center rounded-full bg-neutral-soft">
             <ShoppingBag className="size-7 text-neutral-foreground" aria-hidden />
           </span>

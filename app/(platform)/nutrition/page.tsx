@@ -111,8 +111,9 @@ async function ClientNutritionView({
 
         <div
           className={cn(
-            "grid grid-cols-2 gap-4",
-            summary.adherencePct !== null && "sm:grid-cols-3",
+            "grid grid-cols-2 gap-3 sm:gap-4",
+            // Three cards: one row of three even on phones (no orphan card).
+            summary.adherencePct !== null && "grid-cols-3",
           )}
         >
           {summary.adherencePct !== null && (
@@ -172,7 +173,7 @@ async function ClientNutritionView({
 
           {isSingleDay && <DayNotesCard clientId={clientId} date={start} comments={mealsComments} />}
 
-          <Card className="px-5">
+          <Card className="px-4 sm:px-5">
             <DailySummaryCard clientId={clientId} date={today} />
           </Card>
         </TabsContent>
@@ -190,7 +191,7 @@ async function ClientNutritionView({
             <TrendRangeToggle history7={history7} history30={history30} streak={streak} />
           </SectionCard>
 
-          <Card className="px-5">
+          <Card className="px-4 sm:px-5">
             <WeeklyReviewCard clientId={clientId} referenceDate={today} title="My Weekly Review" />
           </Card>
         </TabsContent>

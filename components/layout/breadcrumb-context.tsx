@@ -49,26 +49,30 @@ export function Breadcrumbs({ crumbs, className }: { crumbs: Crumb[]; className?
     <nav aria-label="Breadcrumb" className={cn("flex min-w-0 items-center gap-1.5 text-sm", className)}>
       {crumbs.map((crumb, i) => {
         const last = i === crumbs.length - 1;
+        // Phones keep only the parent and the current page; the parent gives
+        // up width first so the current page title stays readable.
+        const phoneHidden = i < crumbs.length - 2 && "max-sm:hidden";
+        const phoneParent = !last && "max-sm:max-w-[40%] max-sm:shrink-0";
         return (
           <React.Fragment key={`${crumb.label}-${i}`}>
             {i > 0 && (
               <ChevronRight
                 data-slot="crumb-separator"
                 aria-hidden
-                className="size-3.5 shrink-0 text-muted-foreground/50"
+                className={cn("size-3.5 shrink-0 text-muted-foreground/50", i <= crumbs.length - 2 && "max-sm:hidden")}
               />
             )}
             {last || !crumb.href ? (
               <span
                 aria-current={last ? "page" : undefined}
-                className={cn("truncate", last ? "font-semibold text-foreground" : "text-muted-foreground")}
+                className={cn("truncate", last ? "font-semibold text-foreground" : "text-muted-foreground", phoneHidden, phoneParent)}
               >
                 {crumb.label}
               </span>
             ) : (
               <Link
                 href={crumb.href}
-                className="truncate text-muted-foreground transition-colors hover:text-foreground"
+                className={cn("truncate text-muted-foreground transition-colors hover:text-foreground", phoneHidden, phoneParent)}
               >
                 {crumb.label}
               </Link>

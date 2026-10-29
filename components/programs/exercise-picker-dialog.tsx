@@ -112,21 +112,23 @@ function FilterBar({ search, setSearch, phase, setPhase, bodyRegions, setRegions
   }
   return (
     <div className="px-4 pt-3 pb-2 space-y-2.5 shrink-0 border-b">
+      {/* Phones: each chip group is one scrolling row so the filters don't
+          push the exercise list out of the dialog. */}
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
           placeholder="Search exercises..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="pl-9 h-8 text-sm"
+          className="pl-9 h-10 text-base sm:h-8 sm:text-sm"
         />
       </div>
       <div>
         <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">Category</p>
-        <div className="flex flex-wrap gap-1">
+        <div className="-mx-4 flex scrollbar-none gap-1 overflow-x-auto px-4 *:shrink-0 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
           {PHASES.map((p) => (
             <button key={p.value} type="button" onClick={() => setPhase(p.value)}
-              className={cn("px-2.5 py-0.5 rounded-full text-xs font-medium border transition-colors",
+              className={cn("px-2.5 py-1.5 rounded-full text-xs font-medium border transition-colors sm:py-0.5",
                 phase === p.value ? "bg-primary text-primary-foreground border-primary" : "bg-background text-muted-foreground border-border hover:border-primary/60 hover:text-foreground"
               )}>
               {p.label}
@@ -136,10 +138,10 @@ function FilterBar({ search, setSearch, phase, setPhase, bodyRegions, setRegions
       </div>
       <div>
         <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">Body Region</p>
-        <div className="flex flex-wrap gap-1">
+        <div className="-mx-4 flex scrollbar-none gap-1 overflow-x-auto px-4 *:shrink-0 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
           {REGIONS.map((r) => (
             <button key={r.value} type="button" onClick={() => toggleRegion(r.value)}
-              className={cn("px-2.5 py-0.5 rounded-full text-xs font-medium border transition-colors",
+              className={cn("px-2.5 py-1.5 rounded-full text-xs font-medium border transition-colors sm:py-0.5",
                 bodyRegions.includes(r.value) ? "bg-secondary text-secondary-foreground border-secondary" : "bg-background text-muted-foreground border-border hover:border-muted-foreground/50 hover:text-foreground"
               )}>
               {r.label}
@@ -155,7 +157,7 @@ function FilterBar({ search, setSearch, phase, setPhase, bodyRegions, setRegions
           options={MUSCLE_GROUPS}
           onChange={setMuscleGroups}
           searchPlaceholder="Search muscles..."
-          triggerClassName="h-8 text-sm"
+          triggerClassName="h-10 text-sm sm:h-8"
         />
       </div>
     </div>
@@ -358,7 +360,7 @@ function CreateExerciseFields({
           value={form.name}
           onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
           placeholder="e.g. Seated Hip Flexor Stretch"
-          className="h-8 text-sm"
+          className="h-10 text-base sm:h-8 sm:text-sm"
         />
       </div>
 
@@ -423,7 +425,7 @@ function CreateExerciseFields({
           value={form.description}
           onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
           placeholder="Brief description..."
-          className="text-sm resize-none h-16"
+          className="text-base resize-none h-16 sm:text-sm"
         />
       </div>
 
@@ -445,7 +447,7 @@ function CreateExerciseFields({
               value={form.videoUrl}
               onChange={(e) => setForm((f) => ({ ...f, videoUrl: e.target.value }))}
               placeholder="YouTube or Vimeo URL"
-              className="h-8 text-sm"
+              className="h-10 text-base sm:h-8 sm:text-sm"
             />
           </TabsContent>
         </Tabs>
@@ -930,12 +932,12 @@ export function ExercisePickerDialog({
               )}
               <div className="flex items-center gap-1.5 shrink-0">
                 {view === "list" && organizationOrganizationId && (
-                  <Button type="button" variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => setView("create")}>
+                  <Button type="button" variant="outline" size="sm" className="h-9 gap-1 text-xs sm:h-7" onClick={() => setView("create")}>
                     <Plus className="h-3.5 w-3.5" />
                     Create New
                   </Button>
                 )}
-                <Button type="button" variant="ghost" size="icon-sm" onClick={handleClose}>
+                <Button type="button" variant="ghost" size="icon-sm" className="max-sm:size-10" onClick={handleClose}>
                   <X className="h-4 w-4" />
                   <span className="sr-only">Close</span>
                 </Button>
@@ -975,10 +977,10 @@ export function ExercisePickerDialog({
                               value={aiSearchQuery}
                               onChange={(e) => setAiSearchQuery(e.target.value)}
                               placeholder="e.g. Single Leg RDL"
-                              className="h-8 text-sm flex-1"
+                              className="h-10 text-base flex-1 sm:h-8 sm:text-sm"
                               onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); runAiSearch(); } }}
                             />
-                            <Button type="button" size="sm" className="h-8 text-xs shrink-0" disabled={aiSearchLoading} onClick={runAiSearch}>
+                            <Button type="button" size="sm" className="h-10 shrink-0 text-xs sm:h-8" disabled={aiSearchLoading} onClick={runAiSearch}>
                               <Search className="h-3.5 w-3.5 mr-1" />
                               {aiSearchLoading ? "Searching..." : "Search"}
                             </Button>
@@ -1000,7 +1002,7 @@ export function ExercisePickerDialog({
                             onChange={(e) => setAiPasteText(e.target.value)}
                             placeholder={"https://www.youtube.com/watch?v=abc123\nhttps://youtu.be/def456"}
                             rows={4}
-                            className="font-mono text-xs resize-none"
+                            className="font-mono text-base resize-none sm:text-xs"
                           />
                           <p className="text-xs text-muted-foreground">
                             {aiPastedUrls.length > 0
@@ -1070,16 +1072,16 @@ export function ExercisePickerDialog({
                 </Tabs>
               </div>
 
-              <div className="flex shrink-0 gap-2 border-t bg-background px-4 py-3">
+              <div className="flex shrink-0 flex-col-reverse gap-2 border-t bg-background px-4 py-3 sm:flex-row">
                 <Button
                   type="button"
                   variant="outline"
-                  className="flex-1 h-8 text-xs"
+                  className="h-10 flex-1 text-xs sm:h-8"
                   onClick={() => (createNames?.length ? handleClose() : setView("list"))}
                 >
                   Cancel
                 </Button>
-                <Button type="button" className="flex-1 h-8 text-xs" disabled={isPending || readyCount === 0} onClick={handleSubmitCurrentTab}>
+                <Button type="button" className="h-10 flex-1 text-xs sm:h-8" disabled={isPending || readyCount === 0} onClick={handleSubmitCurrentTab}>
                   {isPending
                     ? "Creating..."
                     : `Create ${readyCount > 0 ? readyCount : ""} Exercise${readyCount === 1 ? "" : "s"} & Add to Program`}
@@ -1110,11 +1112,11 @@ export function ExercisePickerDialog({
                 onToggle={toggleExerciseSelection}
                 onPreview={setVideoPreview}
               />
-              <div className="flex shrink-0 gap-2 border-t bg-background px-4 py-3">
-                <Button type="button" variant="outline" className="flex-1 h-8 text-xs" onClick={handleClose}>Cancel</Button>
+              <div className="flex shrink-0 flex-col-reverse gap-2 border-t bg-background px-4 py-3 sm:flex-row">
+                <Button type="button" variant="outline" className="h-10 flex-1 text-xs sm:h-8" onClick={handleClose}>Cancel</Button>
                 <Button
                   type="button"
-                  className="flex-1 h-8 text-xs"
+                  className="h-10 flex-1 text-xs sm:h-8"
                   disabled={selectedExerciseIds.size === 0}
                   onClick={handleAddSelected}
                 >

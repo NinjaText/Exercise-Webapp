@@ -123,7 +123,7 @@ const ACTIVITY_TYPE_ITEMS = {
 
 /** Borderless until hovered or focused: names read as headings, not form boxes. */
 const INLINE_INPUT =
-  "h-8 border-transparent bg-transparent px-2 shadow-none hover:border-input hover:bg-surface focus-visible:bg-surface";
+  "h-10 border-transparent bg-transparent px-2 shadow-none sm:h-8 hover:border-input hover:bg-surface focus-visible:bg-surface";
 
 /** Compact number input with a trailing unit ("3 rounds", "45 min"). */
 function UnitNumberField({
@@ -144,7 +144,7 @@ function UnitNumberField({
   placeholder?: string;
 }) {
   return (
-    <label className="flex h-8 shrink-0 cursor-text items-center gap-1.5 rounded-md border border-input bg-surface px-2 text-muted-foreground shadow-xs transition-[border-color,box-shadow] focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50 hover:border-border-strong motion-reduce:transition-none">
+    <label className="flex h-10 shrink-0 cursor-text items-center sm:h-8 gap-1.5 rounded-md border border-input bg-surface px-2 text-muted-foreground shadow-xs transition-[border-color,box-shadow] focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50 hover:border-border-strong motion-reduce:transition-none">
       {icon}
       <input
         type="number"
@@ -154,7 +154,8 @@ function UnitNumberField({
         placeholder={placeholder}
         aria-label={label}
         onChange={(e) => onChange(e.target.value ? parseInt(e.target.value) : null)}
-        className="w-7 bg-transparent text-right text-sm text-foreground tabular-nums outline-none placeholder:text-muted-foreground [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+        // text-base on phones: iOS zooms into inputs under 16px.
+        className="w-8 bg-transparent text-right text-base text-foreground tabular-nums sm:w-7 sm:text-sm outline-none placeholder:text-muted-foreground [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
       />
       <span className="text-caption">{unit}</span>
     </label>
@@ -822,7 +823,7 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
                 aria-pressed={viewMode === mode}
                 title={mode === "focus" ? "Open one exercise at a time" : "Show every exercise's sets"}
                 className={cn(
-                  "h-7 rounded-md px-2.5 text-label transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none",
+                  "h-9 rounded-md px-2.5 text-label transition-colors outline-none sm:h-7 focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none",
                   viewMode === mode
                     ? "bg-surface text-foreground shadow-xs"
                     : "text-muted-foreground hover:text-foreground"
@@ -841,7 +842,7 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
       </div>
 
       {selection.level === "exercises" && selection.exerciseIdxs.size > 0 && (
-        <div className="sticky top-20 z-20 flex items-center justify-between gap-3 rounded-lg border border-info-border bg-info-soft px-4 py-2.5 shadow-sm">
+        <div className="sticky top-20 z-20 flex items-center justify-between gap-3 rounded-lg border border-info-border bg-info-soft px-3 py-2.5 shadow-sm sm:px-4">
           <p className="text-label text-info-foreground">
             {selection.exerciseIdxs.size} exercise{selection.exerciseIdxs.size === 1 ? "" : "s"} selected
           </p>
@@ -934,7 +935,7 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
             </div>
 
             {!isCollapsed && (
-              <div className="space-y-3 px-3 pb-3">
+              <div className="space-y-3 px-2 pb-2 sm:px-3 sm:pb-3">
                 {dayIdxs.map((wi, dayPos) => {
                   const workout = workouts[wi];
                   const isDayCollapsed = collapsedDays.has(
@@ -968,7 +969,7 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
           <div className="flex flex-wrap items-center gap-2 px-3 py-2.5 sm:flex-nowrap">
             <button
               type="button"
-              className="flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+              className="flex size-9 shrink-0 items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring sm:size-7"
               onClick={() => toggleDay(weekIndex, workout.dayIndex)}
               aria-expanded={!isDayCollapsed}
               aria-label={isDayCollapsed ? "Expand day" : "Collapse day"}
@@ -1013,7 +1014,7 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
             />
           </div>
           {!isDayCollapsed && (
-          <div className="space-y-3 border-t border-border p-3">
+          <div className="space-y-3 border-t border-border p-2 sm:p-3">
             {/* Stable ids: dnd-kit's auto ids differ between server and client. */}
             <DndContext
               id={`blocks-${wi}`}
@@ -1066,7 +1067,7 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
                           <button
                             type="button"
                             aria-label="Drag to reorder block"
-                            className="flex size-7 shrink-0 cursor-grab touch-none items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+                            className="flex size-9 shrink-0 cursor-grab touch-none items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground sm:size-7"
                             {...dragHandleProps}
                           >
                             <GripVertical className="size-4" />
@@ -1167,7 +1168,7 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
                                     return open ? (
                                     <div
                                       className={cn(
-                                        "group rounded-md border p-3 shadow-xs",
+                                        "group rounded-md border p-2.5 shadow-xs sm:p-3",
                                         isChecked ? "border-info-border bg-info-soft" : "border-border bg-surface"
                                       )}
                                     >
@@ -1177,7 +1178,7 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
                                           aria-label={`Select ${name}`}
                                           className={cn(
                                             "size-4 shrink-0 cursor-pointer rounded border-border accent-primary transition-opacity",
-                                            isChecked ? "opacity-100" : "opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+                                            isChecked ? "opacity-100" : "opacity-0 group-hover:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100"
                                           )}
                                           checked={isChecked}
                                           onChange={(e) => {
@@ -1189,7 +1190,7 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
                                         <button
                                           type="button"
                                           aria-label={`Drag to reorder ${name}`}
-                                          className="flex size-6 shrink-0 cursor-grab touch-none items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
+                                          className="flex size-8 shrink-0 cursor-grab touch-none items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground sm:size-6"
                                           {...exDragHandleProps}
                                         >
                                           <GripVertical className="size-4" />
@@ -1276,7 +1277,7 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
                                         }
                                         aria-label={`Instructions for ${name}`}
                                         placeholder="Instructions for the client (e.g. use one hand only, keep back straight)…"
-                                        className="mb-3 min-h-9 resize-none bg-surface-muted/40 text-sm"
+                                        className="mb-3 min-h-9 resize-none bg-surface-muted/40 text-base sm:text-sm"
                                         rows={1}
                                       />
                                       <SetEditor
@@ -1411,7 +1412,7 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
             <button
               type="button"
               onClick={() => setVideoPreview(null)}
-              className="shrink-0 rounded-md p-1 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+              className="shrink-0 rounded-md p-2 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors sm:p-1"
             >
               <X className="h-4 w-4" />
             </button>

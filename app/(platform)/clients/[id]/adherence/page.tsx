@@ -46,7 +46,7 @@ export default async function ClientAdherencePage({ params }: Props) {
         ]}
       />
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         <StatCard
           label="Completion rate"
           value={`${completionRate}%`}
@@ -89,9 +89,9 @@ export default async function ClientAdherencePage({ params }: Props) {
               <Link
                 key={session.id}
                 href={`/clients/${id}/sessions/${session.id}`}
-                className="flex items-center justify-between gap-3 rounded-lg border border-border p-3 transition-colors outline-none hover:bg-surface-muted focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none"
+                className="flex flex-col gap-2 rounded-lg border border-border p-3 transition-colors sm:flex-row sm:items-center sm:justify-between sm:gap-3 outline-none hover:bg-surface-muted focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none"
               >
-                <div className="min-w-0">
+                <div className="w-full min-w-0 sm:w-auto">
                   <p className="truncate text-label text-foreground">{session.workout.name}</p>
                   <p className="text-caption">
                     {format(new Date(session.scheduledDate), "MMM d, yyyy")}
@@ -104,7 +104,7 @@ export default async function ClientAdherencePage({ params }: Props) {
                     </p>
                   )}
                 </div>
-                <div className="flex shrink-0 items-center gap-2">
+                <div className="flex shrink-0 flex-wrap items-center gap-2">
                   {session.overallRPE != null && (
                     <span className="text-caption tabular-nums">RPE {session.overallRPE}/10</span>
                   )}

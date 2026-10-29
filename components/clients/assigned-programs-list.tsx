@@ -84,7 +84,7 @@ export function AssignedProgramsList({ programs }: { programs: AssignedProgram[]
             <Button
               variant="ghost"
               size="icon"
-              className="size-8 shrink-0 text-muted-foreground hover:text-destructive"
+              className="size-10 shrink-0 text-muted-foreground hover:text-destructive sm:size-8"
               aria-label={`Delete ${prog.name}`}
               onClick={() => setPendingDelete({ id: prog.id, name: prog.name })}
             >

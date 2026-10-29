@@ -160,7 +160,7 @@ export function VoiceMemoRecorder({
             <Button
               size="sm"
               variant="outline"
-              className="gap-1.5"
+              className="gap-1.5 max-sm:h-10"
               onClick={startRecording}
             >
               <Mic className="h-3.5 w-3.5" />
@@ -170,7 +170,7 @@ export function VoiceMemoRecorder({
           <Button
             size="sm"
             variant="outline"
-            className="gap-1.5"
+            className="gap-1.5 max-sm:h-10"
             onClick={() => fileInputRef.current?.click()}
           >
             <Upload className="h-3.5 w-3.5" />
@@ -198,7 +198,7 @@ export function VoiceMemoRecorder({
           <Button
             size="sm"
             variant="destructive"
-            className="h-7 gap-1 text-xs"
+            className="h-7 gap-1 text-xs max-sm:h-10"
             onClick={stopRecording}
           >
             <Square className="h-3 w-3" />
@@ -217,7 +217,7 @@ export function VoiceMemoRecorder({
             <Button
               size="sm"
               variant="outline"
-              className="gap-1.5"
+              className="gap-1.5 max-sm:h-10"
               onClick={discard}
               disabled={uploading}
             >
@@ -226,7 +226,7 @@ export function VoiceMemoRecorder({
             </Button>
             <Button
               size="sm"
-              className="flex-1 gap-1.5 border-0 bg-primary text-primary-foreground hover:bg-primary/90"
+              className="flex-1 gap-1.5 border-0 bg-primary max-sm:h-10 text-primary-foreground hover:bg-primary/90"
               onClick={submit}
               disabled={uploading}
             >

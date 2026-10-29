@@ -173,7 +173,7 @@ export function EmailPanel() {
       </ul>
 
       {step.kind === "idle" && (
-        <Button variant="outline" className="w-fit" onClick={() => setStep({ kind: "enter" })}>
+        <Button variant="outline" className="w-full sm:w-fit" onClick={() => setStep({ kind: "enter" })}>
           <Plus className="mr-1.5 size-4" />
           Add email address
         </Button>

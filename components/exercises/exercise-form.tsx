@@ -194,7 +194,7 @@ export function ExerciseForm() {
                 if (e.key === "Enter") { e.preventDefault(); addCustomEquipment(); }
               }}
               placeholder="Add custom equipment..."
-              className="h-8 text-sm"
+              className="h-10 text-base sm:h-8 sm:text-sm"
             />
             <Button
               type="button"

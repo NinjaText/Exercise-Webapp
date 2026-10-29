@@ -52,7 +52,7 @@ export function DashboardInboxCard({
             onClick={() => setTab(t.key)}
             aria-pressed={tab === t.key}
             className={cn(
-              "h-8 rounded-full px-3 text-caption font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none",
+              "h-9 rounded-full px-3 text-caption font-medium transition-colors outline-none sm:h-8 focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none",
               tab === t.key
                 ? "bg-primary text-primary-foreground"
                 : "bg-surface-muted text-muted-foreground hover:bg-muted hover:text-foreground"

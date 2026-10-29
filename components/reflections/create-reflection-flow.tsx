@@ -16,14 +16,12 @@ import {
   Send,
   Sparkles,
   Leaf,
-  Users,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MultiSelectFacet } from "@/components/shared/multi-select-facet";
 import { cn } from "@/lib/utils";
 import { MAX_FANOUT_ROWS, MAX_PROGRAM_PLAN_DAYS, MAX_RECURRING_SPAN_DAYS, WEEKDAY_OPTIONS } from "@/lib/reflections/constants";
 import { expandScheduleDates, parseDateKey, utcDaysBetween, type ScheduleDates } from "@/lib/reflections/dates";
@@ -32,6 +30,7 @@ import type { GeneratedReflection } from "@/lib/services/reflection-ai.service";
 import { ReflectionArtwork } from "./reflection-artwork";
 import { ReflectionEditorFields } from "./reflection-editor-fields";
 import { LibraryPicker } from "./library-picker";
+import { ClientRecipientPicker, recipientSummary } from "./client-recipient-picker";
 import { AiReflectionGenerator } from "./ai-reflection-generator";
 import { defaultAiStyle, type AiStyleDraft } from "./ai-style-fields";
 import { draftFromLibrary, emptyDraft, toContentInput, type ReflectionDraft } from "./reflection-draft";
@@ -64,6 +63,10 @@ function formatDateKey(key: string): string {
   return date ? format(new Date(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()), "EEE, MMM d") : key;
 }
 
+function capitalize(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
 export function programOptionLabel(program: PlanProgramOption): string {
   return program.isTemplate ? `${program.name} (template)` : `${program.name}${program.clientName ? ` · ${program.clientName}` : ""}`;
 }
@@ -88,7 +91,9 @@ export function CreateReflectionFlow({
   const [aiStyle, setAiStyle] = useState<AiStyleDraft>(defaultAiStyle);
   const [libraryId, setLibraryId] = useState<string | null>(null);
 
-  const [audience, setAudience] = useState<Audience>("all");
+  // No default: the trainer always says who it's for, so "everyone" is never
+  // an accident of leaving something blank.
+  const [audience, setAudience] = useState<Audience | null>(null);
   const [clientIds, setClientIds] = useState<string[]>([]);
   const [scheduleMode, setScheduleMode] = useState<"single" | "recurring">("single");
   const [date, setDate] = useState(today);
@@ -104,17 +109,20 @@ export function CreateReflectionFlow({
     scheduleMode === "single" ? { mode: "single", date } : { mode: "recurring", weekdays, startDate, endDate };
   const dayCount = expandScheduleDates(schedule).length;
   const clientCount = audience === "all" ? clients.length : audience === "selected" ? clientIds.length : 0;
+  const clientNameById = new Map(clients.map((c) => [c.id, c.name]));
+  const selectedNames = clientIds.map((id) => clientNameById.get(id) ?? "").filter(Boolean);
   const rowCount = clientCount * dayCount;
   const scheduleError = getScheduleError();
 
   function getScheduleError(): string | null {
+    if (audience === null) return "Choose who should receive this reflection";
     if (audience === "program") {
       const day = Number(dayNumber);
       if (!programId) return "Pick a program";
       if (!Number.isInteger(day) || day < 1 || day > MAX_PROGRAM_PLAN_DAYS) return `Day must be between 1 and ${MAX_PROGRAM_PLAN_DAYS}`;
       return null;
     }
-    if (clientCount === 0) return audience === "all" ? "You don't have any clients yet" : "Select at least one client";
+    if (clientCount === 0) return audience === "all" ? "You don't have any clients yet" : "Select at least one recipient";
     if (scheduleMode === "recurring") {
       const start = parseDateKey(startDate);
       const end = parseDateKey(endDate);
@@ -158,10 +166,12 @@ export function CreateReflectionFlow({
     setMethod(null);
     setDraft(emptyDraft());
     setLibraryId(null);
+    setAudience(null);
     setClientIds([]);
   }
 
   function save() {
+    if (audience === null) return;
     const target =
       audience === "program"
         ? { type: "program" as const, programId, dayNumber: Number(dayNumber) }
@@ -184,6 +194,12 @@ export function CreateReflectionFlow({
   }
 
   const selectedProgram = programs.find((p) => p.id === programId) ?? null;
+
+  /** Who receives it, in words: "all 12 clients" or "Ana, Ben and 3 others". */
+  function audienceLabel(): string {
+    if (audience === "all") return `all ${clients.length} client${clients.length === 1 ? "" : "s"}`;
+    return recipientSummary(selectedNames);
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -226,27 +242,32 @@ export function CreateReflectionFlow({
         )}
 
         {step === 3 && (
-          <StepBody title="Schedule or assign">
+          <StepBody title="Who and when" description="Choose who receives it, then when it appears. Nothing is preselected.">
             <div className="flex flex-col gap-5">
               <div className="grid gap-2 sm:grid-cols-3" role="radiogroup" aria-label="Who gets it">
-                <ChoiceCard selected={audience === "all"} onClick={() => setAudience("all")} title="All clients" description={`${clients.length} client${clients.length === 1 ? "" : "s"}`} />
-                <ChoiceCard selected={audience === "selected"} onClick={() => setAudience("selected")} title="Specific clients" description="Choose who receives it" />
-                <ChoiceCard selected={audience === "program"} onClick={() => setAudience("program")} title="Specific program" description="Show it on a program day" />
+                <ChoiceCard
+                  selected={audience === "all"}
+                  onClick={() => setAudience("all")}
+                  title="All my clients"
+                  description={`Everyone on your roster today (${clients.length})`}
+                />
+                <ChoiceCard
+                  selected={audience === "selected"}
+                  onClick={() => setAudience("selected")}
+                  title="Only certain clients"
+                  description="Tick each person who should get it"
+                />
+                <ChoiceCard
+                  selected={audience === "program"}
+                  onClick={() => setAudience("program")}
+                  title="A program day"
+                  description="Everyone on that program sees it that day"
+                />
               </div>
 
-              {audience === "selected" && (
-                <MultiSelectFacet
-                  label="Clients"
-                  icon={<Users className="size-4" />}
-                  allLabel="Select clients"
-                  values={clientIds}
-                  options={clients.map((c) => ({ value: c.id, label: c.name }))}
-                  onChange={setClientIds}
-                  searchPlaceholder="Search clients…"
-                />
-              )}
+              {audience === "selected" && <ClientRecipientPicker clients={clients} value={clientIds} onChange={setClientIds} />}
 
-              {audience !== "program" ? (
+              {audience === null ? null : audience !== "program" ? (
                 <div className="flex flex-col gap-4">
                   <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Frequency">
                     <Button type="button" variant={scheduleMode === "single" ? "default" : "outline"} size="sm" aria-pressed={scheduleMode === "single"} onClick={() => setScheduleMode("single")}>
@@ -343,11 +364,14 @@ export function CreateReflectionFlow({
                 </div>
               )}
 
-              <p className={cn("text-label", scheduleError ? "text-danger" : "text-muted-foreground")} aria-live="polite">
+              <p
+                className={cn("text-label", scheduleError ? (audience === null ? "text-muted-foreground" : "text-danger") : "text-muted-foreground")}
+                aria-live="polite"
+              >
                 {scheduleError ??
                   (audience === "program"
                     ? `Day ${dayNumber} of ${selectedProgram?.name ?? "the program"}`
-                    : `${rowCount} reflection${rowCount === 1 ? "" : "s"}: ${clientCount} client${clientCount === 1 ? "" : "s"} × ${dayCount} day${dayCount === 1 ? "" : "s"}`)}
+                    : `Goes to ${audienceLabel()} · ${rowCount} reflection${rowCount === 1 ? "" : "s"} (${clientCount} client${clientCount === 1 ? "" : "s"} × ${dayCount} day${dayCount === 1 ? "" : "s"})`)}
               </p>
             </div>
           </StepBody>
@@ -369,7 +393,7 @@ export function CreateReflectionFlow({
               <CalendarDays className="size-4" aria-hidden />
               {audience === "program"
                 ? `Day ${dayNumber} of ${selectedProgram?.name ?? "the program"}`
-                : `${audience === "all" ? "All clients" : `${clientCount} client${clientCount === 1 ? "" : "s"}`} · ${
+                : `${capitalize(audienceLabel())} · ${
                     scheduleMode === "single"
                       ? formatDateKey(date)
                       : `${dayCount} day${dayCount === 1 ? "" : "s"} from ${formatDateKey(startDate)} to ${formatDateKey(endDate)}`
@@ -411,7 +435,7 @@ export function CreateReflectionFlow({
 
 function StepIndicator({ current, skipped }: { current: number; skipped: number[] }) {
   return (
-    <ol className="flex items-center gap-1 overflow-x-auto pb-1" aria-label="Steps">
+    <ol className="flex items-center gap-1 overflow-x-auto pb-1 scrollbar-none" aria-label="Steps">
       {STEPS.map((label, index) => {
         const done = index < current;
         const active = index === current;

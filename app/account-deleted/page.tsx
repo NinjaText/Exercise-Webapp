@@ -21,7 +21,7 @@ export default async function AccountDeletedPage() {
           We&apos;re sorry to see you go. You are welcome to come back and create a
           new account at any time.
         </p>
-        <Button asChild variant="outline">
+        <Button asChild variant="outline" className="w-full sm:w-auto">
           <Link href="/">Back to home</Link>
         </Button>
       </div>

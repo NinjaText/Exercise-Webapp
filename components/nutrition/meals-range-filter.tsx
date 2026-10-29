@@ -63,7 +63,7 @@ export function MealsRangeFilter({ preset, start, end }: MealsRangeFilterProps) 
       </Select>
 
       {preset === "CUSTOM" && (
-        <div className="flex items-center gap-1.5">
+        <div className="flex w-full items-center gap-1.5 sm:w-auto">
           <input
             type="date"
             value={toDateParam(start)}
@@ -71,7 +71,7 @@ export function MealsRangeFilter({ preset, start, end }: MealsRangeFilterProps) 
             onChange={(e) => {
               if (e.target.value) navigate({ range: "custom", start: e.target.value, end: toDateParam(end) });
             }}
-            className="rounded-md bg-transparent px-1.5 py-1 text-xs ring-1 ring-border/50"
+            className="min-w-0 flex-1 rounded-md bg-transparent px-1.5 py-1 text-xs ring-1 ring-border/50 max-sm:h-10 max-sm:text-base sm:flex-none"
           />
           <span className="text-xs text-muted-foreground">to</span>
           <input
@@ -81,7 +81,7 @@ export function MealsRangeFilter({ preset, start, end }: MealsRangeFilterProps) 
             onChange={(e) => {
               if (e.target.value) navigate({ range: "custom", start: toDateParam(start), end: e.target.value });
             }}
-            className="rounded-md bg-transparent px-1.5 py-1 text-xs ring-1 ring-border/50"
+            className="min-w-0 flex-1 rounded-md bg-transparent px-1.5 py-1 text-xs ring-1 ring-border/50 max-sm:h-10 max-sm:text-base sm:flex-none"
           />
         </div>
       )}

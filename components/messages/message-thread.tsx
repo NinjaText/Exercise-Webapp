@@ -15,7 +15,7 @@ import {
 } from "@/actions/message-actions";
 import { formatRelativeTime } from "@/lib/utils/formatting";
 import { toast } from "sonner";
-import { Send, Loader2, Check, CheckCheck, Mic, MoreVertical, Pencil, Trash2, Dumbbell } from "lucide-react";
+import { Send, Loader2, Check, CheckCheck, Mic, MoreVertical, Pencil, Trash2, Dumbbell, ArrowLeft } from "lucide-react";
 import type {
   ThreadItem,
   ThreadMessage,
@@ -71,6 +71,11 @@ interface MessageThreadProps {
   allowInternalNotes?: boolean;
   /** Extra content rendered on the right side of the thread header. */
   headerRight?: React.ReactNode;
+  /**
+   * Below md the thread fills the screen on its own, so its header carries the
+   * back-to-inbox arrow instead of a separate page header.
+   */
+  backHref?: string;
 }
 
 export function MessageThread({
@@ -80,6 +85,7 @@ export function MessageThread({
   recipientName,
   allowInternalNotes = false,
   headerRight,
+  backHref,
 }: MessageThreadProps) {
   const [items, setItems] = useState<ThreadItem[]>(initialItems);
   const [filter, setFilter] = useState<ItemFilter>("all");
@@ -225,8 +231,18 @@ export function MessageThread({
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="flex min-h-14 shrink-0 items-center justify-between gap-3 border-b border-border px-4 py-2.5">
+      <div className={cn("flex min-h-14 shrink-0 items-center justify-between gap-3 border-b border-border px-4 py-2.5", backHref && "pl-1.5 md:pl-4")}>
         <div className="flex min-w-0 items-center gap-3">
+          {backHref && (
+            <Link
+              href={backHref}
+              scroll={false}
+              aria-label="Back to inbox"
+              className="-mr-1 inline-flex size-10 shrink-0 items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-surface-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring md:hidden"
+            >
+              <ArrowLeft className="size-5" />
+            </Link>
+          )}
           <Avatar className="size-8 shrink-0">
             <AvatarFallback className="bg-surface-muted text-caption font-medium text-foreground">
               {recipientInitials}
@@ -248,7 +264,7 @@ export function MessageThread({
               onClick={() => setFilter(option.key)}
               aria-pressed={filter === option.key}
               className={cn(
-                "h-7 rounded-md px-2.5 text-caption font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none",
+                "h-9 rounded-md px-3 text-caption font-medium outline-none transition-colors sm:h-7 sm:px-2.5 focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none",
                 filter === option.key
                   ? "bg-brand-soft text-brand-foreground"
                   : "text-muted-foreground hover:bg-surface-muted hover:text-foreground"
@@ -343,7 +359,7 @@ export function MessageThread({
                       onClick={() => setComposeMode(mode)}
                       aria-pressed={composeMode === mode}
                       className={cn(
-                        "h-7 rounded-md px-2.5 text-caption font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none",
+                        "h-9 rounded-md px-3 text-caption font-medium outline-none transition-colors sm:h-7 sm:px-2.5 focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none",
                         composeMode === mode
                           ? mode === "note"
                             ? "bg-warning-soft text-warning-foreground ring-1 ring-warning-border"
@@ -405,7 +421,7 @@ function VoiceNoteBubble({ item, isOwn }: { item: ThreadVoiceNoteItem; isOwn: bo
         <AvatarFallback className="text-xs">{initials}</AvatarFallback>
       </Avatar>
 
-      <div className={`max-w-[70%] ${isOwn ? "text-right" : ""}`}>
+      <div className={`min-w-0 max-w-[78%] sm:max-w-[70%] ${isOwn ? "text-right" : ""}`}>
         <div
           className={`inline-block rounded-lg px-3 py-2 text-left ${
             isOwn ? "bg-primary text-primary-foreground" : "bg-muted text-foreground"
@@ -424,7 +440,7 @@ function VoiceNoteBubble({ item, isOwn }: { item: ThreadVoiceNoteItem; isOwn: bo
           </p>
           <div className="flex items-center gap-2">
             <Mic className={`h-3.5 w-3.5 shrink-0 ${isOwn ? "text-primary-foreground" : "text-muted-foreground"}`} />
-            <audio src={item.audioUrl} controls className="h-8 max-w-[220px]" />
+            <audio src={item.audioUrl} controls className="h-8 min-w-0 max-w-[220px]" />
           </div>
           {item.sessionId && (
             <Link
@@ -536,7 +552,7 @@ function MessageBubble({
         </AvatarFallback>
       </Avatar>
 
-      <div className={`max-w-[70%] ${isOwn ? "text-right" : ""}`}>
+      <div className={`min-w-0 max-w-[78%] sm:max-w-[70%] ${isOwn ? "text-right" : ""}`}>
         {/* Quoted client note this message is replying to */}
         {hasQuote && !isDeleted && (
           <div className="mb-1 rounded border-l-2 border-primary/40 bg-muted/40 px-2 py-1 text-left text-xs">
@@ -569,7 +585,7 @@ function MessageBubble({
               onKeyDown={handleEditKeyDown}
               rows={2}
               autoFocus
-              className="min-h-[3rem] resize-none text-sm"
+              className="min-h-[3rem] resize-none"
             />
             <div className="flex justify-end gap-2">
               <Button
@@ -634,7 +650,7 @@ function MessageBubble({
           <DropdownMenu>
             {/* base-ui triggers do not support asChild — the icon is passed as children. */}
             <DropdownMenuTrigger
-              className="mt-1 inline-flex h-6 w-6 shrink-0 items-center justify-center self-start rounded-md text-muted-foreground opacity-0 outline-none transition-opacity hover:bg-muted hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100"
+              className="-mx-2 inline-flex size-10 shrink-0 items-center justify-center self-start rounded-md text-muted-foreground outline-none transition-opacity hover:bg-muted hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100 sm:mx-0 sm:mt-1 sm:size-6 pointer-fine:opacity-0"
               aria-label="Message actions"
             >
               <MoreVertical className="h-3.5 w-3.5" />

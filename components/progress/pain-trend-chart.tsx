@@ -11,7 +11,9 @@ const WEEK_OPTIONS = [4, 8, 12] as const;
 const Y_MAX = 10;
 const W = 640;
 const H = 180;
-const PAD = { top: 8, right: 8, bottom: 24, left: 28 };
+// Axis labels are HTML overlaid on the SVG (not SVG <text>), so they stay a
+// readable size when the chart scales down to a phone-width card.
+const PAD = { top: 8, right: 8, bottom: 8, left: 40 };
 
 export function PainTrendChart({
   points,
@@ -42,8 +44,8 @@ export function PainTrendChart({
 
   return (
     <div>
-      <div className="mb-3 flex items-center justify-between gap-2">
-        <div>
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <div className="min-w-0">
           <p className="text-base font-semibold">Pain Level Trend</p>
           <p className="text-xs text-muted-foreground">Self-reported pain (0–10)</p>
         </div>
@@ -55,7 +57,7 @@ export function PainTrendChart({
               onClick={() => onWeeksChange(w)}
               aria-pressed={weeks === w}
               className={cn(
-                "rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
+                "h-9 rounded-md px-3 text-xs font-medium transition-colors sm:h-auto sm:px-2.5 sm:py-1",
                 weeks === w
                   ? "bg-primary text-primary-foreground"
                   : "bg-muted text-muted-foreground hover:bg-muted/70"
@@ -76,11 +78,12 @@ export function PainTrendChart({
           </p>
         </div>
       ) : (
-        <div className="overflow-x-auto">
-          <svg viewBox={`0 0 ${W} ${H}`} className="w-full min-w-[420px]" role="img" aria-label="Pain level over time">
-            {[0, 5, 10].map((tick) => (
-              <g key={tick}>
+        <div>
+          <div className="relative">
+            <svg viewBox={`0 0 ${W} ${H}`} className="block w-full" role="img" aria-label="Pain level over time">
+              {[0, 5, 10].map((tick) => (
                 <line
+                  key={tick}
                   x1={PAD.left}
                   x2={W - PAD.right}
                   y1={y(tick)}
@@ -88,26 +91,32 @@ export function PainTrendChart({
                   stroke="var(--border)"
                   strokeWidth={1}
                 />
-                <text x={PAD.left - 6} y={y(tick) + 3} textAnchor="end" className="fill-muted-foreground text-[9px]">
-                  {tick}
-                </text>
-              </g>
+              ))}
+              {visible.length > 1 && <path d={path} fill="none" stroke="var(--primary)" strokeWidth={2} />}
+              {visible.map((p) => (
+                <circle key={p.recordedAt.toISOString()} cx={x(p.recordedAt)} cy={y(p.value)} r={3} fill="var(--primary)" />
+              ))}
+            </svg>
+            {[0, 5, 10].map((tick) => (
+              <span
+                key={tick}
+                aria-hidden
+                className="absolute left-0 -translate-y-1/2 pr-1 text-right text-[10px] leading-none text-muted-foreground tabular-nums"
+                style={{ top: `${(y(tick) / H) * 100}%`, width: `${(PAD.left / W) * 100}%` }}
+              >
+                {tick}
+              </span>
             ))}
-            {visible.length > 1 && <path d={path} fill="none" stroke="var(--primary)" strokeWidth={2} />}
-            {visible.map((p) => (
-              <circle key={p.recordedAt.toISOString()} cx={x(p.recordedAt)} cy={y(p.value)} r={3} fill="var(--primary)" />
-            ))}
-            {visible.length > 1 && (
-              <>
-                <text x={PAD.left} y={H - 6} className="fill-muted-foreground text-[9px]">
-                  {format(visible[0].recordedAt, "MMM d")}
-                </text>
-                <text x={W - PAD.right} y={H - 6} textAnchor="end" className="fill-muted-foreground text-[9px]">
-                  {format(visible[visible.length - 1].recordedAt, "MMM d")}
-                </text>
-              </>
-            )}
-          </svg>
+          </div>
+          {visible.length > 1 && (
+            <div
+              className="mt-1 flex justify-between text-[10px] text-muted-foreground"
+              style={{ paddingLeft: `${(PAD.left / W) * 100}%`, paddingRight: `${(PAD.right / W) * 100}%` }}
+            >
+              <span>{format(visible[0].recordedAt, "MMM d")}</span>
+              <span>{format(visible[visible.length - 1].recordedAt, "MMM d")}</span>
+            </div>
+          )}
         </div>
       )}
     </div>

@@ -12,10 +12,10 @@ export default function ExercisesLoading() {
         </div>
         <Skeleton className="h-9 w-32" />
       </div>
-      <div className="flex gap-3">
-        <Skeleton className="h-9 flex-1" />
-        <Skeleton className="h-9 w-[180px]" />
-        <Skeleton className="h-9 w-[180px]" />
+      <div className="flex flex-wrap gap-3">
+        <Skeleton className="h-9 basis-full sm:basis-auto sm:flex-1" />
+        <Skeleton className="h-9 flex-1 sm:w-[180px] sm:flex-none" />
+        <Skeleton className="h-9 flex-1 sm:w-[180px] sm:flex-none" />
       </div>
       <GridSkeleton count={6} />
     </PageShell>

@@ -157,7 +157,7 @@ export default async function ClientNutritionDetailPage({
             <TrendRangeToggle history7={history7} history30={history30} streak={streak} />
           </SectionCard>
 
-          <Card className="px-5">
+          <Card className="px-4 sm:px-5">
             <WeeklyReviewCard
               clientId={clientId}
               referenceDate={today}

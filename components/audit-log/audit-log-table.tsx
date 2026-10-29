@@ -54,7 +54,7 @@ export function AuditLogTable({
     {
       key: "when",
       header: "When",
-      className: "w-[130px] whitespace-nowrap",
+      className: "sm:w-[130px] sm:whitespace-nowrap",
       render: (entry) => {
         const at = new Date(entry.createdAt);
         return (

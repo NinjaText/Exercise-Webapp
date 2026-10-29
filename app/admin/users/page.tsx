@@ -186,19 +186,19 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
               </a>
             }
           >
-            <form method="GET" className="flex flex-wrap items-center gap-2">
+            <form method="GET" className="flex w-full flex-wrap items-center gap-2">
               <input type="hidden" name="view" value="all" />
-              <div className="relative min-w-[200px] max-w-sm flex-1">
+              <div className="relative w-full sm:w-auto sm:min-w-[200px] sm:max-w-sm sm:flex-1">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   name="search"
                   defaultValue={search}
                   placeholder="Search name or email…"
-                  className="h-9 pl-9"
+                  className="h-10 pl-9 sm:h-9"
                 />
               </div>
               <Select name="role" defaultValue={role}>
-                <SelectTrigger className="h-9 w-36">
+                <SelectTrigger className="h-10 min-w-0 flex-1 sm:h-9 sm:w-36 sm:flex-none">
                   <SelectValue placeholder="All roles" />
                 </SelectTrigger>
                 <SelectContent>
@@ -208,7 +208,7 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
                 </SelectContent>
               </Select>
               <Select name="org" defaultValue={orgId || "ALL"}>
-                <SelectTrigger className="h-9 w-48">
+                <SelectTrigger className="h-10 min-w-0 flex-1 sm:h-9 sm:w-48 sm:flex-none">
                   <SelectValue placeholder="All organizations">
                     {selectedOrgLabel}
                   </SelectValue>
@@ -222,7 +222,7 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
                   ))}
                 </SelectContent>
               </Select>
-              <Button type="submit" variant="outline" className="h-9">
+              <Button type="submit" variant="outline" className="h-10 sm:h-9">
                 Filter
               </Button>
             </form>

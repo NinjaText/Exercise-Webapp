@@ -28,13 +28,17 @@ function Tabs({
 const segmentedList = "rounded-lg bg-muted p-1 group-data-horizontal/tabs:h-10"
 
 const tabsListVariants = cva(
-  "group/tabs-list inline-flex w-fit items-center justify-center text-muted-foreground group-data-vertical/tabs:h-fit group-data-vertical/tabs:flex-col",
+  // Horizontal lists never push the page wider: past the available width they
+  // scroll sideways (safe-center keeps the first tab reachable when they do).
+  "group/tabs-list inline-flex w-fit items-center justify-center-safe text-muted-foreground group-data-horizontal/tabs:max-w-full group-data-horizontal/tabs:overflow-x-auto group-data-horizontal/tabs:overflow-y-hidden group-data-horizontal/tabs:scrollbar-none group-data-vertical/tabs:h-fit group-data-vertical/tabs:flex-col",
   {
     variants: {
       variant: {
         default: segmentedList,
         segmented: segmentedList,
-        line: "gap-5 rounded-none bg-transparent p-0 group-data-horizontal/tabs:h-10",
+        // The scroll container would clip the underline hanging 1px below the
+        // list, so the list carries that pixel itself and overlaps the border.
+        line: "gap-5 rounded-none bg-transparent p-0 group-data-horizontal/tabs:-mb-px group-data-horizontal/tabs:h-[calc(2.5rem+1px)] group-data-horizontal/tabs:pb-px",
       },
     },
     defaultVariants: {

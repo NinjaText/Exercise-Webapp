@@ -68,7 +68,7 @@ function MealTypePicker({
             onClick={() => onChange(opt.value)}
             disabled={disabled}
             className={cn(
-              "flex-1 rounded-lg py-2 text-xs font-medium transition-all",
+              "flex-1 rounded-lg py-2.5 text-xs font-medium transition-all sm:py-2",
               mealType === opt.value
                 ? "bg-primary text-primary-foreground"
                 : "ring-1 ring-border/50 hover:ring-border text-muted-foreground hover:text-foreground"
@@ -127,7 +127,7 @@ export function MealLogDialog({ clientId, date, defaultMealType }: MealLogDialog
             type="button"
             onClick={() => switchMode("manual")}
             className={cn(
-              "flex-1 rounded-lg py-2 text-xs font-semibold transition-all",
+              "flex-1 rounded-lg py-2.5 text-xs font-semibold transition-all sm:py-2",
               mode === "manual" ? "bg-primary text-primary-foreground" : "ring-1 ring-border/50 text-muted-foreground"
             )}
           >
@@ -137,7 +137,7 @@ export function MealLogDialog({ clientId, date, defaultMealType }: MealLogDialog
             type="button"
             onClick={() => switchMode("ai")}
             className={cn(
-              "flex-1 items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-semibold transition-all inline-flex",
+              "flex-1 items-center justify-center gap-1.5 rounded-lg py-2.5 text-xs font-semibold transition-all sm:py-2 inline-flex",
               mode === "ai" ? "bg-primary text-primary-foreground" : "ring-1 ring-border/50 text-muted-foreground"
             )}
           >
@@ -149,7 +149,7 @@ export function MealLogDialog({ clientId, date, defaultMealType }: MealLogDialog
               type="button"
               onClick={() => switchMode("scan")}
               className={cn(
-                "flex-1 items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-semibold transition-all inline-flex",
+                "flex-1 items-center justify-center gap-1.5 rounded-lg py-2.5 text-xs font-semibold transition-all sm:py-2 inline-flex",
                 mode === "scan" ? "bg-primary text-primary-foreground" : "ring-1 ring-border/50 text-muted-foreground"
               )}
             >
@@ -645,7 +645,7 @@ function AiPhotoMealForm({
                 disabled={busy}
                 maxLength={300}
                 placeholder="e.g. I only ate 2 slices, it's a thin crust"
-                className="h-8 flex-1 text-xs"
+                className="h-8 flex-1 text-xs max-sm:h-10 max-sm:text-base"
               />
               <Button type="button" variant="outline" size="sm" onClick={handleReanalyze} disabled={busy}>
                 {isAnalyzing ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="mr-1.5 h-3.5 w-3.5" />}

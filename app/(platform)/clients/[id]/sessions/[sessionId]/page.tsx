@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/current-user";
 import { Clock, Dumbbell, Gauge, ListChecks, PlayCircle, Smile, StickyNote, TriangleAlert } from "lucide-react";
 import { Card } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 import { PageHeader } from "@/components/shared/page-header";
 import { PageShell } from "@/components/shared/page-shell";
 import { StatusBadge } from "@/components/shared/status-badge";
@@ -184,7 +185,7 @@ export default async function SessionReviewPage({ params }: Props) {
           />
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
           <StatCard size="compact" label="Exercises" value={totalExercises} icon={Dumbbell} />
           <StatCard size="compact" label="Sets logged" value={setsLogged} icon={ListChecks} role="success" />
           <StatCard
@@ -215,8 +216,8 @@ export default async function SessionReviewPage({ params }: Props) {
 
       {session.workout.blocks.map((block) => (
         <section key={block.id} className="flex flex-col gap-3">
-          <div className="flex items-baseline gap-2">
-            <h2 className="text-heading text-foreground">{block.name || block.type}</h2>
+          <div className="flex flex-wrap items-baseline gap-x-2">
+            <h2 className="min-w-0 break-words text-heading text-foreground">{block.name || block.type}</h2>
             {isCircuitBlock(block.type) && (
               <span className="text-caption tabular-nums">· {block.rounds ?? 1} rounds</span>
             )}
@@ -233,7 +234,7 @@ export default async function SessionReviewPage({ params }: Props) {
                 // Edge-to-edge card: the header carries its own padding and the
                 // set table runs flush to the card edges.
                 <Card key={exercise.id} className="gap-0 py-0">
-                  <div className="flex items-center justify-between gap-3 border-b border-border px-5 py-4">
+                  <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3.5 sm:px-5 sm:py-4">
                     <h3 className="truncate text-heading text-foreground">{exercise.exercise.name}</h3>
                     <CompletionBadge completion={completion} />
                   </div>
@@ -289,10 +290,12 @@ function SetTable({
     return { index: i, exerciseSet, log };
   });
 
+  // Below 640px each set becomes a small labelled card (same DOM, `max-sm:`
+  // restyle): "Set 1" + status on top, target/actual/weight underneath.
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-body">
-        <thead className="bg-surface-muted text-caption font-medium">
+    <div className="sm:overflow-x-auto">
+      <table className="w-full text-body max-sm:block">
+        <thead className="bg-surface-muted text-caption font-medium max-sm:sr-only">
           <tr>
             <th className="h-9 px-5 text-left font-medium">#</th>
             <th className="h-9 px-3 text-left font-medium">Target</th>
@@ -301,7 +304,7 @@ function SetTable({
             <th className="h-9 px-5 text-left font-medium">Status</th>
           </tr>
         </thead>
-        <tbody>
+        <tbody className="max-sm:block">
           {rows.map(({ index, exerciseSet, log }) => (
             <SetRow
               key={index}
@@ -316,6 +319,10 @@ function SetTable({
     </div>
   );
 }
+
+/** Phone card field: caption label (from data-label) stacked over the value. */
+const SET_FIELD_PHONE =
+  "max-sm:flex max-sm:flex-col max-sm:gap-0.5 max-sm:p-0 max-sm:before:text-caption max-sm:before:font-medium max-sm:before:text-muted-foreground max-sm:before:content-[attr(data-label)]";
 
 function SetRow({
   indexLabel,
@@ -368,15 +375,15 @@ function SetRow({
   }
 
   return (
-    <tr className="border-t border-border">
-      <td className="px-5 py-2.5 font-medium text-foreground tabular-nums">
+    <tr className="border-t border-border max-sm:grid max-sm:grid-cols-3 max-sm:gap-x-3 max-sm:gap-y-2 max-sm:px-4 max-sm:py-3 max-sm:first:border-t-0">
+      <td className="px-5 py-2.5 font-medium text-foreground tabular-nums max-sm:self-center max-sm:p-0">
         {indexLabel} {displayIndex}
       </td>
-      <td className="px-3 py-2.5 text-muted-foreground tabular-nums">{targetText}</td>
-      <td className="px-3 py-2.5 text-foreground tabular-nums">{actualText}</td>
-      <td className="px-3 py-2.5 text-muted-foreground tabular-nums">{weightText}</td>
-      <td className="px-5 py-2.5">
-        <div className="flex flex-col gap-1">
+      <td data-label="Target" className={cn("px-3 py-2.5 text-muted-foreground tabular-nums", SET_FIELD_PHONE)}>{targetText}</td>
+      <td data-label="Actual" className={cn("px-3 py-2.5 text-foreground tabular-nums", SET_FIELD_PHONE)}>{actualText}</td>
+      <td data-label="Weight" className={cn("px-3 py-2.5 text-muted-foreground tabular-nums", SET_FIELD_PHONE)}>{weightText}</td>
+      <td className="px-5 py-2.5 max-sm:col-span-2 max-sm:col-start-2 max-sm:row-start-1 max-sm:p-0">
+        <div className="flex flex-col gap-1 max-sm:items-end max-sm:text-right">
           {statusBadge}
           {noteText && (
             <span className="text-caption">{noteText}</span>

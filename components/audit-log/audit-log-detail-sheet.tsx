@@ -94,7 +94,7 @@ function DetailBody({
         {changes.length > 0 && (
           <Section title={`Changes (${changes.length})`}>
             <div className="overflow-hidden rounded-lg ring-1 ring-border">
-              <table className="w-full text-xs">
+              <table className="w-full table-fixed text-xs">
                 <thead className="bg-muted/50 text-left text-muted-foreground">
                   <tr>
                     <th className="px-3 py-2 font-medium">Field</th>
@@ -102,7 +102,7 @@ function DetailBody({
                     <th className="px-3 py-2 font-medium">After</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-border/60">
+                <tbody className="divide-y divide-border/60 [&_td]:break-words">
                   {changes.map((c) => (
                     <tr key={c.field} className="align-top">
                       <td className="px-3 py-2 font-medium text-foreground">{humanizeField(c.field)}</td>
@@ -163,7 +163,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 function Row({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="grid grid-cols-[120px_1fr] items-start gap-3 text-sm">
+    <div className="grid grid-cols-[96px_1fr] items-start gap-3 text-sm sm:grid-cols-[120px_1fr]">
       <span className="text-muted-foreground">{label}</span>
       <span className="min-w-0 break-words text-foreground">{value}</span>
     </div>

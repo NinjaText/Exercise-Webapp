@@ -99,7 +99,7 @@ export function ClientProgressOverviewCard({ breakdown }: { breakdown: ClientPro
       {total === 0 ? (
         <EmptyState size="compact" icon={Users} title="No active clients yet" />
       ) : (
-        <div className="flex items-center gap-6">
+        <div className="flex items-center gap-4 sm:gap-6">
           <div className="relative shrink-0">
             <svg width={128} height={128} viewBox="0 0 128 128" className="-rotate-90">
               <circle cx={64} cy={64} r={RADIUS} fill="none" stroke="var(--muted)" strokeWidth={STROKE} />

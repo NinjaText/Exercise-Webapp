@@ -35,8 +35,8 @@ function buildClientColumns(coaching: Record<string, string> | null): Column<Cli
     key: "name",
     header: "Client",
     render: (c) => (
-      <div className="flex items-center gap-3">
-        <Avatar className="size-8">
+      <div className="flex min-w-0 max-w-full items-center gap-3">
+        <Avatar className="size-8 shrink-0">
           <AvatarImage src={c.imageUrl || undefined} />
           <AvatarFallback className="bg-brand-soft text-xs font-semibold text-brand-foreground">
             {getInitials(c)}

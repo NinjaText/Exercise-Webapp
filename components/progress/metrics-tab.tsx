@@ -10,14 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { DataList, type Column } from "@/components/shared/data-list";
 import { Activity, Plus } from "lucide-react";
 import { BodyMetricChart } from "@/components/progress/body-metric-chart";
 import { AddBodyMetricDialog } from "@/components/progress/add-body-metric-dialog";
@@ -30,6 +23,18 @@ interface BodyMetric {
   notes?: string | null;
   recordedAt: Date | string;
 }
+
+const READING_COLUMNS: Column<BodyMetric>[] = [
+  { key: "date", header: "Date", render: (m) => format(new Date(m.recordedAt), "MMM d, yyyy") },
+  { key: "value", header: "Value", className: "font-medium", render: (m) => m.value },
+  { key: "unit", header: "Unit", className: "text-muted-foreground", render: (m) => m.unit },
+  {
+    key: "notes",
+    header: "Notes",
+    className: "max-w-xs text-muted-foreground sm:truncate max-sm:col-span-2 max-sm:max-w-none",
+    render: (m) => m.notes ?? "—",
+  },
+];
 
 interface MetricsTabProps {
   metrics: BodyMetric[];
@@ -91,7 +96,7 @@ export function MetricsTab({
           value={selectedType}
           onValueChange={(v) => setSelectedType(v ?? "")}
         >
-          <SelectTrigger className="w-52">
+          <SelectTrigger className="w-full sm:w-52">
             <SelectValue placeholder="Select metric type..." />
           </SelectTrigger>
           <SelectContent>
@@ -103,7 +108,7 @@ export function MetricsTab({
           </SelectContent>
         </Select>
 
-        <Button size="sm" onClick={() => setDialogOpen(true)}>
+        <Button size="sm" className="h-10 w-full sm:h-8 sm:w-auto" onClick={() => setDialogOpen(true)}>
           <Plus className="mr-1.5 h-4 w-4" />
           Add Measurement
         </Button>
@@ -114,40 +119,13 @@ export function MetricsTab({
 
       {/* Table of readings */}
       {filteredMetrics.length > 0 && (
-        <div className="rounded-xl border border-border/50 shadow-sm overflow-hidden">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-muted/40">
-                <TableHead>Date</TableHead>
-                <TableHead>Value</TableHead>
-                <TableHead>Unit</TableHead>
-                <TableHead>Notes</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {[...filteredMetrics]
-                .sort(
-                  (a, b) =>
-                    new Date(b.recordedAt).getTime() -
-                    new Date(a.recordedAt).getTime()
-                )
-                .map((metric) => (
-                  <TableRow key={metric.id}>
-                    <TableCell className="text-sm">
-                      {format(new Date(metric.recordedAt), "MMM d, yyyy")}
-                    </TableCell>
-                    <TableCell className="font-medium">{metric.value}</TableCell>
-                    <TableCell className="text-muted-foreground text-sm">
-                      {metric.unit}
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground max-w-xs truncate">
-                      {metric.notes ?? "—"}
-                    </TableCell>
-                  </TableRow>
-                ))}
-            </TableBody>
-          </Table>
-        </div>
+        <DataList
+          columns={READING_COLUMNS}
+          data={[...filteredMetrics].sort(
+            (a, b) => new Date(b.recordedAt).getTime() - new Date(a.recordedAt).getTime()
+          )}
+          keyExtractor={(m) => m.id}
+        />
       )}
 
       <AddBodyMetricDialog

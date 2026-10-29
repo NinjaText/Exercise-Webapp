@@ -363,7 +363,7 @@ export default function NewCheckInTemplatePage() {
                       size="icon-sm"
                       onClick={() => removeQuestion(q.id)}
                       aria-label="Remove question"
-                      className="text-muted-foreground hover:text-destructive"
+                      className="size-10 text-muted-foreground hover:text-destructive sm:size-8"
                     >
                       <Trash2 />
                     </Button>
@@ -467,7 +467,7 @@ export default function NewCheckInTemplatePage() {
       </section>
 
       {/* Footer actions */}
-      <div className="flex items-center justify-end gap-2 border-t border-border pt-6">
+      <div className="flex items-center justify-end gap-2 border-t border-border pt-6 max-sm:[&>*]:flex-1">
         <Button variant="outline" asChild>
           <Link href="/check-ins">Cancel</Link>
         </Button>

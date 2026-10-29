@@ -55,7 +55,7 @@ export function ClubAdminBanner({ clubName, adminName }: { clubName: string; adm
         type="button"
         onClick={() => void exit()}
         disabled={pending}
-        className="shrink-0 font-medium underline underline-offset-2 hover:opacity-80 disabled:opacity-60"
+        className="relative shrink-0 font-medium underline underline-offset-2 after:absolute after:-inset-x-2 after:-inset-y-2.5 hover:opacity-80 disabled:opacity-60"
       >
         {pending ? "Exiting…" : "Exit"}
       </button>

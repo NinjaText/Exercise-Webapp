@@ -32,6 +32,8 @@ import {
 import { Check, SkipForward, X, PlayCircle, Loader2, Timer, ChevronRight, ChevronLeft, ChevronDown, Trophy, RotateCcw, ClipboardList, Dumbbell, MessageSquarePlus } from "lucide-react";
 import { SKIP_REASONS, type SetLogEntry, type SetLogCache } from "./types";
 import { instructionsToBullets } from "./format-instructions";
+import { isCircuitBlock, prescriptionSummary, segmentLabel } from "./prescription";
+import { WorkoutExercisePreview } from "./workout-exercise-preview";
 import {
   WORKOUT_STATE,
   WORKOUT_TOUCH,
@@ -112,48 +114,12 @@ type RestFlatItem = {
 
 type FlatItem = ExerciseFlatItem | RestFlatItem;
 
-function isCircuitBlock(type: string): boolean {
-  const t = type.toUpperCase();
-  return t === "CIRCUIT" || t === "SUPERSET" || t === "WARMUP" || t === "COOLDOWN";
-}
-
 export function isSessionStartable(status: string): boolean {
   return status === "SCHEDULED" || status === "MISSED";
 }
 
 export function isEarlyStart(scheduledDate: Date | string, now: Date = new Date()): boolean {
   return isAfter(toLocalCalendarDate(new Date(scheduledDate)), startOfDay(now));
-}
-
-const SEGMENT_LABELS: Record<string, string> = {
-  WARMUP: "Warm-up",
-  WORK: "Work",
-  RECOVERY: "Recovery",
-  COOLDOWN: "Cool-down",
-};
-
-// Only meaningful for Run / Interval Run exercises — labels an interval
-// segment by what it is (not "Set 1"), and folds in the repeat count so
-// "6 x 400m" reads as one row instead of six identical ones.
-function segmentLabel(setType?: string | null, repeatCount?: number | null): string | null {
-  if (!setType) return null;
-  const base = SEGMENT_LABELS[setType];
-  if (!base) return null;
-  return setType === "WORK" && repeatCount ? `${base} ×${repeatCount}` : base;
-}
-
-// Renders a Run/Interval Run set's prescription as a single glance-able
-// line — distance, duration, target pace, HR zone — since none of those
-// are things a client fills in an input for the way reps/weight are.
-function prescriptionSummary(set: BlockExerciseSet): string {
-  const parts: string[] = [];
-  if (set.targetDistance != null) parts.push(`${set.targetDistance} mi`);
-  if (set.targetDuration != null) {
-    parts.push(`${set.targetDuration}${set.targetDurationUnit === "MIN" ? "min" : "s"}`);
-  }
-  if (set.targetPace) parts.push(`@ ${set.targetPace}`);
-  if (set.targetHrZone) parts.push(set.targetHrZone);
-  return parts.join(" · ");
 }
 
 function buildFlatItems(blocks: WorkoutBlock[]): FlatItem[] {
@@ -474,7 +440,15 @@ export function WorkoutSessionTracker({
         completed: true,
       });
 
-      if (!isCircuit && allDone) setTimeout(advanceToNext, 600);
+      // Ticking the last set (or a circuit round) finishes the exercise, so move
+      // on after a beat that lets the check register — unless the client has
+      // already navigated elsewhere in the meantime.
+      if (allDone) {
+        const loggedIndex = currentIndex;
+        setTimeout(() => {
+          if (currentIndexRef.current === loggedIndex) advanceToNext();
+        }, 600);
+      }
     } catch {
       toast.error("Failed to log set");
     } finally {
@@ -605,23 +579,9 @@ export function WorkoutSessionTracker({
               </div>
             )}
           </div>
-          <div className="border-t border-border p-5">
-            <p className="mb-3 text-label text-muted-foreground">Session overview</p>
-            <ul className="divide-y divide-border overflow-hidden rounded-lg border border-border">
-              {session.workout.blocks.map((block) => (
-                <li key={block.id} className="flex min-h-11 items-center gap-3 bg-surface-muted/50 px-3 py-2">
-                  <span className="truncate text-label text-foreground">{block.name || block.type}</span>
-                  {isCircuitBlock(block.type) && block.rounds > 1 && (
-                    <Badge variant="secondary" className="shrink-0">
-                      {block.rounds} rounds
-                    </Badge>
-                  )}
-                  <span className="ml-auto shrink-0 text-caption tabular-nums">
-                    {block.exercises.length} ex.
-                  </span>
-                </li>
-              ))}
-            </ul>
+          <div className="border-t border-border p-4 sm:p-5">
+            <p className="mb-3 text-label text-muted-foreground">Exercises in this workout</p>
+            <WorkoutExercisePreview blocks={session.workout.blocks} />
             <Button
               size="lg"
               className="mt-5 h-12 w-full sm:h-10"
@@ -652,11 +612,69 @@ export function WorkoutSessionTracker({
   ).length;
   const allSetsLogged = loggedSetCount >= currentSetCount;
 
+  // Exercise actions: Complete is the forward button (Next once done). Phones
+  // and tablets get them in a thumb-reach bar above the tab bar; from `lg`
+  // they stay pinned in the top bar beside the timer.
+  const renderActions = (className?: string) => (
+    <div className={cn("flex items-center gap-2", className)}>
+      <Button
+        variant="outline"
+        className={cn(WORKOUT_TOUCH, "gap-1 px-2.5 sm:px-3")}
+        disabled={currentIndex === 0}
+        onClick={() => setCurrentIndex((i) => Math.max(0, i - 1))}
+        aria-label="Previous exercise"
+      >
+        <ChevronLeft className="size-4" />
+        <span className="hidden sm:inline">Prev</span>
+      </Button>
+      <span className="min-w-0 flex-1 truncate text-center text-label tabular-nums text-muted-foreground">
+        {currentItem?.kind === "rest" ? "Rest" : `${currentIndex + 1} of ${totalItems}`}
+      </span>
+      {currentItem?.kind === "rest" ? (
+        <Button
+          className={cn(WORKOUT_TOUCH, "gap-1.5 px-4")}
+          onClick={() => { setRestCountdown(null); advanceToNext(); }}
+        >
+          <SkipForward className="size-4" /> Skip rest
+        </Button>
+      ) : currentDone ? (
+        <Button className={cn(WORKOUT_TOUCH, "gap-1 px-4")} onClick={advanceToNext}>
+          {currentIndex === totalItems - 1 ? "Finish" : "Next"} <ChevronRight className="size-4" />
+        </Button>
+      ) : (
+        <>
+          <Button
+            variant="outline"
+            className={cn(WORKOUT_TOUCH, "gap-1.5 px-3")}
+            onClick={handleSkip}
+            disabled={isLoading}
+          >
+            <SkipForward className="size-4" /> Skip
+          </Button>
+          <Button
+            className={cn(WORKOUT_TOUCH, "gap-1.5 px-4")}
+            onClick={handleCompleteAll}
+            disabled={isLoading || !allSetsLogged}
+            title={allSetsLogged ? undefined : "Mark every set complete first"}
+          >
+            {isLoading ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
+            Complete
+            {!allSetsLogged && currentSetCount > 1 && (
+              <span className="tabular-nums opacity-80">
+                {loggedSetCount}/{currentSetCount}
+              </span>
+            )}
+          </Button>
+        </>
+      )}
+    </div>
+  );
+
   return (
     <div className="flex w-full flex-col gap-3">
-      {/* Timer, progress, exits and the exercise actions — pinned so Complete
-          and Skip are always in reach, however long the exercise card is. The
-          negative top offset matches <main>'s gutter (p-4 / lg:p-6 / 2xl:p-8)
+      {/* Timer, progress, exits (and from `lg` the exercise actions) — pinned
+          so Complete and Skip are always in reach, however long the exercise
+          card is. The negative top offset matches <main>'s gutter (p-4 / lg:p-6 / 2xl:p-8)
           so the bar sits flush with the top of the scroll area. */}
       <div className="sticky -top-4 z-20 -mx-4 border-b border-border bg-canvas/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-canvas/80 sm:mx-0 sm:rounded-xl sm:rounded-t-none sm:border sm:bg-surface sm:shadow-xs lg:-top-6 2xl:-top-8">
         <div className="flex items-center gap-3">
@@ -690,59 +708,7 @@ export function WorkoutSessionTracker({
         </div>
         <Progress value={progress} className="mt-2 h-1.5 rounded-full sm:hidden" />
 
-        {/* Exercise actions: Complete is the forward button (Next once done). */}
-        <div className="mt-3 flex items-center gap-2">
-          <Button
-            variant="outline"
-            className={cn(WORKOUT_TOUCH, "gap-1 px-2.5 sm:px-3")}
-            disabled={currentIndex === 0}
-            onClick={() => setCurrentIndex((i) => Math.max(0, i - 1))}
-            aria-label="Previous exercise"
-          >
-            <ChevronLeft className="size-4" />
-            <span className="hidden sm:inline">Prev</span>
-          </Button>
-          <span className="min-w-0 flex-1 truncate text-center text-label tabular-nums text-muted-foreground">
-            {currentItem?.kind === "rest" ? "Rest" : `${currentIndex + 1} of ${totalItems}`}
-          </span>
-          {currentItem?.kind === "rest" ? (
-            <Button
-              className={cn(WORKOUT_TOUCH, "gap-1.5 px-4")}
-              onClick={() => { setRestCountdown(null); advanceToNext(); }}
-            >
-              <SkipForward className="size-4" /> Skip rest
-            </Button>
-          ) : currentDone ? (
-            <Button className={cn(WORKOUT_TOUCH, "gap-1 px-4")} onClick={advanceToNext}>
-              {currentIndex === totalItems - 1 ? "Finish" : "Next"} <ChevronRight className="size-4" />
-            </Button>
-          ) : (
-            <>
-              <Button
-                variant="outline"
-                className={cn(WORKOUT_TOUCH, "gap-1.5 px-3")}
-                onClick={handleSkip}
-                disabled={isLoading}
-              >
-                <SkipForward className="size-4" /> Skip
-              </Button>
-              <Button
-                className={cn(WORKOUT_TOUCH, "gap-1.5 px-4")}
-                onClick={handleCompleteAll}
-                disabled={isLoading || !allSetsLogged}
-                title={allSetsLogged ? undefined : "Mark every set complete first"}
-              >
-                {isLoading ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
-                Complete
-                {!allSetsLogged && currentSetCount > 1 && (
-                  <span className="tabular-nums opacity-80">
-                    {loggedSetCount}/{currentSetCount}
-                  </span>
-                )}
-              </Button>
-            </>
-          )}
-        </div>
+        {renderActions("mt-3 hidden lg:flex")}
       </div>
 
       {/* Rest card */}
@@ -881,34 +847,34 @@ export function WorkoutSessionTracker({
                       {isRunType && prescriptionSummary(targetSet) && (
                         <p className="text-caption">{prescriptionSummary(targetSet)}</p>
                       )}
-                      <div className="flex flex-wrap gap-2">
+                      <div className="grid grid-cols-[repeat(auto-fit,minmax(3.75rem,1fr))] items-end gap-2 sm:flex sm:flex-wrap">
                         {!isRunType && targetSet.targetReps != null && (
                           <label className={SET_FIELD}>
                             <span className={SET_FIELD_LABEL}>Reps completed</span>
-                            <Input type="number" placeholder={targetSet.targetReps.toString()} value={activeSetLogs[0]?.actualReps ?? ""} onChange={(e) => handleSetInputChange(0, "actualReps", e.target.value)} className={cn(SET_FIELD_INPUT, "w-20")} disabled={activeSetLogs[0]?.completed} />
+                            <Input type="number" inputMode="numeric" placeholder={targetSet.targetReps.toString()} value={activeSetLogs[0]?.actualReps ?? ""} onChange={(e) => handleSetInputChange(0, "actualReps", e.target.value)} className={cn(SET_FIELD_INPUT, "w-full sm:w-20")} disabled={activeSetLogs[0]?.completed} />
                           </label>
                         )}
                         {!isRunType && targetSet.targetWeight != null && (
                           <label className={SET_FIELD}>
                             <span className={SET_FIELD_LABEL}>Weight</span>
-                            <Input type="number" placeholder={targetSet.targetWeight.toString()} value={activeSetLogs[0]?.actualWeight ?? ""} onChange={(e) => handleSetInputChange(0, "actualWeight", e.target.value)} className={cn(SET_FIELD_INPUT, "w-20")} disabled={activeSetLogs[0]?.completed} />
+                            <Input type="number" inputMode="decimal" placeholder={targetSet.targetWeight.toString()} value={activeSetLogs[0]?.actualWeight ?? ""} onChange={(e) => handleSetInputChange(0, "actualWeight", e.target.value)} className={cn(SET_FIELD_INPUT, "w-full sm:w-20")} disabled={activeSetLogs[0]?.completed} />
                           </label>
                         )}
                         {isRunType && targetSet.targetDistance != null && (
                           <label className={SET_FIELD}>
                             <span className={SET_FIELD_LABEL}>Distance (mi)</span>
-                            <Input type="number" step={0.1} placeholder={targetSet.targetDistance.toString()} value={activeSetLogs[0]?.actualDistance ?? ""} onChange={(e) => handleSetInputChange(0, "actualDistance", e.target.value)} className={cn(SET_FIELD_INPUT, "w-20")} disabled={activeSetLogs[0]?.completed} />
+                            <Input type="number" inputMode="decimal" step={0.1} placeholder={targetSet.targetDistance.toString()} value={activeSetLogs[0]?.actualDistance ?? ""} onChange={(e) => handleSetInputChange(0, "actualDistance", e.target.value)} className={cn(SET_FIELD_INPUT, "w-full sm:w-20")} disabled={activeSetLogs[0]?.completed} />
                           </label>
                         )}
                         {targetSet.targetDuration != null && (
                           <label className={SET_FIELD}>
                             <span className={SET_FIELD_LABEL}>{targetSet.targetDurationUnit === "MIN" ? "Min" : "Secs"}</span>
-                            <Input type="number" placeholder={targetSet.targetDuration.toString()} value={activeSetLogs[0]?.actualDuration ?? ""} onChange={(e) => handleSetInputChange(0, "actualDuration", e.target.value)} className={cn(SET_FIELD_INPUT, "w-20")} disabled={activeSetLogs[0]?.completed} />
+                            <Input type="number" inputMode="numeric" placeholder={targetSet.targetDuration.toString()} value={activeSetLogs[0]?.actualDuration ?? ""} onChange={(e) => handleSetInputChange(0, "actualDuration", e.target.value)} className={cn(SET_FIELD_INPUT, "w-full sm:w-20")} disabled={activeSetLogs[0]?.completed} />
                           </label>
                         )}
                         <label className={SET_FIELD}>
                           <span className={SET_FIELD_LABEL}>RPE</span>
-                          <Input type="number" min={0} max={10} placeholder={targetSet.targetRPE?.toString() ?? "—"} value={activeSetLogs[0]?.actualRPE ?? ""} onChange={(e) => handleSetInputChange(0, "actualRPE", e.target.value)} className={cn(SET_FIELD_INPUT, "w-16")} disabled={activeSetLogs[0]?.completed} />
+                          <Input type="number" inputMode="numeric" min={0} max={10} placeholder={targetSet.targetRPE?.toString() ?? "—"} value={activeSetLogs[0]?.actualRPE ?? ""} onChange={(e) => handleSetInputChange(0, "actualRPE", e.target.value)} className={cn(SET_FIELD_INPUT, "w-full sm:w-16")} disabled={activeSetLogs[0]?.completed} />
                         </label>
                         {targetSet.restAfter != null && (
                           <div className={SET_FIELD}>
@@ -954,34 +920,34 @@ export function WorkoutSessionTracker({
                               {prescriptionSummary(set)}
                             </p>
                           )}
-                          <div className="flex flex-wrap gap-2">
+                          <div className="grid grid-cols-[repeat(auto-fit,minmax(3.75rem,1fr))] items-end gap-2 sm:flex sm:flex-wrap">
                             {!isRunType && set.targetReps != null && (
                               <label className={SET_FIELD}>
                                 <span className={SET_FIELD_LABEL}>Reps completed</span>
-                                <Input type="number" placeholder={set.targetReps.toString()} value={logData.actualReps ?? ""} onChange={(e) => handleSetInputChange(i, "actualReps", e.target.value)} className={cn(SET_FIELD_INPUT, "w-20")} disabled={isSetDone} />
+                                <Input type="number" inputMode="numeric" placeholder={set.targetReps.toString()} value={logData.actualReps ?? ""} onChange={(e) => handleSetInputChange(i, "actualReps", e.target.value)} className={cn(SET_FIELD_INPUT, "w-full sm:w-20")} disabled={isSetDone} />
                               </label>
                             )}
                             {!isRunType && set.targetWeight != null && (
                               <label className={SET_FIELD}>
                                 <span className={SET_FIELD_LABEL}>Weight</span>
-                                <Input type="number" placeholder={set.targetWeight.toString()} value={logData.actualWeight ?? ""} onChange={(e) => handleSetInputChange(i, "actualWeight", e.target.value)} className={cn(SET_FIELD_INPUT, "w-20")} disabled={isSetDone} />
+                                <Input type="number" inputMode="decimal" placeholder={set.targetWeight.toString()} value={logData.actualWeight ?? ""} onChange={(e) => handleSetInputChange(i, "actualWeight", e.target.value)} className={cn(SET_FIELD_INPUT, "w-full sm:w-20")} disabled={isSetDone} />
                               </label>
                             )}
                             {isRunType && set.targetDistance != null && (
                               <label className={SET_FIELD}>
                                 <span className={SET_FIELD_LABEL}>Distance (mi)</span>
-                                <Input type="number" step={0.1} placeholder={set.targetDistance.toString()} value={logData.actualDistance ?? ""} onChange={(e) => handleSetInputChange(i, "actualDistance", e.target.value)} className={cn(SET_FIELD_INPUT, "w-20")} disabled={isSetDone} />
+                                <Input type="number" inputMode="decimal" step={0.1} placeholder={set.targetDistance.toString()} value={logData.actualDistance ?? ""} onChange={(e) => handleSetInputChange(i, "actualDistance", e.target.value)} className={cn(SET_FIELD_INPUT, "w-full sm:w-20")} disabled={isSetDone} />
                               </label>
                             )}
                             {set.targetDuration != null && (
                               <label className={SET_FIELD}>
                                 <span className={SET_FIELD_LABEL}>{set.targetDurationUnit === "MIN" ? "Min" : "Secs"}</span>
-                                <Input type="number" placeholder={set.targetDuration.toString()} value={logData.actualDuration ?? ""} onChange={(e) => handleSetInputChange(i, "actualDuration", e.target.value)} className={cn(SET_FIELD_INPUT, "w-20")} disabled={isSetDone} />
+                                <Input type="number" inputMode="numeric" placeholder={set.targetDuration.toString()} value={logData.actualDuration ?? ""} onChange={(e) => handleSetInputChange(i, "actualDuration", e.target.value)} className={cn(SET_FIELD_INPUT, "w-full sm:w-20")} disabled={isSetDone} />
                               </label>
                             )}
                             <label className={SET_FIELD}>
                               <span className={SET_FIELD_LABEL}>RPE</span>
-                              <Input type="number" min={0} max={10} placeholder={set.targetRPE?.toString() ?? "—"} value={logData.actualRPE ?? ""} onChange={(e) => handleSetInputChange(i, "actualRPE", e.target.value)} className={cn(SET_FIELD_INPUT, "w-16")} disabled={isSetDone} />
+                              <Input type="number" inputMode="numeric" min={0} max={10} placeholder={set.targetRPE?.toString() ?? "—"} value={logData.actualRPE ?? ""} onChange={(e) => handleSetInputChange(i, "actualRPE", e.target.value)} className={cn(SET_FIELD_INPUT, "w-full sm:w-16")} disabled={isSetDone} />
                             </label>
                             {set.restAfter != null && (
                               <div className={SET_FIELD}>
@@ -1037,6 +1003,13 @@ export function WorkoutSessionTracker({
           </Card>
         );
       })()}
+
+      {/* Thumb-reach action bar below `lg`: pinned flush on top of the bottom
+          tab bar. The negative offset cancels <main>'s 1rem bottom gutter (its
+          padding already reserves the tab bar + safe area). */}
+      <div className="sticky -bottom-4 z-20 -mx-4 border-t border-border bg-canvas/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-canvas/80 sm:mx-0 sm:rounded-xl sm:rounded-b-none sm:border sm:bg-surface sm:shadow-xs lg:hidden">
+        {renderActions()}
+      </div>
 
       {/* Skip dialog — the timer is paused while it's open */}
       <Dialog open={skipDialogOpen} onOpenChange={(open) => { if (!open && !isSkipping) cancelSkip(); }}>

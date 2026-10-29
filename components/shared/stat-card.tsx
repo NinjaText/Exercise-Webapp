@@ -87,15 +87,17 @@ export function StatCard({
         className,
       )}
     >
-      <CardContent className={cn(isCompact ? "p-4" : "p-5")}>
+      <CardContent className={cn(isCompact ? "p-3.5 sm:p-4" : "p-4 sm:p-5")}>
         {isCompact ? (
-          <div className="flex items-center gap-3">
+          // Phones put the card in a two-up grid, so the icon sits above the
+          // label there and the label gets the full card width.
+          <div className="relative flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-3">
             {iconBadge}
-            <div className="min-w-0">
-              <p className="truncate text-caption font-medium">{label}</p>
+            <div className="w-full min-w-0">
+              <p className="line-clamp-2 text-caption font-medium sm:line-clamp-none sm:truncate">{label}</p>
               <p className="text-title tabular-nums text-foreground">{value}</p>
             </div>
-            {linkArrow && <span className="ml-auto self-start">{linkArrow}</span>}
+            {linkArrow && <span className="absolute top-0 right-0 sm:static sm:ml-auto sm:self-start">{linkArrow}</span>}
           </div>
         ) : (
           <>

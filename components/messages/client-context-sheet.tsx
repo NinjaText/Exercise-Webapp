@@ -16,7 +16,7 @@ export function ClientContextSheet({ client, data }: ClientContextSheetProps) {
     <Sheet>
       <SheetTrigger
         render={
-          <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 xl:hidden" aria-label="Client info" />
+          <Button variant="ghost" size="icon" className="size-10 shrink-0 sm:size-8 xl:hidden" aria-label="Client info" />
         }
       >
         <Info className="h-4 w-4" />

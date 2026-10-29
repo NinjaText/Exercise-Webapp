@@ -447,7 +447,7 @@ function SortableExercise({
       {/* Sets & Notes Container — always visible so reps/sets/lbs are editable
           without a further click. The video preview stays behind the expand
           toggle to avoid loading an iframe per exercise on open. */}
-      <div className="mt-3 ml-11 border-l-2 border-border pl-3">
+      <div className="mt-3 ml-0 border-l-2 border-border pl-2 sm:ml-11 sm:pl-3">
           {expanded && hasRealVideoUrl(exercise.exercise.videoUrl) && (
             <div className="mb-3 aspect-video w-full max-w-[280px] overflow-hidden rounded-md bg-surface-muted ring-1 ring-border">
               <UniversalVideoPlayer
@@ -470,7 +470,7 @@ function SortableExercise({
           <div className="space-y-1 overflow-x-auto">
             {/* Minimal Set Headers */}
             {exercise.sets.length > 0 && (
-              <div className="mb-1 grid min-w-[340px] grid-cols-[1.5rem_minmax(80px,1.5fr)_minmax(80px,1.5fr)_minmax(60px,1fr)_2rem] gap-2 px-1 text-caption font-medium uppercase tracking-wide">
+              <div className="mb-1 grid min-w-[316px] sm:min-w-[340px] grid-cols-[1.5rem_minmax(80px,1.5fr)_minmax(80px,1.5fr)_minmax(60px,1fr)_2rem] gap-2 px-1 text-caption font-medium uppercase tracking-wide">
                 <span className="text-center">Set</span>
                 <span>Reps / Dur</span>
                 <span>Load / %</span>
@@ -487,7 +487,7 @@ function SortableExercise({
               return (
               <div
                 key={set.id}
-                className="group/set grid min-w-[340px] grid-cols-[1.5rem_minmax(80px,1.5fr)_minmax(80px,1.5fr)_minmax(60px,1fr)_2rem] items-center gap-2 rounded-md border border-border bg-surface p-1 transition-colors hover:bg-surface-muted motion-reduce:transition-none"
+                className="group/set grid min-w-[316px] sm:min-w-[340px] grid-cols-[1.5rem_minmax(80px,1.5fr)_minmax(80px,1.5fr)_minmax(60px,1fr)_2rem] items-center gap-2 rounded-md border border-border bg-surface p-1 transition-colors hover:bg-surface-muted motion-reduce:transition-none"
               >
                 <div className="relative text-center text-caption font-medium tabular-nums">                                                                               
                   {setIndex + 1}
@@ -502,7 +502,7 @@ function SortableExercise({
                     type="number"
                     value={set.targetReps ?? ""}
                     onChange={(e) => onSetChange(blockIndex, exerciseIndex, setIndex, "targetReps", e.target.value)}                                                  
-                    className="h-7 border-transparent px-1.5 text-caption text-foreground shadow-none hover:border-border-strong focus:border-ring focus-visible:ring-1 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="h-7 border-transparent px-1.5 text-caption text-foreground shadow-none hover:border-border-strong focus:border-ring focus-visible:ring-1 disabled:cursor-not-allowed disabled:opacity-50 max-sm:h-9 max-sm:text-base"
                     placeholder="Reps"
                     disabled={isCompleted}
                   />
@@ -511,7 +511,7 @@ function SortableExercise({
                       type="number"
                       value={set.targetDuration ?? ""}
                       onChange={(e) => onSetChange(blockIndex, exerciseIndex, setIndex, "targetDuration", e.target.value)}
-                      className="h-7 border-transparent bg-transparent px-1.5 text-caption shadow-none hover:border-border-strong focus:border-ring focus-visible:ring-1 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="h-7 border-transparent bg-transparent px-1.5 text-caption shadow-none hover:border-border-strong focus:border-ring focus-visible:ring-1 disabled:cursor-not-allowed disabled:opacity-50 max-sm:h-9 max-sm:text-base"
                       placeholder="Duration"
                       disabled={isCompleted}
                     />
@@ -547,7 +547,7 @@ function SortableExercise({
                     type="number"
                     value={set.targetWeight ?? ""}
                     onChange={(e) => onSetChange(blockIndex, exerciseIndex, setIndex, "targetWeight", e.target.value)}                                                
-                    className="h-7 border-transparent px-1.5 text-caption text-foreground shadow-none hover:border-border-strong focus:border-ring focus-visible:ring-1 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="h-7 border-transparent px-1.5 text-caption text-foreground shadow-none hover:border-border-strong focus:border-ring focus-visible:ring-1 disabled:cursor-not-allowed disabled:opacity-50 max-sm:h-9 max-sm:text-base"
                     placeholder="Lbs/Kg"
                     disabled={isCompleted}
                   />
@@ -555,7 +555,7 @@ function SortableExercise({
                     type="number"
                     value={set.targetPercentage1RM ?? ""}
                     onChange={(e) => onSetChange(blockIndex, exerciseIndex, setIndex, "targetPercentage1RM", e.target.value)}
-                    className="h-7 border-transparent bg-transparent px-1.5 text-caption shadow-none hover:border-border-strong focus:border-ring focus-visible:ring-1 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="h-7 border-transparent bg-transparent px-1.5 text-caption shadow-none hover:border-border-strong focus:border-ring focus-visible:ring-1 disabled:cursor-not-allowed disabled:opacity-50 max-sm:h-9 max-sm:text-base"
                     placeholder="% 1RM"
                     disabled={isCompleted}
                   />
@@ -575,7 +575,7 @@ function SortableExercise({
                     type="text"
                     value={set.tempo ?? ""}
                     onChange={(e) => onSetChange(blockIndex, exerciseIndex, setIndex, "tempo", e.target.value)}
-                    className="h-7 border-transparent px-1.5 text-caption text-foreground shadow-none hover:border-border-strong focus:border-ring focus-visible:ring-1 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="h-7 border-transparent px-1.5 text-caption text-foreground shadow-none hover:border-border-strong focus:border-ring focus-visible:ring-1 disabled:cursor-not-allowed disabled:opacity-50 max-sm:h-9 max-sm:text-base"
                     placeholder="Tempo"
                     disabled={isCompleted}
                   />
@@ -583,7 +583,7 @@ function SortableExercise({
                     type="number"
                     value={set.restAfter ?? ""}
                     onChange={(e) => onSetChange(blockIndex, exerciseIndex, setIndex, "restAfter", e.target.value)}                                                   
-                    className="h-7 border-transparent bg-transparent px-1.5 text-caption shadow-none hover:border-border-strong focus:border-ring focus-visible:ring-1 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="h-7 border-transparent bg-transparent px-1.5 text-caption shadow-none hover:border-border-strong focus:border-ring focus-visible:ring-1 disabled:cursor-not-allowed disabled:opacity-50 max-sm:h-9 max-sm:text-base"
                     placeholder="Rest(s)"
                     disabled={isCompleted}
                   />
@@ -595,7 +595,7 @@ function SortableExercise({
                     variant="ghost"
                     size="icon"
                     aria-label={`Delete set ${setIndex + 1}`}
-                    className="size-8 text-muted-foreground opacity-0 transition-opacity hover:text-destructive focus-visible:opacity-100 group-hover/set:opacity-100 disabled:opacity-0 motion-reduce:transition-none"                                                                               
+                    className="size-8 text-muted-foreground opacity-0 transition-opacity max-lg:enabled:opacity-100 hover:text-destructive focus-visible:opacity-100 group-hover/set:opacity-100 disabled:opacity-0 motion-reduce:transition-none"                                                                               
                     onClick={() => onDeleteSet(blockIndex, exerciseIndex, setIndex)}  
                     disabled={isCompleted}
                   >

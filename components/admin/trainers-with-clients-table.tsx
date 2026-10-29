@@ -70,11 +70,12 @@ export function TrainersWithClientsTable({ trainers }: Props) {
           const { trainer } = row;
           const isExpanded = expanded.has(trainer.id);
           return (
-            <div className="flex items-center gap-3">
+            // Phones: extra right room for the three row actions in the card corner.
+            <div className="flex min-w-0 items-center gap-3 max-sm:pr-16">
               <button
                 type="button"
                 onClick={() => toggleExpanded(trainer.id)}
-                className="shrink-0 text-muted-foreground hover:text-foreground"
+                className="relative shrink-0 text-muted-foreground after:absolute after:-inset-3 hover:text-foreground"
                 aria-label={isExpanded ? "Collapse clients" : "Expand clients"}
               >
                 {isExpanded
@@ -93,7 +94,7 @@ export function TrainersWithClientsTable({ trainers }: Props) {
         }
         const { client } = row;
         return (
-          <div className="flex items-center gap-3 pl-9">
+          <div className="flex min-w-0 items-center gap-3 pl-9">
             <div className="w-px h-4 bg-border shrink-0" />
             <UserAvatar imageUrl={client.imageUrl} firstName={client.firstName} lastName={client.lastName} />
             <div className="min-w-0">
