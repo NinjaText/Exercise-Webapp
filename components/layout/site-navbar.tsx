@@ -8,9 +8,9 @@ import { Menu, X } from "lucide-react";
 import { ProductLogo } from "@/components/branding/product-logo";
 
 const NAV_LINKS = [
-  { label: "Features", href: "/#features" },
-  { label: "How it Works", href: "/#how-it-works" },
-  { label: "Pricing", href: "/#pricing" },
+  { label: "Clubs", href: "/clubs" },
+  { label: "Professionals", href: "/professionals" },
+  { label: "Pricing", href: "/professionals#pricing" },
   { label: "About", href: "/about" },
 ];
 
