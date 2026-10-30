@@ -7,6 +7,10 @@
  */
 export const PUBLIC_ROUTES = [
   "/",
+  // Marketing pages (app/clubs, app/professionals, app/individuals).
+  "/clubs",
+  "/professionals",
+  "/individuals",
   "/sign-in(.*)",
   "/sign-up(.*)",
   "/onboarding(.*)",

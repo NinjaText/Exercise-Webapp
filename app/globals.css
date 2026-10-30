@@ -4,6 +4,19 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* Marketing site palette (warm cream, see app/page.tsx + components/marketing).
+   Static values: the public pages ignore org branding and dark mode. */
+@theme {
+  --color-cream: #faf5ef;
+  --color-cream-deep: #f3e9de;
+  --color-sand: #ecdccb;
+  --color-sand-line: #ece1d5;
+  --color-clay: #c49a7c;
+  --color-ember: #e0874a;
+  --color-ink: #2d2622;
+  --color-ink-soft: #6f645b;
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
