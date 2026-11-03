@@ -110,7 +110,8 @@ export function Sidebar({
       <SidebarUserBlock
         menu={houseCoach ? <ExitClubButton /> : <UserButton signInUrl="/sign-in" appearance={clerkAppearance} />}
         name={userName}
-        email={userEmail}
+        // The house coach's address is a synthetic internal one; don't show it.
+        email={houseCoach ? null : userEmail}
         footer={
           // Spec §12.3 default: clients of a branded org see a small product credit.
           branding.enabled && role === "CLIENT" ? (

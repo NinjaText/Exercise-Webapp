@@ -1,7 +1,7 @@
 import { HelpCircle, PenLine, Quote } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { REFLECTION_KIND_LABELS, type ReflectionKind } from "@/lib/reflections/constants";
+import type { ReflectionKind } from "@/lib/reflections/constants";
 
 export interface ReflectionDisplay {
   kind: string;
@@ -16,15 +16,11 @@ const KIND_ICONS: Record<ReflectionKind, LucideIcon> = {
   PROMPT: PenLine,
 };
 
-function kindMeta(kind: string): { label: string; Icon: LucideIcon } {
-  const known = kind in KIND_ICONS ? (kind as ReflectionKind) : "PROMPT";
-  return { label: REFLECTION_KIND_LABELS[known], Icon: KIND_ICONS[known] };
-}
 
 /**
  * The visual half of a reflection: the trainer's image (with a brand-tinted
- * scrim so the text stays legible) or a soft token gradient, plus the kind
- * label, text and attribution (centred when there's no image). Shared by
+ * scrim so the text stays legible) or a soft token gradient, plus the text
+ * and attribution (no kind label: the client sees just the words) (centred when there's no image). Shared by
  * the client dashboard card and the trainer's preview step so both always
  * look the same.
  */
@@ -38,7 +34,7 @@ export function ReflectionArtwork({
   /** "compact" for list rows and previews in narrow columns. */
   size?: "default" | "compact";
 }) {
-  const { label, Icon } = kindMeta(reflection.kind);
+  const Icon = KIND_ICONS[reflection.kind in KIND_ICONS ? (reflection.kind as ReflectionKind) : "PROMPT"];
   const hasImage = Boolean(reflection.imageUrl);
   const compact = size === "compact";
   const isQuote = reflection.kind === "QUOTE";
@@ -81,16 +77,7 @@ export function ReflectionArtwork({
 
       <p
         className={cn(
-          "flex items-center gap-1.5 text-caption font-semibold tracking-wide uppercase",
-          hasImage ? "text-primary-foreground/80" : "text-primary"
-        )}
-      >
-        <Icon className="size-3.5" aria-hidden />
-        {label}
-      </p>
-      <p
-        className={cn(
-          "mt-2 font-medium text-balance",
+          "font-medium text-balance",
           compact ? "text-body" : "text-heading sm:text-title",
           isQuote && "italic"
         )}

@@ -14,7 +14,7 @@ import { DataList, type Column } from "@/components/shared/data-list";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { COACHING_BADGE } from "@/lib/ui/status";
 import { getClubAttentionCounts } from "@/lib/services/club-alerts.service";
-import { getHouseCoach } from "@/lib/services/house-coach.service";
+import { getHouseCoach, HOUSE_COACH_FIRST_NAME } from "@/lib/services/house-coach.service";
 import { describeClubPrice } from "@/lib/services/club-pricing.service";
 import { isFreeClub } from "@/lib/clubs/free-club";
 import { priceFormField } from "./price-fields";
@@ -24,6 +24,7 @@ import { ExtendTrialButton } from "./extend-trial-button";
 import { ConvertToTrainerButton } from "./convert-to-trainer-button";
 import { CopyValue } from "./copy-value";
 import { ManageClubButton } from "./manage-club-button";
+import { HouseCoachName } from "./house-coach-name";
 import { CLUB_MEMBER_LIST_LIMIT, memberListTruncationNote } from "./members-limit";
 
 interface PageProps {
@@ -207,14 +208,12 @@ export default async function AdminClubDetailPage({ params }: PageProps) {
           <SectionCard title="House coach">
             <div className="flex flex-col gap-4">
               {houseCoachName ? (
-                <div className="flex min-w-0 items-center gap-3">
-                  <Avatar className="size-10">
-                    <AvatarFallback className="bg-brand-soft text-sm font-semibold text-brand-foreground">
-                      {initials(houseCoachName)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <p className="truncate text-body font-medium text-foreground">{houseCoachName}</p>
-                </div>
+                <HouseCoachName
+                  clerkOrgId={org.clerkOrgId}
+                  name={houseCoachName}
+                  customName={org.houseCoachName ?? null}
+                  defaultName={`${HOUSE_COACH_FIRST_NAME} ${org.name}`}
+                />
               ) : (
                 <p className="text-body text-muted-foreground">No house coach yet.</p>
               )}

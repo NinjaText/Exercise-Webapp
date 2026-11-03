@@ -38,8 +38,8 @@ describe("OrgIdentity — fallback table (spec §6.1)", () => {
     expect(imgSrcs(html)).toEqual([DARK]);
     expect(html).not.toContain(PLATE);
     expect(html).toContain('alt="Teal Physio"');
-    expect(html).toContain('height="28"');
-    expect(html).toContain('width="144"');
+    expect(html).toContain('height="32"');
+    expect(html).toContain('width="176"');
   });
 
   it("dark surface: falls back to logo-on-light on a bg-card plate", () => {

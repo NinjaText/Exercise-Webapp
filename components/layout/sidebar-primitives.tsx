@@ -32,7 +32,7 @@ export const SIDEBAR_DRAWER_CLASS =
 /** The top identity row (org lockup / Super Admin lockup). 56px, aligned with the top bar. */
 export function SidebarIdentityRow({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex h-14 shrink-0 items-center gap-3 border-b border-sidebar-border/60 px-4 in-data-[slot=sheet-content]:box-content in-data-[slot=sheet-content]:pt-(--safe-top) in-data-[slot=sheet-content]:pr-14">
+    <div className="flex min-h-14 shrink-0 items-center gap-3 border-b border-sidebar-border/60 py-1 px-4 in-data-[slot=sheet-content]:box-content in-data-[slot=sheet-content]:pt-(--safe-top) in-data-[slot=sheet-content]:pr-14">
       {children}
     </div>
   );
@@ -128,7 +128,8 @@ export function SidebarUserBlock({
 }: {
   menu: React.ReactNode;
   name: string;
-  email: string;
+  /** Omitted for accounts whose address is internal (e.g. a club's house coach). */
+  email?: string | null;
   footer?: React.ReactNode;
 }) {
   return (
@@ -137,7 +138,7 @@ export function SidebarUserBlock({
         {menu}
         <div className="min-w-0 flex-1">
           <p className="truncate text-label text-sidebar-foreground">{name}</p>
-          <p className="truncate text-caption text-sidebar-foreground/60">{email}</p>
+          {email ? <p className="truncate text-caption text-sidebar-foreground/60">{email}</p> : null}
         </div>
       </div>
       {footer}

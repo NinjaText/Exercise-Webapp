@@ -104,8 +104,8 @@ export function AuthShell({
           data-slot="auth-brand-content"
           className="flex min-h-dvh w-full flex-col self-start px-10 py-10 lg:sticky lg:top-0 xl:px-14"
         >
-          <div className="flex h-10 items-center gap-3">
-            <OrgIdentity branding={branding} surface="dark" />
+          <div className="flex min-h-10 items-center gap-3">
+            <OrgIdentity branding={branding} surface="dark" size="lg" />
           </div>
 
           <div className="flex flex-1 flex-col justify-center py-12">

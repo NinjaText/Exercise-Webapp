@@ -6,6 +6,24 @@ import { emailFrom } from "@/lib/email/send";
 import { ClubError } from "@/lib/services/club-error";
 
 export const HOUSE_COACH_FIRST_NAME = "Coach";
+export const HOUSE_COACH_NAME_MAX = 80;
+
+/**
+ * First/last name for the house coach. A custom `houseCoachName` is split at
+ * its first space (the UI always shows the two joined); otherwise "Coach <club>".
+ */
+export function houseCoachNames(
+  org: Pick<Organization, "name"> & { houseCoachName?: string | null },
+): { firstName: string; lastName: string } {
+  const custom = org.houseCoachName?.trim();
+  if (custom) {
+    const i = custom.indexOf(" ");
+    return i === -1
+      ? { firstName: custom, lastName: "" }
+      : { firstName: custom.slice(0, i), lastName: custom.slice(i + 1).trim() };
+  }
+  return { firstName: HOUSE_COACH_FIRST_NAME, lastName: org.name };
+}
 
 /** `Name <a@b.com>` or `a@b.com` → `b.com`. */
 function senderDomain(): string {
@@ -47,8 +65,7 @@ export async function ensureHouseCoach(org: Organization): Promise<User> {
     (await client.users.createUser({
       externalId,
       emailAddress: [houseCoachEmail(org.clerkOrgId)],
-      firstName: HOUSE_COACH_FIRST_NAME,
-      lastName: org.name,
+      ...houseCoachNames(org),
       skipPasswordRequirement: true,
       publicMetadata: { houseCoach: true, clerkOrgId: org.clerkOrgId },
     }));
@@ -58,8 +75,7 @@ export async function ensureHouseCoach(org: Organization): Promise<User> {
     create: {
       clerkId: clerkUser.id,
       email: houseCoachEmail(org.clerkOrgId),
-      firstName: HOUSE_COACH_FIRST_NAME,
-      lastName: org.name,
+      ...houseCoachNames(org),
       imageUrl: clubLogoUrl(org) ?? clerkUser.imageUrl,
       role: "TRAINER",
       clerkOrgId: org.clerkOrgId,
@@ -105,13 +121,24 @@ export async function isHouseCoach(
   return !!resolved?.houseCoachUserId && resolved.houseCoachUserId === user.id;
 }
 
-/** Pushes "Coach <club name>" and the club logo to Clerk and the DB. */
+/** Pushes just the house coach's display name to Clerk and the DB. */
+export async function syncHouseCoachName(org: Organization): Promise<void> {
+  if (!org.houseCoachUserId) return;
+  const user = await prisma.user.findUnique({ where: { id: org.houseCoachUserId } });
+  if (!user) return;
+  const names = houseCoachNames(org);
+  const client = await clerkClient();
+  await client.users.updateUser(user.clerkId, names);
+  await prisma.user.update({ where: { id: user.id }, data: names });
+}
+
+/** Pushes the house coach's name (custom or "Coach <club name>") and the club logo to Clerk and the DB. */
 export async function syncHouseCoachProfile(org: Organization): Promise<void> {
   if (!org.houseCoachUserId) return;
   const user = await prisma.user.findUnique({ where: { id: org.houseCoachUserId } });
   if (!user) return;
   const client = await clerkClient();
-  const names = { firstName: HOUSE_COACH_FIRST_NAME, lastName: org.name };
+  const names = houseCoachNames(org);
   await client.users.updateUser(user.clerkId, names);
   const logo = clubLogoUrl(org);
   if (logo) {

@@ -58,6 +58,44 @@ const SHARP_INPUT = { limitInputPixels: 4096 * 4096 } as const;
 const TRANSPARENT = { r: 0, g: 0, b: 0, alpha: 0 };
 
 /**
+ * Crops the empty border off a logo (transparent, or a solid colour matching
+ * the top-left pixel) so it fills the fixed logo box instead of shrinking to a
+ * speck inside its own padding. Leaves a thin margin. Returns the input when
+ * there is nothing to trim or the image is a single flat colour.
+ */
+async function trimLogoPadding(png: Buffer): Promise<Buffer> {
+  try {
+    const orig = await sharp(png, SHARP_INPUT).metadata();
+    const { data, info } = await sharp(png, SHARP_INPUT)
+      .trim({ threshold: 12 })
+      .png()
+      .toBuffer({ resolveWithObject: true });
+    // Nothing (or nearly nothing) to trim: keep the original pixels as-is.
+    if (info.width >= (orig.width ?? 0) - 2 && info.height >= (orig.height ?? 0) - 2) return png;
+    const pad = Math.max(2, Math.round(Math.min(info.width, info.height) * 0.04));
+    // Pad with the trimmed-away colour: the top-left pixel of the original.
+    const { data: px } = await sharp(png, SHARP_INPUT)
+      .ensureAlpha()
+      .extract({ left: 0, top: 0, width: 1, height: 1 })
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+    return await sharp(data)
+      .extend({
+        top: pad,
+        bottom: pad,
+        left: pad,
+        right: pad,
+        background: { r: px[0], g: px[1], b: px[2], alpha: px[3] / 255 },
+      })
+      .png()
+      .toBuffer();
+  } catch {
+    // sharp throws when trimming would leave nothing (a flat image).
+    return png;
+  }
+}
+
+/**
  * Validates an upload with the real decoder and re-encodes it to PNG.
  *
  * Re-encoding drops all metadata (sharp strips EXIF/ICC/XMP unless
@@ -117,7 +155,8 @@ export async function processBrandAsset(
     const base = sharp(input, SHARP_INPUT).rotate();
 
     if (kind !== "mark") {
-      const primary = await base
+      const trimmed = await trimLogoPadding(await base.png().toBuffer());
+      const primary = await sharp(trimmed, SHARP_INPUT)
         .resize({ height: 256, width: 1024, fit: "inside", withoutEnlargement: true })
         .png()
         .toBuffer();
