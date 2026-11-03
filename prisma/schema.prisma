@@ -238,6 +238,9 @@ model Organization {
   coachingStripePriceId String?
   /// Club-only. The built-in house coach User. null until ensureHouseCoach runs.
   houseCoachUserId      String?  @db.ObjectId
+  /// Club-only. Display name members see for the house coach (e.g. "Dr. Sharon
+  /// Ackerman, DPT"). null → the default "Coach <club name>".
+  houseCoachName        String?
 
   // ── Branding ─────────────────────────────────────────────────────────────
   /// Master switch. false → every surface uses the product defaults, even if

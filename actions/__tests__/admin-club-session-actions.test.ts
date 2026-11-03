@@ -9,11 +9,15 @@ vi.mock("@/lib/prisma", () => ({
   prisma: {
     organization: { findUnique: vi.fn() },
     adminClubSession: { create: vi.fn(), updateMany: vi.fn() },
+    user: { findUnique: vi.fn() },
   },
 }));
 const createSignInToken = vi.fn();
+const getUser = vi.fn();
+const authMock = vi.fn();
 vi.mock("@clerk/nextjs/server", () => ({
-  clerkClient: vi.fn(async () => ({ signInTokens: { createSignInToken } })),
+  auth: () => authMock(),
+  clerkClient: vi.fn(async () => ({ signInTokens: { createSignInToken }, users: { getUser } })),
 }));
 
 import { prisma } from "@/lib/prisma";
@@ -41,6 +45,14 @@ beforeEach(() => {
   vi.mocked(prisma.adminClubSession.create).mockResolvedValue({ id: "sess1" } as never);
   vi.mocked(prisma.adminClubSession.updateMany).mockResolvedValue({ count: 1 } as never);
   createSignInToken.mockResolvedValue({ token: "tok/+=" });
+  authMock.mockResolvedValue({ userId: "user_coach" });
+  vi.mocked(prisma.user.findUnique).mockResolvedValue({
+    id: "admin1",
+    clerkId: "user_admin",
+    email: "ada@x.com",
+    isActive: true,
+  } as never);
+  getUser.mockResolvedValue({ publicMetadata: { superAdmin: true } });
 });
 
 describe("enterClubAction", () => {
@@ -129,7 +141,7 @@ describe("enterClubAction", () => {
 });
 
 describe("exitClubAction", () => {
-  it("ends the session row, deletes the cookie and audits", async () => {
+  async function setMarker() {
     const value = await signClubAdminMarker({
       sid: "sess1",
       adminUserId: "admin1",
@@ -139,6 +151,10 @@ describe("exitClubAction", () => {
       exp: Date.now() + 60_000,
     });
     cookieStore.get.mockReturnValue({ name: CLUB_ADMIN_COOKIE, value });
+  }
+
+  it("ends the session row, deletes the cookie and audits", async () => {
+    await setMarker();
 
     await exitClubAction();
 
@@ -156,9 +172,62 @@ describe("exitClubAction", () => {
     );
   });
 
+  it("returns a one-shot ticket url that signs the admin back in", async () => {
+    await setMarker();
+    expect(await exitClubAction()).toEqual({
+      url: "/club-session/return?ticket=" + encodeURIComponent("tok/+="),
+    });
+    expect(createSignInToken).toHaveBeenCalledWith({ userId: "user_admin", expiresInSeconds: 60 });
+  });
+
+  it("accepts an admin allowed by SUPER_ADMIN_EMAILS without the Clerk flag", async () => {
+    await setMarker();
+    getUser.mockResolvedValueOnce({ publicMetadata: {} });
+    const prev = process.env.SUPER_ADMIN_EMAILS;
+    process.env.SUPER_ADMIN_EMAILS = "ada@x.com";
+    try {
+      expect((await exitClubAction()).url).toMatch(/^\/club-session\/return\?ticket=/);
+    } finally {
+      process.env.SUPER_ADMIN_EMAILS = prev;
+    }
+  });
+
+  it("returns no url when the session was already ended (ticket is one-shot)", async () => {
+    await setMarker();
+    vi.mocked(prisma.adminClubSession.updateMany).mockResolvedValueOnce({ count: 0 } as never);
+    expect(await exitClubAction()).toEqual({ url: null });
+    expect(createSignInToken).not.toHaveBeenCalled();
+  });
+
+  it("returns no url when the caller is not the marker's house coach", async () => {
+    await setMarker();
+    authMock.mockResolvedValueOnce({ userId: "user_someone_else" });
+    expect(await exitClubAction()).toEqual({ url: null });
+    expect(createSignInToken).not.toHaveBeenCalled();
+  });
+
+  it("returns no url when the admin is no longer a super admin", async () => {
+    await setMarker();
+    getUser.mockResolvedValueOnce({ publicMetadata: {} });
+    expect(await exitClubAction()).toEqual({ url: null });
+    expect(createSignInToken).not.toHaveBeenCalled();
+  });
+
+  it("returns no url when the admin account is deactivated", async () => {
+    await setMarker();
+    vi.mocked(prisma.user.findUnique).mockResolvedValueOnce({
+      id: "admin1",
+      clerkId: "user_admin",
+      email: "ada@x.com",
+      isActive: false,
+    } as never);
+    expect(await exitClubAction()).toEqual({ url: null });
+    expect(createSignInToken).not.toHaveBeenCalled();
+  });
+
   it("still clears the cookie when there is no valid marker", async () => {
     cookieStore.get.mockReturnValue(undefined);
-    await exitClubAction();
+    expect(await exitClubAction()).toEqual({ url: null });
     expect(prisma.adminClubSession.updateMany).not.toHaveBeenCalled();
     expect(logAudit).not.toHaveBeenCalled();
     expect(cookieStore.delete).toHaveBeenCalledWith(CLUB_ADMIN_COOKIE);

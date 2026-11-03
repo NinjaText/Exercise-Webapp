@@ -69,6 +69,33 @@ describe("processBrandAsset — logos", () => {
     expect((await sharp(primary).metadata()).format).toBe("png");
   });
 
+  it("trims a solid-colour border so the logo fills its box", async () => {
+    // 600x300 black canvas with a 200x50 white wordmark in the middle.
+    const mark = await sharp({
+      create: { width: 200, height: 50, channels: 4, background: { r: 255, g: 255, b: 255, alpha: 1 } },
+    })
+      .png()
+      .toBuffer();
+    const input = await sharp({
+      create: { width: 600, height: 300, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 1 } },
+    })
+      .composite([{ input: mark, left: 200, top: 125 }])
+      .png()
+      .toBuffer();
+    const { primary } = await processBrandAsset(input, "logo-on-dark");
+    const meta = await sharp(primary).metadata();
+    // Content + a thin margin, not the 600x300 canvas.
+    expect(meta.width).toBeLessThan(230);
+    expect(meta.height).toBeLessThan(70);
+    expect(meta.width! / meta.height!).toBeGreaterThan(3);
+  });
+
+  it("leaves a flat single-colour logo untouched", async () => {
+    const { primary } = await processBrandAsset(await png(300, 100), "logo-on-light");
+    const meta = await sharp(primary).metadata();
+    expect([meta.width, meta.height]).toEqual([300, 100]);
+  });
+
   it("rejects a logo shorter than 64 px", async () => {
     await expectAssetError(processBrandAsset(await png(300, 63), "logo-on-light"), "dimensions");
   });

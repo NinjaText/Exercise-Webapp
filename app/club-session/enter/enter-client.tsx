@@ -7,9 +7,25 @@ import { useAuth, useClerk, useSignIn } from "@clerk/nextjs";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-const FAILED = "This club link has expired or was already used. Go back and click Manage club again.";
+const DEFAULT_FAILED = "This club link has expired or was already used. Go back and click Manage club again.";
 
-export function EnterClubSession({ ticket }: { ticket: string | null }) {
+export function EnterClubSession({
+  ticket,
+  redirectTo = "/dashboard",
+  failedMessage = DEFAULT_FAILED,
+  pendingMessage = "Signing you in as the club\u2019s coach\u2026",
+  backHref = "/admin/clubs",
+  backLabel = "Back to clubs",
+}: {
+  ticket: string | null;
+  /** Where to land once the ticket is redeemed. */
+  redirectTo?: string;
+  failedMessage?: string;
+  pendingMessage?: string;
+  backHref?: string;
+  backLabel?: string;
+}) {
+  const FAILED = failedMessage;
   // v7 signal API (see app/p/[slug]/success/claim-account.tsx): ticket
   // sign-in is `signIn.ticket()`, then `signIn.finalize()` sets it active.
   const { signIn } = useSignIn();
@@ -47,19 +63,19 @@ export function EnterClubSession({ ticket }: { ticket: string | null }) {
         if (res.error) return setError(FAILED);
         const fin = await signIn.finalize();
         if (fin.error) return setError(FAILED);
-        router.replace("/dashboard");
+        router.replace(redirectTo);
       } catch {
         setError(FAILED);
       }
     })();
-  }, [ticket, isLoaded, isSignedIn, signIn, clerk, router, error]);
+  }, [ticket, isLoaded, isSignedIn, signIn, clerk, router, error, redirectTo, FAILED]);
 
   if (error) {
     return (
       <div className="flex flex-col items-start gap-6">
         <p className="text-body text-muted-foreground">{error}</p>
         <Button asChild variant="outline" className="w-full sm:w-auto">
-          <Link href="/admin/clubs">Back to clubs</Link>
+          <Link href={backHref}>{backLabel}</Link>
         </Button>
       </div>
     );
@@ -68,7 +84,7 @@ export function EnterClubSession({ ticket }: { ticket: string | null }) {
   return (
     <div className="flex items-center gap-3 text-muted-foreground">
       <Loader2 className="size-5 animate-spin text-primary" />
-      <p className="text-body">Signing you in as the club&apos;s coach…</p>
+      <p className="text-body">{pendingMessage}</p>
     </div>
   );
 }

@@ -58,15 +58,21 @@ export async function startClubSession(admin: User, org: Organization, houseCoac
   });
 }
 
-/** Closes the current visit (if the marker is valid) and always clears the cookie (spec H10). */
-export async function endClubSession(): Promise<void> {
+/**
+ * Closes the current visit (if the marker is valid) and always clears the
+ * cookie (spec H10). Returns the marker only when this call closed a still-open
+ * session row, so the caller can hand the browser back to that admin once.
+ */
+export async function endClubSession(): Promise<ClubAdminMarker | null> {
   const store = await cookies();
   const marker = await verifyClubAdminMarker(store.get(CLUB_ADMIN_COOKIE)?.value);
+  let closed: ClubAdminMarker | null = null;
   if (marker) {
-    await prisma.adminClubSession.updateMany({
+    const res = await prisma.adminClubSession.updateMany({
       where: { id: marker.sid, ...nullOrUnset("endedAt") },
       data: { endedAt: new Date() },
     });
+    if (res.count > 0) closed = marker;
     await logAudit({
       actorId: marker.adminUserId,
       actorType: "SUPER_ADMIN",
@@ -79,6 +85,7 @@ export async function endClubSession(): Promise<void> {
     });
   }
   store.delete(CLUB_ADMIN_COOKIE);
+  return closed;
 }
 
 /**

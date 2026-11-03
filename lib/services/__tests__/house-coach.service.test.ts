@@ -35,6 +35,8 @@ import {
   requireHouseCoach,
   isHouseCoach,
   syncHouseCoachProfile,
+  syncHouseCoachName,
+  houseCoachNames,
 } from "../house-coach.service";
 
 const club = { id: "o1", clerkOrgId: "org_club", name: "Iron Club", type: "CLUB", houseCoachUserId: null } as any;
@@ -162,5 +164,41 @@ describe("syncHouseCoachProfile", () => {
   it("is a no-op without a house coach", async () => {
     await syncHouseCoachProfile(club);
     expect(clerk.updateUser).not.toHaveBeenCalled();
+  });
+});
+
+describe("houseCoachNames", () => {
+  it("defaults to Coach <club name>", () => {
+    expect(houseCoachNames({ name: "Iron Club" })).toEqual({ firstName: "Coach", lastName: "Iron Club" });
+    expect(houseCoachNames({ name: "Iron Club", houseCoachName: "   " })).toEqual({
+      firstName: "Coach",
+      lastName: "Iron Club",
+    });
+  });
+  it("splits a custom name at the first space", () => {
+    expect(houseCoachNames({ name: "Iron Club", houseCoachName: "Dr. Sharon Ackerman, DPT" })).toEqual({
+      firstName: "Dr.",
+      lastName: "Sharon Ackerman, DPT",
+    });
+    expect(houseCoachNames({ name: "Iron Club", houseCoachName: "Sharon" })).toEqual({
+      firstName: "Sharon",
+      lastName: "",
+    });
+  });
+});
+
+describe("syncHouseCoachName", () => {
+  it("pushes the custom name to Clerk and the DB without touching the logo", async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({ id: "u_hc", clerkId: "clerk_hc" } as any);
+    await syncHouseCoachName({ ...club, houseCoachUserId: "u_hc", houseCoachName: "Sharon Ackerman DPT" });
+    const names = { firstName: "Sharon", lastName: "Ackerman DPT" };
+    expect(clerk.updateUser).toHaveBeenCalledWith("clerk_hc", names);
+    expect(clerk.updateUserProfileImage).not.toHaveBeenCalled();
+    expect(prisma.user.update).toHaveBeenCalledWith({ where: { id: "u_hc" }, data: names });
+  });
+  it("keeps a custom name when the club profile is re-synced", async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({ id: "u_hc", clerkId: "clerk_hc" } as any);
+    await syncHouseCoachProfile({ ...club, houseCoachUserId: "u_hc", houseCoachName: "Sharon Ackerman" });
+    expect(clerk.updateUser).toHaveBeenCalledWith("clerk_hc", { firstName: "Sharon", lastName: "Ackerman" });
   });
 });

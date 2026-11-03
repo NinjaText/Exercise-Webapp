@@ -9,19 +9,23 @@ import { exitClubAction } from "@/actions/admin-club-session-actions";
 const ADMIN_URL = "/admin";
 
 /**
- * Ends the club session, then signs the house coach out. The sign-out runs
- * even if ending the session throws: the admin must never be stuck inside.
+ * Ends the club session, then signs the house coach out. When the server hands
+ * back an admin return URL, the sign-out lands there and signs the admin back
+ * in; otherwise it lands on /admin (which asks them to sign in). The sign-out
+ * runs even if ending the session throws: the admin must never be stuck inside.
  */
 export async function exitClubSession(deps: {
-  exitAction: () => Promise<void>;
+  exitAction: () => Promise<{ url: string | null } | void>;
   signOut: (opts: { redirectUrl: string }) => Promise<unknown>;
 }): Promise<void> {
+  let redirectUrl = ADMIN_URL;
   try {
-    await deps.exitAction();
+    const res = await deps.exitAction();
+    if (res?.url) redirectUrl = res.url;
   } catch (err) {
     console.error("exitClubAction failed:", err);
   }
-  await deps.signOut({ redirectUrl: ADMIN_URL });
+  await deps.signOut({ redirectUrl });
 }
 
 function useExitClub() {

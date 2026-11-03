@@ -15,6 +15,8 @@ import {
   setOrgType,
   updateClub,
 } from "@/lib/services/club.service";
+import { getOrgType } from "@/lib/org-capabilities";
+import { HOUSE_COACH_NAME_MAX, syncHouseCoachName } from "@/lib/services/house-coach.service";
 
 type Result<T = object> = ({ ok: true } & T) | { ok: false; error: string };
 
@@ -86,6 +88,45 @@ export async function updateClubAction(clerkOrgId: string, raw: Record<string, u
               ]
             )
           : undefined,
+      },
+    }));
+    revalidatePath(`/admin/clubs/${clerkOrgId}`);
+    revalidatePath("/admin/clubs");
+    return { ok: true };
+  } catch (err) {
+    return toError(err);
+  }
+}
+
+/**
+ * Sets the name members see for the club's house coach. An empty name resets
+ * it to the default "Coach <club name>".
+ */
+export async function renameHouseCoachAction(clerkOrgId: string, rawName: unknown): Promise<Result> {
+  const admin = await requireSuperAdmin();
+  try {
+    const name = typeof rawName === "string" ? rawName.trim().replace(/\s+/g, " ") : "";
+    if (name.length > HOUSE_COACH_NAME_MAX) {
+      return { ok: false, error: `Keep the name under ${HOUSE_COACH_NAME_MAX} characters.` };
+    }
+    const before = await prisma.organization.findUnique({ where: { clerkOrgId } });
+    if (!before || getOrgType(before) !== "CLUB") return { ok: false, error: "Club not found." };
+    const org = await prisma.organization.update({
+      where: { clerkOrgId },
+      data: { houseCoachName: name || null },
+    });
+    await syncHouseCoachName(org);
+    await logUserAudit(admin, () => ({
+      action: AUDIT_ACTIONS.CLUB_UPDATED,
+      targetType: "Organization",
+      targetId: clerkOrgId,
+      targetLabel: org.name,
+      orgId: clerkOrgId,
+      metadata: {
+        changes: {
+          before: { houseCoachName: before.houseCoachName ?? null },
+          after: { houseCoachName: org.houseCoachName },
+        },
       },
     }));
     revalidatePath(`/admin/clubs/${clerkOrgId}`);

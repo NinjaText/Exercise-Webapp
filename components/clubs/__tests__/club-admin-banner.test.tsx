@@ -26,6 +26,18 @@ describe("exitClubSession", () => {
     expect(order).toEqual(["exit", "signOut:/admin"]);
   });
 
+  it("signs out to the admin return url when the server hands one back", async () => {
+    const signOut = vi.fn(async () => {});
+    await exitClubSession({ exitAction: async () => ({ url: "/club-session/return?ticket=t" }), signOut });
+    expect(signOut).toHaveBeenCalledWith({ redirectUrl: "/club-session/return?ticket=t" });
+  });
+
+  it("falls back to /admin when there is no return url", async () => {
+    const signOut = vi.fn(async () => {});
+    await exitClubSession({ exitAction: async () => ({ url: null }), signOut });
+    expect(signOut).toHaveBeenCalledWith({ redirectUrl: "/admin" });
+  });
+
   it("still signs out when ending the session throws", async () => {
     const signOut = vi.fn(async () => {});
     const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
