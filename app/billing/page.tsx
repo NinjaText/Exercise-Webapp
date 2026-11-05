@@ -14,6 +14,7 @@ import { getOrgBranding } from "@/lib/services/branding.service";
 import { resolveBranding } from "@/lib/branding/resolve";
 import { toViewModel } from "@/lib/branding/types";
 import { MemberBillingView } from "./member-billing-view";
+import { isBillingExempt } from "@/lib/billing/exempt";
 
 export default async function BillingPage({
   searchParams,
@@ -25,6 +26,8 @@ export default async function BillingPage({
 
   const user = await prisma.user.findUnique({ where: { clerkId: userId } });
   if (!user) redirect("/dashboard");
+  // Complimentary accounts have nothing to pay.
+  if (isBillingExempt(user)) redirect("/dashboard");
   if (user.role === "CLIENT") {
     const org = await getOrgForUser(user);
     if (!org || getOrgCapabilities(org).billing !== "member") redirect("/dashboard");

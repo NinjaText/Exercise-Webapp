@@ -21,6 +21,7 @@ import { cn } from "@/lib/utils";
 import { DataList, type Column } from "@/components/shared/data-list";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { EmptyState } from "@/components/shared/empty-state";
+import { isBillingExempt } from "@/lib/billing/exempt";
 
 interface PageProps {
   searchParams: Promise<{
@@ -87,7 +88,10 @@ const userColumns: Column<UserRow>[] = [
     header: "Status",
     className: "hidden lg:table-cell",
     render: (u) => (
-      <StatusBadge status={u.isActive === false ? "ARCHIVED" : u.onboarded ? "ACTIVE" : "ONBOARDING"} size="sm" />
+      <div className="flex flex-wrap items-center gap-1.5">
+        <StatusBadge status={u.isActive === false ? "ARCHIVED" : u.onboarded ? "ACTIVE" : "ONBOARDING"} size="sm" />
+        {isBillingExempt(u) && <StatusBadge status="FREE_ACCESS" label="Free access" role="info" size="sm" />}
+      </div>
     ),
   },
   {

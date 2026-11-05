@@ -7,10 +7,12 @@ import { resolveBranding } from "@/lib/branding/resolve";
 import { toViewModel } from "@/lib/branding/types";
 import { getCapabilitiesForUser } from "@/lib/org-capabilities.server";
 import type { User } from "@prisma/client";
+import { isBillingExempt } from "@/lib/billing/exempt";
 
 async function needsTrainerSubscription(user: User): Promise<boolean> {
   if (user.role !== "TRAINER") return false;
   if ((await getCapabilitiesForUser(user)).billing !== "trainer") return false;
+  if (isBillingExempt(user)) return false;
   return !(await prisma.trainerSubscription.findUnique({ where: { trainerId: user.id } }));
 }
 
