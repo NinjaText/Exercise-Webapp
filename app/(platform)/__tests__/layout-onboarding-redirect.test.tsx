@@ -71,7 +71,15 @@ describe("platform layout onboarding redirects", () => {
   it("still sends a trainer whose trial ended to /billing", async () => {
     vi.mocked(prisma.user.findUnique).mockResolvedValue({ id: "t1", role: "TRAINER", clerkOrgId: "org_t", onboarded: true } as any);
     vi.mocked(getCapabilitiesForUser).mockResolvedValue(caps("TRAINER", "TRAINER"));
-    vi.mocked(prisma.trainerSubscription.findUnique).mockResolvedValue({ status: "TRIALING", trialEndsAt: new Date(0) } as any);
+    // An old card-less trial that has run out.
+    vi.mocked(prisma.trainerSubscription.findUnique).mockResolvedValue({ status: "TRIALING", trialEndsAt: new Date("2026-01-01"), stripeSubscriptionId: null } as any);
     await expect(run()).rejects.toThrow(/^REDIRECT:\/billing\?reason=trial_expired$/);
+  });
+
+  it("sends a fresh trainer who hasn't checked out to choose a plan, not 'trial ended'", async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({ id: "t1", role: "TRAINER", clerkOrgId: "org_t", onboarded: true } as any);
+    vi.mocked(getCapabilitiesForUser).mockResolvedValue(caps("TRAINER", "TRAINER"));
+    vi.mocked(prisma.trainerSubscription.findUnique).mockResolvedValue({ status: "TRIALING", trialEndsAt: new Date(0), stripeSubscriptionId: null } as any);
+    await expect(run()).rejects.toThrow(/^REDIRECT:\/billing\?reason=checkout_required$/);
   });
 });

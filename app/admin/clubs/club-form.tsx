@@ -6,6 +6,8 @@ import { toast } from "sonner";
 import { ArrowDown, ArrowUp, ChevronDown, Layers, ListOrdered, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { InputGroup, InputGroupAddon, InputGroupInput, InputGroupText } from "@/components/ui/input-group";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
@@ -25,6 +27,10 @@ export type ClubFormValues = {
   starterProgramIds: string[];
   /** Resources (on-demand); unordered, every member gets all of them at once. */
   resourceProgramIds: string[];
+  /** Trial runs inside Stripe Checkout with a card; no access before checkout. */
+  trialRequiresCard: boolean;
+  /** /join/<slug> works without an access code. */
+  openJoin: boolean;
 };
 
 /**
@@ -46,8 +52,10 @@ type Props = {
 
 /** What the actions receive: the form values plus keep flags. */
 export function clubFormPayload(values: ClubFormValues, notes: ClubPriceNotes) {
+  const free = /^\$?0+(\.0{1,2})?$/.test(values.membershipAmount.trim());
   return {
     ...values,
+    trialRequiresCard: values.trialRequiresCard && !free,
     keepMembershipPrice: Boolean(notes.membership) && !values.membershipAmount.trim(),
     keepCoachingPrice: Boolean(notes.coaching) && !values.coachingAmount.trim(),
   };
@@ -57,12 +65,29 @@ const EMPTY: ClubFormValues = {
   name: "",
   joinSlug: "",
   joinCode: "",
-  trialDays: 14,
+  trialDays: 7,
   membershipAmount: "",
   coachingAmount: "",
   starterProgramIds: [],
   resourceProgramIds: [],
+  trialRequiresCard: false,
+  openJoin: false,
 };
+
+/** A labelled on/off setting with a one-line explanation. */
+function ToggleRow({
+  id, label, hint, checked, disabled, onChange,
+}: { id: string; label: string; hint: string; checked: boolean; disabled?: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <div className="flex items-start gap-3 sm:col-span-2">
+      <Switch id={id} checked={checked} disabled={disabled} onCheckedChange={onChange} className="mt-0.5" />
+      <div className="flex flex-col gap-0.5">
+        <Label htmlFor={id} className="text-body">{label}</Label>
+        <p className="text-caption">{hint}</p>
+      </div>
+    </div>
+  );
+}
 
 /** An input with a fixed prefix and/or suffix, styled like the plain Input. */
 function AffixInput({
@@ -208,6 +233,13 @@ export function ClubForm(props: Props) {
               maxLength={60}
             />
           </FormField>
+          <ToggleRow
+            id="club-open-join"
+            label="Open join (no access code)"
+            hint="Anyone with the join link can sign up. The access code below is then not asked for."
+            checked={values.openJoin}
+            onChange={(v) => set("openJoin", v)}
+          />
           <FormField label="Access code" htmlFor="club-code" hint="Members type this on the join page." required>
             <Input
               id="club-code"
@@ -270,6 +302,18 @@ export function ClubForm(props: Props) {
               onChange={(e) => set("trialDays", Number(e.target.value))}
             />
           </FormField>
+          <ToggleRow
+            id="club-trial-card"
+            label="Require a card to start the trial"
+            hint={
+              isFree
+                ? "Not used while membership is free."
+                : "Members start the trial in Stripe Checkout with a card and are billed automatically when it ends. No access until checkout is done."
+            }
+            checked={values.trialRequiresCard && !isFree}
+            disabled={isFree}
+            onChange={(v) => set("trialRequiresCard", v)}
+          />
         </div>
       </SectionCard>
 

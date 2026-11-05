@@ -8,8 +8,9 @@ const isPublicRoute = createRouteMatcher([...PUBLIC_ROUTES]);
 let warnedMissingPublicMetadata = false;
 
 export default clerkMiddleware(async (auth, req) => {
-  // Old-domain links (emails already sent, bookmarks) land on the new domain,
-  // where the production Clerk instance lives.
+  // Old-domain links (emails already sent, bookmarks) and the bare
+  // miaperformance.com land on www.miaperformance.com, where the production
+  // Clerk instance lives.
   const legacyTarget = legacyHostRedirect(req.nextUrl);
   if (legacyTarget) return NextResponse.redirect(legacyTarget, 308);
 

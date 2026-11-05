@@ -7,6 +7,7 @@ import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/current-user";
 import * as workoutPlanService from "@/lib/services/workout-plan.service";
 import * as aiService from "@/lib/services/ai.service";
+import { aiErrorMessage } from "@/lib/ai/usage";
 import { getClientIdsForTrainer } from "@/lib/services/client.service";
 import type { PlanStatus } from "@prisma/client";
 
@@ -104,7 +105,7 @@ export async function generatePlanAction(input: {
     return { success: true as const, data: plan };
   } catch (error) {
     console.error("Failed to generate plan:", error);
-    return { success: false as const, error: "Failed to generate plan. Please try again." };
+    return { success: false as const, error: aiErrorMessage(error, "Failed to generate plan. Please try again.") };
   }
 }
 

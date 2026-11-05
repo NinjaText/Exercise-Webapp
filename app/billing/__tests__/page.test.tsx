@@ -15,7 +15,10 @@ vi.mock("@/lib/prisma", () => ({
 }));
 vi.mock("@/lib/org-capabilities.server", () => ({ getOrgForUser: vi.fn(), getCapabilitiesForUser: vi.fn() }));
 vi.mock("@/lib/services/club-member.service", () => ({ ensureMemberSubscription: vi.fn() }));
-vi.mock("@/components/billing/pricing-cards", () => ({ PricingCards: () => null }));
+vi.mock("@/components/billing/pricing-cards", () => ({
+  PricingCards: (p: { trialEligible?: boolean }) => <i data-trial={String(Boolean(p.trialEligible))} />,
+}));
+vi.mock("next/headers", () => ({ cookies: vi.fn(async () => ({ get: () => undefined })) }));
 vi.mock("@/lib/services/branding.service", () => ({
   getOrgBranding: vi.fn(async () => ({ enabled: false, displayName: "MIA Performance", logoOnLightUrl: null, logoOnDarkUrl: null, markUrl: null })),
 }));
@@ -26,8 +29,9 @@ import { getOrgForUser, getCapabilitiesForUser } from "@/lib/org-capabilities.se
 import { getUserCapabilities } from "@/lib/org-capabilities";
 import { ensureMemberSubscription } from "@/lib/services/club-member.service";
 import BillingPage from "../page";
+import { renderToStaticMarkup } from "react-dom/server";
 
-const club = { clerkOrgId: "org_club", type: "CLUB", trialDays: 14 };
+const club = { clerkOrgId: "org_club", type: "CLUB", trialDays: 7 };
 const member = { id: "u1", role: "CLIENT", clerkOrgId: "org_club" };
 const props = { searchParams: Promise.resolve({}) };
 
@@ -88,5 +92,41 @@ describe("/billing trainer branch", () => {
     );
     await expect(BillingPage(props)).rejects.toThrow("REDIRECT:/dashboard");
     expect(prisma.trainerSubscription.findUnique).not.toHaveBeenCalled();
+  });
+
+  describe("7-day card-required trial", () => {
+    const trainerCaps = () =>
+      vi.mocked(getCapabilitiesForUser).mockResolvedValue(
+        getUserCapabilities({ orgType: "TRAINER", role: "TRAINER", coachingActive: false })
+      );
+    const base = { stripeCustomerId: "cus_1", stripeSubscriptionId: null, trialUsedAt: null, plan: "STARTER" };
+
+    it("a fresh trainer is asked to start the trial, never told it ended", async () => {
+      trainerCaps();
+      vi.mocked(prisma.trainerSubscription.findUnique).mockResolvedValue({ ...base, status: "TRIALING", trialEndsAt: new Date(0) } as any);
+      const html = renderToStaticMarkup(
+        (await BillingPage({ searchParams: Promise.resolve({ reason: "checkout_required" }) })) as any
+      );
+      expect(html).toContain("Start your 7-day free trial");
+      expect(html).toContain("Card required");
+      expect(html).not.toContain("trial has ended");
+      expect(html).toContain('data-trial="true"');
+    });
+
+    it("an expired legacy trial is told it ended and gets no second trial", async () => {
+      trainerCaps();
+      vi.mocked(prisma.trainerSubscription.findUnique).mockResolvedValue({ ...base, status: "TRIALING", trialEndsAt: new Date("2026-01-01") } as any);
+      const html = renderToStaticMarkup(
+        (await BillingPage({ searchParams: Promise.resolve({ reason: "trial_expired" }) })) as any
+      );
+      expect(html).toContain("Your free trial has ended");
+      expect(html).toContain('data-trial="false"');
+    });
+
+    it("a trainer already trialing in Stripe goes to settings to manage it", async () => {
+      trainerCaps();
+      vi.mocked(prisma.trainerSubscription.findUnique).mockResolvedValue({ ...base, status: "TRIALING", stripeSubscriptionId: "sub_1", trialEndsAt: new Date(Date.now() + 86400_000) } as any);
+      await expect(BillingPage(props)).rejects.toThrow("REDIRECT:/settings/billing");
+    });
   });
 });

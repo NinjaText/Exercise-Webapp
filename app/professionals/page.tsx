@@ -5,17 +5,15 @@ import { MarketingFooter } from "@/components/marketing/marketing-footer";
 import {
   Container,
   CtaBand,
-  DEMO_HREF,
   DisplayHeading,
   Eyebrow,
   FeatureCard,
   HeroHighlight,
   PhotoBand,
   PillLink,
-  SIGN_UP_HREF,
 } from "@/components/marketing/primitives";
 import { ChatSnippet, CreateProgramMenu, NutritionRing, ProgressChart } from "@/components/marketing/mini-ui";
-import { PricingPlans } from "@/components/marketing/pricing-plans";
+import { GET_STARTED_HREF, pricingHref } from "@/lib/marketing-links";
 
 export const metadata: Metadata = {
   title: "For Professionals",
@@ -91,9 +89,9 @@ export default function ProfessionalsPage() {
             ))}
           </div>
           <div className="mt-9 flex flex-wrap gap-3">
-            <PillLink href={SIGN_UP_HREF}>Start your free trial</PillLink>
-            <PillLink href={DEMO_HREF} variant="light" arrow={false}>
-              Book a demo
+            <PillLink href={GET_STARTED_HREF}>Start your free trial</PillLink>
+            <PillLink href={pricingHref("trainers")} variant="light" arrow={false}>
+              See pricing
             </PillLink>
           </div>
         </div>
@@ -125,9 +123,23 @@ export default function ProfessionalsPage() {
         </Container>
       </section>
 
+      {/* Pricing lives on /pricing; this is a short pointer, not a second table. */}
       <section id="pricing" className="scroll-mt-20 pb-14 sm:pb-20">
         <Container>
-          <PricingPlans />
+          <div className="flex flex-col gap-6 rounded-3xl border border-sand-line bg-white/60 p-6 sm:p-8 md:flex-row md:items-center md:justify-between">
+            <div>
+              <Eyebrow>Simple, flexible pricing</Eyebrow>
+              <h2 className="mt-2 text-2xl font-normal tracking-[-0.02em] text-ink sm:text-3xl">
+                Plans from $39.99/month, priced by active clients.
+              </h2>
+              <p className="mt-2 max-w-xl text-sm leading-relaxed text-ink-soft sm:text-base">
+                Starter, Growth, and Pro — every plan starts with a 7-day free trial.
+              </p>
+            </div>
+            <PillLink href={pricingHref("trainers")} className="shrink-0">
+              Compare plans
+            </PillLink>
+          </div>
         </Container>
       </section>
 
@@ -139,9 +151,9 @@ export default function ProfessionalsPage() {
         alt="A coach using MIA Performance on a tablet in the gym"
         actions={
           <>
-            <PillLink href={SIGN_UP_HREF}>Start your free trial</PillLink>
-            <PillLink href={DEMO_HREF} variant="light" arrow={false}>
-              Book a demo
+            <PillLink href={GET_STARTED_HREF}>Start your free trial</PillLink>
+            <PillLink href={pricingHref("trainers")} variant="light" arrow={false}>
+              See pricing
             </PillLink>
           </>
         }

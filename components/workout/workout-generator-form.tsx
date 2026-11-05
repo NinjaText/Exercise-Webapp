@@ -66,7 +66,7 @@ export function WorkoutGeneratorForm({
       const result = await response.json();
 
       if (!result.success) {
-        setError(result.error?.message ?? "Failed to generate workout");
+        setError(typeof result.error === "string" ? result.error : result.error?.message ?? "Failed to generate workout");
         return;
       }
 

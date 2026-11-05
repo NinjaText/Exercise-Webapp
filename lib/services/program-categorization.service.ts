@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { meteredAiCall } from "@/lib/ai/usage";
 import { z } from "zod";
 import type { GeneratedProgram } from "@/lib/services/ai.service";
 
@@ -137,7 +138,7 @@ Respond with this exact JSON shape:
   "tags": string[]         // 2-6 short descriptive tags useful for filtering (e.g. "low-impact", "post-surgery", "home-workout", "progressive-overload")
 }`;
 
-    const response = await openai.chat.completions.create({
+    const response = await meteredAiCall("program.categorize", () => openai.chat.completions.create({
       model: "gpt-4o-mini",
       max_tokens: 500,
       response_format: { type: "json_object" },
@@ -145,7 +146,7 @@ Respond with this exact JSON shape:
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
       ],
-    });
+    }));
 
     const raw = response.choices[0]?.message?.content ?? "{}";
     const validated = programCategorizationSchema.safeParse(JSON.parse(raw));

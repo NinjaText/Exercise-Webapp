@@ -6,7 +6,9 @@ import { BrandStyle } from "@/components/branding/brand-style";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { PlanCard } from "@/components/billing/plan-card";
 import { StatusBanner } from "@/components/billing/status-banner";
-import { hasScheduledSubscription, trialDaysLeft } from "@/lib/billing/access";
+import { awaitingFirstCheckout, hasScheduledSubscription, isTrialEligible, trialDaysLeft } from "@/lib/billing/access";
+import { DEFAULT_CLUB_TRIAL_DAYS } from "@/lib/stripe-config";
+import { format } from "date-fns";
 import { isFreeClub } from "@/lib/clubs/free-club";
 import { formatStripeAmount } from "@/lib/utils/money";
 import { LIVE_READ_REQUEST_OPTIONS } from "@/lib/payments/connect-config";
@@ -49,6 +51,11 @@ export async function MemberBillingView({
   // PAST_DUE/UNPAID already have a subscription: fix the card via the portal, don't start a second.
   const hasSubscription = isActive || scheduled || sub?.status === "UNPAID";
   const free = isFreeClub(org);
+  // Card-required club, never checked out: the trial starts in Checkout.
+  const firstCheckout = awaitingFirstCheckout(sub);
+  const trialDays = org.trialDays ?? DEFAULT_CLUB_TRIAL_DAYS;
+  const offersTrial = Boolean(sub && isTrialEligible(sub)) && !free;
+  const canceled = sub?.status === "CANCELED";
 
   return (
     <>
@@ -61,8 +68,21 @@ export async function MemberBillingView({
         <div className="flex flex-col gap-6">
           {/* Below lg AuthShell already shows the page heading above the column. */}
           <h2 className="hidden text-title text-foreground lg:block">Your membership</h2>
-          {reason === "trial_expired" && (
-            <StatusBanner tone="neutral">Your free trial has ended. Subscribe to keep training.</StatusBanner>
+          {firstCheckout && !free && (
+            <StatusBanner tone="info">
+              Start your {trialDays}-day free trial. A card is required, but you won&apos;t be charged until the
+              trial ends — cancel any time before then and you pay nothing.
+            </StatusBanner>
+          )}
+          {reason === "canceled_checkout" && (
+            <StatusBanner tone="neutral">Checkout was canceled — nothing was charged.</StatusBanner>
+          )}
+          {reason === "trial_expired" && !firstCheckout && (
+            <StatusBanner tone="neutral">
+              {canceled
+                ? "Your membership has ended. Subscribe to keep training."
+                : "Your free trial has ended. Subscribe to keep training."}
+            </StatusBanner>
           )}
           {reason === "payment_failed" && (
             <StatusBanner tone="danger">
@@ -72,7 +92,11 @@ export async function MemberBillingView({
           {daysLeft !== null && (
             <StatusBanner tone="info">
               {daysLeft} day{daysLeft === 1 ? "" : "s"} left in your free trial.
-              {scheduled ? " Your membership starts automatically when it ends." : null}
+              {scheduled && sub
+                ? sub.cancelAtPeriodEnd
+                  ? ` Your trial is canceled and ends ${format(sub.trialEndsAt, "MMMM d, yyyy")} — you won't be charged.`
+                  : ` First charge${priceLabel ? ` of ${priceLabel.price}` : ""} on ${format(sub.trialEndsAt, "MMMM d, yyyy")}. Cancel before then in Manage billing and you won't be charged.`
+                : null}
             </StatusBanner>
           )}
           <PlanCard
@@ -90,6 +114,7 @@ export async function MemberBillingView({
           >
             <MemberBillingButtons
               canSubscribe={!hasSubscription && Boolean(org.stripePriceId)}
+              subscribeLabel={offersTrial ? `Start ${trialDays}-day free trial` : undefined}
               canManage={Boolean(sub?.stripeCustomerId)}
             />
           </PlanCard>

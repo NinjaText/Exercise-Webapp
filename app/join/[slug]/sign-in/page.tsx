@@ -19,8 +19,11 @@ export default async function JoinSignInPage({ params }: { params: Promise<{ slu
   const club = await getClubBySlug(slug);
   if (!club) notFound();
 
-  // verifyJoinToken throws when CLERK_SECRET_KEY is missing: fail closed (500).
-  const verified = verifyJoinToken((await cookies()).get(JOIN_COOKIE)?.value, club.clerkOrgId);
+  // Open-join clubs have no access-code step, so no join cookie: same rule as
+  // the join and /complete pages. verifyJoinToken throws when CLERK_SECRET_KEY
+  // is missing: fail closed (500).
+  const verified =
+    club.openJoin === true || verifyJoinToken((await cookies()).get(JOIN_COOKIE)?.value, club.clerkOrgId);
   if (!verified) redirect(`/join/${slug}`);
 
   const branding = await getOrgBranding(club.clerkOrgId);

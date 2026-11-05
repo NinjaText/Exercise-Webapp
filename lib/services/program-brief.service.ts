@@ -1,5 +1,6 @@
 import "server-only";
 import OpenAI from "openai";
+import { meteredAiCall } from "@/lib/ai/usage";
 import mammoth from "mammoth";
 import pdfParse from "pdf-parse";
 import { normalizeExerciseName } from "./ai.service";
@@ -463,7 +464,7 @@ Return:
 
 Never invent specific exercises here — only these fields.`;
 
-  const response = await openai.chat.completions.create({
+  const response = await meteredAiCall("program-brief.metadata", () => openai.chat.completions.create({
     model: 'gpt-4o',
     max_tokens: 1000,
     temperature: 0,
@@ -472,7 +473,7 @@ Never invent specific exercises here — only these fields.`;
       { role: 'system', content: systemPrompt },
       { role: 'user', content: text },
     ],
-  });
+  }));
 
   const raw = response.choices[0].message.content ?? '{}';
   const parsed = JSON.parse(raw) as BriefMetadata;
@@ -563,7 +564,7 @@ Rules:
 
 This is chunk ${chunkIndex + 1} of ${totalChunks}.${continuityNote ? ` ${continuityNote}` : ''} Continue any week/day numbering from where the previous chunk left off — do not restart it unless the document itself restarts it.`;
 
-  const response = await openai.chat.completions.create({
+  const response = await meteredAiCall("program-brief.extract-chunk", () => openai.chat.completions.create({
     model: 'gpt-4o',
     // A chunk can hold a dozen+ sessions once every exercise's sets/reps/notes
     // are spelled out in full (strict JSON schema requires every property
@@ -577,7 +578,7 @@ This is chunk ${chunkIndex + 1} of ${totalChunks}.${continuityNote ? ` ${continu
       { role: 'system', content: systemPrompt },
       { role: 'user', content: chunk },
     ],
-  });
+  }));
 
   if (response.choices[0].finish_reason === 'length') {
     throw new Error(`extractChunkSessions: response truncated at the token limit for chunk ${chunkIndex + 1} of ${totalChunks}`);

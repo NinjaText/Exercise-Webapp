@@ -1,4 +1,5 @@
 import { generateObject } from "ai";
+import { meteredAiCall } from "@/lib/ai/usage";
 import { openai } from "@ai-sdk/openai";
 import { z } from "zod";
 import {
@@ -88,13 +89,13 @@ function clean(item: z.infer<typeof generatedItemSchema>, style: ReflectionStyle
 
 /** Three distinct options for the Create flow ("Use this" / "Regenerate"). */
 export async function generateReflectionOptions(style: ReflectionStyle): Promise<GeneratedReflection[]> {
-  const { object } = await generateObject({
+  const { object } = await meteredAiCall("reflection.options", () => generateObject({
     model: openai("gpt-4o-mini"),
     schema: optionsSchema,
     system: SYSTEM_RULES,
     maxOutputTokens: OPTIONS_MAX_OUTPUT_TOKENS,
     prompt: `Write ${AI_SINGLE_OPTION_COUNT} distinct daily reflection options.\n${styleLines(style)}\nMake each option clearly different from the others.`,
-  });
+  }));
   return object.options
     .map((item) => clean(item, style))
     .filter((item): item is GeneratedReflection => item !== null)
@@ -118,7 +119,7 @@ export async function generateProgramPlanReflections(input: {
   for (let start = 0; start < dayNumbers.length; start += AI_PLAN_CHUNK_DAYS) {
     const chunk = dayNumbers.slice(start, start + AI_PLAN_CHUNK_DAYS);
     const wanted = new Set(chunk);
-    const { object } = await generateObject({
+    const { object } = await meteredAiCall("reflection.program-plan", () => generateObject({
       model: openai("gpt-4o-mini"),
       schema: planSchema,
       system: SYSTEM_RULES,
@@ -127,7 +128,7 @@ export async function generateProgramPlanReflections(input: {
 Write one daily reflection for each of these days: ${chunk.join(", ")}.
 ${styleLines(input.style)}
 Let the reflections build gently over the program: early days about starting and settling in, middle days about consistency and noticing change, final days about progress and what comes next. Do not repeat yourself.`,
-    });
+    }));
 
     for (const item of object.days) {
       if (!wanted.has(item.dayNumber)) continue;

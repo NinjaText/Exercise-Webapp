@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { ArrowRight, ChevronDown, Menu, X } from "lucide-react";
 import { ProductLogo } from "@/components/branding/product-logo";
 import { cn } from "@/lib/utils";
+import { GET_STARTED_HREF, pricingHref } from "@/lib/marketing-links";
 
 const SOLUTIONS = [
   { label: "Clubs", href: "/clubs", description: "Engage and retain members" },
@@ -13,7 +14,27 @@ const SOLUTIONS = [
   { label: "Individuals", href: "/individuals", description: "A plan built around you" },
 ];
 
-const LINKS = [...SOLUTIONS, { label: "Pricing", href: "/professionals#pricing" }];
+const ABOUT = { label: "About", href: "/about" };
+const PRICING = { label: "Pricing", href: pricingHref() };
+
+/** Desktop: About · Solutions ▾ · Clubs · Professionals · Individuals · Pricing. */
+const LINKS = [...SOLUTIONS, PRICING];
+const MOBILE_LINKS = [ABOUT, ...SOLUTIONS, PRICING];
+
+function NavLink({ label, href, active }: { label: string; href: string; active: boolean }) {
+  return (
+    <Link
+      href={href}
+      aria-current={active ? "page" : undefined}
+      className={cn(
+        "border-b py-2 text-sm text-ink transition-colors hover:text-ink/70",
+        active ? "border-ink" : "border-transparent",
+      )}
+    >
+      {label}
+    </Link>
+  );
+}
 
 export function MarketingNav() {
   const pathname = usePathname();
@@ -39,7 +60,8 @@ export function MarketingNav() {
           <ProductLogo surface="light" className="h-[18px] sm:h-5" />
         </Link>
 
-        <nav className="hidden items-center gap-8 lg:flex" aria-label="Main">
+        <nav className="hidden items-center gap-7 lg:flex xl:gap-8" aria-label="Main">
+          <NavLink {...ABOUT} active={pathname === ABOUT.href} />
           <div className="group relative">
             <button
               type="button"
@@ -59,22 +81,9 @@ export function MarketingNav() {
               </div>
             </div>
           </div>
-          {LINKS.map((l) => {
-            const active = pathname === l.href;
-            return (
-              <Link
-                key={l.label}
-                href={l.href}
-                aria-current={active ? "page" : undefined}
-                className={cn(
-                  "border-b py-2 text-sm text-ink transition-colors hover:text-ink/70",
-                  active ? "border-ink" : "border-transparent",
-                )}
-              >
-                {l.label}
-              </Link>
-            );
-          })}
+          {LINKS.map((l) => (
+            <NavLink key={l.label} {...l} active={pathname === l.href} />
+          ))}
         </nav>
 
         <div className="hidden items-center gap-6 lg:flex">
@@ -82,7 +91,7 @@ export function MarketingNav() {
             Sign in
           </Link>
           <Link
-            href="/sign-up"
+            href={GET_STARTED_HREF}
             className="inline-flex h-10 items-center gap-2 rounded-full bg-ink px-5 text-sm font-medium text-cream transition-colors hover:bg-ink/90"
           >
             Start your free trial <ArrowRight className="h-4 w-4" aria-hidden />
@@ -102,7 +111,7 @@ export function MarketingNav() {
 
       {open && (
         <div className="border-t border-sand-line bg-cream px-4 pt-3 pb-6 lg:hidden">
-          {LINKS.map((l) => (
+          {MOBILE_LINKS.map((l) => (
             <Link
               key={l.label}
               href={l.href}
@@ -124,7 +133,7 @@ export function MarketingNav() {
               Sign in
             </Link>
             <Link
-              href="/sign-up"
+              href={GET_STARTED_HREF}
               onClick={() => setOpen(false)}
               className="flex h-11 items-center justify-center gap-2 rounded-full bg-ink text-sm font-medium text-cream"
             >

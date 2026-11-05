@@ -17,6 +17,8 @@ import { getClubAttentionCounts } from "@/lib/services/club-alerts.service";
 import { getHouseCoach, HOUSE_COACH_FIRST_NAME } from "@/lib/services/house-coach.service";
 import { describeClubPrice } from "@/lib/services/club-pricing.service";
 import { isFreeClub } from "@/lib/clubs/free-club";
+import { DEFAULT_CLUB_TRIAL_DAYS } from "@/lib/stripe-config";
+import { awaitingFirstCheckout } from "@/lib/billing/access";
 import { priceFormField } from "./price-fields";
 import { clubProgramWhere, resourceOptions, starterOptions } from "./starter-options";
 import { ClubForm } from "../club-form";
@@ -103,7 +105,11 @@ export default async function AdminClubDetailPage({ params }: PageProps) {
       header: "Trial ends",
       className: "hidden md:table-cell",
       render: (m) => (
-        <span className="text-caption">{format(new Date(m.trialEndsAt), "MMM d, yyyy")}</span>
+        <span className="text-caption">
+          {awaitingFirstCheckout({ ...m, trialEndsAt: new Date(m.trialEndsAt), stripeSubscriptionId: m.stripeSubscriptionId ?? null })
+            ? "Awaiting checkout"
+            : format(new Date(m.trialEndsAt), "MMM d, yyyy")}
+        </span>
       ),
     },
     {
@@ -195,11 +201,13 @@ export default async function AdminClubDetailPage({ params }: PageProps) {
             name: org.name,
             joinSlug: org.joinSlug ?? "",
             joinCode: org.joinCode ?? "",
-            trialDays: org.trialDays ?? 14,
+            trialDays: org.trialDays ?? DEFAULT_CLUB_TRIAL_DAYS,
             membershipAmount: free ? "0" : membershipField.amount,
             coachingAmount: coachingField.amount,
             starterProgramIds: org.starterProgramIds,
             resourceProgramIds: org.resourceProgramIds ?? [],
+            trialRequiresCard: org.trialRequiresCard === true,
+            openJoin: org.openJoin === true,
           }}
           priceNotes={{ membership: membershipField.note, coaching: coachingField.note }}
         />

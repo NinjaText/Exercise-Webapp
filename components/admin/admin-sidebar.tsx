@@ -13,6 +13,7 @@ import {
   Globe,
   ScrollText,
   Flag,
+  Cpu,
 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ProductLogo } from "@/components/branding/product-logo";
@@ -33,6 +34,7 @@ const adminLinks = [
   { href: "/admin/programs",         label: "All Programs",    icon: Library },
   { href: "/admin/global-programs",  label: "Global Programs", icon: Globe },
   { href: "/admin/clubs",            label: "Clubs",           icon: Flag },
+  { href: "/admin/ai-usage",         label: "AI Usage",        icon: Cpu },
   { href: "/admin/audit-log",        label: "Audit Log",       icon: ScrollText },
 ];
 

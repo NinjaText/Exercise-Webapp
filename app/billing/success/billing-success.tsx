@@ -4,24 +4,33 @@ import { useEffect, useRef } from "react";
 import { Check, Loader2 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 
+/** Synced: ACTIVE, or trialing on a real Stripe subscription (card-required trial). */
+function isSubscribed(sub?: { status: string; stripeSubscriptionId?: string | null }): boolean {
+  if (!sub) return false;
+  return sub.status === "ACTIVE" || (sub.status === "TRIALING" && Boolean(sub.stripeSubscriptionId));
+}
+
 export function BillingSuccess() {
   const router = useRouter();
-  const isCoaching = useSearchParams().get("coaching") === "1";
+  const params = useSearchParams();
+  const isCoaching = params.get("coaching") === "1";
+  const sessionId = params.get("session_id");
   const attempts = useRef(0);
 
   useEffect(() => {
     const poll = setInterval(async () => {
       attempts.current += 1;
       try {
-        const res = await fetch("/api/stripe/status");
+        const query = sessionId ? `?session_id=${encodeURIComponent(sessionId)}` : "";
+        const res = await fetch(`/api/stripe/status${query}`);
         const data = await res.json() as {
-          subscription?: { status: string };
+          subscription?: { status: string; stripeSubscriptionId?: string | null };
           coaching?: { status: string } | null;
         };
         if (
           (isCoaching
             ? data.coaching?.status === "ACTIVE"
-            : data.subscription?.status === "ACTIVE") ||
+            : isSubscribed(data.subscription)) ||
           attempts.current >= 10
         ) {
           clearInterval(poll);
@@ -36,7 +45,7 @@ export function BillingSuccess() {
     }, 1000);
 
     return () => clearInterval(poll);
-  }, [router, isCoaching]);
+  }, [router, isCoaching, sessionId]);
 
   return (
     <div role="status" className="flex flex-col items-start gap-4">
@@ -50,7 +59,7 @@ export function BillingSuccess() {
         <Loader2 className="size-4 animate-spin motion-reduce:animate-none" aria-hidden />
         {isCoaching
           ? "Your coaching is being set up. Redirecting to dashboard…"
-          : "Your subscription is now active. Redirecting to dashboard…"}
+          : "Your subscription is set up. Redirecting to dashboard…"}
       </p>
     </div>
   );

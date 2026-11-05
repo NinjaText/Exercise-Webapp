@@ -241,6 +241,12 @@ model Organization {
   /// Club-only. Display name members see for the house coach (e.g. "Dr. Sharon
   /// Ackerman, DPT"). null → the default "Coach <club name>".
   houseCoachName        String?
+  /// Club-only. true → the free trial runs inside Stripe Checkout (card
+  /// collected up front) and members have no access until checkout completes.
+  /// null/false → the classic card-less local trial.
+  trialRequiresCard     Boolean?
+  /// Club-only. true → /join/<slug> needs no access code.
+  openJoin              Boolean?
 
   // ── Branding ─────────────────────────────────────────────────────────────
   /// Master switch. false → every surface uses the product defaults, even if
@@ -1157,6 +1163,9 @@ model TrainerSubscription {
   trialEndsAt          DateTime
   currentPeriodEnd     DateTime?
   cancelAtPeriodEnd    Boolean   @default(false)
+  /// When this account's one free trial started (a Stripe trialing
+  /// subscription was first synced). Set → later checkouts get no trial.
+  trialUsedAt          DateTime?
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt
 }
@@ -1235,6 +1244,9 @@ model MemberSubscription {
   remindersSent        String[]  @default([])
   /// PENDING | ASSIGNING | ASSIGNED | FAILED — state of the current starter assignment.
   starterStatus        String    @default("PENDING")
+  /// When this member's one Stripe trial started (card-required clubs). Set →
+  /// later checkouts get no trial.
+  trialUsedAt          DateTime?
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt
 
@@ -1447,4 +1459,70 @@ model OfferSubscription {
 
   @@index([trainerId, status])
   @@index([clientId])
+}
+
+// ── AI token usage limits ────────────────────────────────────────────────────
+// See lib/ai/usage. Account key = the billed trainer's User id, or "system"
+// for AI calls with no signed-in user (cron/webhooks). No relations to User on
+// purpose (keeps these models additive).
+
+/// One counter per billed account per billing cycle. Incremented atomically
+/// after every AI call; "usage this cycle" is a single findUnique.
+model AiUsagePeriod {
+  id               String   @id @default(auto()) @map("_id") @db.ObjectId
+  /// Billed trainer's User id, or "system".
+  accountKey       String
+  periodStart      DateTime
+  periodEnd        DateTime
+  promptTokens     Int      @default(0)
+  completionTokens Int      @default(0)
+  totalTokens      Int      @default(0)
+  requestCount     Int      @default(0)
+  /// Extra tokens an admin granted for this cycle only (e.g. purchased top-up).
+  bonusTokens      Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@unique([accountKey, periodStart])
+  @@index([periodEnd])
+}
+
+/// Per-call log for admin visibility.
+model AiUsageEvent {
+  id               String   @id @default(auto()) @map("_id") @db.ObjectId
+  accountKey       String
+  /// The signed-in user who triggered the call (may be a client of the account).
+  actorUserId      String?  @db.ObjectId
+  feature          String
+  model            String?
+  promptTokens     Int      @default(0)
+  completionTokens Int      @default(0)
+  totalTokens      Int      @default(0)
+  createdAt        DateTime @default(now())
+
+  @@index([accountKey, createdAt])
+  @@index([createdAt])
+}
+
+/// Admin-edited monthly allowance per plan tier. Missing row → code default.
+model AiTierAllowance {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  tier          PlanTier @unique
+  monthlyTokens Int
+  updatedById   String?  @db.ObjectId
+  updatedAt     DateTime @updatedAt
+}
+
+/// Per-trainer admin override of the tier allowance.
+model AiUsageOverride {
+  id                  String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId              String   @unique @db.ObjectId
+  /// Replaces the tier allowance when set.
+  customMonthlyTokens Int?
+  /// Never blocked (still tracked).
+  unlimited           Boolean  @default(false)
+  note                String?
+  updatedById         String?  @db.ObjectId
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 }

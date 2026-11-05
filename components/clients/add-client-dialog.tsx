@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { inviteClientAction } from "@/actions/invite-client-action";
 import { bulkInviteAction, type InviteEmailResult } from "@/actions/bulk-invite-action";
 import {
@@ -48,6 +49,7 @@ export function AddClientDialog({
   const [programs, setPrograms] = useState<AssignableProgramOption[]>([]);
   const [loadingPrograms, setLoadingPrograms] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const router = useRouter();
 
   function updateField(field: keyof typeof EMPTY_FORM, value: string) {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -88,6 +90,12 @@ export function AddClientDialog({
         // Stay open on a success panel so the trainer can immediately queue a
         // program for the invitee without re-finding them later.
         setInvited({ email, firstName, lastName: form.lastName.trim() });
+      } else if ("code" in result && result.code === "client_limit") {
+        const upgradeHref = result.upgradeHref;
+        toast.error(result.error, {
+          duration: 10_000,
+          action: { label: "Upgrade plan", onClick: () => router.push(upgradeHref) },
+        });
       } else {
         toast.error(result.error ?? "Failed to send invitation");
       }

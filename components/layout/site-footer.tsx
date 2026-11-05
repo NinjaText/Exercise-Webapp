@@ -2,13 +2,14 @@ import Link from "next/link";
 import { Shield } from "lucide-react";
 import { ProductLogo } from "@/components/branding/product-logo";
 import { PRODUCT_EXPANSION, PRODUCT_NAME } from "@/lib/brand";
+import { pricingHref } from "@/lib/marketing-links";
 
 const FOOTER_COLUMNS = [
   {
     title: "Product",
     links: [
       { label: "Clubs", href: "/clubs" },
-      { label: "Pricing", href: "/professionals#pricing" },
+      { label: "Pricing", href: pricingHref() },
       { label: "Individuals", href: "/individuals" },
     ],
   },

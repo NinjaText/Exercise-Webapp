@@ -288,12 +288,16 @@ export function GenerateProgramForm({ clients, initialClientId, onGenerateExerci
         }),
       });
 
-      if (!res.ok) throw new Error('Failed to generate program plan');
+      if (!res.ok) {
+        // 429 = AI allowance used up: show the server's message (reset date, upgrade hint).
+        const body = res.status === 429 ? await res.json().catch(() => null) : null;
+        throw new Error(typeof body?.error === 'string' ? body.error : 'Failed to generate program plan. Please try again.');
+      }
       const json = await res.json();
       setClinicalPlan(json.data);
       setGenerateState('REVIEWING');
-    } catch {
-      toast.error('Failed to generate program plan. Please try again.');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to generate program plan. Please try again.');
       setGenerateState('CONFIGURE');
     }
   }

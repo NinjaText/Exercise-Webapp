@@ -2,15 +2,14 @@ import Link from "next/link";
 import Image from "next/image";
 import { ArrowRight, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { isExternalHref } from "@/lib/marketing-links";
 
 /**
- * Building blocks for the public marketing pages (/, /clubs, /professionals,
- * /individuals). Warm cream palette from the `cream/sand/clay/ink` tokens in
- * globals.css.
+ * Building blocks for the public marketing pages (/, /about, /clubs,
+ * /professionals, /individuals, /pricing, /get-started). Warm cream palette
+ * from the `cream/sand/clay/ink` tokens in globals.css. CTA destinations live
+ * in lib/marketing-links.ts.
  */
-
-export const SIGN_UP_HREF = "/sign-up";
-export const DEMO_HREF = "mailto:hello@miaperformance.com?subject=MIA%20Performance%20demo";
 
 export function Container({ className, children }: { className?: string; children: React.ReactNode }) {
   return <div className={cn("mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-10", className)}>{children}</div>;
@@ -37,7 +36,8 @@ export function PillLink({
   className?: string;
   children: React.ReactNode;
 }) {
-  const external = href.startsWith("mailto:");
+  const external = isExternalHref(href);
+  const newTab = href.startsWith("http");
   const classes = cn(
     "inline-flex h-11 items-center justify-center gap-2.5 rounded-full px-6 text-sm font-medium transition-colors sm:h-12 sm:px-7",
     variant === "dark"
@@ -52,7 +52,11 @@ export function PillLink({
     </>
   );
   return external ? (
-    <a href={href} className={classes}>
+    <a
+      href={href}
+      className={classes}
+      {...(newTab ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+    >
       {content}
     </a>
   ) : (

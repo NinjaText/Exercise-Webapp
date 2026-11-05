@@ -12,6 +12,7 @@ vi.mock("@/lib/stripe", () => ({
   stripe: {
     customers: { create: vi.fn() },
     checkout: { sessions: { create: vi.fn() } },
+    subscriptions: { list: vi.fn(async () => ({ data: [] })) },
   },
 }));
 // member-billing's membership-ended cascade imports it; not exercised here.
@@ -75,7 +76,7 @@ describe("POST /api/checkout/member", () => {
   });
 
   it("reuses an existing Stripe customer", async () => {
-    vi.mocked(prisma.memberSubscription.findUnique).mockResolvedValue({ status: "CANCELED", stripeCustomerId: "cus_1" } as any);
+    vi.mocked(prisma.memberSubscription.findUnique).mockResolvedValue({ status: "CANCELED", stripeCustomerId: "cus_1", trialEndsAt: new Date(Date.now() - DAY_MS) } as any);
     await POST();
     expect(stripe.customers.create).not.toHaveBeenCalled();
     expect(stripe.checkout.sessions.create).toHaveBeenCalledWith(expect.objectContaining({ customer: "cus_1" }));
@@ -102,10 +103,11 @@ describe("POST /api/checkout/member", () => {
     } as any);
     await POST();
     expect(stripe.checkout.sessions.create).toHaveBeenCalledWith(expect.objectContaining({
-      subscription_data: {
+      payment_method_collection: "always",
+      subscription_data: expect.objectContaining({
         metadata: { purchaseType: "member_subscription", userId: "u1" },
         trial_end: Math.floor(trialEndsAt.getTime() / 1000),
-      },
+      }),
     }));
   });
 
@@ -118,5 +120,42 @@ describe("POST /api/checkout/member", () => {
     await POST();
     const arg = vi.mocked(stripe.checkout.sessions.create).mock.calls[0][0] as any;
     expect(arg.subscription_data).not.toHaveProperty("trial_end");
+  });
+
+  describe("card-required club trial (trial runs inside Checkout)", () => {
+    const cardClub = { ...club, trialRequiresCard: true, trialDays: 7 };
+    const fresh = { status: "TRIALING", stripeCustomerId: "cus_1", stripeSubscriptionId: null, trialUsedAt: null, trialEndsAt: new Date(0) };
+
+    beforeEach(() => {
+      vi.mocked(prisma.organization.findUnique).mockResolvedValue(cardClub as any);
+    });
+
+    it("first checkout gets trial_period_days = the club's trial, card always collected", async () => {
+      vi.mocked(prisma.memberSubscription.findUnique).mockResolvedValue(fresh as any);
+      expect((await POST()).status).toBe(200);
+      const arg = vi.mocked(stripe.checkout.sessions.create).mock.calls[0][0] as any;
+      expect(arg.mode).toBe("subscription");
+      expect(arg.payment_method_collection).toBe("always");
+      expect(arg.subscription_data.trial_period_days).toBe(7);
+      expect(arg.subscription_data).not.toHaveProperty("trial_end");
+    });
+
+    it("re-checkout after cancel gets no trial (one trial per account)", async () => {
+      vi.mocked(prisma.memberSubscription.findUnique).mockResolvedValue({
+        ...fresh, status: "CANCELED", stripeSubscriptionId: "sub_old", trialUsedAt: new Date("2026-10-01"), trialEndsAt: new Date("2026-10-08"),
+      } as any);
+      await POST();
+      const arg = vi.mocked(stripe.checkout.sessions.create).mock.calls[0][0] as any;
+      expect(arg.subscription_data).not.toHaveProperty("trial_period_days");
+      expect(arg.subscription_data).not.toHaveProperty("trial_end");
+    });
+
+    it("a customer who already had a Stripe subscription gets no trial", async () => {
+      vi.mocked(prisma.memberSubscription.findUnique).mockResolvedValue(fresh as any);
+      vi.mocked(stripe.subscriptions.list).mockResolvedValueOnce({ data: [{ id: "sub_x" }] } as any);
+      await POST();
+      const arg = vi.mocked(stripe.checkout.sessions.create).mock.calls[0][0] as any;
+      expect(arg.subscription_data).not.toHaveProperty("trial_period_days");
+    });
   });
 });

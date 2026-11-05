@@ -3,7 +3,13 @@ import { after } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { cookies } from "next/headers";
 import { getClubBySlug } from "@/lib/services/club.service";
-import { enrollClubMember, assignNextStarterProgram } from "@/lib/services/club-member.service";
+import {
+  enrollClubMember,
+  assignNextStarterProgram,
+  clubRequiresCardForTrial,
+} from "@/lib/services/club-member.service";
+import { prisma } from "@/lib/prisma";
+import { awaitingFirstCheckout } from "@/lib/billing/access";
 import { JOIN_COOKIE, verifyJoinToken } from "@/lib/clubs/join-token";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { BrandStyle } from "@/components/branding/brand-style";
@@ -40,7 +46,7 @@ export default async function JoinCompletePage({ params }: { params: Promise<{ s
 
   // verifyJoinToken throws when CLERK_SECRET_KEY is missing: fail closed (500).
   const token = (await cookies()).get(JOIN_COOKIE)?.value;
-  if (!verifyJoinToken(token, club.clerkOrgId)) redirect(`/join/${slug}`);
+  if (club.openJoin !== true && !verifyJoinToken(token, club.clerkOrgId)) redirect(`/join/${slug}`);
 
   const result = await enrollClubMember({ clerkUserId: userId, club });
   if (!result.ok) {
@@ -70,5 +76,12 @@ export default async function JoinCompletePage({ params }: { params: Promise<{ s
 
   // The cookie can't be cleared in a server component; it expires in ≤30 min
   // and is only valid for this club, so leaving it is harmless.
-  return <ActivateOrg organizationId={club.clerkOrgId} />;
+  // Card-required clubs: straight to Stripe Checkout (the trial starts there);
+  // onboarding follows once checkout is done (the app gate sends them there).
+  let next = "/onboarding/client";
+  if (clubRequiresCardForTrial(club)) {
+    const sub = await prisma.memberSubscription.findUnique({ where: { userId: memberId } });
+    if (awaitingFirstCheckout(sub)) next = `/join/${slug}/checkout`;
+  }
+  return <ActivateOrg organizationId={club.clerkOrgId} next={next} />;
 }

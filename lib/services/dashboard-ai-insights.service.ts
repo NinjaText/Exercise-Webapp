@@ -1,4 +1,5 @@
 import { generateObject } from "ai";
+import { meteredAiCall } from "@/lib/ai/usage";
 import { openai } from "@ai-sdk/openai";
 import { z } from "zod";
 import {
@@ -86,7 +87,7 @@ export async function generateCoachingInsights(
       })
       .join("\n");
 
-    const { object } = await generateObject({
+    const { object } = await meteredAiCall("dashboard.coaching-insights", () => generateObject({
       model: openai(AI_MODEL),
       schema: insightSchema,
       prompt: `You are an assistant coach for a physical-therapy and senior-fitness trainer. Based on the per-client data below, write 2-4 short, specific, decision-support insights.
@@ -105,7 +106,7 @@ Rules:
 
 Client data:
 ${context}`,
-    });
+    }));
 
     // Drop anything the model attributed to an unknown client — a hallucinated
     // id would otherwise produce dead "Message Client" / "Review Program" links.

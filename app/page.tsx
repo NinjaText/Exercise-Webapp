@@ -6,13 +6,11 @@ import { MarketingFooter } from "@/components/marketing/marketing-footer";
 import {
   Container,
   CtaBand,
-  DEMO_HREF,
   DisplayHeading,
   Eyebrow,
   FeatureCard,
   PhotoBand,
   PillLink,
-  SIGN_UP_HREF,
 } from "@/components/marketing/primitives";
 import {
   ChatSnippet,
@@ -23,6 +21,7 @@ import {
   WorkoutComplete,
 } from "@/components/marketing/mini-ui";
 import { PRODUCT_EXPANSION } from "@/lib/brand";
+import { GET_STARTED_HREF, pricingHref } from "@/lib/marketing-links";
 
 const heroChips = [
   { icon: BarChart3, label: "Adapts to your clients" },
@@ -116,7 +115,7 @@ export default function LandingPage() {
               </li>
             ))}
           </ul>
-          <PillLink href={SIGN_UP_HREF} className="mt-8">
+          <PillLink href={GET_STARTED_HREF} className="mt-8">
             Start your free trial
           </PillLink>
         </div>
@@ -199,9 +198,9 @@ export default function LandingPage() {
         alt="A man resting after a workout"
         actions={
           <>
-            <PillLink href={SIGN_UP_HREF}>Start your free trial</PillLink>
-            <PillLink href={DEMO_HREF} variant="light" arrow={false}>
-              Book a demo
+            <PillLink href={GET_STARTED_HREF}>Start your free trial</PillLink>
+            <PillLink href={pricingHref()} variant="light" arrow={false}>
+              See pricing
             </PillLink>
           </>
         }

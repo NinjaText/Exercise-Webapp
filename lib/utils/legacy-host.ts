@@ -1,5 +1,9 @@
-/** Hosts the app was served from before the move to miaperformance.com. */
-const LEGACY_HOSTS = new Set(["app.goinmotus.com", "goinmotus.com", "www.goinmotus.com"]);
+/**
+ * Hosts that should send page requests to the canonical www domain: the ones
+ * the app was served from before the move to miaperformance.com, plus the bare
+ * apex (a backstop in case Vercel's own apex → www redirect is ever missing).
+ */
+const LEGACY_HOSTS = new Set(["app.goinmotus.com", "goinmotus.com", "www.goinmotus.com", "miaperformance.com"]);
 
 const CANONICAL_ORIGIN = "https://www.miaperformance.com";
 

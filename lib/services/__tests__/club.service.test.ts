@@ -85,8 +85,19 @@ describe("parseClubInput", () => {
     expect(parseClubInput(valid)).toEqual({
       name: "Pine Valley CC", joinSlug: "pine-valley", joinCode: "PINEVALLEY24",
       trialDays: 14, membershipAmountCents: 1499, starterProgramIds: ["p1", "p2"], resourceProgramIds: [],
-      coachingAmountCents: null,
+      coachingAmountCents: null, trialRequiresCard: false, openJoin: false,
     });
+  });
+  it("reads the card-required trial and open-join flags", () => {
+    expect(parseClubInput({ ...valid, trialRequiresCard: true, openJoin: true })).toMatchObject({
+      trialRequiresCard: true,
+      openJoin: true,
+    });
+    // Only a literal true counts.
+    expect(parseClubInput({ ...valid, trialRequiresCard: "true" })).toMatchObject({ trialRequiresCard: false });
+  });
+  it("refuses a card-required trial on a free club", () => {
+    expect(() => parseClubInput({ ...valid, membershipAmount: "0", trialRequiresCard: true })).toThrow(/paid membership/);
   });
   it.each([
     ["14.99", 1499],

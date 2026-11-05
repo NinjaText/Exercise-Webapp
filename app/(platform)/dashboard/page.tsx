@@ -1,4 +1,4 @@
-﻿import { getCurrentUser } from "@/lib/current-user";
+﻿import { getCurrentUser, isSuperAdmin } from "@/lib/current-user";
 import { getCapabilitiesForUser } from "@/lib/org-capabilities.server";
 import { prisma } from "@/lib/prisma";
 import { PageShell } from "@/components/shared/page-shell";
@@ -17,6 +17,8 @@ import { getTodaysReflectionCardData } from "@/lib/reflections/todays-reflection
 import type { TrainerMessagePreview } from "@/components/dashboard/trainer-message-banner";
 import type { QuickResourceItem } from "@/components/dashboard/quick-resources-list";
 import { startOfWeek, endOfWeek, startOfDay } from "date-fns";
+import { getAiUsageSummaryForTrainer } from "@/lib/ai/usage/service";
+import { AiUsageMeterCard } from "@/components/dashboard/ai-usage-meter-card";
 
 /** How many Resources the dashboard's quick-access list shows. */
 const MAX_DASHBOARD_RESOURCES = 6;
@@ -42,6 +44,7 @@ export default async function DashboardPage() {
       insights,
       inboxThreads,
       coachingRequests,
+      aiUsage,
     ] = await Promise.all([
       getClientIdsForTrainer(user.id),
       prisma.workoutPlan.count({
@@ -67,6 +70,8 @@ export default async function DashboardPage() {
       messageService.getInboxThreads(user.id),
       // null (and no coaching query) unless this is a house coach.
       getTrainerCoachingRequests(user),
+      // Never throws: null hides the meter.
+      isSuperAdmin().catch(() => false).then((superAdmin) => getAiUsageSummaryForTrainer(user, { superAdmin })),
     ]);
 
     // Resources have no schedule, so a lazily-created resource session must
@@ -95,6 +100,7 @@ export default async function DashboardPage() {
           clientProgress={insights.clientProgress}
           coachingRequests={coachingRequests}
         />
+        {aiUsage && <AiUsageMeterCard summary={aiUsage} />}
       </PageShell>
     );
   }

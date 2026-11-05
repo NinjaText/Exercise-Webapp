@@ -6,6 +6,8 @@ import { requireHouseCoach } from "@/lib/services/house-coach.service";
 import { getOrgType } from "@/lib/org-capabilities";
 import { nextStarterTemplateId, OPEN_SESSION_STATUSES } from "@/lib/clubs/starter-progression";
 import { isFreeClub } from "@/lib/clubs/free-club";
+import { NO_LOCAL_TRIAL } from "@/lib/billing/access";
+import { DEFAULT_CLUB_TRIAL_DAYS } from "@/lib/stripe-config";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -79,21 +81,28 @@ export async function enrollClubMember(args: { clerkUserId: string; club: Organi
   return { ok: true, userId: user.id };
 }
 
+/** Paid club whose trial runs inside Stripe Checkout (card collected up front). */
+export function clubRequiresCardForTrial(club: Pick<Organization, "trialRequiresCard" | "stripePriceId">): boolean {
+  return club.trialRequiresCard === true && !isFreeClub(club);
+}
+
 /**
  * Creates the trial once (or, for a free club, an ACTIVE membership with
- * nothing to pay). Never resets `trialEndsAt` for an existing row.
+ * nothing to pay). Never resets `trialEndsAt` for an existing row. A
+ * card-required club gets no local trial window (NO_LOCAL_TRIAL): the member
+ * has no access until Stripe Checkout starts their trial.
  */
 export async function ensureMemberSubscription(userId: string, club: Organization, now = new Date()): Promise<void> {
   const existing = await prisma.memberSubscription.findUnique({ where: { userId }, select: { id: true } });
   if (existing) return;
-  const trialDays = club.trialDays ?? 14;
+  const trialDays = club.trialDays ?? DEFAULT_CLUB_TRIAL_DAYS;
   try {
     await prisma.memberSubscription.create({
       data: {
         userId,
         clerkOrgId: club.clerkOrgId,
         status: isFreeClub(club) ? "ACTIVE" : "TRIALING",
-        trialEndsAt: new Date(now.getTime() + trialDays * DAY_MS),
+        trialEndsAt: clubRequiresCardForTrial(club) ? NO_LOCAL_TRIAL : new Date(now.getTime() + trialDays * DAY_MS),
         // Explicit nulls, not omitted: Mongo `{ field: null }` filters miss unwritten fields.
         stripeCustomerId: null,
         stripeSubscriptionId: null,

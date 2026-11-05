@@ -24,6 +24,15 @@ vi.mock("next/navigation", () => ({
   }),
 }));
 vi.mock("@/lib/org-capabilities.server", () => ({ getCapabilitiesForUser: vi.fn() }));
+const cookieJar = vi.hoisted(() => ({ value: undefined as string | undefined, delete: vi.fn() }));
+vi.mock("next/headers", () => ({
+  cookies: vi.fn(async () => ({
+    get: () => (cookieJar.value ? { value: cookieJar.value } : undefined),
+    delete: cookieJar.delete,
+  })),
+}));
+const checkout = vi.hoisted(() => ({ create: vi.fn() }));
+vi.mock("@/lib/services/stripe-billing.service", () => ({ createTrainerCheckoutSession: checkout.create }));
 
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
@@ -59,7 +68,7 @@ describe("completeTrainerOnboarding failure recovery", () => {
   });
 
   it("marks the trainer onboarded only after the trial subscription exists", async () => {
-    await expect(completeTrainerOnboarding(trainerForm)).rejects.toThrow(/^REDIRECT:\/dashboard$/);
+    await expect(completeTrainerOnboarding(trainerForm)).rejects.toThrow(/^REDIRECT:\/billing$/);
 
     expect(prisma.user.update).toHaveBeenCalledWith({ where: { id: "u1" }, data: { onboarded: true } });
     const subOrder = vi.mocked(prisma.trainerSubscription.create).mock.invocationCallOrder[0];
@@ -72,7 +81,7 @@ describe("completeTrainerOnboarding failure recovery", () => {
     vi.mocked(getCapabilitiesForUser).mockResolvedValue(trainerOrgCaps);
     vi.mocked(prisma.organization.findUnique).mockResolvedValue({ clerkOrgId: "org_prev" } as any);
 
-    await expect(completeTrainerOnboarding(trainerForm)).rejects.toThrow(/^REDIRECT:\/dashboard$/);
+    await expect(completeTrainerOnboarding(trainerForm)).rejects.toThrow(/^REDIRECT:\/billing$/);
 
     expect(clerk.createOrganization).not.toHaveBeenCalled();
     expect(prisma.organization.create).not.toHaveBeenCalled();
@@ -89,8 +98,32 @@ describe("completeTrainerOnboarding failure recovery", () => {
     );
     vi.mocked(prisma.organization.findUnique).mockResolvedValue({ clerkOrgId: "org_trainer" } as any);
 
-    await expect(completeTrainerOnboarding(trainerForm)).rejects.toThrow(/^REDIRECT:\/dashboard$/);
+    await expect(completeTrainerOnboarding(trainerForm)).rejects.toThrow(/^REDIRECT:\/billing$/);
 
     expect(clerk.createOrganization).toHaveBeenCalled();
+  });
+
+  it("creates no free trial window: the row waits for Stripe Checkout (NO_LOCAL_TRIAL)", async () => {
+    cookieJar.value = undefined;
+    await expect(completeTrainerOnboarding(trainerForm)).rejects.toThrow(/^REDIRECT:\/billing$/);
+    const created = vi.mocked(prisma.trainerSubscription.create).mock.calls[0][0] as any;
+    expect(created.data.trialEndsAt.getTime()).toBe(0);
+    expect(checkout.create).not.toHaveBeenCalled();
+  });
+
+  it("goes straight to Stripe Checkout for the plan picked on the marketing site", async () => {
+    cookieJar.value = "PRO";
+    checkout.create.mockResolvedValue({ ok: true, url: "https://checkout.stripe.test/s" });
+    await expect(completeTrainerOnboarding(trainerForm)).rejects.toThrow(/^REDIRECT:https:\/\/checkout\.stripe\.test\/s$/);
+    expect(checkout.create).toHaveBeenCalledWith("u1", "PRO");
+    expect(cookieJar.delete).toHaveBeenCalled();
+    cookieJar.value = undefined;
+  });
+
+  it("falls back to /billing when that checkout can't be created", async () => {
+    cookieJar.value = "STARTER";
+    checkout.create.mockRejectedValue(new Error("Stripe down"));
+    await expect(completeTrainerOnboarding(trainerForm)).rejects.toThrow(/^REDIRECT:\/billing$/);
+    cookieJar.value = undefined;
   });
 });

@@ -5,7 +5,6 @@ import { MarketingFooter } from "@/components/marketing/marketing-footer";
 import {
   Container,
   CtaBand,
-  DEMO_HREF,
   DisplayHeading,
   Eyebrow,
   FeatureCard,
@@ -13,6 +12,7 @@ import {
   PhotoBand,
   PillLink,
 } from "@/components/marketing/primitives";
+import { CALENDLY_URL, pricingHref } from "@/lib/marketing-links";
 
 export const metadata: Metadata = {
   title: "For Clubs",
@@ -86,9 +86,9 @@ export default function ClubsPage() {
             ))}
           </div>
           <div className="mt-9 flex flex-wrap gap-3">
-            <PillLink href={DEMO_HREF}>Bring MIA to your club</PillLink>
-            <PillLink href={DEMO_HREF} variant="light" arrow={false}>
-              Book a demo
+            <PillLink href={CALENDLY_URL}>Schedule a consultation</PillLink>
+            <PillLink href={pricingHref("clubs")} variant="light" arrow={false}>
+              Club partnership details
             </PillLink>
           </div>
         </div>
@@ -111,14 +111,14 @@ export default function ClubsPage() {
       <CtaBand
         eyebrow="Let's build a stronger, healthier community"
         title="Bring MIA to your club."
-        body="Schedule a demo to see how MIA Performance can enhance your member experience."
+        body="Schedule a consultation to see how MIA Performance can enhance your member experience."
         src="/landing/clubs-cta.jpg"
         alt="A club terrace overlooking a golf course at sunset"
         actions={
           <>
-            <PillLink href={DEMO_HREF}>Book a demo</PillLink>
-            <PillLink href="/" variant="light" arrow={false}>
-              Learn more
+            <PillLink href={CALENDLY_URL}>Schedule a consultation</PillLink>
+            <PillLink href="/about" variant="light" arrow={false}>
+              About MIA
             </PillLink>
           </>
         }

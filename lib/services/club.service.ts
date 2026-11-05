@@ -9,6 +9,7 @@ import { ClubError } from "@/lib/services/club-error";
 import { parseDollarsToCents } from "@/lib/utils/money";
 import { nullOrUnset } from "@/lib/db/mongo-null";
 import { isFreeClub } from "@/lib/clubs/free-club";
+import { DEFAULT_CLUB_TRIAL_DAYS } from "@/lib/stripe-config";
 import {
   disableClubPrice,
   ensureClubPrice,
@@ -44,6 +45,10 @@ export interface ClubInput {
   resourceProgramIds: string[];
   /** USD cents per month for the coaching add-on; null = coaching not offered. */
   coachingAmountCents: number | null;
+  /** Trial runs inside Stripe Checkout with a card; no access before checkout. */
+  trialRequiresCard: boolean;
+  /** /join/<slug> needs no access code. */
+  openJoin: boolean;
 }
 
 export type ClubUpdateInput = Omit<ClubInput, "membershipAmountCents" | "coachingAmountCents"> & {
@@ -82,7 +87,14 @@ export function parseClubInput(raw: Record<string, unknown>): ClubInput {
   const starterProgramIds = parseStarters(raw);
   const resourceProgramIds = parseResources(raw);
   const coachingAmountCents = parseAmount(raw.coachingAmount, "Coaching price");
+  assertCardTrialIsPaid(settings.trialRequiresCard, membershipAmountCents);
   return { ...settings, membershipAmountCents, starterProgramIds, resourceProgramIds, coachingAmountCents };
+}
+
+/** A card-required trial only makes sense with a paid membership. */
+function assertCardTrialIsPaid(trialRequiresCard: boolean, membershipAmountCents: number | KeepPrice) {
+  if (trialRequiresCard && membershipAmountCents === 0)
+    throw new ClubError("invalid_input", "A card-required trial needs a paid membership price.");
 }
 
 /**
@@ -99,6 +111,7 @@ export function parseClubUpdateInput(raw: Record<string, unknown>): ClubUpdateIn
     raw.keepCoachingPrice === true && isEmpty(raw.coachingAmount)
       ? KEEP_PRICE
       : parseAmount(raw.coachingAmount, "Coaching price");
+  assertCardTrialIsPaid(settings.trialRequiresCard, membershipAmountCents);
   return { ...settings, membershipAmountCents, starterProgramIds, resourceProgramIds, coachingAmountCents };
 }
 
@@ -115,7 +128,9 @@ function parseClubSettings(raw: Record<string, unknown>) {
     throw new ClubError("invalid_input", "Access code must be 4–32 letters, numbers or dashes.");
   if (!Number.isInteger(trialDays) || trialDays < 1 || trialDays > 365)
     throw new ClubError("invalid_input", "Trial must be 1–365 days.");
-  return { name, joinSlug, joinCode, trialDays };
+  const trialRequiresCard = raw.trialRequiresCard === true;
+  const openJoin = raw.openJoin === true;
+  return { name, joinSlug, joinCode, trialDays, trialRequiresCard, openJoin };
 }
 
 function parseStarters(raw: Record<string, unknown>): string[] {
@@ -187,6 +202,8 @@ function clubData(input: ClubUpdateInput, prices: { stripePriceId: string | null
     joinSlug: input.joinSlug,
     joinCode: input.joinCode,
     trialDays: input.trialDays,
+    trialRequiresCard: input.trialRequiresCard,
+    openJoin: input.openJoin,
     starterProgramIds: input.starterProgramIds,
     resourceProgramIds: input.resourceProgramIds,
     ...prices,
@@ -409,7 +426,7 @@ async function syncMembersToClubPrice(club: Organization, now = new Date()) {
         where: { clerkOrgId: club.clerkOrgId, status: "ACTIVE", ...nullOrUnset("stripeSubscriptionId") },
         data: {
           status: "TRIALING",
-          trialEndsAt: new Date(now.getTime() + (club.trialDays ?? 14) * 24 * 60 * 60 * 1000),
+          trialEndsAt: new Date(now.getTime() + (club.trialDays ?? DEFAULT_CLUB_TRIAL_DAYS) * 24 * 60 * 60 * 1000),
           remindersSent: [],
         },
       });
