@@ -7,7 +7,7 @@ import { getOrgCapabilities } from "@/lib/org-capabilities";
 import { getOrgForUser } from "@/lib/org-capabilities.server";
 import { evaluateMemberAccess } from "@/lib/billing/access";
 import { isStripeSubscriptionAlreadyCanceled } from "@/lib/billing/stripe-errors";
-import { subscriptionPeriodEnd } from "@/lib/billing/stripe-period";
+import { subscriptionPeriodEnd, isScheduledToCancel } from "@/lib/billing/stripe-period";
 import { nextCoachingStatus, type CoachingEvent } from "@/lib/clubs/coaching-state";
 import { requireHouseCoach } from "@/lib/services/house-coach.service";
 import { notifyUser } from "@/lib/services/notification.service";
@@ -603,7 +603,7 @@ async function applyCoachingSubscription(
         ...data,
         stripeSubscriptionId: subscription.id,
         currentPeriodEnd: subscriptionPeriodEnd(subscription),
-        cancelAtPeriodEnd: ended ? false : subscription.cancel_at_period_end,
+        cancelAtPeriodEnd: ended ? false : isScheduledToCancel(subscription),
       },
     });
     if (count === 1) return;

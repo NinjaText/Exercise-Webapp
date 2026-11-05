@@ -3,7 +3,10 @@ import type { MemberSubscription, Organization, Prisma, SubStatus, User } from "
 import { prisma } from "@/lib/prisma";
 import { nullOrUnset } from "@/lib/db/mongo-null";
 import { stripe } from "@/lib/stripe";
-import { subscriptionPeriodEnd } from "@/lib/billing/stripe-period";
+import { stripeStatusToSubStatus, subscriptionPeriodEnd, subscriptionTrialFields, isScheduledToCancel } from "@/lib/billing/stripe-period";
+import { hasScheduledSubscription, isTrialEligible } from "@/lib/billing/access";
+import { DEFAULT_CLUB_TRIAL_DAYS } from "@/lib/stripe-config";
+import { appBaseUrl } from "@/lib/utils/app-url";
 import { isStripeSubscriptionAlreadyCanceled } from "@/lib/billing/stripe-errors";
 import { cancelCoachingForEndedMembership } from "@/lib/services/coaching.service";
 
@@ -33,19 +36,7 @@ export async function ensureMemberStripeCustomer(
   return customer.id;
 }
 
-function toSubStatus(status: Stripe.Subscription.Status): SubStatus {
-  switch (status) {
-    case "trialing": return "TRIALING";
-    case "past_due": return "PAST_DUE";
-    case "canceled": return "CANCELED";
-    // Checkout never completed and Stripe gave up: nothing to pay for.
-    case "incomplete_expired": return "CANCELED";
-    case "unpaid": return "UNPAID";
-    // Paused (e.g. trial ended without a payment method): not paying, so gated.
-    case "paused": return "UNPAID";
-    default: return "ACTIVE";
-  }
-}
+const toSubStatus = (status: Stripe.Subscription.Status): SubStatus => stripeStatusToSubStatus(status);
 
 /**
  * All writes are `updateMany` so events for customers we don't track as members
@@ -66,7 +57,10 @@ export async function activateMemberFromCheckout(session: Stripe.Checkout.Sessio
       stripeCustomerId: session.customer as string,
       stripeSubscriptionId: subscription.id,
       currentPeriodEnd: subscriptionPeriodEnd(subscription),
-      cancelAtPeriodEnd: subscription.cancel_at_period_end,
+      cancelAtPeriodEnd: isScheduledToCancel(subscription),
+      // Stripe trial (card-required clubs, or a member subscribing mid-trial):
+      // trialEndsAt follows Stripe and the trial is recorded as used.
+      ...subscriptionTrialFields(subscription),
     },
   });
   if (count > 0 && status === "CANCELED") await endCoachingForCanceledMembers({ userId });
@@ -120,7 +114,8 @@ export async function syncMemberSubscriptionFromStripe(
       stripeSubscriptionId: subscription.id,
       status,
       currentPeriodEnd: subscriptionPeriodEnd(subscription),
-      cancelAtPeriodEnd: subscription.cancel_at_period_end,
+      cancelAtPeriodEnd: isScheduledToCancel(subscription),
+      ...subscriptionTrialFields(subscription),
     },
   });
   if (count > 0 && status === "CANCELED") await endCoachingForCanceledMembers(where);
@@ -197,4 +192,86 @@ export async function cancelMemberBillingForDeletion(userId: string): Promise<vo
   } catch (error) {
     console.error(`[account-deletion] could not expire open checkouts for ${userId}:`, error);
   }
+}
+
+const TRIAL_END_MIN_LEAD_MS = 48 * 60 * 60 * 1000;
+
+export type MemberCheckoutResult = { ok: true; url: string } | { ok: false; status: number; error: string };
+
+/** Any earlier Stripe subscription on this customer means the trial is used. Fails closed. */
+async function customerHadSubscription(stripeCustomerId: string): Promise<boolean> {
+  try {
+    const list = await stripe.subscriptions.list({ customer: stripeCustomerId, status: "all", limit: 1 });
+    return list.data.length > 0;
+  } catch (err) {
+    console.error("[member-checkout] couldn't list subscriptions; no trial:", err);
+    return true;
+  }
+}
+
+/**
+ * Which trial a membership checkout gets:
+ *  - a local (card-less) trial with >48h left keeps its remaining days;
+ *  - a member who never had any trial (card-required clubs create rows with
+ *    NO_LOCAL_TRIAL) gets the club's trial inside Checkout;
+ *  - otherwise (trial used, re-subscribe after cancel) none.
+ */
+export async function memberTrialPlan(
+  sub: Pick<MemberSubscription, "status" | "trialEndsAt" | "stripeSubscriptionId" | "trialUsedAt">,
+  club: Pick<Organization, "trialDays">,
+  customerId: string,
+  now = new Date()
+): Promise<{ trial_end: number } | { trial_period_days: number } | null> {
+  if (sub.status === "TRIALING" && !sub.stripeSubscriptionId && sub.trialEndsAt.getTime() - now.getTime() > TRIAL_END_MIN_LEAD_MS) {
+    return { trial_end: Math.floor(sub.trialEndsAt.getTime() / 1000) };
+  }
+  if (isTrialEligible(sub) && !(await customerHadSubscription(customerId))) {
+    return { trial_period_days: club.trialDays ?? DEFAULT_CLUB_TRIAL_DAYS };
+  }
+  return null;
+}
+
+/**
+ * Membership Checkout for a club member (POST /api/checkout/member and the
+ * card-required join flow). Card always collected.
+ */
+export async function createMemberCheckoutSession(
+  user: Pick<User, "id" | "email" | "firstName" | "lastName">,
+  org: Organization
+): Promise<MemberCheckoutResult> {
+  if (!org.stripePriceId) return { ok: false, status: 409, error: "Club has no price configured" };
+  const sub = await prisma.memberSubscription.findUnique({ where: { userId: user.id } });
+  if (!sub) return { ok: false, status: 404, error: "Subscription record not found" };
+  if (sub.status === "ACTIVE" || hasScheduledSubscription(sub)) {
+    return { ok: false, status: 409, error: "Already subscribed" };
+  }
+  // A second subscription would let the old one's events clobber the new one.
+  if (sub.stripeSubscriptionId && (sub.status === "PAST_DUE" || sub.status === "UNPAID")) {
+    return {
+      ok: false,
+      status: 409,
+      error: "Your subscription has a payment issue — use Manage billing to update your card.",
+    };
+  }
+
+  // Reuse the customer on resubscribe so billing history stays in one place.
+  const customerId = await ensureMemberStripeCustomer(user, sub, org);
+  const trial = await memberTrialPlan(sub, org, customerId);
+
+  const session = await stripe.checkout.sessions.create({
+    customer: customerId,
+    mode: "subscription",
+    payment_method_collection: "always",
+    line_items: [{ price: org.stripePriceId, quantity: 1 }],
+    metadata: { purchaseType: MEMBER_PURCHASE_TYPE, userId: user.id },
+    subscription_data: {
+      metadata: { purchaseType: MEMBER_PURCHASE_TYPE, userId: user.id },
+      ...(trial ?? {}),
+      ...(trial ? { trial_settings: { end_behavior: { missing_payment_method: "cancel" as const } } } : {}),
+    },
+    success_url: `${appBaseUrl()}/billing/success?session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${appBaseUrl()}/billing?reason=canceled_checkout`,
+  });
+  if (!session.url) return { ok: false, status: 500, error: "Checkout session URL unavailable" };
+  return { ok: true, url: session.url };
 }

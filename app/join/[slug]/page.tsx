@@ -20,7 +20,9 @@ export default async function JoinClubPage({ params }: { params: Promise<{ slug:
   const brandingVm = toViewModel(branding);
 
   // verifyJoinToken throws when CLERK_SECRET_KEY is missing: fail closed (500).
-  const verified = verifyJoinToken((await cookies()).get(JOIN_COOKIE)?.value, club.clerkOrgId);
+  // Open-join clubs (e.g. MIA Individuals) skip the access-code step.
+  const verified =
+    club.openJoin === true || verifyJoinToken((await cookies()).get(JOIN_COOKIE)?.value, club.clerkOrgId);
   const completeUrl = `/join/${slug}/complete`;
   const startWhat = isFreeClub(club) ? "join" : "start your free trial";
 

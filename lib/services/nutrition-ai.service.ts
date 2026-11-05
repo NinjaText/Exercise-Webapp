@@ -1,4 +1,5 @@
 import { generateObject } from "ai";
+import { meteredAiCall } from "@/lib/ai/usage";
 import { openai } from "@ai-sdk/openai";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
@@ -116,7 +117,7 @@ export async function analyzeMealPhoto(photoUrl: string, note?: string): Promise
     ? `${MEAL_PHOTO_PROMPT}\n\nThe person who ate this meal added a note — follow it, especially about how much they actually ate:\n"${note}"`
     : MEAL_PHOTO_PROMPT;
 
-  const { object } = await generateObject({
+  const { object } = await meteredAiCall("nutrition.meal-photo", () => generateObject({
     model: openai("gpt-4o"),
     schema: mealPhotoSchema,
     messages: [
@@ -128,7 +129,7 @@ export async function analyzeMealPhoto(photoUrl: string, note?: string): Promise
         ],
       },
     ],
-  });
+  }));
 
   return removeDuplicatedComponents(object.foods).map(reconcileCalories);
 }
@@ -173,11 +174,11 @@ export async function estimateMealMacrosBatch(
     .map((item, i) => `${i + 1}. ${item.name}${item.quantity ? ` (serving size: "${item.quantity}")` : ""}`)
     .join("\n");
 
-  const { object } = await generateObject({
+  const { object } = await meteredAiCall("nutrition.estimate-macros", () => generateObject({
     model: openai("gpt-4o-mini"),
     schema: mealMacroBatchSchema,
     prompt: `Estimate the nutritional content of each of these food items, logged together as one meal:\n\n${itemLines}\n\n${ESTIMATION_GUIDELINES}\n\nReturn exactly ${items.length} estimate(s), in the same order as the input list.`,
-  });
+  }));
 
   if (object.items.length !== items.length) {
     throw new Error(`Expected ${items.length} macro estimates but received ${object.items.length}`);
@@ -205,7 +206,7 @@ export async function reestimateMealPhotoItem(
     .filter(Boolean)
     .join("\n");
 
-  const { object } = await generateObject({
+  const { object } = await meteredAiCall("nutrition.reestimate-item", () => generateObject({
     model: openai("gpt-4o"),
     schema: mealMacroEstimateSchema,
     messages: [
@@ -220,7 +221,7 @@ export async function reestimateMealPhotoItem(
         ],
       },
     ],
-  });
+  }));
 
   return reconcileCalories(object);
 }
@@ -256,7 +257,7 @@ export async function generateDailyNutritionSummary(
 
   const summary = await nutritionService.getDailySummary(clientId, date);
 
-  const { object } = await generateObject({
+  const { object } = await meteredAiCall("nutrition.daily-summary", () => generateObject({
     model: openai("gpt-4o-mini"),
     schema: dailySummarySchema,
     prompt: `You are a supportive nutrition coach reviewing a client's day. Here is today's data:
@@ -270,7 +271,7 @@ Meals logged: ${summary.mealsLogged} (${summary.itemsLogged} food items in total
 Adherence: ${summary.adherencePct !== null ? `${summary.adherencePct}%` : "not enough data"}
 
 Write a short, honest, encouraging summary of how the day went.`,
-  });
+  }));
 
   await prisma.nutritionAiSummary.upsert({
     where: { clientId_kind_periodStart: { clientId, kind: "DAILY", periodStart } },
@@ -334,7 +335,7 @@ export async function generateWeeklyNutritionReview(
     })
     .join("\n");
 
-  const { object } = await generateObject({
+  const { object } = await meteredAiCall("nutrition.weekly-review", () => generateObject({
     model: openai("gpt-4o-mini"),
     schema: weeklyReviewSchema,
     prompt: `You are a nutrition coach preparing a weekly review for a client based on the last 7 days of logged data:
@@ -345,7 +346,7 @@ Average adherence this week: ${avgAdherence !== null ? `${avgAdherence}%` : "not
 Days with zero meals logged: ${missedDaysCount}
 
 Write a concise weekly review: what went well (wins), what didn't (struggles), give the coach actionable suggestions to relay to the client, and recommend whether calorie/macro targets should be adjusted next week and how.`,
-  });
+  }));
 
   // missedDays is deterministic — trust our own count over the model's transcription of it.
   const result: WeeklyNutritionReview = { ...object, missedDays: missedDaysCount };

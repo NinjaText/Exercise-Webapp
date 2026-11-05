@@ -15,7 +15,7 @@ import { BrandStyle } from "@/components/branding/brand-style";
 import { getCurrentBranding, getOrgBranding } from "@/lib/services/branding.service";
 import { toViewModel } from "@/lib/branding/types";
 import { brandIconsMetadata, brandViewport } from "@/lib/branding/metadata";
-import { evaluateAccess, evaluateMemberAccess, memberTrialBannerDays } from "@/lib/billing/access";
+import { evaluateMemberAccess, evaluateTrainerAccess, memberTrialBannerDays } from "@/lib/billing/access";
 import { isBillingExempt } from "@/lib/billing/exempt";
 import { hiddenNavHrefs, TEMPORARILY_HIDDEN_HREFS } from "@/lib/org-capabilities";
 import { getCapabilitiesForUser, getOrgForUser } from "@/lib/org-capabilities.server";
@@ -74,7 +74,9 @@ export default async function PlatformLayout({ children }: { children: React.Rea
     // No subscription at all means signup never finished (e.g. Stripe failed
     // mid-onboarding): let them finish it rather than show "trial ended".
     if (!sub) redirect("/onboarding");
-    const verdict = evaluateAccess(sub, now);
+    // No plan yet → /billing?reason=checkout_required (choose a plan, card
+    // required); old card-less trials keep access until they end.
+    const verdict = evaluateTrainerAccess(sub, now);
     if (verdict !== "ok") redirect(`/billing?reason=${verdict}`);
   }
 

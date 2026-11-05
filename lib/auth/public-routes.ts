@@ -11,6 +11,13 @@ export const PUBLIC_ROUTES = [
   "/clubs",
   "/professionals",
   "/individuals",
+  "/about",
+  "/pricing",
+  // Audience selection behind every "Start your free trial" CTA.
+  "/get-started",
+  // Trial entry points (app/start/*): signed-out visitors are sent to sign-up
+  // by the route itself, carrying the chosen plan along.
+  "/start/(.*)",
   "/sign-in(.*)",
   "/sign-up(.*)",
   "/onboarding(.*)",

@@ -24,8 +24,10 @@ async function bootstrap() {
       metadata: { trainerId: trainer.id },
     });
 
-    // Create TrainerSubscription with 14-day trial
-    const trialEndsAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
+    // No local trial window: the 7-day trial now runs inside Stripe Checkout
+    // (card required). The epoch marks "never checked out" (NO_LOCAL_TRIAL in
+    // lib/billing/access.ts), so the gate sends them to choose a plan.
+    const trialEndsAt = new Date(0);
     await prisma.trainerSubscription.create({
       data: {
         trainerId: trainer.id,

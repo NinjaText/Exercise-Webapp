@@ -26,6 +26,12 @@ export function BuyButton({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ slug, withBundle }),
       });
+      if (res.status === 409) {
+        const body = (await res.json().catch(() => null)) as { error?: string } | null;
+        setLoading(false);
+        setError(body?.error ?? "This program isn't available right now.");
+        return;
+      }
       if (!res.ok) throw new Error("Checkout failed");
       const { url } = (await res.json()) as { url: string };
       window.location.href = url;

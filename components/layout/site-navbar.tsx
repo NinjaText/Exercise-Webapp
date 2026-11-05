@@ -6,11 +6,12 @@ import { motion, useScroll, useTransform, AnimatePresence } from "framer-motion"
 import { Button } from "@/components/ui/button";
 import { Menu, X } from "lucide-react";
 import { ProductLogo } from "@/components/branding/product-logo";
+import { GET_STARTED_HREF, pricingHref } from "@/lib/marketing-links";
 
 const NAV_LINKS = [
   { label: "Clubs", href: "/clubs" },
   { label: "Professionals", href: "/professionals" },
-  { label: "Pricing", href: "/professionals#pricing" },
+  { label: "Pricing", href: pricingHref() },
   { label: "About", href: "/about" },
 ];
 
@@ -67,7 +68,7 @@ export function SiteNavbar({ alwaysSolid = false }: { alwaysSolid?: boolean } = 
             <Link href="/sign-in">Sign In</Link>
           </Button>
           <Button size="sm" className="bg-sidebar-primary border-0 text-sidebar-primary-foreground shadow-lg hover:bg-sidebar-primary/90" asChild>
-            <Link href="/sign-up">Get Started</Link>
+            <Link href={GET_STARTED_HREF}>Get Started</Link>
           </Button>
         </motion.div>
 
@@ -109,7 +110,7 @@ export function SiteNavbar({ alwaysSolid = false }: { alwaysSolid?: boolean } = 
                   <Link href="/sign-in">Sign In</Link>
                 </Button>
                 <Button size="lg" className="w-full bg-sidebar-primary border-0 text-sidebar-primary-foreground" asChild>
-                  <Link href="/sign-up">Get Started Free</Link>
+                  <Link href={GET_STARTED_HREF}>Get Started Free</Link>
                 </Button>
               </div>
             </div>

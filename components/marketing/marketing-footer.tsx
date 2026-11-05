@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ProductLogo } from "@/components/branding/product-logo";
 import { PRODUCT_EXPANSION, PRODUCT_NAME } from "@/lib/brand";
+import { pricingHref } from "@/lib/marketing-links";
 
 const COLUMNS = [
   {
@@ -9,7 +10,7 @@ const COLUMNS = [
       { label: "Clubs", href: "/clubs" },
       { label: "Professionals", href: "/professionals" },
       { label: "Individuals", href: "/individuals" },
-      { label: "Pricing", href: "/professionals#pricing" },
+      { label: "Pricing", href: pricingHref() },
     ],
   },
   {

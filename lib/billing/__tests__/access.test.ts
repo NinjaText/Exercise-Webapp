@@ -50,3 +50,36 @@ describe("member access with a subscription scheduled at trial end", () => {
     expect(evaluateAccess(scheduled as any, now)).toBe("trial_expired");
   });
 });
+
+describe("card-required trial (7-day Stripe trial)", () => {
+  // Imported lazily so the block reads top-down with the helpers it covers.
+  it("a fresh row (NO_LOCAL_TRIAL, no Stripe sub) must check out — never 'trial ended'", async () => {
+    const { evaluateTrainerAccess, NO_LOCAL_TRIAL, awaitingFirstCheckout } = await import("@/lib/billing/access");
+    const fresh = { status: "TRIALING", trialEndsAt: NO_LOCAL_TRIAL, stripeSubscriptionId: null } as const;
+    expect(awaitingFirstCheckout(fresh)).toBe(true);
+    expect(evaluateTrainerAccess(fresh, now)).toBe("checkout_required");
+    expect(evaluateMemberAccess(fresh, now)).toBe("checkout_required");
+  });
+
+  it("grandfathers an old card-less trial until it ends, then 'trial ended'", async () => {
+    const { evaluateTrainerAccess } = await import("@/lib/billing/access");
+    expect(evaluateTrainerAccess({ status: "TRIALING", trialEndsAt: future, stripeSubscriptionId: null }, now)).toBe("ok");
+    expect(evaluateTrainerAccess({ status: "TRIALING", trialEndsAt: past, stripeSubscriptionId: null }, now)).toBe("trial_expired");
+  });
+
+  it("a Stripe-trialing trainer keeps access across the trial→paid webhook lag", async () => {
+    const { evaluateTrainerAccess } = await import("@/lib/billing/access");
+    expect(evaluateTrainerAccess({ status: "TRIALING", trialEndsAt: past, stripeSubscriptionId: "sub_1" }, now)).toBe("ok");
+    expect(evaluateTrainerAccess({ status: "CANCELED", trialEndsAt: past, stripeSubscriptionId: "sub_1" }, now)).toBe("trial_expired");
+  });
+
+  it("one trial per account", async () => {
+    const { isTrialEligible, NO_LOCAL_TRIAL } = await import("@/lib/billing/access");
+    const fresh = { status: "TRIALING", trialEndsAt: NO_LOCAL_TRIAL, stripeSubscriptionId: null, trialUsedAt: null } as const;
+    expect(isTrialEligible(fresh)).toBe(true);
+    expect(isTrialEligible({ ...fresh, trialUsedAt: new Date() })).toBe(false);
+    expect(isTrialEligible({ ...fresh, status: "CANCELED", stripeSubscriptionId: "sub_old" })).toBe(false);
+    // An old card-less trial counts as the account's trial.
+    expect(isTrialEligible({ ...fresh, trialEndsAt: past })).toBe(false);
+  });
+});

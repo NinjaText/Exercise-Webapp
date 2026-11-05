@@ -12,8 +12,8 @@ const ENDPOINTS: Record<Action, string> = {
 };
 
 export function MemberBillingButtons({
-  canSubscribe, canManage,
-}: { canSubscribe: boolean; canManage: boolean }) {
+  canSubscribe, canManage, subscribeLabel = "Subscribe",
+}: { canSubscribe: boolean; canManage: boolean; subscribeLabel?: string }) {
   const [loading, setLoading] = useState<Action | null>(null);
 
   async function go(action: Action) {
@@ -34,7 +34,7 @@ export function MemberBillingButtons({
     <div className="flex flex-col gap-3">
       {canSubscribe && (
         <Button size="lg" className="h-11 w-full" disabled={loading !== null} onClick={() => go("subscribe")}>
-          {loading === "subscribe" ? "Redirecting…" : "Subscribe"}
+          {loading === "subscribe" ? "Redirecting…" : subscribeLabel}
         </Button>
       )}
       {canManage && (

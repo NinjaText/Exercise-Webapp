@@ -24,6 +24,15 @@ vi.mock("next/navigation", () => ({
   }),
 }));
 vi.mock("@/lib/org-capabilities.server", () => ({ getCapabilitiesForUser: vi.fn() }));
+const cookieJar = vi.hoisted(() => ({ value: undefined as string | undefined, delete: vi.fn() }));
+vi.mock("next/headers", () => ({
+  cookies: vi.fn(async () => ({
+    get: () => (cookieJar.value ? { value: cookieJar.value } : undefined),
+    delete: cookieJar.delete,
+  })),
+}));
+const checkout = vi.hoisted(() => ({ create: vi.fn() }));
+vi.mock("@/lib/services/stripe-billing.service", () => ({ createTrainerCheckoutSession: checkout.create }));
 
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
@@ -60,7 +69,7 @@ describe("completeTrainerOnboarding club guard", () => {
   );
 
   it("first-time trainer-org signup is unchanged (regression)", async () => {
-    await expect(completeTrainerOnboarding(trainerForm)).rejects.toThrow(/^REDIRECT:\/dashboard$/);
+    await expect(completeTrainerOnboarding(trainerForm)).rejects.toThrow(/^REDIRECT:\/billing$/);
     expect(getCapabilitiesForUser).not.toHaveBeenCalled();
     expect(clerk.createOrganization).toHaveBeenCalledWith({ name: "Clinic", createdBy: "clerk_1", maxAllowedMemberships: 20 });
     expect(prisma.trainerSubscription.create).toHaveBeenCalled();
@@ -69,7 +78,7 @@ describe("completeTrainerOnboarding club guard", () => {
   it("an existing trainer-org user may still finish signup", async () => {
     vi.mocked(prisma.user.findUnique).mockResolvedValue({ id: "u1", role: "TRAINER", clerkOrgId: null } as any);
     vi.mocked(getCapabilitiesForUser).mockResolvedValue(trainerOrgCaps);
-    await expect(completeTrainerOnboarding(trainerForm)).rejects.toThrow(/^REDIRECT:\/dashboard$/);
+    await expect(completeTrainerOnboarding(trainerForm)).rejects.toThrow(/^REDIRECT:\/billing$/);
     expect(clerk.createOrganization).toHaveBeenCalled();
   });
 });

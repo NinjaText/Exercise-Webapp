@@ -8,6 +8,10 @@ import { stripe } from "@/lib/stripe";
 import { logUserAudit, AUDIT_ACTIONS } from "@/lib/services/audit-log.service";
 import { getCapabilitiesForUser } from "@/lib/org-capabilities.server";
 import { isBillingExempt } from "@/lib/billing/exempt";
+import { cookies } from "next/headers";
+import { NO_LOCAL_TRIAL } from "@/lib/billing/access";
+import { START_PLAN_COOKIE, parseStartPlan } from "@/lib/billing/start-plan";
+import { createTrainerCheckoutSession } from "@/lib/services/stripe-billing.service";
 
 export async function completeTrainerOnboarding(data: {
   firstName: string;
@@ -28,6 +32,8 @@ export async function completeTrainerOnboarding(data: {
     return { success: false as const, error: "This account already belongs to a club." };
   }
 
+  let trainerId: string | null = null;
+  let billable = false;
   try {
     const organizationName = data.organizationName.trim();
 
@@ -96,18 +102,20 @@ export async function completeTrainerOnboarding(data: {
         metadata: { trainerId: user.id },
       });
 
-      const trialEndsAt = new Date();
-      trialEndsAt.setDate(trialEndsAt.getDate() + 14);
-
+      // No free window here any more: the 7-day trial runs inside Stripe
+      // Checkout (card required). NO_LOCAL_TRIAL marks "never checked out", so
+      // the billing gate sends them to choose a plan, not "trial ended".
       await prisma.trainerSubscription.create({
         data: {
           trainerId: user.id,
           stripeCustomerId: customer.id,
           status: "TRIALING",
-          trialEndsAt,
+          trialEndsAt: NO_LOCAL_TRIAL,
         },
       });
     }
+    trainerId = user.id;
+    billable = !exempt;
 
     await prisma.user.update({ where: { id: user.id }, data: { onboarded: true } });
 
@@ -122,7 +130,24 @@ export async function completeTrainerOnboarding(data: {
     return { success: false as const, error: "Failed to set up organization. Please try again." };
   }
 
-  redirect("/dashboard");
+  // Complimentary accounts go straight in; everyone else needs a plan first.
+  if (!billable || !trainerId) redirect("/dashboard");
+
+  // A plan picked on the marketing site (/start/trainer?plan=…) goes straight
+  // to Stripe Checkout; otherwise /billing lets them choose one.
+  const jar = await cookies();
+  const plan = parseStartPlan(jar.get(START_PLAN_COOKIE)?.value);
+  let checkoutUrl: string | null = null;
+  if (plan) {
+    jar.delete(START_PLAN_COOKIE);
+    try {
+      const checkout = await createTrainerCheckoutSession(trainerId, plan);
+      if (checkout.ok) checkoutUrl = checkout.url;
+    } catch (err) {
+      console.error("Post-onboarding checkout failed; sending to /billing:", err);
+    }
+  }
+  redirect(checkoutUrl ?? "/billing");
 }
 
 export async function completeClientOnboarding(data: {

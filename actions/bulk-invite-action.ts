@@ -6,6 +6,8 @@ import { prisma } from "@/lib/prisma";
 import { requireSuperAdmin } from "@/lib/current-user";
 import { revalidatePath } from "next/cache";
 import { logAudit, deriveActorType, AUDIT_ACTIONS } from "@/lib/services/audit-log.service";
+import { checkClientLimit } from "@/lib/billing/client-limit";
+import { isSuperAdmin } from "@/lib/current-user";
 
 export interface InviteEmailResult {
   email: string;
@@ -32,6 +34,8 @@ export async function bulkInviteAction(
   let orgId: string;
   let isAdmin = false;
   let actorUser: { id: string; firstName: string; lastName: string; email: string; role: "TRAINER" | "CLIENT" };
+  /** Trainer path only: the caller whose plan caps the org's clients. */
+  let trainerCaller: { id: string; role: "TRAINER" | "CLIENT"; clerkOrgId: string | null; email: string } | null = null;
 
   if (clerkOrgId) {
     actorUser = await requireSuperAdmin(); // redirects if not authorized
@@ -44,13 +48,30 @@ export async function bulkInviteAction(
     if (!dbUser.clerkOrgId) return { success: false, error: "Organization not set up" };
     orgId = dbUser.clerkOrgId;
     actorUser = dbUser;
+    trainerCaller = dbUser;
   }
 
   const uniqueEmails = [...new Set(emails)];
   const client = await clerkClient();
   const results: InviteEmailResult[] = [];
 
+  // Plan client cap: invite as many as fit, refuse the rest with the reason.
+  // Admins inviting on an org's behalf are not capped.
+  let seatsLeft = Infinity;
+  let limitError = "";
+  if (trainerCaller) {
+    const limit = await checkClientLimit(trainerCaller, uniqueEmails.length, { isAdmin: await isSuperAdmin() });
+    if (!limit.ok) {
+      seatsLeft = limit.remaining;
+      limitError = limit.error;
+    }
+  }
+
   for (const email of uniqueEmails) {
+    if (seatsLeft <= 0) {
+      results.push({ email, success: false, error: limitError });
+      continue;
+    }
     try {
       await client.organizations.createOrganizationInvitation({
         organizationId: orgId,
@@ -60,6 +81,7 @@ export async function bulkInviteAction(
         redirectUrl: `${process.env.NEXT_PUBLIC_APP_URL}/onboarding/client`,
       });
       results.push({ email, success: true });
+      seatsLeft -= 1;
 
       await logAudit({
         actorId: actorUser.id,

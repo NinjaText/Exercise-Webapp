@@ -5,6 +5,8 @@ import { auth, clerkClient } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { logAudit, deriveActorType, AUDIT_ACTIONS } from "@/lib/services/audit-log.service";
+import { checkClientLimit } from "@/lib/billing/client-limit";
+import { isSuperAdmin } from "@/lib/current-user";
 
 export interface InviteClientInput {
   email: string;
@@ -62,6 +64,12 @@ export async function inviteClientAction(input: string | InviteClientInput) {
   if (firstName) publicMetadata.invitedFirstName = firstName;
   if (lastName) publicMetadata.invitedLastName = lastName;
   if (phone) publicMetadata.invitedPhone = phone;
+
+  // Plan client cap (trainer orgs only; clubs and exempt accounts are uncapped).
+  const limit = await checkClientLimit(dbUser, 1, { isAdmin: await isSuperAdmin() });
+  if (!limit.ok) {
+    return { success: false as const, error: limit.error, code: "client_limit" as const, upgradeHref: limit.upgradeHref };
+  }
 
   try {
     const client = await clerkClient();

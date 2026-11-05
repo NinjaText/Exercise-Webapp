@@ -13,6 +13,7 @@ import { filterCoachableClientIds } from "@/lib/org-capabilities.server";
 import { logUserAudit, AUDIT_ACTIONS } from "@/lib/services/audit-log.service";
 import * as reflectionService from "@/lib/services/reflection.service";
 import * as reflectionAiService from "@/lib/services/reflection-ai.service";
+import { isAiUsageLimitError } from "@/lib/ai/usage";
 import type { GeneratedReflection } from "@/lib/services/reflection-ai.service";
 import { ReflectionError, type ProgramPlanDay } from "@/lib/services/reflection.service";
 import { AI_PLAN_MAX_DAYS, REFLECTION_IMAGE_PREFIX } from "@/lib/reflections/constants";
@@ -69,6 +70,7 @@ function revalidateReflectionViews() {
 }
 
 function errorMessage(error: unknown, fallback: string): string {
+  if (isAiUsageLimitError(error)) return error.message;
   if (error instanceof ReflectionError) {
     if (error.code === "program_not_found") return "Program not found";
     if (error.code === "no_targets") return "That schedule doesn't match any days";
@@ -316,7 +318,7 @@ export async function generateReflectionOptionsAction(
     return { success: true, data: options };
   } catch (error) {
     console.error("[reflections] AI options error:", error);
-    return { success: false, error: "Couldn't generate reflections right now. Please try again." };
+    return { success: false, error: errorMessage(error, "Couldn't generate reflections right now. Please try again.") };
   }
 }
 

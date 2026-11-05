@@ -15,6 +15,13 @@ describe("legacyHostRedirect", () => {
     );
   });
 
+  it("sends the bare miaperformance.com to www, but leaves its API routes alone", () => {
+    expect(legacyHostRedirect(new URL("https://miaperformance.com/pricing?tab=clubs"))).toBe(
+      "https://www.miaperformance.com/pricing?tab=clubs",
+    );
+    expect(legacyHostRedirect(new URL("https://miaperformance.com/api/stripe/webhook"))).toBeNull();
+  });
+
   it("leaves API routes and .well-known on the old domain", () => {
     expect(legacyHostRedirect(new URL("https://app.goinmotus.com/api/webhooks/stripe"))).toBeNull();
     expect(

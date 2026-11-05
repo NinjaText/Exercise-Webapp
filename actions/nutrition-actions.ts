@@ -21,6 +21,7 @@ import { logUserAudit, AUDIT_ACTIONS } from "@/lib/services/audit-log.service";
 import { getClientIdsForTrainer, getTrainerForClient } from "@/lib/services/client.service";
 import * as nutritionService from "@/lib/services/nutrition.service";
 import * as nutritionAiService from "@/lib/services/nutrition-ai.service";
+import { aiErrorMessage } from "@/lib/ai/usage";
 import { lookupFoodByBarcode } from "@/lib/services/food-barcode.service";
 import { normalizeBarcode, type BarcodeLookupResult } from "@/lib/nutrition/food-barcode";
 import { calculateMacros } from "@/lib/nutrition/macro-calculator";
@@ -393,7 +394,7 @@ export async function analyzeMealPhotoAction(
     return { success: true, data: { foods } };
   } catch (err) {
     console.error("[nutrition] analyzeMealPhoto error:", err);
-    return { success: false, error: "Failed to analyze photo" };
+    return { success: false, error: aiErrorMessage(err, "Failed to analyze photo") };
   }
 }
 
@@ -416,7 +417,7 @@ export async function reestimateMealPhotoItemAction(
     return { success: true, data: { estimate } };
   } catch (err) {
     console.error("[nutrition] reestimateMealPhotoItem error:", err);
-    return { success: false, error: "Failed to re-estimate item" };
+    return { success: false, error: aiErrorMessage(err, "Failed to re-estimate item") };
   }
 }
 
@@ -437,7 +438,7 @@ export async function estimateMealMacrosBatchAction(
     return { success: true, data: { estimates } };
   } catch (err) {
     console.error("[nutrition] estimateMealMacrosBatch error:", err);
-    return { success: false, error: "Failed to estimate macros" };
+    return { success: false, error: aiErrorMessage(err, "Failed to estimate macros") };
   }
 }
 
@@ -531,7 +532,7 @@ export async function generateDailySummaryAction(
     return { success: true, data: summary };
   } catch (err) {
     console.error("[nutrition] generateDailySummary error:", err);
-    return { success: false, error: "Failed to generate summary" };
+    return { success: false, error: aiErrorMessage(err, "Failed to generate summary") };
   }
 }
 
@@ -558,6 +559,6 @@ export async function generateWeeklyReviewAction(
     return { success: true, data: review };
   } catch (err) {
     console.error("[nutrition] generateWeeklyReview error:", err);
-    return { success: false, error: "Failed to generate weekly review" };
+    return { success: false, error: aiErrorMessage(err, "Failed to generate weekly review") };
   }
 }

@@ -1,5 +1,6 @@
 import { activeUserOnly } from "@/lib/auth/active-user";
 import { generateObject } from "ai";
+import { meteredAiCall, isAiUsageLimitError } from "@/lib/ai/usage";
 import { openai } from "@ai-sdk/openai";
 import { z } from "zod";
 import { auth } from "@clerk/nextjs/server";
@@ -179,7 +180,7 @@ export async function POST(req: Request) {
         contextParts.push(`Spoken transcript (auto-generated):\n${transcriptText}`);
       }
 
-      const { object } = await generateObject({
+      const { object } = await meteredAiCall("exercise.metadata-video", () => generateObject({
         model: openai("gpt-4o"),
         schema: youtubeSchema,
         system: systemPrompt,
@@ -188,7 +189,7 @@ export async function POST(req: Request) {
 ${contextParts.join("\n\n")}
 
 Based on all available information above, create a clean exercise name and full metadata appropriate for ${AUDIENCE_COPY[audience].population}. Prioritise the transcript and description for accurate instructions and details — use the title primarily for the exercise name.`,
-      });
+      }));
 
       return NextResponse.json({
         success: true,
@@ -207,7 +208,7 @@ Based on all available information above, create a clean exercise name and full 
       return NextResponse.json({ error: "Exercise name or YouTube URL is required" }, { status: 400 });
     }
 
-    const { object } = await generateObject({
+    const { object } = await meteredAiCall("exercise.metadata-text", () => generateObject({
       model: openai("gpt-4o"),
       schema: nameSchema,
       system: systemPrompt,
@@ -216,10 +217,13 @@ Based on all available information above, create a clean exercise name and full 
 Exercise name: "${name}"
 
 Provide practical, evidence-based metadata ${AUDIENCE_COPY[audience].author}.`,
-    });
+    }));
 
     return NextResponse.json({ success: true, data: object });
   } catch (error) {
+    if (isAiUsageLimitError(error)) {
+      return NextResponse.json({ error: error.message, code: error.code }, { status: 429 });
+    }
     console.error("Failed to generate exercise metadata:", error);
     return NextResponse.json({ error: "Failed to generate metadata" }, { status: 500 });
   }

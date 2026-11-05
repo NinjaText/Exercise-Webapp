@@ -3,6 +3,7 @@ import { auth } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { generateClinicalPlan } from '@/lib/services/ai.service'
+import { isAiUsageLimitError } from '@/lib/ai/usage'
 
 export const maxDuration = 30
 
@@ -25,6 +26,9 @@ export async function POST(req: Request) {
     const plan = await generateClinicalPlan(body)
     return NextResponse.json({ success: true, data: plan })
   } catch (error) {
+    if (isAiUsageLimitError(error)) {
+      return NextResponse.json({ error: error.message, code: error.code }, { status: 429 })
+    }
     console.error('Clinical plan generation failed:', error)
     return NextResponse.json(
       { error: 'Failed to generate clinical plan' },

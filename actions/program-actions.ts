@@ -22,6 +22,7 @@ import {
   categorizeGeneratedProgram,
   buildCategorizationContextFromParams,
 } from "@/lib/services/program-categorization.service";
+import { aiErrorMessage } from "@/lib/ai/usage";
 
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
@@ -810,7 +811,7 @@ export async function generateProgramAction(
     const message =
       error instanceof Error && error.message.startsWith("Invalid generated program:")
         ? error.message
-        : "Failed to generate program";
+        : aiErrorMessage(error, "Failed to generate program");
     return { success: false as const, error: message };
   }
 }
@@ -880,7 +881,7 @@ export async function extractProgramMetadataFromBriefAction(input: {
     return { success: true as const, data: { metadata, rawText, missingRequiredFields } };
   } catch (error) {
     console.error("Failed to extract program metadata from brief:", error);
-    return { success: false as const, error: "Failed to read this document" };
+    return { success: false as const, error: aiErrorMessage(error, "Failed to read this document") };
   }
 }
 
@@ -903,7 +904,7 @@ export async function extractProgramChunksAction(input: {
     return { success: true as const, data: parsed.data };
   } catch (error) {
     console.error("Failed to extract program chunks from brief:", error);
-    return { success: false as const, error: "Failed to extract program structure from this document" };
+    return { success: false as const, error: aiErrorMessage(error, "Failed to extract program structure from this document") };
   }
 }
 
@@ -956,7 +957,7 @@ export async function matchProgramExercisesAction(input: {
     };
   } catch (error) {
     console.error("Failed to match exercises for brief:", error);
-    return { success: false as const, error: "Failed to match exercises against your exercise library" };
+    return { success: false as const, error: aiErrorMessage(error, "Failed to match exercises against your exercise library") };
   }
 }
 

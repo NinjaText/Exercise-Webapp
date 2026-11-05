@@ -10,6 +10,7 @@ import { ClubForm, clubFormPayload, type ClubFormValues } from "../club-form";
 const values: ClubFormValues = {
   name: "Pine", joinSlug: "pine", joinCode: "PINE24", trialDays: 14,
   membershipAmount: "14.99", coachingAmount: "30.00", starterProgramIds: [], resourceProgramIds: [],
+  trialRequiresCard: false, openJoin: false,
 };
 
 describe("ClubForm", () => {
@@ -56,6 +57,21 @@ describe("clubFormPayload", () => {
   it("a typed amount is never a keep", () => {
     expect(clubFormPayload(values, { membership: "n", coaching: "n" })).toMatchObject({
       keepMembershipPrice: false, keepCoachingPrice: false,
+    });
+  });
+
+  it("shows the open-join and card-required trial toggles, defaulting to a 7-day trial", () => {
+    const html = renderToStaticMarkup(<ClubForm mode="create" globalPrograms={[]} resourcePrograms={[]} />);
+    expect(html).toContain('id="club-open-join"');
+    expect(html).toContain('id="club-trial-card"');
+    expect(html).toContain('value="7"');
+  });
+
+  it("never sends a card-required trial for a free club", () => {
+    expect(clubFormPayload({ ...values, membershipAmount: "0", trialRequiresCard: true }, {}).trialRequiresCard).toBe(false);
+    expect(clubFormPayload({ ...values, trialRequiresCard: true, openJoin: true }, {})).toMatchObject({
+      trialRequiresCard: true,
+      openJoin: true,
     });
   });
 });

@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { meteredAiCall } from "@/lib/ai/usage";
 import { prisma } from "@/lib/prisma";
 import type { BodyRegion, Exercise } from "@prisma/client";
 import type { ClinicalPlan, ClinicalPlanParams, WeekPlan } from '@/lib/ai/types/program-generation'
@@ -896,7 +897,7 @@ Respond with this exact JSON structure:
 }
 Produce exactly one dayTemplates entry per weekday index in [${uniqueWeekdayIndices.join(', ')}], each with EXACTLY ${totalExercisesPerSession} exercises${hasCircuits ? ' matching the circuit structure' : ''}.`
 
-        const phaseResponse = await openai.chat.completions.create({
+        const phaseResponse = await meteredAiCall("workout.generate.phase", () => openai.chat.completions.create({
           model: 'gpt-4o',
           max_tokens: 8000,
           response_format: { type: 'json_object' },
@@ -904,7 +905,7 @@ Produce exactly one dayTemplates entry per weekday index in [${uniqueWeekdayIndi
             { role: 'system', content: systemPrompt },
             { role: 'user', content: userPrompt },
           ],
-        })
+        }))
 
         const parsed = JSON.parse(phaseResponse.choices[0].message.content ?? '{}') as {
           title?: string
@@ -1198,7 +1199,7 @@ Respond with this exact JSON structure:
 
 "sessions" must have one entry per weekday index in [${uniqueWeekdayIndices.join(', ')}]. Use either reps OR durationSeconds per exercise, not both (set the unused one to null). Generate ALL requested sessions; do not stop after the first day. Return valid JSON only.`
 
-  const response = await openai.chat.completions.create({
+  const response = await meteredAiCall("workout.generate", () => openai.chat.completions.create({
     model: 'gpt-4o',
     max_tokens: 16000,
     response_format: { type: 'json_object' },
@@ -1206,7 +1207,7 @@ Respond with this exact JSON structure:
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt },
     ],
-  })
+  }))
 
   const parsed = JSON.parse(response.choices[0].message.content ?? '{}') as GeneratedPlan
 
@@ -1805,7 +1806,7 @@ The angle-bracket text above describes each field — replace it with real value
 Every trainer restriction (e.g. "no plyometrics", "no overhead", "strength only") MUST be carried into contraindicationsThisWeek for every week so the exercise-selection step sees it.
 Generate exactly ${params.durationWeeks} entries in weeklyPlan (weeks 1 through ${params.durationWeeks}).`
 
-  const response = await openai.chat.completions.create({
+  const response = await meteredAiCall("program.clinical-plan", () => openai.chat.completions.create({
     model: 'gpt-4o-mini',
     max_tokens: 4000,
     response_format: { type: 'json_object' },
@@ -1813,7 +1814,7 @@ Generate exactly ${params.durationWeeks} entries in weeklyPlan (weeks 1 through 
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt },
     ],
-  })
+  }))
 
   const raw = response.choices[0].message.content ?? '{}'
   const parsed = JSON.parse(raw) as ClinicalPlan

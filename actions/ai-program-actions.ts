@@ -1,6 +1,7 @@
 "use server";
 
 import OpenAI from "openai";
+import { meteredAiCall, aiErrorMessage } from "@/lib/ai/usage";
 import { activeCallerOnly } from "@/lib/auth/active-user";
 import { z } from "zod";
 import { auth } from "@clerk/nextjs/server";
@@ -43,7 +44,7 @@ export async function suggestExerciseReplacementsAction(input: {
   }
 
   try {
-    const response = await openai.chat.completions.create({
+    const response = await meteredAiCall("program.suggest-replacements", () => openai.chat.completions.create({
       model: "gpt-4o-mini",
       temperature: 0.2,
       response_format: { type: "json_object" },
@@ -67,7 +68,7 @@ export async function suggestExerciseReplacementsAction(input: {
           }),
         },
       ],
-    });
+    }));
 
     const parsedJson: unknown = JSON.parse(response.choices[0]?.message.content ?? "{}");
     const parsed = replacementSchema.safeParse(parsedJson);
@@ -91,6 +92,6 @@ export async function suggestExerciseReplacementsAction(input: {
     return { success: true as const, data: parsed.data.replacements };
   } catch (error) {
     console.error("Failed to suggest exercise replacements:", error);
-    return { success: false as const, error: "Unable to revise exercises right now" };
+    return { success: false as const, error: aiErrorMessage(error, "Unable to revise exercises right now") };
   }
 }

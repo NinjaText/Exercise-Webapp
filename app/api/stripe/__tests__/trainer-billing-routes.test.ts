@@ -1,5 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
+// Trainer prices are found in Stripe by lookup key (lib/billing/tier-price.ts).
+vi.mock('@/lib/billing/tier-price', () => ({
+  resolveTierPriceId: vi.fn(async (tier: string) =>
+    ({ STARTER: 'price_starter', PRO: 'price_pro', UNLIMITED: 'price_unlimited' })[tier]),
+}))
+
 vi.mock("@clerk/nextjs/server", () => ({ auth: vi.fn() }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -10,6 +16,7 @@ vi.mock("@/lib/prisma", () => ({
 vi.mock("@/lib/stripe", () => ({
   stripe: {
     checkout: { sessions: { create: vi.fn() } },
+    subscriptions: { list: vi.fn(async () => ({ data: [] })) },
     billingPortal: { sessions: { create: vi.fn() } },
   },
 }));
@@ -31,7 +38,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(auth).mockResolvedValue({ userId: "clerk_1" } as any);
   vi.mocked(prisma.user.findUnique).mockResolvedValue(trainer as any);
-  vi.mocked(prisma.trainerSubscription.findUnique).mockResolvedValue({ stripeCustomerId: "cus_1", status: "TRIALING" } as any);
+  vi.mocked(prisma.trainerSubscription.findUnique).mockResolvedValue({ stripeCustomerId: "cus_1", status: "TRIALING", trialEndsAt: new Date(0), stripeSubscriptionId: null, trialUsedAt: null } as any);
   vi.mocked(stripe.checkout.sessions.create).mockResolvedValue({ url: "https://stripe.test/c" } as any);
   vi.mocked(stripe.billingPortal.sessions.create).mockResolvedValue({ url: "https://stripe.test/p" } as any);
 });

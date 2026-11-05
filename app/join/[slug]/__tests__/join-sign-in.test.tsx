@@ -70,6 +70,13 @@ describe("club join: existing-account sign in", () => {
     await expect(JoinSignInPage(params)).rejects.toThrow(/^REDIRECT:\/join\/pine$/);
   });
 
+  it("lets an existing account sign in to an open-join club (no access code, no cookie)", async () => {
+    vi.mocked(getClubBySlug).mockResolvedValue({ clerkOrgId: "org_club", openJoin: true } as any);
+    vi.mocked(verifyJoinToken).mockReturnValue(false);
+    renderToStaticMarkup(await JoinSignInPage(params));
+    expect(clerkProps.signIn[0]).toMatchObject({ forceRedirectUrl: "/join/pine/complete" });
+  });
+
   it("404s an unknown club", async () => {
     vi.mocked(getClubBySlug).mockResolvedValue(null);
     await expect(JoinSignInPage(params)).rejects.toThrow("NOT_FOUND");

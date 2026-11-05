@@ -91,6 +91,9 @@ export const AUDIT_ACTION_CATALOG = {
   BRANDING_RESET: { label: "Reset branding to defaults", category: "ORGANIZATION", tone: "warning" },
   CLUB_CREATED: { label: "Created club", category: "ORGANIZATION", tone: "success" },
   CLUB_UPDATED: { label: "Updated club", category: "ORGANIZATION", tone: "info" },
+  AI_ALLOWANCE_TIER_SET: { label: "Set AI allowance for plan", category: "PAYMENTS", tone: "info" },
+  AI_ALLOWANCE_OVERRIDE_SET: { label: "Set trainer AI allowance", category: "PAYMENTS", tone: "info" },
+  AI_ALLOWANCE_BONUS_GRANTED: { label: "Granted bonus AI tokens", category: "PAYMENTS", tone: "success" },
   CLUB_SESSION_STARTED: { label: "Entered club as house coach", category: "ACCESS", tone: "warning" },
   CLUB_SESSION_ENDED: { label: "Exited club", category: "ACCESS", tone: "neutral" },
   // Historical: the invited club trainer was replaced by the house coach; kept so old log rows still render.

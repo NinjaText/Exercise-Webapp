@@ -7,9 +7,10 @@ import { useRouter } from "next/navigation";
 
 /**
  * Makes the club the session's active org (so `auth().orgId` matches, like an
- * invited client) and moves on to client onboarding.
+ * invited client) and moves on to client onboarding (or, for a card-required
+ * club, to membership checkout).
  */
-export function ActivateOrg({ organizationId }: { organizationId: string }) {
+export function ActivateOrg({ organizationId, next = "/onboarding/client" }: { organizationId: string; next?: string }) {
   const { isLoaded, setActive } = useOrganizationList();
   const router = useRouter();
 
@@ -17,8 +18,13 @@ export function ActivateOrg({ organizationId }: { organizationId: string }) {
     if (!isLoaded) return;
     setActive({ organization: organizationId })
       .catch((err) => console.error("setActive failed:", err))
-      .finally(() => router.replace("/onboarding/client"));
-  }, [isLoaded, setActive, organizationId, router]);
+      .finally(() => {
+        // The checkout step is a route handler that redirects to Stripe: a
+        // full navigation, not a client-side transition.
+        if (next.endsWith("/checkout")) window.location.assign(next);
+        else router.replace(next);
+      });
+  }, [isLoaded, setActive, organizationId, router, next]);
 
   return (
     <div

@@ -12,9 +12,9 @@ import {
   IconTile,
   PhotoBand,
   PillLink,
-  SIGN_UP_HREF,
 } from "@/components/marketing/primitives";
 import { ChatSnippet, FollowAlongCard, NutritionRing, ProgressChart } from "@/components/marketing/mini-ui";
+import { GET_STARTED_HREF } from "@/lib/marketing-links";
 
 export const metadata: Metadata = {
   title: "For Individuals",
@@ -118,7 +118,7 @@ export default function IndividualsPage() {
               </HeroHighlight>
             ))}
           </div>
-          <PillLink href={SIGN_UP_HREF} className="mt-9">
+          <PillLink href={GET_STARTED_HREF} className="mt-9">
             Start your free trial
           </PillLink>
         </div>
@@ -187,7 +187,7 @@ export default function IndividualsPage() {
               perform at their best.
             </p>
           </div>
-          <PillLink href={SIGN_UP_HREF}>Start your free trial</PillLink>
+          <PillLink href={GET_STARTED_HREF}>Start your free trial</PillLink>
         </Container>
       </section>
 
