@@ -6,6 +6,7 @@ import { getEmailBranding } from "@/lib/email/branding";
 import { appBaseUrl } from "@/lib/utils/app-url";
 import { dueReminder } from "@/lib/clubs/trial-reminders";
 import { MemberTrialReminderEmail } from "@/lib/email/templates/member-trial-reminder";
+import { isBillingExempt } from "@/lib/billing/exempt";
 
 const SUBJECTS = {
   d3: "3 days left in your free trial",
@@ -36,6 +37,8 @@ export async function sendDueTrialReminders(now = new Date()) {
   let sent = 0;
   for (const sub of subs) {
     if (!sub.user.isActive) continue;
+    // Complimentary access: no trial to end.
+    if (isBillingExempt(sub.user)) continue;
     const key = dueReminder(sub.trialEndsAt, sub.remindersSent, now);
     if (!key) continue;
     try {

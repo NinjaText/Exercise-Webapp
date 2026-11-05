@@ -8,6 +8,8 @@ import { PricingCards } from "@/components/billing/pricing-cards";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { SettingsPanel, SettingsPanels } from "@/components/settings/settings-section";
 import { TIER_CONFIG, type PlanTier } from "@/lib/stripe-config";
+import { isBillingExempt } from "@/lib/billing/exempt";
+import { isSuperAdmin } from "@/lib/current-user";
 
 const INCLUDED = [
   "AI workout generation",
@@ -31,6 +33,21 @@ export default async function BillingSettingsPage() {
   const user = await requireRole("TRAINER");
   // House coaches never pay (trainerBilling off).
   await requireCapability("trainerBilling");
+
+  if (isBillingExempt(user) || (await isSuperAdmin())) {
+    return (
+      <SettingsPanels>
+        <SettingsPanel title="Current plan" description="Your subscription and what you're billed.">
+          <div className="flex flex-col gap-1.5">
+            <p className="text-lg font-semibold tracking-tight">Complimentary access</p>
+            <p className="text-sm text-muted-foreground">
+              This account has full access at no charge. There&apos;s nothing to pay or manage.
+            </p>
+          </div>
+        </SettingsPanel>
+      </SettingsPanels>
+    );
+  }
 
   const sub = await prisma.trainerSubscription.findUnique({
     where: { trainerId: user.id },

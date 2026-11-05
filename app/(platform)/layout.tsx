@@ -16,6 +16,7 @@ import { getCurrentBranding, getOrgBranding } from "@/lib/services/branding.serv
 import { toViewModel } from "@/lib/branding/types";
 import { brandIconsMetadata, brandViewport } from "@/lib/branding/metadata";
 import { evaluateAccess, evaluateMemberAccess, memberTrialBannerDays } from "@/lib/billing/access";
+import { isBillingExempt } from "@/lib/billing/exempt";
 import { hiddenNavHrefs, TEMPORARILY_HIDDEN_HREFS } from "@/lib/org-capabilities";
 import { getCapabilitiesForUser, getOrgForUser } from "@/lib/org-capabilities.server";
 import { isHouseCoach } from "@/lib/services/house-coach.service";
@@ -64,8 +65,11 @@ export default async function PlatformLayout({ children }: { children: React.Rea
   const caps = await getCapabilitiesForUser(user);
   const now = new Date();
   let memberTrialDays: number | null = null;
+  // Complimentary accounts (admin-granted, or super admins) skip both gates.
+  const adminAccess = await isSuperAdmin();
+  const billingExempt = adminAccess || isBillingExempt(user);
 
-  if (user.role === "TRAINER" && caps.billing === "trainer") {
+  if (!billingExempt && user.role === "TRAINER" && caps.billing === "trainer") {
     const sub = await prisma.trainerSubscription.findUnique({ where: { trainerId: user.id } });
     // No subscription at all means signup never finished (e.g. Stripe failed
     // mid-onboarding): let them finish it rather than show "trial ended".
@@ -74,7 +78,7 @@ export default async function PlatformLayout({ children }: { children: React.Rea
     if (verdict !== "ok") redirect(`/billing?reason=${verdict}`);
   }
 
-  if (user.role === "CLIENT" && caps.billing === "member") {
+  if (!billingExempt && user.role === "CLIENT" && caps.billing === "member") {
     const sub = await prisma.memberSubscription.findUnique({ where: { userId: user.id } });
     const verdict = evaluateMemberAccess(sub, now);
     if (verdict !== "ok") redirect(`/billing?reason=${verdict}`);
@@ -96,7 +100,6 @@ export default async function PlatformLayout({ children }: { children: React.Rea
     unreadVoiceNoteCount,
     unreadNotificationCount,
     initialNotifications,
-    adminAccess,
     branding,
   ] = await Promise.all([
     prisma.message.count({
@@ -111,7 +114,6 @@ export default async function PlatformLayout({ children }: { children: React.Rea
       orderBy: { createdAt: "desc" },
       take: 20,
     }),
-    isSuperAdmin(),
     // DB user's clerkOrgId is canonical (clients inherit their trainer's org).
     getOrgBranding(user.clerkOrgId ?? null),
   ]);

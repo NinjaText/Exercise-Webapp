@@ -7,6 +7,7 @@ import { redirect } from "next/navigation";
 import { stripe } from "@/lib/stripe";
 import { logUserAudit, AUDIT_ACTIONS } from "@/lib/services/audit-log.service";
 import { getCapabilitiesForUser } from "@/lib/org-capabilities.server";
+import { isBillingExempt } from "@/lib/billing/exempt";
 
 export async function completeTrainerOnboarding(data: {
   firstName: string;
@@ -84,7 +85,11 @@ export async function completeTrainerOnboarding(data: {
       where: { trainerId: user.id },
     });
 
-    if (!existingSub) {
+    // Complimentary accounts never get a Stripe customer or trial: the billing
+    // gate skips them, and a fake trial would later show "trial ended".
+    const exempt = isBillingExempt(user);
+
+    if (!existingSub && !exempt) {
       const customer = await stripe.customers.create({
         email: clerkUser.emailAddresses[0].emailAddress,
         name: `${data.firstName} ${data.lastName}`,
