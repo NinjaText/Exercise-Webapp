@@ -37,6 +37,7 @@ export const PUBLIC_ROUTES = [
   "/api/checkout/program",
   "/privacy",
   "/terms",
+  "/consumer-health-data",
   "/account-deleted",
   // Cron endpoints are called by Vercel Cron (no Clerk session) and secure
   // themselves independently via a CRON_SECRET bearer check.

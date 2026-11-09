@@ -111,7 +111,7 @@ export function ExerciseForm() {
             id="description"
             name="description"
             rows={3}
-            placeholder="Brief clinical description of the exercise"
+            placeholder="Brief description of the exercise"
           />
         </div>
 

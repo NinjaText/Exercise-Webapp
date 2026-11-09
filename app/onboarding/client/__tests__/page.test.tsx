@@ -77,10 +77,10 @@ describe("ClientOnboardingPage", () => {
     const html = renderToStaticMarkup(await ClientOnboardingPage());
 
     expect(mockGetOrgBranding).toHaveBeenCalledWith("org_123");
-    expect(html).toContain("so Acme Physio can personalize your exercise program");
+    expect(html).toContain("so Acme Physio can personalize your program");
     // AuthShell's brand-panel copyright line carries the org's name.
     expect(html).toContain("© Acme Physio");
-    expect(html).not.toContain("your trainer can personalize");
+    expect(html).not.toContain("your coach can personalize");
     // BrandStyle emits the derived theme <style> tag.
     expect(html).toContain('id="org-brand"');
     // The panel follows the brand via the sidebar gradient tokens, not a
@@ -109,7 +109,7 @@ describe("ClientOnboardingPage", () => {
 
     const html = renderToStaticMarkup(await ClientOnboardingPage());
 
-    expect(html).toContain("so your trainer can personalize your exercise program");
+    expect(html).toContain("so your coach can personalize your program");
     expect(html).toContain("© MIA Performance");
     expect(html).not.toContain('id="org-brand"');
   });

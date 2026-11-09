@@ -243,8 +243,8 @@ function ProfileForm({
           </div>
         </Section>
 
-        <Section title="Clinical">
-          <Field label="Primary diagnosis" htmlFor="cp-diagnosis">
+        <Section title="Health & training">
+          <Field label="Main focus" htmlFor="cp-diagnosis">
             <Input
               id="cp-diagnosis"
               value={form.primaryDiagnosis}
@@ -253,11 +253,11 @@ function ProfileForm({
             />
           </Field>
 
-          <Field label="Secondary diagnoses">
+          <Field label="Other injuries or conditions">
             <TagListInput
               values={form.secondaryDiagnoses}
               onChange={(next) => set("secondaryDiagnoses", next)}
-              placeholder="Type a diagnosis and press Enter"
+              placeholder="Type one and press Enter"
             />
           </Field>
 

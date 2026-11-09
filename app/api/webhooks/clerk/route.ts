@@ -13,6 +13,7 @@ import { applyPendingAssignmentsForNewClient } from "@/lib/services/pending-prog
 import { deleteUserData, findDeletionBlockers } from "@/lib/services/user-deletion.service";
 import { cancelMemberBillingForDeletion } from "@/lib/services/member-billing.service";
 import { isHouseCoach } from "@/lib/services/house-coach.service";
+import { consentFieldsFromClerkUser } from "@/lib/legal/consent";
 import type { InviteClientMetadata } from "@/actions/invite-client-action";
 
 type MembershipInviteMetadata = InviteClientMetadata;
@@ -198,6 +199,7 @@ export async function POST(req: Request) {
           role: "CLIENT",
           clerkOrgId: orgId,
           onboarded: false,
+          ...consentFieldsFromClerkUser(clerkUser),
         },
       });
 

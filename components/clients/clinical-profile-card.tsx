@@ -115,7 +115,7 @@ export function ClinicalProfileCard({
   const populated = hasClinicalContent(profile);
 
   return (
-    <SectionCard title="Clinical profile" icon={Stethoscope} action={action}>
+    <SectionCard title="Health & training profile" icon={Stethoscope} action={action}>
       {!populated ? (
         <p className="text-body text-muted-foreground">
           Nothing on file yet — this client skipped the intake questions at sign-up. Add
@@ -125,8 +125,8 @@ export function ClinicalProfileCard({
         <dl className="divide-y divide-border">
           {profile!.primaryDiagnosis && (
             <Row
-              label="Primary diagnosis"
-              info="The main condition this client's programming is built around. Drives AI program generation and exercise contraindication tagging."
+              label="Main focus"
+              info="The main goal, injury, or condition this client's programming is built around. Drives AI program generation and exercise safety tagging."
             >
               <span className="font-medium">{profile!.primaryDiagnosis}</span>
               {secondary.length > 0 && (
@@ -139,8 +139,8 @@ export function ClinicalProfileCard({
 
           {!profile!.primaryDiagnosis && secondary.length > 0 && (
             <Row
-              label="Secondary diagnoses"
-              info="Additional conditions to account for when programming. Shown to the AI generator alongside the primary diagnosis."
+              label="Other considerations"
+              info="Additional injuries or conditions to account for when programming. Shown to the AI generator alongside the main focus."
             >
               {secondary.join(", ")}
             </Row>

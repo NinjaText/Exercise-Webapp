@@ -106,12 +106,21 @@ describe("client onboarding submit", () => {
 describe("trainer onboarding submit", () => {
   it("calls completeTrainerOnboarding with exactly the legacy payload and surfaces errors", async () => {
     vi.mocked(completeTrainerOnboarding).mockResolvedValue({ success: false, error: "This account already belongs to a club." });
-    await submitTrainerOnboarding({ firstName: "Sam", lastName: "Lee", organizationName: "Summit PT", phone: "555 0100" });
+    await submitTrainerOnboarding({
+      firstName: "Sam",
+      lastName: "Lee",
+      organizationName: "Summit PT",
+      phone: "555 0100",
+      professionalRole: "physical_therapist",
+      phiAttested: true,
+    });
     expect(vi.mocked(completeTrainerOnboarding).mock.calls[0][0]).toStrictEqual({
       firstName: "Sam",
       lastName: "Lee",
       organizationName: "Summit PT",
       phone: "555 0100",
+      professionalRole: "physical_therapist",
+      phiAttested: true,
     });
     expect(toast.error).toHaveBeenCalledWith("This account already belongs to a club.");
   });

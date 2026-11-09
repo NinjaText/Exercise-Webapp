@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { cookies } from "next/headers";
-import { SignUp } from "@clerk/nextjs";
+import { ConsentedSignUp } from "@/components/auth/consented-sign-up";
 import { getClubBySlug } from "@/lib/services/club.service";
 import { getOrgBranding } from "@/lib/services/branding.service";
 import { toViewModel } from "@/lib/branding/types";
@@ -36,7 +36,7 @@ export default async function JoinClubPage({ params }: { params: Promise<{ slug:
           headline={`Join ${branding.displayName}`}
           subhead={`Create your account to ${startWhat}.`}
         >
-          <SignUp
+          <ConsentedSignUp
             routing="hash"
             forceRedirectUrl={completeUrl}
             signInUrl={`/join/${slug}/sign-in`}

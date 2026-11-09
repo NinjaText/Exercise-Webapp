@@ -1,12 +1,11 @@
 import type { Metadata } from "next";
 import Image from "next/image";
-import Link from "next/link";
-import { ArrowRight, Check, Dna, GraduationCap, Layers, Stethoscope, Target, Users, X, Zap, BookOpen } from "lucide-react";
+import { Check, Dna, GraduationCap, Layers, Stethoscope, Target, Users, X, Zap, BookOpen } from "lucide-react";
 import { MarketingNav } from "@/components/marketing/marketing-nav";
 import { MarketingFooter } from "@/components/marketing/marketing-footer";
 import { Container, DisplayHeading, Eyebrow, PillLink } from "@/components/marketing/primitives";
 import { ProductLogo } from "@/components/branding/product-logo";
-import { GET_STARTED_HREF, pricingHref } from "@/lib/marketing-links";
+import { GET_STARTED_HREF } from "@/lib/marketing-links";
 import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = {
@@ -88,12 +87,6 @@ export default function AboutPage() {
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-4">
               <PillLink href={GET_STARTED_HREF}>Start your free trial</PillLink>
-              <Link
-                href={pricingHref()}
-                className="inline-flex items-center gap-1.5 text-sm font-medium text-ink underline-offset-4 hover:underline"
-              >
-                See pricing <ArrowRight className="h-4 w-4" aria-hidden />
-              </Link>
             </div>
             <div className="mt-10 inline-flex items-center gap-4 rounded-2xl bg-ink py-3.5 pr-6 pl-4 text-cream shadow-[0_18px_40px_-24px_rgba(45,38,34,0.6)]">
               <Stethoscope className="h-8 w-8 shrink-0" strokeWidth={1.4} aria-hidden />
@@ -247,12 +240,7 @@ export default function AboutPage() {
               </div>
               <div className="flex shrink-0 flex-col items-start gap-3 lg:items-end">
                 <PillLink href={GET_STARTED_HREF}>Start your free trial</PillLink>
-                <p className="text-sm text-ink-soft">
-                  7-day free trial ·{" "}
-                  <Link href={pricingHref()} className="font-medium text-ink underline-offset-4 hover:underline">
-                    See pricing
-                  </Link>
-                </p>
+                <p className="text-sm text-ink-soft">7-day free trial</p>
               </div>
             </div>
           </div>

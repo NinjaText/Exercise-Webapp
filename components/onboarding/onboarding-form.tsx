@@ -10,10 +10,15 @@ import {
   buildTrainerOnboardingPayload,
   type TrainerOnboardingValues,
 } from "./onboarding-payloads";
-import { TextField } from "./onboarding-fields";
+import { SelectField, TextField } from "./onboarding-fields";
+import { PhiAttestation } from "./phi-attestation";
+import { PROFESSIONAL_ROLES } from "@/lib/legal/consent";
 
 const STEPS: readonly StepMeta[] = [
-  { title: "About you", description: "Your name and contact details." },
+  {
+    title: "About you",
+    description: "For trainers, physical therapists, coaches, nutrition professionals, and other wellness providers.",
+  },
   { title: "Your organization", description: "The practice or business your clients will see." },
 ];
 
@@ -79,18 +84,35 @@ export function OnboardingForm() {
             value={v.phone}
             onValueChange={(phone) => set({ phone })}
           />
+          <SelectField
+            id="professionalRole"
+            label="Professional role"
+            required
+            placeholder="Select your role"
+            options={PROFESSIONAL_ROLES}
+            value={v.professionalRole}
+            onValueChange={(professionalRole) => set({ professionalRole })}
+            error={errors.professionalRole}
+          />
         </>
       ) : (
-        <TextField
-          id="organizationName"
-          label="Organization name"
-          required
-          autoComplete="organization"
-          value={v.organizationName}
-          onValueChange={(organizationName) => set({ organizationName })}
-          error={errors.organizationName}
-          placeholder="e.g., Summit Physical Therapy"
-        />
+        <>
+          <TextField
+            id="organizationName"
+            label="Organization name"
+            required
+            autoComplete="organization"
+            value={v.organizationName}
+            onValueChange={(organizationName) => set({ organizationName })}
+            error={errors.organizationName}
+            placeholder="e.g., Summit Physical Therapy"
+          />
+          <PhiAttestation
+            checked={v.phiAttested}
+            onCheckedChange={(phiAttested) => set({ phiAttested })}
+            error={errors.phiAttested}
+          />
+        </>
       )}
     </StepForm>
   );

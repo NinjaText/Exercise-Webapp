@@ -24,8 +24,9 @@ const FOOTER_COLUMNS = [
   {
     title: "Legal",
     links: [
+      { label: "Terms of Use", href: "/terms" },
       { label: "Privacy Policy", href: "/privacy" },
-      { label: "Terms of Service", href: "/terms" },
+      { label: "Consumer Health Data", href: "/consumer-health-data" },
     ],
   },
 ];
@@ -42,7 +43,7 @@ export function SiteFooter() {
               {PRODUCT_EXPANSION}
             </p>
             <p className="mt-4 max-w-xs text-sm leading-relaxed text-muted-foreground">
-              AI-powered home exercise programs for modern rehabilitation. Built for trainers, designed for clients.
+              Personalized exercise, recovery, and performance for clubs, professionals, and individuals.
             </p>
             <div className="mt-6 flex items-center gap-1.5 text-xs text-muted-foreground">
               <Shield className="h-3.5 w-3.5 text-success" />
@@ -75,7 +76,7 @@ export function SiteFooter() {
             &copy; {new Date().getFullYear()} {PRODUCT_NAME}. All rights reserved.
           </p>
           <p className="text-xs text-muted-foreground">
-            Made with ♥ for better rehabilitation outcomes
+            Made with ♥ for better movement
           </p>
         </div>
       </div>

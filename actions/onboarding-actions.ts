@@ -12,15 +12,33 @@ import { cookies } from "next/headers";
 import { NO_LOCAL_TRIAL } from "@/lib/billing/access";
 import { START_PLAN_COOKIE, parseStartPlan } from "@/lib/billing/start-plan";
 import { createTrainerCheckoutSession } from "@/lib/services/stripe-billing.service";
+import { consentFieldsFromClerkUser, isProfessionalRole } from "@/lib/legal/consent";
+
+/** Sign-up consent to copy onto the User row, unless one is already recorded. */
+function pendingConsent(
+  existing: { termsAcceptedAt: Date | null } | null,
+  clerkUser: { unsafeMetadata?: unknown; createdAt: number },
+) {
+  return existing?.termsAcceptedAt ? {} : consentFieldsFromClerkUser(clerkUser);
+}
 
 export async function completeTrainerOnboarding(data: {
   firstName: string;
   lastName: string;
   organizationName: string;
   phone?: string;
+  professionalRole: string;
+  /** The "I will not submit PHI without a BAA" clickwrap. */
+  phiAttested: boolean;
 }) {
   const { userId } = await auth();
   if (!userId) return { success: false as const, error: "Unauthorized" };
+  if (!isProfessionalRole(data.professionalRole)) {
+    return { success: false as const, error: "Choose your professional role." };
+  }
+  if (data.phiAttested !== true) {
+    return { success: false as const, error: "Please accept the health information terms to continue." };
+  }
 
   const clerkUser = await currentUser();
   if (!clerkUser) return { success: false as const, error: "User not found" };
@@ -62,6 +80,12 @@ export async function completeTrainerOnboarding(data: {
       });
     }
 
+    const professional = {
+      professionalRole: data.professionalRole,
+      phiAttestedAt: existing?.phiAttestedAt ?? new Date(),
+      ...pendingConsent(existing, clerkUser),
+    };
+
     // `onboarded` is only set once the trial subscription exists (below): a
     // trainer without one would otherwise be locked out on "trial ended".
     const user = await prisma.user.upsert({
@@ -72,6 +96,7 @@ export async function completeTrainerOnboarding(data: {
         role: "TRAINER",
         phone: data.phone ?? null,
         clerkOrgId: orgId,
+        ...professional,
       },
       create: {
         clerkId: userId,
@@ -83,6 +108,7 @@ export async function completeTrainerOnboarding(data: {
         imageUrl: clerkUser.imageUrl,
         clerkOrgId: orgId,
         onboarded: false,
+        ...professional,
       },
     });
 
@@ -193,9 +219,16 @@ export async function completeClientOnboarding(data: {
     priorInjuries: [] as string[],
   };
 
+  const existingClient = await prisma.user.findUnique({
+    where: { clerkId: userId },
+    select: { termsAcceptedAt: true },
+  });
+  const consent = pendingConsent(existingClient, clerkUser);
+
   const user = await prisma.user.upsert({
     where: { clerkId: userId },
     update: {
+      ...consent,
       firstName: data.firstName,
       lastName: data.lastName,
       phone: data.phone ?? null,
@@ -217,6 +250,7 @@ export async function completeClientOnboarding(data: {
       imageUrl: clerkUser.imageUrl,
       clerkOrgId: orgId ?? null,
       onboarded: true,
+      ...consent,
     },
   });
 

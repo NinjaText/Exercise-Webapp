@@ -1,5 +1,5 @@
 import { auth } from "@clerk/nextjs/server";
-import { SignUp } from "@clerk/nextjs";
+import { ConsentedSignUp } from "@/components/auth/consented-sign-up";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { ClientOnboardingForm } from "@/components/onboarding/client-onboarding-form";
@@ -24,10 +24,10 @@ export default async function ClientOnboardingPage() {
       <AuthShell
         branding={branding}
         headingMode="form"
-        headline="Welcome to your rehabilitation program."
+        headline="Welcome to MIA Performance."
         subhead="Create your account to accept your invitation."
       >
-        <SignUp routing="hash" forceRedirectUrl="/onboarding/client" appearance={clerkAuthAppearance()} />
+        <ConsentedSignUp routing="hash" forceRedirectUrl="/onboarding/client" appearance={clerkAuthAppearance()} />
       </AuthShell>
     );
   }
@@ -39,8 +39,8 @@ export default async function ClientOnboardingPage() {
     <AuthShell
       branding={branding}
       size="wide"
-      headline="Welcome to your rehabilitation program."
-      subhead="Complete your profile so your trainer can personalize your exercise program."
+      headline="Welcome to MIA Performance."
+      subhead="Complete your profile so your coach can personalize your program."
     >
       <ClientOnboardingForm />
     </AuthShell>

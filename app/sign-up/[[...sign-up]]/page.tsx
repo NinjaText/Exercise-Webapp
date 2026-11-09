@@ -1,4 +1,4 @@
-import { SignUp } from "@clerk/nextjs";
+import { ConsentedSignUp } from "@/components/auth/consented-sign-up";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { clerkAuthAppearance } from "@/lib/ui/clerk-appearance";
 import { getOrgBranding } from "@/lib/services/branding.service";
@@ -19,7 +19,7 @@ export default async function SignUpPage() {
         "Message clients and keep everyone on plan",
       ]}
     >
-      <SignUp forceRedirectUrl="/onboarding" appearance={clerkAuthAppearance()} />
+      <ConsentedSignUp forceRedirectUrl="/onboarding" appearance={clerkAuthAppearance()} />
     </AuthShell>
   );
 }

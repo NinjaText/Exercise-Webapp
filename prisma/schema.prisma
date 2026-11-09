@@ -136,6 +136,18 @@ model User {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  // Sign-up clickwrap (lib/legal/consent.ts). Null for accounts created before
+  // the clickwrap or through a path that skips the sign-up form.
+  termsVersion         String?
+  termsAcceptedAt      DateTime?
+  privacyVersion       String?
+  privacyAcceptedAt    DateTime?
+  marketingEmailsOptIn Boolean?
+  marketingConsentAt   DateTime?
+  // Professional accounts: role picked at onboarding + the no-PHI attestation.
+  professionalRole     String?
+  phiAttestedAt        DateTime?
+
   clientProfile    ClientProfile?
   plansAsClient    WorkoutPlan[]      @relation("ClientPlans")
   plansCreated     WorkoutPlan[]      @relation("CreatedPlans")

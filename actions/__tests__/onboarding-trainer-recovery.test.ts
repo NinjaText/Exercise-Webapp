@@ -40,7 +40,13 @@ import { getCapabilitiesForUser } from "@/lib/org-capabilities.server";
 import { getUserCapabilities } from "@/lib/org-capabilities";
 import { completeTrainerOnboarding } from "../onboarding-actions";
 
-const trainerForm = { firstName: "A", lastName: "B", organizationName: "Clinic" };
+const trainerForm = {
+  firstName: "A",
+  lastName: "B",
+  organizationName: "Clinic",
+  professionalRole: "physical_therapist",
+  phiAttested: true,
+};
 const trainerOrgCaps = getUserCapabilities({ orgType: "TRAINER", role: "TRAINER", coachingActive: false });
 
 beforeEach(() => {
@@ -125,5 +131,11 @@ describe("completeTrainerOnboarding failure recovery", () => {
     checkout.create.mockRejectedValue(new Error("Stripe down"));
     await expect(completeTrainerOnboarding(trainerForm)).rejects.toThrow(/^REDIRECT:\/billing$/);
     cookieJar.value = undefined;
+  });
+
+  it("refuses without a valid professional role or the PHI attestation", async () => {
+    expect(await completeTrainerOnboarding({ ...trainerForm, professionalRole: "surgeon" })).toMatchObject({ success: false });
+    expect(await completeTrainerOnboarding({ ...trainerForm, phiAttested: false })).toMatchObject({ success: false });
+    expect(prisma.user.upsert).not.toHaveBeenCalled();
   });
 });

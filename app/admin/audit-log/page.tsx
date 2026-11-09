@@ -42,7 +42,7 @@ export default async function AdminAuditLogPage({ searchParams }: PageProps) {
       <PageHeader
         breadcrumb={[{ label: "Admin", href: "/admin" }, { label: "Audit Log" }]}
         title="Audit Log"
-        description="Every sign-in, change and client action across all clinics. Click a row for full details."
+        description="Every sign-in, change and client action across all organizations. Click a row for full details."
       />
 
       <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
