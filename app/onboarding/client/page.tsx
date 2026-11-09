@@ -1,5 +1,5 @@
 import { auth } from "@clerk/nextjs/server";
-import { SignUp } from "@clerk/nextjs";
+import { ConsentedSignUp } from "@/components/auth/consented-sign-up";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { ClientOnboardingForm } from "@/components/onboarding/client-onboarding-form";
@@ -22,10 +22,10 @@ export default async function ClientOnboardingPage() {
       <AuthShell
         branding={toViewModel(resolveBranding(null))}
         headingMode="form"
-        headline="Welcome to your rehabilitation program."
+        headline="Welcome to MIA Performance."
         subhead="Create your account to accept your invitation."
       >
-        <SignUp routing="hash" forceRedirectUrl="/onboarding/client" appearance={clerkAuthAppearance()} />
+        <ConsentedSignUp routing="hash" forceRedirectUrl="/onboarding/client" appearance={clerkAuthAppearance()} />
       </AuthShell>
     );
   }
@@ -36,8 +36,8 @@ export default async function ClientOnboardingPage() {
   const branding = await getOrgBranding(resolveClientOnboardingOrgId(user, orgId ?? null));
   const brandingVm = toViewModel(branding);
   const personalizeCopy = branding.enabled
-    ? `Complete your profile so ${branding.displayName} can personalize your exercise program.`
-    : "Complete your profile so your trainer can personalize your exercise program.";
+    ? `Complete your profile so ${branding.displayName} can personalize your program.`
+    : "Complete your profile so your coach can personalize your program.";
 
   return (
     <>
@@ -45,7 +45,7 @@ export default async function ClientOnboardingPage() {
       <AuthShell
         branding={brandingVm}
         size="wide"
-        headline="Welcome to your rehabilitation program."
+        headline="Welcome to MIA Performance."
         subhead={personalizeCopy}
       >
         <ClientOnboardingForm />

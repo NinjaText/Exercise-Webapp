@@ -93,7 +93,7 @@ export function OrganizationProfileForm({ initialData }: OrganizationProfileForm
             <Input {...text("organizationName")} required placeholder="e.g., Summit Physical Therapy" />
           </FormField>
           <FormField label="Tagline" htmlFor="tagline" hint="A short line shown under your name on your sales page.">
-            <Input {...text("tagline")} placeholder="e.g., Evidence-based rehabilitation" />
+            <Input {...text("tagline")} placeholder="e.g., Train smarter, move better" />
           </FormField>
         </SettingsPanel>
 

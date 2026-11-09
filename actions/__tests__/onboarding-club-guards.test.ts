@@ -42,7 +42,13 @@ import { completeTrainerOnboarding, completeClientOnboarding } from "../onboardi
 
 const clubCaps = (role: "TRAINER" | "CLIENT") => getUserCapabilities({ orgType: "CLUB", role, coachingActive: false });
 const trainerOrgCaps = getUserCapabilities({ orgType: "TRAINER", role: "TRAINER", coachingActive: false });
-const trainerForm = { firstName: "A", lastName: "B", organizationName: "Clinic" };
+const trainerForm = {
+  firstName: "A",
+  lastName: "B",
+  organizationName: "Clinic",
+  professionalRole: "physical_therapist",
+  phiAttested: true,
+};
 
 beforeEach(() => {
   vi.clearAllMocks();

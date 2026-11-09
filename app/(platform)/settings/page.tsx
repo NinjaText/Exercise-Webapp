@@ -32,7 +32,7 @@ export default async function AccountSettingsPage() {
           Privacy Policy
         </Link>
         <Link href="/terms" className="rounded-sm hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring outline-none">
-          Terms of Service
+          Terms of Use
         </Link>
       </nav>
     </SettingsPanels>

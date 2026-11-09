@@ -22,7 +22,7 @@ const STEPS: readonly StepMeta[] = [
   { title: "About you", description: "Your name and how your trainer can reach you." },
   {
     title: "Health & history",
-    description: "This helps your trainer personalize your exercise program. Everything here is optional.",
+    description: "Anything that affects how you train — injuries, conditions, or nothing at all. Everything here is optional.",
   },
   { title: "Training & goals", description: "What you have to work with and what you want to achieve." },
   { title: "Review", description: "Check your details, then finish setting up your profile." },
@@ -128,15 +128,15 @@ export function ClientOnboardingStepFields({ step, values: v, errors, set, goTo 
         <>
           <TextField
             id="primaryDiagnosis"
-            label="Primary diagnosis / reason for referral"
+            label="Main reason you're here"
             value={v.primaryDiagnosis}
             onValueChange={(primaryDiagnosis) => set({ primaryDiagnosis })}
-            placeholder="e.g., ACL Tear Post-Op, Rotator Cuff Tendinopathy"
+            placeholder="e.g., Build strength, improve my golf game, recover from a knee injury"
           />
           <div className="grid gap-4 sm:grid-cols-2">
             <TextField
               id="painScore"
-              label="Current pain score (0–10)"
+              label="Current pain, if any (0–10)"
               type="number"
               inputMode="numeric"
               min="0"
@@ -147,7 +147,7 @@ export function ClientOnboardingStepFields({ step, values: v, errors, set, goTo 
             />
             <TextField
               id="injuryDate"
-              label="Date of injury / surgery"
+              label="Date of injury or surgery (if any)"
               type="date"
               value={v.injuryDate}
               onValueChange={(injuryDate) => set({ injuryDate })}
@@ -155,24 +155,24 @@ export function ClientOnboardingStepFields({ step, values: v, errors, set, goTo 
           </div>
           <TextAreaField
             id="surgeryHistory"
-            label="Surgery / procedure history"
+            label="Past surgeries (if any)"
             value={v.surgeryHistory}
             onValueChange={(surgeryHistory) => set({ surgeryHistory })}
-            placeholder="e.g., Right ACL reconstruction Jan 2024"
+            placeholder="e.g., Right knee surgery, Jan 2024"
             rows={2}
           />
           <TextAreaField
             id="limitations"
-            label="Physical limitations"
+            label="Injuries or physical limitations"
             value={v.limitations}
             onValueChange={(limitations) => set({ limitations })}
-            placeholder="e.g., Cannot fully straighten knee"
+            placeholder="e.g., Tight lower back, limited shoulder range"
             rows={2}
           />
           <div className="grid gap-4 sm:grid-cols-2">
             <TextAreaField
               id="comorbidities"
-              label="Medical conditions"
+              label="Health conditions (if any)"
               value={v.comorbidities}
               onValueChange={(comorbidities) => set({ comorbidities })}
               placeholder="e.g., Osteoarthritis, Type 2 diabetes"
@@ -180,10 +180,10 @@ export function ClientOnboardingStepFields({ step, values: v, errors, set, goTo 
             />
             <TextAreaField
               id="functional"
-              label="Functional challenges"
+              label="Movements you find hard"
               value={v.functionalChallenges}
               onValueChange={(functionalChallenges) => set({ functionalChallenges })}
-              placeholder="e.g., Difficulty climbing stairs"
+              placeholder="e.g., Squatting deep, climbing stairs"
               rows={2}
             />
           </div>
@@ -224,7 +224,7 @@ export function ClientOnboardingStepFields({ step, values: v, errors, set, goTo 
           </div>
           <ToggleGroupField
             id="fitnessGoals"
-            label="Rehabilitation goals"
+            label="Your goals"
             options={FITNESS_GOALS}
             selected={v.fitnessGoals}
             onToggle={(goal) => set({ fitnessGoals: toggleItem(v.fitnessGoals, goal) })}
@@ -251,13 +251,13 @@ function ClientReview({ values: v, goTo }: { values: ClientOnboardingValues; goT
     {
       step: 1,
       rows: [
-        ["Primary diagnosis", v.primaryDiagnosis],
+        ["Main reason", v.primaryDiagnosis],
         ["Pain score", v.painScore ? `${v.painScore} / 10` : ""],
         ["Date of injury / surgery", v.injuryDate],
-        ["Surgery history", v.surgeryHistory],
-        ["Physical limitations", v.limitations],
-        ["Medical conditions", v.comorbidities],
-        ["Functional challenges", v.functionalChallenges],
+        ["Past surgeries", v.surgeryHistory],
+        ["Injuries / limitations", v.limitations],
+        ["Health conditions", v.comorbidities],
+        ["Movements you find hard", v.functionalChallenges],
       ],
     },
     {

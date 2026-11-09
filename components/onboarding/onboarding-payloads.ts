@@ -96,6 +96,8 @@ export interface TrainerOnboardingValues {
   lastName: string;
   phone: string;
   organizationName: string;
+  professionalRole: string;
+  phiAttested: boolean;
 }
 
 export const EMPTY_TRAINER_ONBOARDING_VALUES: TrainerOnboardingValues = {
@@ -103,6 +105,8 @@ export const EMPTY_TRAINER_ONBOARDING_VALUES: TrainerOnboardingValues = {
   lastName: "",
   phone: "",
   organizationName: "",
+  professionalRole: "",
+  phiAttested: false,
 };
 
 export function buildTrainerOnboardingPayload(
@@ -113,11 +117,19 @@ export function buildTrainerOnboardingPayload(
     lastName: v.lastName,
     organizationName: v.organizationName,
     phone: v.phone || undefined,
+    professionalRole: v.professionalRole,
+    phiAttested: v.phiAttested,
   };
 }
 
-/** Steps: About you · Organization. */
+/** Steps: About you (incl. professional role) · Organization (incl. PHI clickwrap). */
 export const TRAINER_STEP_VALIDATORS: readonly (StepValidator<TrainerOnboardingValues> | undefined)[] = [
-  (v) => requireNames(v),
-  (v): FieldErrors => (v.organizationName ? {} : { organizationName: "Enter your organization's name." }),
+  (v) => ({
+    ...requireNames(v),
+    ...(v.professionalRole ? {} : { professionalRole: "Choose your professional role." }),
+  }),
+  (v): FieldErrors => ({
+    ...(v.organizationName ? {} : { organizationName: "Enter your organization's name." }),
+    ...(v.phiAttested ? {} : { phiAttested: "Please confirm to continue." }),
+  }),
 ];

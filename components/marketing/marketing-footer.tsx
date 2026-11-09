@@ -23,8 +23,9 @@ const COLUMNS = [
   {
     title: "Legal",
     links: [
+      { label: "Terms of Use", href: "/terms" },
       { label: "Privacy Policy", href: "/privacy" },
-      { label: "Terms of Service", href: "/terms" },
+      { label: "Consumer Health Data", href: "/consumer-health-data" },
     ],
   },
 ];

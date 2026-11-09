@@ -98,18 +98,28 @@ describe("buildClientOnboardingPayload", () => {
 
 describe("buildTrainerOnboardingPayload", () => {
   it("matches the legacy payload", () => {
-    const full = { firstName: "Sam", lastName: "Lee", organizationName: "Summit PT", phone: "555" };
+    const full = {
+      firstName: "Sam",
+      lastName: "Lee",
+      organizationName: "Summit PT",
+      phone: "555",
+      professionalRole: "personal_trainer",
+      phiAttested: true,
+    };
+    const consent = { professionalRole: "personal_trainer", phiAttested: true };
     expect(buildTrainerOnboardingPayload(full)).toStrictEqual({
       firstName: "Sam",
       lastName: "Lee",
       organizationName: "Summit PT",
       phone: "555",
+      ...consent,
     });
     expect(buildTrainerOnboardingPayload({ ...full, phone: "" })).toStrictEqual({
       firstName: "Sam",
       lastName: "Lee",
       organizationName: "Summit PT",
       phone: undefined,
+      ...consent,
     });
   });
 });
@@ -126,8 +136,15 @@ describe("validators keep the legacy required/optional semantics", () => {
     }
   });
 
-  it("trainer: names on step 1, organization name on step 2, phone optional", () => {
-    expect(Object.keys(TRAINER_STEP_VALIDATORS[0]!(EMPTY_TRAINER_ONBOARDING_VALUES))).toEqual(["firstName", "lastName"]);
-    expect(Object.keys(TRAINER_STEP_VALIDATORS[1]!(EMPTY_TRAINER_ONBOARDING_VALUES))).toEqual(["organizationName"]);
+  it("trainer: names + professional role on step 1, organization + PHI attestation on step 2, phone optional", () => {
+    expect(Object.keys(TRAINER_STEP_VALIDATORS[0]!(EMPTY_TRAINER_ONBOARDING_VALUES))).toEqual([
+      "firstName",
+      "lastName",
+      "professionalRole",
+    ]);
+    expect(Object.keys(TRAINER_STEP_VALIDATORS[1]!(EMPTY_TRAINER_ONBOARDING_VALUES))).toEqual([
+      "organizationName",
+      "phiAttested",
+    ]);
   });
 });

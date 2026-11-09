@@ -74,16 +74,22 @@ interface SelectFieldProps {
   onValueChange: (value: string) => void;
   placeholder: string;
   options: readonly { value: string; label: string }[];
+  error?: string;
+  hint?: string;
+  required?: boolean;
 }
 
 /** Native select (keeps the plain string value), styled like Input. */
-export function SelectField({ id, label, value, onValueChange, placeholder, options }: SelectFieldProps) {
+export function SelectField({ id, label, value, onValueChange, placeholder, options, error, hint, required }: SelectFieldProps) {
   return (
-    <FormField label={label} htmlFor={id}>
+    <FormField label={label} htmlFor={id} error={error} hint={hint} required={required}>
       <select
         id={id}
         value={value}
         onChange={(e) => onValueChange(e.target.value)}
+        aria-invalid={error ? true : undefined}
+        aria-required={required || undefined}
+        aria-describedby={describedBy(id, error, hint)}
         className={cn(
           "h-9 w-full min-w-0 rounded-md border border-input bg-surface px-3 text-base text-foreground shadow-xs outline-none transition-[color,border-color,box-shadow] md:text-sm",
           "hover:border-border-strong focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 motion-reduce:transition-none",
