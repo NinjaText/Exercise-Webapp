@@ -26,6 +26,8 @@ export const PUBLIC_ROUTES = [
   // Stripe Connect events (trainer payments). Signed with its own secret.
   "/api/stripe/connect/webhook",
   "/p/(.*)",
+  // Contractor referral links: set the attribution cookie, then redirect.
+  "/r/(.*)",
   // Club join pages: the code form and Clerk sign-up render before any
   // session exists. /join/<slug>/complete checks auth itself.
   "/join/(.*)",

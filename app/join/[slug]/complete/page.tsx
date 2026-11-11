@@ -1,6 +1,6 @@
 import { redirect, notFound } from "next/navigation";
 import { after } from "next/server";
-import { auth } from "@clerk/nextjs/server";
+import { auth, currentUser } from "@clerk/nextjs/server";
 import { cookies } from "next/headers";
 import { getClubBySlug } from "@/lib/services/club.service";
 import {
@@ -10,6 +10,8 @@ import {
 } from "@/lib/services/club-member.service";
 import { prisma } from "@/lib/prisma";
 import { awaitingFirstCheckout } from "@/lib/billing/access";
+import { isFreeClub } from "@/lib/clubs/free-club";
+import { attributeReferralFromRequest } from "@/lib/referrals/attribution";
 import { JOIN_COOKIE, verifyJoinToken } from "@/lib/clubs/join-token";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { BrandStyle } from "@/components/branding/brand-style";
@@ -61,6 +63,29 @@ export default async function JoinCompletePage({ params }: { params: Promise<{ s
         </p>
       </JoinStatusShell>
     );
+  }
+
+  // Contractor referral (link cookie or code typed at sign-up). Free clubs
+  // never bill, so there is nothing to earn on. Never blocks the join.
+  if (!isFreeClub(club)) {
+    try {
+      const [member, clerkUser] = await Promise.all([
+        prisma.user.findUnique({
+          where: { id: result.userId },
+          select: { id: true, email: true, firstName: true, lastName: true },
+        }),
+        currentUser(),
+      ]);
+      if (member) {
+        await attributeReferralFromRequest({
+          user: member,
+          subscriberType: "INDIVIDUAL",
+          clerkUnsafeMetadata: clerkUser?.unsafeMetadata,
+        });
+      }
+    } catch (err) {
+      console.error("[referrals] club join attribution failed:", err);
+    }
   }
 
   // Copying a program can take ~20s — don't hold the page. The

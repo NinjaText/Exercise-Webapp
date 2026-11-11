@@ -7,6 +7,23 @@ const clerkProps = vi.hoisted(() => ({
 }));
 
 vi.mock("next/server", () => ({ connection: vi.fn(async () => {}) }));
+const cookieJar = vi.hoisted(() => ({ ref: undefined as string | undefined }));
+vi.mock("next/headers", () => ({
+  cookies: vi.fn(async () => ({ get: () => (cookieJar.ref ? { value: cookieJar.ref } : undefined) })),
+}));
+vi.mock("@/actions/referral-code-actions", () => ({ checkReferralCode: vi.fn() }));
+// The agreement + referral UI is placed inside Clerk's form in the browser
+// only; here we check what the page hands the sign-up wrapper.
+const consentedProps = vi.hoisted(() => ({ value: undefined as Record<string, unknown> | undefined }));
+vi.mock("@/components/auth/consented-sign-up", async () => {
+  const { SignUp } = await import("@clerk/nextjs");
+  return {
+    ConsentedSignUp: ({ referral, ...props }: Record<string, unknown>) => {
+      consentedProps.value = { referral, ...props };
+      return <SignUp {...props} />;
+    },
+  };
+});
 
 vi.mock("@clerk/nextjs", () => ({
   SignIn: (props: Record<string, unknown>) => {
@@ -52,14 +69,29 @@ describe("auth pages use AuthShell", () => {
     expect(out).not.toMatch(/<h1/);
   });
 
+  const signUp = (params: Record<string, string> = {}) => () => SignUpPage({ searchParams: Promise.resolve(params) });
+
   it("sign-up", async () => {
-    const out = await html(SignUpPage);
+    const out = await html(signUp());
     expect(out).toContain('data-slot="auth-shell"');
     expect(out).toContain("Create your account");
     expect(out).toContain("Track client progress");
     expect(out).toContain("clerk-sign-up");
     expect(clerkProps.signUp?.forceRedirectUrl).toBe("/onboarding");
     expect(out).not.toMatch(/<h1/);
+    expect(consentedProps.value?.referral).toEqual({ initialCode: null });
+  });
+
+  it("sign-up pre-fills the referral code from the link cookie", async () => {
+    cookieJar.ref = "jordan-7k3q";
+    await html(signUp());
+    cookieJar.ref = undefined;
+    expect(consentedProps.value?.referral).toEqual({ initialCode: "JORDAN-7K3Q" });
+  });
+
+  it("invitation sign-ups have no referral field", async () => {
+    await html(signUp({ __clerk_ticket: "tkt" }));
+    expect(consentedProps.value?.referral).toBeUndefined();
   });
 
   it("account-deactivated", async () => {

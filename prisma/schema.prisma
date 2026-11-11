@@ -1538,3 +1538,185 @@ model AiUsageOverride {
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 }
+
+// ─── Referrals & contractor commissions (docs/superpowers/specs/2026-11-11-referral-commissions-design.md) ───
+
+enum CommissionType {
+  NONE
+  /// Fixed amount in cents.
+  FIXED
+  /// Basis points (2000 = 20%) of the referral's first paid invoice.
+  PERCENT
+}
+
+enum RetentionScope {
+  TRAINERS
+  INDIVIDUALS
+  ALL
+}
+
+enum ReferralSubscriberType {
+  TRAINER
+  INDIVIDUAL
+}
+
+enum ReferralStatus {
+  /// Attributed; no paid invoice yet (includes trials).
+  SIGNED_UP
+  /// First paid invoice received; signup commission earned.
+  CONVERTED
+  /// Stayed subscribed for the retention period (Stripe-verified).
+  RETAINED
+  /// Canceled before qualifying (or never paid).
+  CHURNED
+}
+
+enum CommissionKind {
+  SIGNUP
+  RETENTION_BONUS
+  ADJUSTMENT
+}
+
+enum CommissionStatus {
+  UNPAID
+  PAID
+  VOID
+}
+
+/// Admin-edited compensation terms. Edits apply to referrals made afterwards:
+/// each Referral snapshots the terms that applied when it was attributed.
+model CommissionPlan {
+  id                        String         @id @default(auto()) @map("_id") @db.ObjectId
+  name                      String
+  description               String?
+  trainerCommissionType     CommissionType @default(NONE)
+  trainerCommissionValue    Int            @default(0)
+  individualCommissionType  CommissionType @default(NONE)
+  individualCommissionValue Int            @default(0)
+  /// 0 = no retention bonus.
+  retentionBonusCents       Int            @default(0)
+  retentionRequiredCount    Int            @default(0)
+  retentionMonths           Int            @default(0)
+  retentionScope            RetentionScope @default(TRAINERS)
+  archivedAt                DateTime?
+  updatedById               String?        @db.ObjectId
+  createdAt                 DateTime       @default(now())
+  updatedAt                 DateTime       @updatedAt
+
+  contractors Contractor[]
+}
+
+/// A person who refers trainers/individuals for commission. Admin-managed; not an app login.
+model Contractor {
+  id           String          @id @default(auto()) @map("_id") @db.ObjectId
+  name         String
+  email        String          @unique
+  phone        String?
+  notes        String?
+  /// Uppercase A–Z, 0–9 and dashes; used in /r/<code> and the sign-up field.
+  referralCode String          @unique
+  planId       String?         @db.ObjectId
+  plan         CommissionPlan? @relation(fields: [planId], references: [id])
+  isActive     Boolean         @default(true)
+  linkClicks   Int             @default(0)
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  referrals   Referral[]
+  commissions Commission[]
+  payouts     Payout[]
+}
+
+model Referral {
+  id             String                 @id @default(auto()) @map("_id") @db.ObjectId
+  contractorId   String                 @db.ObjectId
+  contractor     Contractor             @relation(fields: [contractorId], references: [id])
+  /// Plain id (no relation): the referral and its history outlive a deleted account.
+  referredUserId String                 @unique @db.ObjectId
+  referredEmail  String
+  referredName   String
+  subscriberType ReferralSubscriberType
+  /// "link" (cookie from /r/<code>) or "code" (typed at sign-up).
+  source         String
+  codeUsed       String
+  status         ReferralStatus         @default(SIGNED_UP)
+
+  // Terms snapshot taken at attribution — never re-read from the plan.
+  planId                 String?        @db.ObjectId
+  planName               String?
+  commissionType         CommissionType
+  commissionValue        Int
+  retentionBonusCents    Int
+  retentionRequiredCount Int
+  retentionMonths        Int
+
+  // Stripe-verified payment facts.
+  firstPaidAt          DateTime?
+  firstPaidInvoiceId   String?
+  firstPaidAmountCents Int?
+  currency             String?
+  paidInvoiceIds       String[]  @default([])
+  paidInvoiceCount     Int       @default(0)
+  totalPaidCents       Int       @default(0)
+  lastPaidAt           DateTime?
+  /// Retention clock start: first payment, or the payment that reactivated a churned referral.
+  retentionStartAt     DateTime?
+  retainedAt           DateTime?
+  /// The RETENTION_BONUS commission this referral counted toward.
+  retentionBonusId     String?   @db.ObjectId
+  churnedAt            DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  @@index([contractorId, createdAt])
+  @@index([status])
+  @@index([contractorId, status])
+}
+
+model Commission {
+  id           String           @id @default(auto()) @map("_id") @db.ObjectId
+  contractorId String           @db.ObjectId
+  contractor   Contractor       @relation(fields: [contractorId], references: [id])
+  kind         CommissionKind
+  status       CommissionStatus @default(UNPAID)
+  /// May be negative for an ADJUSTMENT (clawback).
+  amountCents  Int
+  currency     String           @default("usd")
+  description  String
+  /// Idempotency key: "signup:<referralId>", "retention:<…>", "adjustment:<uuid>".
+  sourceKey    String           @unique
+  /// SIGNUP: the one referral. RETENTION_BONUS: the referrals it counted.
+  referralIds  String[]         @db.ObjectId
+  earnedAt     DateTime         @default(now())
+  payoutId     String?          @db.ObjectId
+  paidAt       DateTime?
+  voidedAt     DateTime?
+  voidReason   String?
+  createdById  String?          @db.ObjectId
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  @@index([contractorId, status])
+  @@index([payoutId])
+  @@index([earnedAt])
+}
+
+model Payout {
+  id            String     @id @default(auto()) @map("_id") @db.ObjectId
+  contractorId  String     @db.ObjectId
+  contractor    Contractor @relation(fields: [contractorId], references: [id])
+  amountCents   Int
+  currency      String     @default("usd")
+  method        String
+  reference     String?
+  note          String?
+  paidAt        DateTime
+  commissionIds String[]   @db.ObjectId
+  recordedById  String     @db.ObjectId
+  reversedAt    DateTime?
+  reversedById  String?    @db.ObjectId
+  createdAt     DateTime   @default(now())
+
+  @@index([contractorId, paidAt])
+  @@index([paidAt])
+}

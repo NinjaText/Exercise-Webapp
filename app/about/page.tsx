@@ -88,12 +88,13 @@ export default function AboutPage() {
             <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-4">
               <PillLink href={GET_STARTED_HREF}>Start your free trial</PillLink>
             </div>
-            <div className="mt-10 inline-flex items-center gap-4 rounded-2xl bg-ink py-3.5 pr-6 pl-4 text-cream shadow-[0_18px_40px_-24px_rgba(45,38,34,0.6)]">
-              <Stethoscope className="h-8 w-8 shrink-0" strokeWidth={1.4} aria-hidden />
-              <span className="h-8 w-px bg-cream/25" aria-hidden />
-              <p className="text-sm leading-snug sm:text-base">
-                Designed by a<br />
-                Doctor of Physical Therapy
+            {/* Quiet credential note (matches the credential chips below), not a dark block that reads as a second button. */}
+            <div className="mt-10 flex items-center gap-3.5">
+              <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-sand/70">
+                <Stethoscope className={cn("h-5 w-5", ACCENT_TEXT)} strokeWidth={1.6} aria-hidden />
+              </span>
+              <p className="text-sm leading-snug text-ink-soft sm:text-base">
+                Designed by a <span className="font-medium text-ink">Doctor of Physical Therapy</span>
               </p>
             </div>
           </div>

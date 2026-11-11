@@ -20,6 +20,7 @@ import {
   markCoachingPastDue,
 } from "@/lib/services/coaching.service";
 import { fulfillProgramPurchase } from "@/lib/services/program-purchase.service";
+import { recordReferralInvoicePayment } from "@/lib/referrals/payments";
 import { notifyUser, NOTIFICATION_TYPES } from "@/lib/services/notification.service";
 import { sendEmail } from "@/lib/email/send";
 import { RefundProcessedEmail } from "@/lib/email/templates/refund-processed";
@@ -144,6 +145,13 @@ export async function POST(req: Request) {
             console.error("subscription-canceled notify failed:", err);
           }
         });
+        break;
+      }
+      case "invoice.paid": {
+        // Contractor referrals: a paid trainer/membership invoice converts the
+        // referral and earns its signup commission. Idempotent per invoice, so
+        // a thrown error is safe to let Stripe retry.
+        await recordReferralInvoicePayment(event.data.object as Stripe.Invoice);
         break;
       }
       case "invoice.payment_failed": {
