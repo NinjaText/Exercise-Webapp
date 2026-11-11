@@ -111,6 +111,17 @@ export const AUDIT_ACTION_CATALOG = {
   OFFER_CHECKOUT_STARTED: { label: "Started checkout", category: "PAYMENTS", tone: "info" },
   OFFER_SUBSCRIPTION_CANCELED: { label: "Canceled coaching subscription", category: "PAYMENTS", tone: "warning" },
   OFFER_SUBSCRIPTION_RESUMED: { label: "Resumed coaching subscription", category: "PAYMENTS", tone: "success" },
+
+  CONTRACTOR_CREATED: { label: "Added referral contractor", category: "PAYMENTS", tone: "success" },
+  CONTRACTOR_UPDATED: { label: "Updated referral contractor", category: "PAYMENTS", tone: "info" },
+  CONTRACTOR_DELETED: { label: "Deleted referral contractor", category: "PAYMENTS", tone: "danger" },
+  COMMISSION_PLAN_CREATED: { label: "Created commission plan", category: "PAYMENTS", tone: "success" },
+  COMMISSION_PLAN_UPDATED: { label: "Updated commission plan", category: "PAYMENTS", tone: "info" },
+  COMMISSION_PLAN_ARCHIVED: { label: "Archived commission plan", category: "PAYMENTS", tone: "warning" },
+  COMMISSION_ADJUSTED: { label: "Added commission adjustment", category: "PAYMENTS", tone: "info" },
+  COMMISSION_VOIDED: { label: "Voided commission", category: "PAYMENTS", tone: "warning" },
+  PAYOUT_RECORDED: { label: "Recorded contractor payout", category: "PAYMENTS", tone: "success" },
+  PAYOUT_REVERSED: { label: "Reversed contractor payout", category: "PAYMENTS", tone: "warning" },
 } as const satisfies Record<string, AuditActionMeta>;
 
 export type AuditAction = keyof typeof AUDIT_ACTION_CATALOG;

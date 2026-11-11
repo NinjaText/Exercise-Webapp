@@ -13,6 +13,7 @@ import { NO_LOCAL_TRIAL } from "@/lib/billing/access";
 import { START_PLAN_COOKIE, parseStartPlan } from "@/lib/billing/start-plan";
 import { createTrainerCheckoutSession } from "@/lib/services/stripe-billing.service";
 import { consentFieldsFromClerkUser, isProfessionalRole } from "@/lib/legal/consent";
+import { attributeReferralFromRequest } from "@/lib/referrals/attribution";
 
 /** Sign-up consent to copy onto the User row, unless one is already recorded. */
 function pendingConsent(
@@ -144,6 +145,14 @@ export async function completeTrainerOnboarding(data: {
     billable = !exempt;
 
     await prisma.user.update({ where: { id: user.id }, data: { onboarded: true } });
+
+    // Contractor referral (link cookie or code typed at sign-up). Never throws.
+    await attributeReferralFromRequest({
+      user,
+      subscriberType: "TRAINER",
+      clerkUnsafeMetadata: clerkUser.unsafeMetadata,
+      clearCookie: true,
+    });
 
     await logUserAudit(user, () => ({
       action: AUDIT_ACTIONS.ONBOARDING_COMPLETED,

@@ -9,6 +9,7 @@ import { AuthShell } from "@/components/auth/auth-shell";
 import { clerkAuthAppearance } from "@/lib/ui/clerk-appearance";
 import { JOIN_COOKIE, verifyJoinToken } from "@/lib/clubs/join-token";
 import { isFreeClub } from "@/lib/clubs/free-club";
+import { normalizeReferralCode, REFERRAL_COOKIE } from "@/lib/referrals/codes";
 import { JoinCodeForm } from "./join-code-form";
 
 export default async function JoinClubPage({ params }: { params: Promise<{ slug: string }> }) {
@@ -21,8 +22,10 @@ export default async function JoinClubPage({ params }: { params: Promise<{ slug:
 
   // verifyJoinToken throws when CLERK_SECRET_KEY is missing: fail closed (500).
   // Open-join clubs (e.g. MIA Individuals) skip the access-code step.
-  const verified =
-    club.openJoin === true || verifyJoinToken((await cookies()).get(JOIN_COOKIE)?.value, club.clerkOrgId);
+  const jar = await cookies();
+  const verified = club.openJoin === true || verifyJoinToken(jar.get(JOIN_COOKIE)?.value, club.clerkOrgId);
+  // Contractor referral codes only matter where MIA bills the member.
+  const referral = isFreeClub(club) ? undefined : { initialCode: normalizeReferralCode(jar.get(REFERRAL_COOKIE)?.value) };
   const completeUrl = `/join/${slug}/complete`;
   const startWhat = isFreeClub(club) ? "join" : "start your free trial";
 
@@ -42,6 +45,7 @@ export default async function JoinClubPage({ params }: { params: Promise<{ slug:
             signInUrl={`/join/${slug}/sign-in`}
             signInForceRedirectUrl={completeUrl}
             appearance={clerkAuthAppearance()}
+            referral={referral}
           />
         </AuthShell>
       ) : (
