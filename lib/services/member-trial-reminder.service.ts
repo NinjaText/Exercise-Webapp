@@ -31,7 +31,7 @@ export async function sendDueTrialReminders(now = new Date()) {
         gte: new Date(now.getTime() - 7 * 24 * 3600_000),
       },
     },
-    include: { user: { select: { email: true, firstName: true, isActive: true } } },
+    include: { user: { select: { email: true, firstName: true, isActive: true, billingExemptAt: true } } },
   });
 
   let sent = 0;

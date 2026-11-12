@@ -20,7 +20,7 @@ export type AttributionResult =
     };
 
 export interface AttributionInput {
-  user: Pick<User, "id" | "email" | "firstName" | "lastName">;
+  user: Pick<User, "id" | "email" | "firstName" | "lastName" | "billingExemptAt">;
   subscriberType: ReferralSubscriberType;
   /** Typed at sign-up (Clerk unsafeMetadata.referralCode). Wins over the cookie. */
   typedCode?: unknown;

@@ -35,7 +35,13 @@ export async function bulkInviteAction(
   let isAdmin = false;
   let actorUser: { id: string; firstName: string; lastName: string; email: string; role: "TRAINER" | "CLIENT" };
   /** Trainer path only: the caller whose plan caps the org's clients. */
-  let trainerCaller: { id: string; role: "TRAINER" | "CLIENT"; clerkOrgId: string | null; email: string } | null = null;
+  let trainerCaller: {
+    id: string;
+    role: "TRAINER" | "CLIENT";
+    clerkOrgId: string | null;
+    email: string;
+    billingExemptAt: Date | null;
+  } | null = null;
 
   if (clerkOrgId) {
     actorUser = await requireSuperAdmin(); // redirects if not authorized

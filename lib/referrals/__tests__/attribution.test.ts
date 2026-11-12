@@ -15,7 +15,7 @@ import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import { attributeReferral, attributeReferralFromRequest } from "../attribution";
 
-const user = { id: "u1", email: "new@client.com", firstName: "Ana", lastName: "Diaz" };
+const user = { id: "u1", email: "new@client.com", firstName: "Ana", lastName: "Diaz", billingExemptAt: null };
 const plan = {
   id: "p1",
   name: "Standard",

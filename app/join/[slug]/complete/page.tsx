@@ -72,7 +72,7 @@ export default async function JoinCompletePage({ params }: { params: Promise<{ s
       const [member, clerkUser] = await Promise.all([
         prisma.user.findUnique({
           where: { id: result.userId },
-          select: { id: true, email: true, firstName: true, lastName: true },
+          select: { id: true, email: true, firstName: true, lastName: true, billingExemptAt: true },
         }),
         currentUser(),
       ]);

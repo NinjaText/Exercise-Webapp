@@ -22,6 +22,8 @@ import { getCapabilitiesForUser, getOrgForUser } from "@/lib/org-capabilities.se
 import { isHouseCoach } from "@/lib/services/house-coach.service";
 import { getActingAdmin } from "@/lib/clubs/admin-session";
 import { ClubAdminBanner } from "@/components/clubs/club-admin-banner";
+import { touchLastActive } from "@/lib/activity/last-active";
+import { ActivityHeartbeat } from "@/components/activity/activity-heartbeat";
 
 // Both deduped with the layout's own read via React.cache in branding.service.
 export async function generateMetadata(): Promise<Metadata> {
@@ -57,6 +59,7 @@ export default async function PlatformLayout({ children }: { children: React.Rea
     if (user.role === "CLIENT") redirect("/onboarding/client");
     redirect("/onboarding");
   }
+  touchLastActive(user);
 
   // Billing gate. Who pays depends on the org: trainers in trainer orgs,
   // each member in club orgs. A club's house coach (a TRAINER inside a
@@ -131,6 +134,7 @@ export default async function PlatformLayout({ children }: { children: React.Rea
       <BreadcrumbProvider>
         <div data-app-shell className="flex h-dvh flex-col overflow-hidden bg-canvas">
           <BrandStyle branding={branding} />
+          <ActivityHeartbeat />
           {actingAdmin && clubOrg && (
             <ClubAdminBanner clubName={clubOrg.name} adminName={actingAdmin.adminName} />
           )}

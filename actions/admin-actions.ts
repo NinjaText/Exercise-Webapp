@@ -7,6 +7,7 @@ import { revalidatePath } from "next/cache";
 import { logAudit, deriveActorType, AUDIT_ACTIONS } from "@/lib/services/audit-log.service";
 import { findDeletionBlockers, deleteUserData } from "@/lib/services/user-deletion.service";
 import { cancelMemberBillingForDeletion } from "@/lib/services/member-billing.service";
+import { grantFreeAccess, revokeFreeAccess } from "@/lib/billing/free-access";
 
 async function logUserAction(
   action: string,
@@ -60,6 +61,36 @@ export async function restoreUserAction(userId: string) {
     const admin = await requireSuperAdmin();
     await prisma.user.update({ where: { id: userId }, data: { isActive: true } });
     await logUserAction(AUDIT_ACTIONS.USER_REACTIVATED, admin, userId);
+    revalidatePath("/admin/users");
+    return { success: true as const };
+  } catch (e) {
+    return { success: false as const, error: String(e) };
+  }
+}
+
+/**
+ * Complimentary access: the user is never billed by MIA. Any live trainer
+ * plan / club membership in Stripe is set to end without renewing (a trial
+ * just ends, uncharged). See lib/billing/free-access.ts.
+ */
+export async function grantFreeAccessAction(userId: string, note: string) {
+  try {
+    const admin = await requireSuperAdmin();
+    const { stoppedSubscriptions } = await grantFreeAccess(userId, note.slice(0, 200));
+    await logUserAction(AUDIT_ACTIONS.USER_FREE_ACCESS_GRANTED, admin, userId);
+    revalidatePath("/admin/users");
+    return { success: true as const, stoppedSubscriptions };
+  } catch (e) {
+    console.error("grantFreeAccessAction failed", e);
+    return { success: false as const, error: "Couldn't update their Stripe subscription, so free access wasn't given. Try again." };
+  }
+}
+
+export async function revokeFreeAccessAction(userId: string) {
+  try {
+    const admin = await requireSuperAdmin();
+    await revokeFreeAccess(userId);
+    await logUserAction(AUDIT_ACTIONS.USER_FREE_ACCESS_REVOKED, admin, userId);
     revalidatePath("/admin/users");
     return { success: true as const };
   } catch (e) {

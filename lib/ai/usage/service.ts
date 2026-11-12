@@ -44,8 +44,14 @@ export const SYSTEM_ACCOUNT: AiAccount = {
   unlimitedReason: "system",
 };
 
-type ActorUser = { id: string; email: string; role: "TRAINER" | "CLIENT"; clerkOrgId: string | null };
-const ACTOR_SELECT = { id: true, email: true, role: true, clerkOrgId: true } as const;
+type ActorUser = {
+  id: string;
+  email: string;
+  role: "TRAINER" | "CLIENT";
+  clerkOrgId: string | null;
+  billingExemptAt: Date | null;
+};
+const ACTOR_SELECT = { id: true, email: true, role: true, clerkOrgId: true, billingExemptAt: true } as const;
 
 /**
  * Maps the user who triggered a call to the billed account:
@@ -66,16 +72,16 @@ export async function resolveAccountForUser(
     : null;
   const isClub = getOrgType(org) === "CLUB";
 
-  let trainer: { id: string; email: string } | null = null;
+  let trainer: { id: string; email: string; billingExemptAt: Date | null } | null = null;
   if (actor.role === "TRAINER") {
     trainer = actor;
   } else if (isClub && org?.houseCoachUserId) {
-    trainer = { id: org.houseCoachUserId, email: "" };
+    trainer = { id: org.houseCoachUserId, email: "", billingExemptAt: null };
   } else if (actor.clerkOrgId) {
     trainer = await prisma.user.findFirst({
       where: { clerkOrgId: actor.clerkOrgId, role: "TRAINER" },
       orderBy: { createdAt: "asc" },
-      select: { id: true, email: true },
+      select: { id: true, email: true, billingExemptAt: true },
     });
   }
 
