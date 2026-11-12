@@ -21,7 +21,7 @@ import { cn } from "@/lib/utils";
 import { DataList, type Column } from "@/components/shared/data-list";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { EmptyState } from "@/components/shared/empty-state";
-import { isBillingExempt } from "@/lib/billing/exempt";
+import { freeAccessKind, isBillingExempt } from "@/lib/billing/exempt";
 
 interface PageProps {
   searchParams: Promise<{
@@ -90,7 +90,11 @@ const userColumns: Column<UserRow>[] = [
     render: (u) => (
       <div className="flex flex-wrap items-center gap-1.5">
         <StatusBadge status={u.isActive === false ? "ARCHIVED" : u.onboarded ? "ACTIVE" : "ONBOARDING"} size="sm" />
-        {isBillingExempt(u) && <StatusBadge status="FREE_ACCESS" label="Free access" role="info" size="sm" />}
+        {isBillingExempt(u) && (
+          <span title={u.billingExemptNote ?? undefined}>
+            <StatusBadge status="FREE_ACCESS" label="Free access" role="info" size="sm" />
+          </span>
+        )}
       </div>
     ),
   },
@@ -114,6 +118,7 @@ const userColumns: Column<UserRow>[] = [
           userId={u.id}
           isActive={u.isActive}
           userName={`${u.firstName} ${u.lastName}`}
+          freeAccess={freeAccessKind(u)}
         />
       </div>
     ),

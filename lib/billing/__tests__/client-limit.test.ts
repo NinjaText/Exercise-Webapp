@@ -15,7 +15,7 @@ import { getCapabilitiesForUser } from "@/lib/org-capabilities.server";
 import { getUserCapabilities } from "@/lib/org-capabilities";
 import { checkClientLimit, evaluateClientLimit } from "@/lib/billing/client-limit";
 
-const trainer = { id: "t1", role: "TRAINER" as const, clerkOrgId: "org_t", email: "coach@x.com" };
+const trainer = { id: "t1", role: "TRAINER" as const, clerkOrgId: "org_t", email: "coach@x.com", billingExemptAt: null };
 const trainerCaps = getUserCapabilities({ orgType: "TRAINER", role: "TRAINER", coachingActive: false });
 const clubCaps = getUserCapabilities({ orgType: "CLUB", role: "TRAINER", coachingActive: false });
 

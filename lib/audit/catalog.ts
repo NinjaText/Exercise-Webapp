@@ -37,6 +37,8 @@ export const AUDIT_ACTION_CATALOG = {
   USER_INVITE_REVOKED: { label: "Revoked invitation", category: "USERS", tone: "danger" },
   USER_DEACTIVATED: { label: "Deactivated user", category: "USERS", tone: "danger" },
   USER_REACTIVATED: { label: "Reactivated user", category: "USERS", tone: "success" },
+  USER_FREE_ACCESS_GRANTED: { label: "Gave free access", category: "USERS", tone: "info" },
+  USER_FREE_ACCESS_REVOKED: { label: "Removed free access", category: "USERS", tone: "warning" },
   USER_DELETED: { label: "Deleted user", category: "USERS", tone: "danger" },
 
   WORKOUT_STARTED: { label: "Started workout", category: "WORKOUTS", tone: "info" },

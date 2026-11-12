@@ -164,6 +164,7 @@ export function TrainersWithClientsTable({ trainers }: Props) {
                 userId={trainer.id}
                 isActive={trainer.isActive}
                 userName={`${trainer.firstName} ${trainer.lastName}`}
+                freeAccess={trainer.freeAccess}
               />
             </div>
           );
@@ -175,6 +176,7 @@ export function TrainersWithClientsTable({ trainers }: Props) {
               userId={client.id}
               isActive={client.isActive}
               userName={`${client.firstName} ${client.lastName}`}
+              freeAccess={client.freeAccess}
             />
           </div>
         );

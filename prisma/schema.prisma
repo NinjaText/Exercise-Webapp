@@ -147,6 +147,10 @@ model User {
   // Professional accounts: role picked at onboarding + the no-PHI attestation.
   professionalRole     String?
   phiAttestedAt        DateTime?
+  // Complimentary access granted by a super admin (lib/billing/exempt.ts).
+  // Optional on purpose: rows without it read as null, so no backfill needed.
+  billingExemptAt      DateTime?
+  billingExemptNote    String?
 
   clientProfile    ClientProfile?
   plansAsClient    WorkoutPlan[]      @relation("ClientPlans")

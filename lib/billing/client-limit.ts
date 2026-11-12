@@ -11,7 +11,7 @@ export type ClientLimitCheck =
   | { ok: true; limit: number | null; used: number; remaining: number | null }
   | { ok: false; limit: number; used: number; remaining: number; plan: PlanTier; error: string; upgradeHref: string };
 
-type Caller = Pick<User, "id" | "role" | "clerkOrgId" | "email">;
+type Caller = Pick<User, "id" | "role" | "clerkOrgId" | "email" | "billingExemptAt">;
 
 /**
  * Pure rule, kept separate for tests: can `adding` more clients fit?
@@ -77,7 +77,7 @@ export async function checkClientLimit(caller: Caller, adding = 1, opts: { isAdm
   if (!plan) {
     const trainers = await prisma.user.findMany({
       where: { clerkOrgId: caller.clerkOrgId, role: "TRAINER" },
-      select: { id: true, email: true },
+      select: { id: true, email: true, billingExemptAt: true },
     });
     // An exempt owner in the org means the org isn't capped.
     if (trainers.some((t) => isBillingExempt(t))) return unlimited();

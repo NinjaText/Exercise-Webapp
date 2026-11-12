@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { freeAccessKind, type FreeAccessKind } from "@/lib/billing/exempt";
 import type { BodyRegion } from "@prisma/client";
 import { clerkClient } from "@clerk/nextjs/server";
 import { subMonths, startOfMonth, endOfMonth, format } from "date-fns";
@@ -185,6 +186,8 @@ export async function getAllUsers(params: {
         imageUrl: true,
         createdAt: true,
         clerkOrgId: true,
+        billingExemptAt: true,
+        billingExemptNote: true,
       },
       orderBy: { createdAt: "desc" },
       skip: (page - 1) * pageSize,
@@ -352,6 +355,7 @@ export interface TrainerWithClients {
   onboarded: boolean;
   isActive: boolean;
   createdAt: Date;
+  freeAccess: FreeAccessKind;
   clients: Array<{
     id: string;
     firstName: string;
@@ -361,6 +365,7 @@ export interface TrainerWithClients {
     onboarded: boolean;
     isActive: boolean;
     createdAt: Date;
+    freeAccess: FreeAccessKind;
   }>;
 }
 
@@ -377,6 +382,7 @@ export async function getTrainersWithClients(): Promise<TrainerWithClients[]> {
       onboarded: true,
       isActive: true,
       createdAt: true,
+      billingExemptAt: true,
     },
     orderBy: { createdAt: "desc" },
   });
@@ -395,11 +401,17 @@ export async function getTrainersWithClients(): Promise<TrainerWithClients[]> {
               onboarded: true,
               isActive: true,
               createdAt: true,
+              billingExemptAt: true,
             },
             orderBy: { createdAt: "desc" },
           })
         : [];
-      return { ...trainer, clients };
+      // The client table only needs the kind, not the exemption date.
+      const withKind = <T extends { email: string; billingExemptAt: Date | null }>({ billingExemptAt, ...rest }: T) => ({
+        ...rest,
+        freeAccess: freeAccessKind({ email: rest.email, billingExemptAt }),
+      });
+      return { ...withKind(trainer), clients: clients.map(withKind) };
     })
   );
 }

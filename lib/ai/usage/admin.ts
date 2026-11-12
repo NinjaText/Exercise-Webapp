@@ -46,7 +46,7 @@ export interface TrainerUsageRow {
 export async function listTrainerUsage(now: Date = new Date()): Promise<TrainerUsageRow[]> {
   const trainers = await prisma.user.findMany({
     where: { role: "TRAINER" },
-    select: { id: true, firstName: true, lastName: true, email: true, clerkOrgId: true },
+    select: { id: true, firstName: true, lastName: true, email: true, clerkOrgId: true, billingExemptAt: true },
     orderBy: { createdAt: "desc" },
   });
   const ids = trainers.map((t) => t.id);

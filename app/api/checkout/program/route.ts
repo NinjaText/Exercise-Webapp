@@ -24,7 +24,7 @@ export async function POST(req: Request) {
   try {
     const seller = await prisma.user.findUnique({
       where: { id: pkg.trainerId },
-      select: { id: true, role: true, clerkOrgId: true, email: true },
+      select: { id: true, role: true, clerkOrgId: true, email: true, billingExemptAt: true },
     });
     if (seller) {
       const limit = await checkClientLimit(seller, 1);
