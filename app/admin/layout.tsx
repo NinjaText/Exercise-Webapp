@@ -5,6 +5,7 @@ import { AdminTopBar } from "@/components/admin/admin-top-bar";
 import { BreadcrumbProvider } from "@/components/layout/breadcrumb-context";
 import { ensureClubAlertSubscriber, getTotalClubAttention } from "@/lib/services/club-alerts.service";
 import { StatusBadge } from "@/components/shared/status-badge";
+import { ActivityHeartbeat } from "@/components/activity/activity-heartbeat";
 
 export const metadata = { title: "Super Admin — MIA Performance" };
 
@@ -23,6 +24,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   return (
     <BreadcrumbProvider>
       <div data-app-shell className="flex h-dvh overflow-hidden bg-canvas">
+        <ActivityHeartbeat />
         <AdminSidebar
           userName={`${user.firstName} ${user.lastName}`}
           userEmail={user.email}

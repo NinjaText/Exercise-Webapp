@@ -22,6 +22,7 @@ import { DataList, type Column } from "@/components/shared/data-list";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { EmptyState } from "@/components/shared/empty-state";
 import { freeAccessKind, isBillingExempt } from "@/lib/billing/exempt";
+import { LastActive } from "@/components/activity/last-active";
 
 interface PageProps {
   searchParams: Promise<{
@@ -31,6 +32,7 @@ interface PageProps {
     view?: string;
     archived?: string;
     org?: string;
+    sort?: string;
   }>;
 }
 
@@ -99,9 +101,15 @@ const userColumns: Column<UserRow>[] = [
     ),
   },
   {
+    key: "lastActive",
+    header: "Last active",
+    render: (u) => <LastActive at={u.lastActiveAt} />,
+  },
+  {
     key: "joined",
     header: "Joined",
     align: "right",
+    className: "hidden md:table-cell",
     render: (u) => (
       <span className="text-caption tabular-nums">
         {format(new Date(u.createdAt), "MMM d, yyyy")}
@@ -133,10 +141,11 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
   const view = params.view === "orgs" ? "orgs" : "all";
   const archivedOnly = params.archived === "1";
   const orgId = params.org && params.org !== "ALL" ? params.org : "";
+  const sort = params.sort === "active" ? "active" : "joined";
 
   const [allUsersData, trainersData, trainersForFilter] = await Promise.all([
     view === "all"
-      ? getAllUsers({ page, pageSize: 25, search, role, archivedOnly, orgId: orgId || undefined })
+      ? getAllUsers({ page, pageSize: 25, search, role, archivedOnly, orgId: orgId || undefined, sort })
       : Promise.resolve(null),
     view === "orgs" ? getTrainersWithClients() : Promise.resolve(null),
     view === "all" ? getTrainersForOrgFilter() : Promise.resolve([]),
@@ -188,7 +197,7 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
           <PageToolbar
             end={
               <a
-                href={archivedOnly ? `?view=all&search=${search}&role=${role}&org=${orgId}` : `?view=all&search=${search}&role=${role}&org=${orgId}&archived=1`}
+                href={archivedOnly ? `?view=all&search=${search}&role=${role}&org=${orgId}&sort=${sort}` : `?view=all&search=${search}&role=${role}&org=${orgId}&sort=${sort}&archived=1`}
                 className="text-body text-muted-foreground hover:text-foreground transition-colors whitespace-nowrap"
               >
                 {archivedOnly ? "Hide archived" : "Show archived"}
@@ -231,6 +240,15 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
                   ))}
                 </SelectContent>
               </Select>
+              <Select name="sort" defaultValue={sort}>
+                <SelectTrigger className="h-10 min-w-0 flex-1 sm:h-9 sm:w-44 sm:flex-none">
+                  <SelectValue placeholder="Newest first" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="joined">Newest first</SelectItem>
+                  <SelectItem value="active">Recently active</SelectItem>
+                </SelectContent>
+              </Select>
               <Button type="submit" variant="outline" className="h-10 sm:h-9">
                 Filter
               </Button>
@@ -251,7 +269,7 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
               pageSize={25}
               total={total}
               itemLabel="users"
-              buildHref={(p) => `?view=all&search=${search}&role=${role}&org=${orgId}&page=${p}${archivedOnly ? "&archived=1" : ""}`}
+              buildHref={(p) => `?view=all&search=${search}&role=${role}&org=${orgId}&sort=${sort}&page=${p}${archivedOnly ? "&archived=1" : ""}`}
             />
           )}
         </>

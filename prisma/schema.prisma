@@ -151,6 +151,9 @@ model User {
   // Optional on purpose: rows without it read as null, so no backfill needed.
   billingExemptAt      DateTime?
   billingExemptNote    String?
+  // Last time this user was seen using the app (lib/activity/last-active.ts).
+  // Written at most once per throttle window; null = never seen since tracking began.
+  lastActiveAt         DateTime?
 
   clientProfile    ClientProfile?
   plansAsClient    WorkoutPlan[]      @relation("ClientPlans")

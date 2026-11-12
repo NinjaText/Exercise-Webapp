@@ -22,6 +22,7 @@ import { InvitationsTable } from "@/components/shared/invitations-table";
 import { getDisplayName, getInitials } from "@/lib/utils/display-name";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
+import { LastActive } from "@/components/activity/last-active";
 
 interface Props {
   searchParams: Promise<{ q?: string; archived?: string }>;
@@ -72,6 +73,11 @@ function buildClientColumns(coaching: Record<string, string> | null): Column<Cli
         },
       ]
     : []),
+  {
+    key: "lastActive",
+    header: "Last active",
+    render: (c) => <LastActive at={c.lastActiveAt} />,
+  },
   {
     key: "joined",
     header: "Joined",

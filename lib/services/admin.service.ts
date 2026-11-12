@@ -156,8 +156,9 @@ export async function getAllUsers(params: {
   role?: "TRAINER" | "CLIENT" | "ALL";
   archivedOnly?: boolean;
   orgId?: string;
+  sort?: "joined" | "active";
 }) {
-  const { page = 1, pageSize = 20, search, role = "ALL", archivedOnly = false, orgId } = params;
+  const { page = 1, pageSize = 20, search, role = "ALL", archivedOnly = false, orgId, sort = "joined" } = params;
 
   const where = {
     isActive: archivedOnly ? false : { not: false },
@@ -188,8 +189,12 @@ export async function getAllUsers(params: {
         clerkOrgId: true,
         billingExemptAt: true,
         billingExemptNote: true,
+        lastActiveAt: true,
       },
-      orderBy: { createdAt: "desc" },
+      // Null/missing sorts lowest in Mongo, so never-seen users land last.
+      orderBy: sort === "active"
+        ? [{ lastActiveAt: "desc" }, { createdAt: "desc" }]
+        : { createdAt: "desc" },
       skip: (page - 1) * pageSize,
       take: pageSize,
     }),
@@ -355,6 +360,7 @@ export interface TrainerWithClients {
   onboarded: boolean;
   isActive: boolean;
   createdAt: Date;
+  lastActiveAt: Date | null;
   freeAccess: FreeAccessKind;
   clients: Array<{
     id: string;
@@ -365,6 +371,7 @@ export interface TrainerWithClients {
     onboarded: boolean;
     isActive: boolean;
     createdAt: Date;
+    lastActiveAt: Date | null;
     freeAccess: FreeAccessKind;
   }>;
 }
@@ -383,6 +390,7 @@ export async function getTrainersWithClients(): Promise<TrainerWithClients[]> {
       isActive: true,
       createdAt: true,
       billingExemptAt: true,
+      lastActiveAt: true,
     },
     orderBy: { createdAt: "desc" },
   });
@@ -402,6 +410,7 @@ export async function getTrainersWithClients(): Promise<TrainerWithClients[]> {
               isActive: true,
               createdAt: true,
               billingExemptAt: true,
+              lastActiveAt: true,
             },
             orderBy: { createdAt: "desc" },
           })

@@ -7,6 +7,7 @@ import { ChevronRight, ChevronDown, Users } from "lucide-react";
 import { DataList, type Column } from "@/components/shared/data-list";
 import { EmptyState } from "@/components/shared/empty-state";
 import { StatusBadge } from "@/components/shared/status-badge";
+import { LastActive } from "@/components/activity/last-active";
 import type { TrainerWithClients } from "@/lib/services/admin.service";
 import { UserActionsMenu } from "@/components/admin/user-actions-menu";
 import { AdminBulkInviteDialog } from "@/components/admin/admin-bulk-invite-dialog";
@@ -130,6 +131,13 @@ export function TrainersWithClientsTable({ trainers }: Props) {
         const isActive = row.kind === "trainer" ? row.trainer.isActive : row.client.isActive;
         return <StatusBadge status={isActive ? "ACTIVE" : "ARCHIVED"} size="sm" />;
       },
+    },
+    {
+      key: "lastActive",
+      header: "Last active",
+      render: (row) => (
+        <LastActive at={row.kind === "trainer" ? row.trainer.lastActiveAt : row.client.lastActiveAt} />
+      ),
     },
     {
       key: "joined",

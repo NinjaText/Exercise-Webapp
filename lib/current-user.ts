@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import type { User } from "@prisma/client";
 import { isStaleHouseCoach } from "@/lib/clubs/house-coach-guard";
 import { isSuperAdminEmail } from "@/lib/auth/super-admin-emails";
+import { touchLastActive } from "@/lib/activity/last-active";
 
 export async function getCurrentUser(): Promise<User> {
   const { userId, orgId, sessionClaims } = await auth();
@@ -39,6 +40,7 @@ export async function getCurrentUser(): Promise<User> {
     redirect("/onboarding");
   }
 
+  touchLastActive(user);
   return user;
 }
 
@@ -69,6 +71,7 @@ export async function requireSuperAdmin(): Promise<User> {
   const hasEmailFlag = isSuperAdminEmail(user.email);
 
   if (!hasClerkFlag && !hasEmailFlag) redirect("/dashboard");
+  touchLastActive(user);
   return user;
 }
 
