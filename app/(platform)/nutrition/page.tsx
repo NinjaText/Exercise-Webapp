@@ -1,11 +1,10 @@
-import { UtensilsCrossed, TrendingUp, Target, Flame, Droplet, ClipboardCheck } from "lucide-react";
+import { UtensilsCrossed, TrendingUp, Flame, Droplet, ClipboardCheck } from "lucide-react";
 import { getCurrentUser } from "@/lib/current-user";
 import type { StatusRole } from "@/lib/ui/status";
 import * as nutritionService from "@/lib/services/nutrition.service";
 import * as accountabilityService from "@/lib/services/accountability.service";
 import { MacroProgressBars } from "@/components/nutrition/macro-progress-bars";
 import { WaterTracker } from "@/components/nutrition/water-tracker";
-import { ML_PER_OZ } from "@/lib/constants/nutrition";
 import { NutritionGoalsDialog } from "@/components/nutrition/nutrition-goals-dialog";
 import { MealLogDialog } from "@/components/nutrition/meal-log-dialog";
 import { MealsTable } from "@/components/nutrition/meals-table";
@@ -16,14 +15,13 @@ import { ClientRosterAdherence } from "@/components/nutrition/client-roster-adhe
 import { PageShell } from "@/components/shared/page-shell";
 import { PageHeader } from "@/components/shared/page-header";
 import { SectionCard } from "@/components/shared/section-card";
-import { StatCard } from "@/components/shared/stat-card";
+import { StatusBadge } from "@/components/shared/status-badge";
 import { TrendRangeToggle } from "@/components/nutrition/trend-range-toggle";
 import { AccountabilityScoreCard } from "@/components/nutrition/accountability-score-card";
 import { DailySummaryCard } from "@/components/nutrition/ai-summary-card";
 import { WeeklyReviewCard } from "@/components/nutrition/weekly-review-card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
 
 function getTodayLabel(): string {
   return new Date().toLocaleDateString("en-US", {
@@ -85,7 +83,6 @@ async function ClientNutritionView({
 
   const daily = weekly.days[weekly.days.length - 1];
   const streak = nutritionService.computeLoggingStreak(history30);
-  const waterOz = Math.round(summary.consumed.waterMl / ML_PER_OZ);
 
   return (
     <PageShell>
@@ -93,6 +90,25 @@ async function ClientNutritionView({
         <PageHeader
           title="Nutrition"
           description={getTodayLabel()}
+          // Streak and adherence used to be their own row of stat cards, with a
+          // water card that repeated the Water tracker right below it. They're
+          // glanceable facts, so they live in the header meta line now.
+          meta={
+            <>
+              <span className="inline-flex items-center gap-1">
+                <Flame className="size-3.5 text-warning-foreground" aria-hidden />
+                {streak}-day logging streak
+              </span>
+              {summary.adherencePct !== null && (
+                <StatusBadge
+                  status="adherence"
+                  role={adherenceRole(summary.adherencePct)}
+                  size="sm"
+                  label={`${summary.adherencePct}% on target`}
+                />
+              )}
+            </>
+          }
           primaryAction={<MealLogDialog clientId={clientId} date={today} />}
           secondaryActions={<NutritionGoalsDialog clientId={clientId} role="CLIENT" target={summary.target} />}
           tabs={
@@ -108,32 +124,6 @@ async function ClientNutritionView({
             </TabsList>
           }
         />
-
-        <div
-          className={cn(
-            "grid grid-cols-2 gap-3 sm:gap-4",
-            // Three cards: one row of three even on phones (no orphan card).
-            summary.adherencePct !== null && "grid-cols-3",
-          )}
-        >
-          {summary.adherencePct !== null && (
-            <StatCard
-              label="Adherence"
-              value={`${summary.adherencePct}%`}
-              icon={Target}
-              role={adherenceRole(summary.adherencePct)}
-              size="compact"
-            />
-          )}
-          <StatCard
-            label="Streak"
-            value={`${streak} day${streak === 1 ? "" : "s"}`}
-            icon={Flame}
-            role="warning"
-            size="compact"
-          />
-          <StatCard label="Water" value={`${waterOz} oz`} icon={Droplet} role="info" size="compact" />
-        </div>
 
         <TabsContent value="today" className="flex flex-col gap-6">
           <div className="grid gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">

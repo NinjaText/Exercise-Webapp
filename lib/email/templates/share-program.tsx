@@ -24,7 +24,7 @@ export function ShareProgramEmail({
     <EmailLayout
       title="Your Exercise Plan"
       organizationName={brand?.organizationName ?? organizationName}
-      accent={brand?.accent ?? "#2563eb"}
+      accent={brand?.accent ?? "#8b5a36"}
       logoUrl={brand?.logoUrl}
       greeting={clientName ? `Hi ${clientName},` : 'Hello,'}
       intro={`${senderName} has shared your exercise plan with you.`}

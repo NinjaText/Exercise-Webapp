@@ -161,7 +161,10 @@ describe("ClientDashboard static render", () => {
     const html = renderToStaticMarkup(<ClientDashboard {...baseProps} upcomingSessions={[]} />);
 
     expect(html).toContain("Nothing scheduled right now");
-    expect((html.match(/data-slot="section-card"/g) ?? []).length).toBe(4);
+    // The empty "Up next" is a single compact row (not a section card) that
+    // points the client to their programs.
+    expect(html).toContain('href="/programs"');
+    expect((html.match(/data-slot="section-card"/g) ?? []).length).toBe(3);
   });
 
   it("hides the Inbox card and trainer banner when messaging is off (club members)", () => {

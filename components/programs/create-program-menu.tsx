@@ -6,6 +6,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Pencil, Sparkles, Upload, Library, PlayCircle } from "lucide-react";
@@ -28,30 +29,71 @@ export function CreateProgramMenu({ clientId, onUseTemplate, trigger, children }
   const uploadHref = clientId ? `/programs/upload?clientId=${clientId}` : "/programs/upload";
   const followAlongHref = clientId ? `/programs/new/follow-along?clientId=${clientId}` : "/programs/new/follow-along";
 
+  const items: { label: string; description: string; icon: typeof Pencil; iconClass: string; onSelect: () => void }[][] = [
+    [
+      {
+        label: "Generate with AI",
+        description: "Describe the client and goals; review the plan first",
+        icon: Sparkles,
+        iconClass: "bg-brand-soft text-brand",
+        onSelect: () => router.push(generateHref),
+      },
+      {
+        label: "Start from scratch",
+        description: "Build week by week in the editor",
+        icon: Pencil,
+        iconClass: "bg-muted text-muted-foreground",
+        onSelect: () => router.push(newHref),
+      },
+      {
+        label: "Use a template",
+        description: "Copy a program from your library",
+        icon: Library,
+        iconClass: "bg-muted text-muted-foreground",
+        onSelect: () => (onUseTemplate ? onUseTemplate() : router.push("/programs?tab=templates")),
+      },
+    ],
+    [
+      {
+        label: "Upload a document",
+        description: "Turn a PDF, Word or text file into a program",
+        icon: Upload,
+        iconClass: "bg-success-soft text-success-foreground",
+        onSelect: () => router.push(uploadHref),
+      },
+      {
+        label: "Follow-along videos",
+        description: "A program of full-length workout videos",
+        icon: PlayCircle,
+        iconClass: "bg-info-soft text-info-foreground",
+        onSelect: () => router.push(followAlongHref),
+      },
+    ],
+  ];
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger render={trigger}>{children}</DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-56">
-        <DropdownMenuItem onClick={() => router.push(newHref)}>
-          <Pencil className="mr-2 h-4 w-4 text-muted-foreground" />
-          Start from scratch
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => router.push(generateHref)}>
-          <Sparkles className="mr-2 h-4 w-4 text-brand" />
-          Generate with AI
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => router.push(uploadHref)}>
-          <Upload className="mr-2 h-4 w-4 text-success" />
-          Upload a program/document
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => router.push(followAlongHref)}>
-          <PlayCircle className="mr-2 h-4 w-4 text-info" />
-          Follow-along videos
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => (onUseTemplate ? onUseTemplate() : router.push("/programs?tab=templates"))}>
-          <Library className="mr-2 h-4 w-4 text-muted-foreground" />
-          Use a template
-        </DropdownMenuItem>
+      <DropdownMenuContent align="end" className="w-80 p-1.5">
+        {items.map((group, gi) => (
+          <div key={gi}>
+            {gi > 0 && <DropdownMenuSeparator className="my-1.5" />}
+            {group.map((item) => {
+              const Icon = item.icon;
+              return (
+                <DropdownMenuItem key={item.label} onClick={item.onSelect} className="items-start gap-3 px-2 py-2">
+                  <span className={`mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-md ${item.iconClass}`}>
+                    <Icon className="size-4" />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-label text-foreground">{item.label}</span>
+                    <span className="block text-caption text-muted-foreground">{item.description}</span>
+                  </span>
+                </DropdownMenuItem>
+              );
+            })}
+          </div>
+        ))}
       </DropdownMenuContent>
     </DropdownMenu>
   );

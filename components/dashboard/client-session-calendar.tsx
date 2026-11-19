@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import {
   format,
   startOfMonth,
+  isSameMonth,
   endOfMonth,
   eachDayOfInterval,
   getDay,
@@ -66,8 +67,15 @@ export function ClientSessionCalendar({ sessions, selectedDate, onSelectDate }: 
       .sort((a, b) => toLocalCalendarDate(a.scheduledDate).getTime() - toLocalCalendarDate(b.scheduledDate).getTime());
   }, [sessions]);
 
+  const onCurrentMonth = isSameMonth(currentMonth, new Date());
+
   const monthNav = (
     <div className="hidden items-center gap-1 sm:flex">
+      {!onCurrentMonth && (
+        <Button variant="outline" size="sm" className="mr-1" onClick={() => setCurrentMonth(new Date())}>
+          Today
+        </Button>
+      )}
       <Button
         variant="ghost"
         size="icon-sm"

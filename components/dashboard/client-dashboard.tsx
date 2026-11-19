@@ -4,9 +4,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/shared/page-header";
-import { SectionCard } from "@/components/shared/section-card";
 import { StatCard } from "@/components/shared/stat-card";
-import { EmptyState } from "@/components/shared/empty-state";
 import {
   CalendarDays,
   CalendarX,
@@ -211,14 +209,23 @@ export function ClientDashboard({
           }
         />
       ) : (
-        <SectionCard title="Up next" icon={CalendarDays}>
-          <EmptyState
-            size="compact"
-            icon={CalendarX}
-            title="Nothing scheduled right now"
-            description={quote}
-          />
-        </SectionCard>
+        // A single quiet row: a tall empty card was the biggest thing on the
+        // dashboard on days with nothing to do.
+        <div className="flex flex-col gap-3 rounded-xl bg-card p-4 shadow-xs ring-1 ring-border sm:flex-row sm:items-center sm:p-5">
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+            <CalendarX className="size-5" aria-hidden />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-label text-foreground">Nothing scheduled right now</p>
+            <p className="text-caption">{quote}</p>
+          </div>
+          <Button variant="outline" size="sm" className="shrink-0" asChild>
+            <Link href="/programs">
+              My programs
+              <ChevronRight className="size-4" />
+            </Link>
+          </Button>
+        </div>
       )}
 
       {todaysReflection && <TodaysReflectionCard data={todaysReflection} />}

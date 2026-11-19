@@ -28,7 +28,7 @@ export function CoachingDeclinedEmail({
     <EmailLayout
       title="Coaching request update"
       organizationName={brand?.organizationName}
-      accent={brand?.accent ?? "#2563eb"}
+      accent={brand?.accent ?? "#8b5a36"}
       logoUrl={brand?.logoUrl}
       greeting={`Hi ${recipientName},`}
       intro={`${trainerName} isn't able to take on your coaching request at ${clubName} right now. You can keep training with your program and request coaching again later.`}

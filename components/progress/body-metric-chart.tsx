@@ -80,10 +80,10 @@ export function BodyMetricChart({ data, metricType }: BodyMetricChartProps) {
           <Line
             type="monotone"
             dataKey="value"
-            stroke="#3b82f6"
+            stroke="#8b5a36"
             strokeWidth={2}
-            dot={{ r: 4, fill: "#3b82f6", strokeWidth: 2, stroke: "#ffffff" }}
-            activeDot={{ r: 6, fill: "#3b82f6" }}
+            dot={{ r: 4, fill: "#8b5a36", strokeWidth: 2, stroke: "#ffffff" }}
+            activeDot={{ r: 6, fill: "#8b5a36" }}
           />
         </LineChart>
       </ResponsiveContainer>

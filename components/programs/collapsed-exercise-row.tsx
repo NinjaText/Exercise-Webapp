@@ -47,7 +47,7 @@ export function CollapsedExerciseRow({
   onToggle: () => void;
 }) {
   return (
-    <div className="flex items-center gap-1.5 rounded-md border border-border bg-surface px-1.5 py-1 shadow-xs transition-colors hover:border-border-strong motion-reduce:transition-none">
+    <div className="flex items-center gap-1.5 px-1.5 py-1 transition-colors hover:bg-muted/40 motion-reduce:transition-none">
       <button
         type="button"
         aria-label={`Drag to reorder ${name}`}

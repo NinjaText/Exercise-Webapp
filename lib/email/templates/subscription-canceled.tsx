@@ -13,7 +13,7 @@ export function SubscriptionCanceledEmail({
   return (
     <EmailLayout
       title="Subscription canceled"
-      accent="#2563eb"
+      accent="#8b5a36"
       greeting={`Hi ${recipientName},`}
       intro="Your subscription has been canceled. Your client data and programs are kept, and resubscribing restores access to them at any time."
       cta={{ label: "View Billing", href: billingLink }}

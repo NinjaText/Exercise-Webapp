@@ -5,7 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { toast } from "sonner";
-import { ArrowLeft, CalendarDays, ChevronDown, Copy, FileText, Loader2, Moon, PlayCircle, TriangleAlert } from "lucide-react";
+import { ArrowLeft, CalendarDays, ChevronDown, Copy, Loader2, Moon, PlayCircle } from "lucide-react";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -308,71 +309,74 @@ export function FollowAlongEditor({ program, assignClientId }: FollowAlongEditor
       </div>
 
       <div className="mx-auto grid w-full max-w-3xl gap-6">
-        <SectionCard title="Details" icon={FileText} contentClassName="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-1.5 sm:col-span-2">
-            <Label htmlFor="fa-name">Program name</Label>
-            <Input
-              id="fa-name"
-              value={name}
-              maxLength={200}
-              placeholder="e.g., 90-Day Mobility Reset"
-              onChange={(e) => setName(e.target.value)}
-            />
-          </div>
-          <div className="space-y-1.5 sm:col-span-2">
-            <Label htmlFor="fa-description">Description</Label>
-            <Textarea
-              id="fa-description"
-              value={description}
-              maxLength={5000}
-              rows={3}
-              placeholder="What clients can expect from this program"
-              onChange={(e) => setDescription(e.target.value)}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="fa-days">Number of days</Label>
-            <Input
-              id="fa-days"
-              type="number"
-              inputMode="numeric"
-              min={1}
-              max={MAX_FOLLOW_ALONG_DAYS}
-              value={dayCountInput}
-              onChange={(e) => setDayCountInput(e.target.value)}
-              onBlur={(e) => applyDayCount(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  applyDayCount(e.currentTarget.value);
-                }
-              }}
-            />
-            <p className="text-caption">Up to {MAX_FOLLOW_ALONG_DAYS} days. One video per day.</p>
-          </div>
-          {hasClient ? (
+        <Card className="gap-0 px-5 py-5 sm:px-6">
+          <label htmlFor="fa-name" className="sr-only">Program name</label>
+          <input
+            id="fa-name"
+            value={name}
+            maxLength={200}
+            autoComplete="off"
+            placeholder="Program name"
+            onChange={(e) => setName(e.target.value)}
+            className="w-full bg-transparent text-title text-foreground outline-none placeholder:text-muted-foreground/60"
+          />
+          <label htmlFor="fa-description" className="sr-only">Description</label>
+          <Textarea
+            id="fa-description"
+            value={description}
+            maxLength={5000}
+            rows={2}
+            placeholder="Add a short description: what clients can expect"
+            onChange={(e) => setDescription(e.target.value)}
+            className="mt-1 min-h-0 resize-none border-0 bg-transparent px-0 py-0 text-body text-muted-foreground shadow-none focus-visible:ring-0 dark:bg-transparent [field-sizing:content]"
+          />
+          <div className="mt-4 grid gap-4 border-t border-border pt-4 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <Label htmlFor="fa-start">Start date</Label>
-              <Input id="fa-start" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
-              <p className="text-caption">Day 1 lands on this date.</p>
+              <Label htmlFor="fa-days">Number of days</Label>
+              <Input
+                id="fa-days"
+                type="number"
+                inputMode="numeric"
+                min={1}
+                max={MAX_FOLLOW_ALONG_DAYS}
+                value={dayCountInput}
+                onChange={(e) => setDayCountInput(e.target.value)}
+                onBlur={(e) => applyDayCount(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    applyDayCount(e.currentTarget.value);
+                  }
+                }}
+              />
+              <p className="text-caption">One video per day, up to {MAX_FOLLOW_ALONG_DAYS}.</p>
             </div>
-          ) : (
-            <p className="flex items-start gap-2 self-end text-caption">
-              <CalendarDays className="mt-0.5 size-3.5 shrink-0" aria-hidden />
-              You pick the start date when you assign it to a client — Day 1 lands on that date.
-            </p>
-          )}
-        </SectionCard>
+            {hasClient ? (
+              <div className="space-y-1.5">
+                <Label htmlFor="fa-start">Start date</Label>
+                <Input id="fa-start" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+                <p className="text-caption">Day 1 lands on this date.</p>
+              </div>
+            ) : (
+              <p className="flex items-start gap-2 self-center text-caption">
+                <CalendarDays className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+                You&apos;ll pick a start date when you assign it. Day 1 lands on that date.
+              </p>
+            )}
+          </div>
+        </Card>
 
-        <SectionCard title="Days" icon={PlayCircle} contentClassName="space-y-2">
-          {missingVideoDays.length > 0 && (
-            <p className="flex items-start gap-2 rounded-lg bg-warning-soft px-3 py-2 text-body text-warning-foreground ring-1 ring-warning-border">
-              <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
-              {missingVideoDays.length === 1
-                ? `Day ${missingVideoDays[0]} still needs a video.`
-                : `${missingVideoDays.length} days still need a video (first: Day ${missingVideoDays[0]}).`}
-            </p>
-          )}
+        <SectionCard
+          title="Days"
+          icon={PlayCircle}
+          contentClassName="space-y-2"
+          action={
+            // Progress, not an alarm: an empty program is the normal starting point.
+            <span className="text-caption text-muted-foreground tabular-nums">
+              {videoDayCount - missingVideoDays.length} of {videoDayCount} with video
+            </span>
+          }
+        >
           <ol className="space-y-2">
             {days.map((day, i) => {
               const dayNumber = i + 1;
@@ -406,7 +410,7 @@ export function FollowAlongEditor({ program, assignClientId }: FollowAlongEditor
                     ) : day.videoUrl ? (
                       <PlayCircle className="size-4 shrink-0 text-success" aria-hidden />
                     ) : (
-                      <TriangleAlert className="size-4 shrink-0 text-warning" aria-hidden />
+                      <span aria-hidden className="size-2 shrink-0 rounded-full bg-border-strong" />
                     )}
                     <ChevronDown
                       className={cn("size-4 shrink-0 text-muted-foreground transition-transform motion-reduce:transition-none", expanded && "rotate-180")}

@@ -25,7 +25,7 @@ export function CoachingAcceptedEmail({
     <EmailLayout
       title="Coaching request accepted"
       organizationName={brand?.organizationName}
-      accent={brand?.accent ?? "#2563eb"}
+      accent={brand?.accent ?? "#8b5a36"}
       logoUrl={brand?.logoUrl}
       greeting={`Hi ${recipientName},`}
       intro={`${trainerName} accepted your coaching request at ${clubName}. Start your coaching subscription from your dashboard to begin.`}

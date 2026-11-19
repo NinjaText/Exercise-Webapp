@@ -9,7 +9,7 @@ import { PageShell } from "@/components/shared/page-shell";
 export const maxDuration = 120; // parallel per-week LLM calls can take up to ~30s; 120s gives headroom for larger programs
 
 export const metadata = {
-  title: "Generate AI Program",
+  title: "Generate with AI",
   description: "Generate a personalized program using AI",
 };
 
@@ -93,13 +93,11 @@ export default async function GenerateProgramPage({
     <PageShell width="default">
       <PageHeader
         back={{ label: "Back to programs", href: "/programs" }}
-        breadcrumb={[{ label: "Programs", href: "/programs" }, { label: "Generate Program" }]}
-        title="Generate Program"
-        description="Use AI to create a personalised program for a client."
+        breadcrumb={[{ label: "Programs", href: "/programs" }, { label: "Generate with AI" }]}
+        title="Generate with AI"
+        description="Describe what you need. You'll review the plan before anything is created."
       />
 
-      {/* The shell gives room for the two-column layout; the form still
-          self-centers narrower (max-w-2xl) when no client panel is shown. */}
       <GenerateProgramForm clients={clients} initialClientId={clientId} />
     </PageShell>
   );

@@ -32,7 +32,7 @@ export function SessionReminderEmail({
     <EmailLayout
       title="Session Reminder"
       organizationName={brand?.organizationName ?? organizationName}
-      accent={brand?.accent ?? "#2563eb"}
+      accent={brand?.accent ?? "#8b5a36"}
       logoUrl={brand?.logoUrl}
       greeting={`Hi ${clientName},`}
       intro="This is a friendly reminder that you have a workout session scheduled for tomorrow."

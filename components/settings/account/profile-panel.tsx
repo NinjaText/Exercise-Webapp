@@ -18,9 +18,11 @@ const MAX_PHOTO_BYTES = 10 * 1024 * 1024;
 interface ProfilePanelProps {
   initial: { firstName: string; lastName: string; phone: string };
   email: string;
+  /** Tailors who the profile is described as visible to. */
+  isClient?: boolean;
 }
 
-export function ProfilePanel({ initial, email }: ProfilePanelProps) {
+export function ProfilePanel({ initial, email, isClient = false }: ProfilePanelProps) {
   const router = useRouter();
   const { user } = useUser();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -77,7 +79,11 @@ export function ProfilePanel({ initial, email }: ProfilePanelProps) {
   return (
     <SettingsPanel
       title="Profile"
-      description="Your name and photo appear to your team and clients across the app, in messages and on PDFs."
+      description={
+        isClient
+          ? "Your name and photo are what your trainer sees in messages and on your programs."
+          : "Your name and photo appear to your team and clients across the app, in messages and on PDFs."
+      }
       footerHint={dirty ? "You have unsaved changes." : undefined}
       footer={
         <>

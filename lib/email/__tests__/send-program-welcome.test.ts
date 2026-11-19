@@ -45,7 +45,7 @@ describe('sendProgramWelcomeEmail', () => {
 
   it('uses the product look for an unbranded org', async () => {
     vi.mocked(getEmailBranding).mockResolvedValue({
-      enabled: false, organizationName: 'MIA Performance', accent: '#2563eb', fromName: 'MIA Performance', replyTo: 'desk@summit.test',
+      enabled: false, organizationName: 'MIA Performance', accent: '#8b5a36', fromName: 'MIA Performance', replyTo: 'desk@summit.test',
     })
 
     await sendProgramWelcomeEmail(args)

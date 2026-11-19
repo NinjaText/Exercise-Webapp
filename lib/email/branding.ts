@@ -25,7 +25,7 @@ import { getOrganizationOrNull } from "@/lib/services/organization.service";
 
 /** The current `EmailLayout` defaults — an unbranded client email looks exactly like today. */
 export const DEFAULT_EMAIL_ORG_NAME = PRODUCT_NAME;
-export const DEFAULT_EMAIL_ACCENT = "#2563eb";
+export const DEFAULT_EMAIL_ACCENT = "#8b5a36";
 
 export interface EmailBranding {
   /** false → the product look; templates then keep their own accent. */

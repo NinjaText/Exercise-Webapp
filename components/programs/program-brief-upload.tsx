@@ -53,6 +53,7 @@ import {
   Loader2,
   Plus,
   Sparkles,
+  Upload,
 } from "lucide-react";
 
 const NO_CLIENT_VALUE = "__none__";
@@ -217,6 +218,7 @@ export function ProgramBriefUpload({
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
+  const [dragging, setDragging] = useState(false);
   const [stage, setStage] = useState<Stage>("idle");
   const [preview, setPreview] = useState<PreviewState | null>(null);
   const [editableFields, setEditableFields] = useState<EditableFields | null>(null);
@@ -730,64 +732,70 @@ export function ProgramBriefUpload({
 
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5 text-info" />
-            Upload Program Brief
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground">
-                Any format works — tables, bullet lists, or plain prose. Not sure where to start?
-              </p>
-              <Link
-                className="text-sm text-info hover:underline"
-                href="/templates/program-brief-template.txt"
-                target="_blank"
-              >
-                See an example document
-              </Link>
-            </div>
-            <Badge variant="outline" className="w-fit">
-              Supported: PDF, DOCX, TXT, MD
-            </Badge>
-          </div>
+      <Card className="gap-0 p-5 sm:p-6">
+        <input
+          ref={inputRef}
+          type="file"
+          accept={ACCEPTED_EXTENSIONS.join(",")}
+          className="hidden"
+          onChange={(e) => handleFileChange(e.target.files)}
+        />
+        {/* The whole drop zone is the file picker; dropping a file works too. */}
+        <button
+          type="button"
+          disabled={processing}
+          onClick={() => inputRef.current?.click()}
+          onDragOver={(e) => {
+            e.preventDefault();
+            if (!processing) setDragging(true);
+          }}
+          onDragLeave={() => setDragging(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setDragging(false);
+            if (!processing) handleFileChange(e.dataTransfer.files);
+          }}
+          className={cn(
+            "flex w-full flex-col items-center gap-3 rounded-xl border border-dashed px-6 py-10 text-center transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none",
+            dragging ? "border-primary bg-primary/5" : "border-border-strong bg-surface-muted/50 hover:bg-surface-muted",
+            processing && "cursor-not-allowed opacity-70"
+          )}
+        >
+          <span className="flex size-11 items-center justify-center rounded-full bg-surface text-muted-foreground shadow-xs ring-1 ring-border">
+            {file ? <FileText className="size-5 text-primary" aria-hidden /> : <Upload className="size-5" aria-hidden />}
+          </span>
+          {file ? (
+            <span className="space-y-0.5">
+              <span className="block text-label text-foreground">{formatFileName(file.name)}</span>
+              <span className="block text-caption text-muted-foreground">Click to choose a different file</span>
+            </span>
+          ) : (
+            <span className="space-y-0.5">
+              <span className="block text-label text-foreground">Drop a file here, or click to browse</span>
+              <span className="block text-caption text-muted-foreground">PDF, DOCX, TXT or MD. Tables, bullet lists or plain prose all work.</span>
+            </span>
+          )}
+        </button>
 
-          <div className="space-y-3 rounded-xl border border-dashed border-border-strong bg-surface-muted/50 p-8 text-center">
-            <input
-              ref={inputRef}
-              type="file"
-              accept={ACCEPTED_EXTENSIONS.join(",")}
-              className="hidden"
-              onChange={(e) => handleFileChange(e.target.files)}
-            />
-            <FileText className="mx-auto size-8 text-muted-foreground" aria-hidden />
-            <div className="text-sm">
-              {file ? (
-                <span className="font-medium">{formatFileName(file.name)}</span>
-              ) : (
-                "Choose a program brief file"
-              )}
-            </div>
-            <div className="flex flex-wrap justify-center gap-2">
-              <Button variant="outline" onClick={() => inputRef.current?.click()} disabled={processing}>
-                Select File
-              </Button>
-              <Button onClick={handleUploadAndGenerate} disabled={!file || processing} className="gap-2">
-                {processing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-                Generate Preview
-              </Button>
-            </div>
-            {processing && (
-              <div className="pt-2">
-                <ProgressStepper stage={stage} />
-              </div>
-            )}
+        {processing && (
+          <div className="pt-4">
+            <ProgressStepper stage={stage} />
           </div>
-        </CardContent>
+        )}
+
+        <div className="mt-4 flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <Link
+            className="text-label text-primary hover:underline"
+            href="/templates/program-brief-template.txt"
+            target="_blank"
+          >
+            See an example document
+          </Link>
+          <Button onClick={handleUploadAndGenerate} disabled={!file || processing}>
+            {processing ? <Loader2 className="animate-spin motion-reduce:animate-none" /> : <Sparkles />}
+            {processing ? "Reading your document…" : "Create preview"}
+          </Button>
+        </div>
       </Card>
 
       {pendingMetadata && (
@@ -804,7 +812,7 @@ export function ProgramBriefUpload({
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <CheckCircle2 className="h-5 w-5 text-success" />
-              Review Generated Program
+              Review the program
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">

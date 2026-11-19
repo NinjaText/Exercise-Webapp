@@ -92,7 +92,7 @@ export function MarketingNav() {
           </Link>
           <Link
             href={GET_STARTED_HREF}
-            className="inline-flex h-10 items-center gap-2 rounded-full bg-ink px-5 text-sm font-medium text-cream transition-colors hover:bg-ink/90"
+            className="inline-flex h-10 items-center gap-2 rounded-full bg-gradient-to-b from-copper to-bronze-deep px-5 text-sm font-medium text-cream shadow-sm transition-colors hover:from-bronze"
           >
             Start your free trial <ArrowRight className="h-4 w-4" aria-hidden />
           </Link>
@@ -135,7 +135,7 @@ export function MarketingNav() {
             <Link
               href={GET_STARTED_HREF}
               onClick={() => setOpen(false)}
-              className="flex h-11 items-center justify-center gap-2 rounded-full bg-ink text-sm font-medium text-cream"
+              className="flex h-11 items-center justify-center gap-2 rounded-full bg-gradient-to-b from-copper to-bronze-deep text-sm font-medium text-cream"
             >
               Start your free trial <ArrowRight className="h-4 w-4" aria-hidden />
             </Link>

@@ -44,8 +44,8 @@ function page(inner: string): NextResponse {
   .card { background:#fff; border-radius:12px; box-shadow:0 2px 8px rgba(0,0,0,.08); margin:0 auto; max-width:480px; padding:32px; }
   h1 { color:#111827; font-size:20px; margin:0 0 12px; }
   p { color:#4b5563; font-size:15px; line-height:1.6; margin:0 0 16px; }
-  button { background:#2563eb; border:0; border-radius:8px; color:#fff; cursor:pointer; font-size:15px; font-weight:600; padding:12px 28px; }
-  a { color:#2563eb; font-size:14px; }
+  button { background:#8b5a36; border:0; border-radius:8px; color:#fff; cursor:pointer; font-size:15px; font-weight:600; padding:12px 28px; }
+  a { color:#8b5a36; font-size:14px; }
 </style>
 </head><body><div class="card">${inner}</div></body></html>`;
 

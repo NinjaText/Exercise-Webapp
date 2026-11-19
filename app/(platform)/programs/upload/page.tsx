@@ -11,7 +11,7 @@ import { PageShell } from "@/components/shared/page-shell";
 export const maxDuration = 300; // extraction runs several LLM calls per document; long briefs need the headroom
 
 export const metadata = {
-  title: "Upload Program Brief",
+  title: "Upload a document",
   description: "Upload a program brief file and generate a professional AI program",
 };
 
@@ -49,9 +49,9 @@ export default async function ProgramBriefUploadPage({
     <PageShell width="default">
       <PageHeader
         back={{ label: "Back to programs", href: "/programs" }}
-        breadcrumb={[{ label: "Programs", href: "/programs" }, { label: "Upload Program Brief" }]}
-        title="Upload Program Brief"
-        description="Upload a structured brief and let AI generate a full program for review."
+        breadcrumb={[{ label: "Programs", href: "/programs" }, { label: "Upload a document" }]}
+        title="Upload a document"
+        description="Turn an existing program document into an editable program. You'll review it before anything is saved."
       />
       <ProgramBriefUpload
         clients={clients}

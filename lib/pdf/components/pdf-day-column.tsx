@@ -16,7 +16,7 @@ const styles = StyleSheet.create({
     marginBottom: 7,
     paddingBottom: 5,
     borderBottomWidth: 0.8,
-    borderBottomColor: "#3B82F6",
+    borderBottomColor: "#8B5A36",
   },
   emptyText: {
     fontSize: 8,

@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { BookOpen, CalendarSearch, Lock, MoreHorizontal, Pencil, Plus, Send, Trash2 } from "lucide-react";
+import { BookOpen, CalendarSearch, MoreHorizontal, Pencil, Plus, Send, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -75,11 +75,7 @@ export function JournalView({
 
   return (
     <div className="flex flex-col gap-6">
-      <SectionCard
-        title="New entry"
-        icon={Pencil}
-        description="Free-form and private — only you can see it."
-      >
+      <SectionCard title="New entry" icon={Pencil}>
         {!composing ? (
           <button
             type="button"
@@ -127,15 +123,16 @@ export function JournalView({
         )}
       </SectionCard>
 
-      {(entries.length > 0 || rangeLabel) && <JournalDateFilter range={range} />}
-
       {entries.length === 0 ? (
         rangeLabel ? (
+          <div className="flex flex-col gap-3">
+          <JournalDateFilter range={range} />
           <EmptyState
             icon={CalendarSearch}
             title="No entries in this range"
             description={`Nothing in your journal for this period (${rangeLabel}). Try a wider range or clear the filter.`}
           />
+          </div>
         ) : (
           <EmptyState
             icon={BookOpen}
@@ -145,11 +142,16 @@ export function JournalView({
         )
       ) : (
         <div className="flex flex-col gap-3">
-          <p className="text-caption text-muted-foreground" aria-live="polite">
-            {limitReached
-              ? `Showing the ${entries.length} most recent entries${rangeLabel ? ` · ${rangeLabel}` : ""}. Narrow the dates to see older ones.`
-              : `${entries.length} entr${entries.length === 1 ? "y" : "ies"}${rangeLabel ? ` · ${rangeLabel}` : ""}`}
-          </p>
+          {/* Count and date filter share one toolbar row instead of the filter
+              getting a card of its own. */}
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-caption text-muted-foreground" aria-live="polite">
+              {limitReached
+                ? `Showing the ${entries.length} most recent entries${rangeLabel ? ` · ${rangeLabel}` : ""}. Narrow the dates to see older ones.`
+                : `${entries.length} entr${entries.length === 1 ? "y" : "ies"}${rangeLabel ? ` · ${rangeLabel}` : ""}`}
+            </p>
+            <JournalDateFilter range={range} />
+          </div>
           <ol className="flex flex-col gap-3" aria-label="Journal entries">
             {entries.map((entry) => (
               <li key={entry.id}>
@@ -272,19 +274,13 @@ function JournalEntryCard({ entry }: { entry: JournalEntryView }) {
         <p className="mt-3 text-body break-words whitespace-pre-wrap text-foreground">{entry.body}</p>
       )}
 
-      <p className="mt-3 flex items-center gap-1.5 text-caption text-muted-foreground">
-        {isPrivate ? (
-          <>
-            <Lock className="size-3.5" aria-hidden />
-            Only you can see this entry
-          </>
-        ) : (
-          <>
-            <Send className="size-3.5" aria-hidden />
-            Sent to your trainer — reply in Messages
-          </>
-        )}
-      </p>
+      {/* Private entries already carry a "Private" badge in the header. */}
+      {!isPrivate && (
+        <p className="mt-3 flex items-center gap-1.5 text-caption text-muted-foreground">
+          <Send className="size-3.5" aria-hidden />
+          Sent to your trainer — reply in Messages
+        </p>
+      )}
 
       <ConfirmDialog
         open={confirmDelete}

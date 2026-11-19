@@ -24,9 +24,9 @@ export default async function PricingPage({ searchParams }: { searchParams: Prom
       <section className="pt-28 pb-16 sm:pt-32 sm:pb-20 lg:pt-36">
         <Container>
           <div className="mx-auto max-w-2xl text-center">
-            <Eyebrow>Simple, flexible pricing</Eyebrow>
+            <Eyebrow className="text-copper">Simple, flexible pricing</Eyebrow>
             <DisplayHeading as="h1" className="mt-4">
-              Pricing built around how you move.
+              Pricing built around <em className="text-copper">how you move.</em>
             </DisplayHeading>
             <p className="mt-5 text-lg leading-relaxed text-ink-soft">
               Choose who MIA Performance is for — your club, your training practice, or yourself.

@@ -6,17 +6,16 @@ import { BRAND_TOKEN_NAMES_LIGHT } from "../types";
 import { hexToOklch } from "../color";
 
 describe("DEFAULT_PRIMARY_HEX", () => {
-  it("is pinned to the computed nearest hex for oklch(0.47 0.19 264)", () => {
-    // See defaults.ts for how this was derived and why it differs from the
-    // brief's eyeballed "#4f46e5" guess.
-    expect(DEFAULT_PRIMARY_HEX).toBe("#204ec3");
+  it("is pinned to the computed nearest hex for oklch(0.514 0.082 56)", () => {
+    // See defaults.ts for how this was derived.
+    expect(DEFAULT_PRIMARY_HEX).toBe("#8b5a36");
   });
 
-  it("round-trips back to ≈ oklch(0.47 0.19 264), reproducing the product's existing --primary token", () => {
+  it("round-trips back to ≈ oklch(0.514 0.082 56), reproducing the product's existing --primary token", () => {
     const o = hexToOklch(DEFAULT_PRIMARY_HEX);
-    expect(o.l).toBeCloseTo(0.47, 2);
-    expect(o.c).toBeCloseTo(0.19, 2);
-    expect(o.h).toBeCloseTo(264, 0);
+    expect(o.l).toBeCloseTo(0.514, 2);
+    expect(o.c).toBeCloseTo(0.082, 2);
+    expect(o.h).toBeCloseTo(56, 0);
   });
 });
 

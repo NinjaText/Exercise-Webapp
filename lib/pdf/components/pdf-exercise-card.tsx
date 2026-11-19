@@ -29,7 +29,7 @@ const styles = StyleSheet.create({
   nameLink: {
     fontSize: 9,
     fontWeight: "bold",
-    color: "#2563EB",
+    color: "#8B5A36",
     lineHeight: 1.25,
     marginBottom: 2,
     textDecoration: "underline",

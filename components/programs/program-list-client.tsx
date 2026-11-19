@@ -10,7 +10,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { StatCard } from "@/components/shared/stat-card";
 import {
   Table,
   TableBody,
@@ -32,7 +31,6 @@ import { PageHeader } from "@/components/shared/page-header";
 import { PageToolbar } from "@/components/shared/page-toolbar";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { EmptyState } from "@/components/shared/empty-state";
-import { ROLE_CLASSES, statusRole } from "@/lib/ui/status";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -64,14 +62,11 @@ import {
   Eye,
   X,
   Star,
+  CalendarDays,
   FolderPlus,
   Folder,
   SlidersHorizontal,
   Users,
-  CalendarClock,
-  PauseCircle,
-  CheckCircle2,
-  ClipboardList,
   Download,
   Info,
   Repeat,
@@ -114,7 +109,6 @@ const STATUS_OPTIONS = [
   { value: "ACTIVE", label: "Active" },
   { value: "PAUSED", label: "Paused" },
   { value: "COMPLETED", label: "Completed" },
-  { value: "ARCHIVED", label: "Archived" },
 ];
 
 type DurationBucket = "le1" | "2to4" | "5to8" | "9to12" | "gt12";
@@ -137,15 +131,15 @@ function matchesDurationBucket(weeks: number | null | undefined, bucket: Duratio
   }
 }
 
+// "Recent" used to live here too, but "Sort: Recently updated" already covers it.
 const VIEW_OPTIONS = [
   { value: "all", label: "All" },
-  { value: "recent", label: "Recent" },
   { value: "favorites", label: "Favorites" },
   { value: "archived", label: "Archived" },
 ] as const;
 
 const LIBRARY_SORT_OPTIONS = [
-  { value: "recent", label: "Recently Used" },
+  { value: "recent", label: "Recently updated" },
   { value: "name_asc", label: "Name A-Z" },
   { value: "name_desc", label: "Name Z-A" },
   { value: "workouts_desc", label: "Most Workouts" },
@@ -194,7 +188,7 @@ interface Categorized {
 type SchedulingPill = "all" | "scheduled" | "resources";
 
 const SCHEDULING_PILLS: { value: SchedulingPill; label: string }[] = [
-  { value: "all", label: "All Programs" },
+  { value: "all", label: "All types" },
   { value: "scheduled", label: "Scheduled" },
   { value: "resources", label: "Resources" },
 ];
@@ -222,7 +216,7 @@ function SchedulingPillFilter({
     <Select value={value} onValueChange={(v) => onChange((v as SchedulingPill) ?? "all")}>
       <SelectTrigger className="h-10 min-w-0 grow basis-[calc(50%-0.25rem)] sm:h-9 sm:grow-0 sm:basis-auto sm:w-44 sm:flex-none">
         <SelectValue>
-          {(v: string | null) => SCHEDULING_PILLS.find((o) => o.value === v)?.label ?? "All Programs"}
+          {(v: string | null) => SCHEDULING_PILLS.find((o) => o.value === v)?.label ?? "All types"}
         </SelectValue>
       </SelectTrigger>
       <SelectContent>
@@ -594,12 +588,14 @@ function LibraryProgramRow({
           : `${collectionNames[0]} +${collectionNames.length - 1}`}
       </TableCell>
       <TableCell className="hidden lg:table-cell">
-        <div className="flex max-w-56 flex-wrap items-center gap-1">
-          {allTags.slice(0, 3).map((t) => (
-            <Badge key={t} variant="secondary" className="text-[10px]">{t}</Badge>
+        <div className="flex max-w-56 items-center gap-1 overflow-hidden" title={allTags.join(", ")}>
+          {allTags.slice(0, 2).map((t) => (
+            <Badge key={t} variant="secondary" className="max-w-28 min-w-0 text-caption">
+              <span className="truncate">{t}</span>
+            </Badge>
           ))}
-          {allTags.length > 3 && (
-            <Badge variant="secondary" className="text-[10px]">+{allTags.length - 3}</Badge>
+          {allTags.length > 2 && (
+            <span className="shrink-0 text-caption text-muted-foreground tabular-nums">+{allTags.length - 2}</span>
           )}
           {allTags.length === 0 && <span className="text-muted-foreground">—</span>}
         </div>
@@ -1076,7 +1072,7 @@ function CollectionChip({
   return (
     <div
       className={cn(
-        "inline-flex h-8 items-center rounded-full border text-sm transition-colors",
+        "group/chip inline-flex h-8 items-center rounded-full border text-sm transition-colors",
         selected
           ? "border-primary bg-primary text-primary-foreground"
           : "border-border bg-card text-foreground"
@@ -1112,7 +1108,9 @@ function CollectionChip({
                 aria-label={`${label} options`}
                 className={cn(
                   "mr-1 rounded-full",
-                  selected && "text-primary-foreground hover:bg-primary-foreground/15 hover:text-primary-foreground"
+                  selected
+                    ? "text-primary-foreground hover:bg-primary-foreground/15 hover:text-primary-foreground"
+                    : "opacity-0 group-hover/chip:opacity-100 focus-visible:opacity-100 data-popup-open:opacity-100 [@media(hover:none)]:opacity-100"
                 )}
               />
             }
@@ -1195,6 +1193,8 @@ function ProgramFiltersPanel({
   onToggleDuration,
   statusFilter,
   onToggleStatus,
+  schedulingPill,
+  onSchedulingPillChange,
   onReset,
   onApply,
 }: {
@@ -1212,6 +1212,8 @@ function ProgramFiltersPanel({
   onToggleDuration: (v: DurationBucket) => void;
   statusFilter: Set<string>;
   onToggleStatus: (v: string) => void;
+  schedulingPill: SchedulingPill;
+  onSchedulingPillChange: (v: SchedulingPill) => void;
   onReset: () => void;
   onApply: () => void;
 }) {
@@ -1243,6 +1245,24 @@ function ProgramFiltersPanel({
                   className="h-3.5 w-3.5 accent-primary"
                 />
                 {v === "all" ? "All Sources" : v === "clinical" ? "My Programs" : "MIA Programs"}
+              </label>
+            ))}
+          </div>
+        </div>
+
+        <div className="space-y-1.5">
+          <p className="flex items-center gap-1.5 text-label text-foreground"><CalendarDays className="size-3.5 text-muted-foreground" /> Schedule</p>
+          <div className="flex flex-wrap items-center gap-4">
+            {SCHEDULING_PILLS.map((o) => (
+              <label key={o.value} className="flex items-center gap-1.5 text-sm">
+                <input
+                  type="radio"
+                  name="program-scheduling"
+                  checked={schedulingPill === o.value}
+                  onChange={() => onSchedulingPillChange(o.value)}
+                  className="h-3.5 w-3.5 accent-primary"
+                />
+                {o.value === "all" ? "Any" : o.label}
               </label>
             ))}
           </div>
@@ -1300,9 +1320,9 @@ function ProgramFiltersPanel({
         </div>
       </div>
 
-      <div className="flex justify-end gap-2 border-t border-border pt-4">
-        <Button variant="outline" onClick={onReset}>Reset</Button>
-        <Button onClick={onApply}>Apply Filters</Button>
+      {/* Filters apply as you click; this just tucks the panel away. */}
+      <div className="flex justify-end border-t border-border pt-4">
+        <Button variant="outline" onClick={onApply}>Done</Button>
       </div>
     </div>
   );
@@ -1912,7 +1932,7 @@ export function ProgramListClient({
 
           <PageToolbar
             end={
-              (search || activeFilterCount > 0 || chipFilter !== "all") && (
+              (search || activeFilterCount > 0 || chipFilter !== "all" || schedulingPill !== "all") && (
                 <Button
                   variant="ghost"
                   className="h-10 sm:h-9"
@@ -1920,6 +1940,7 @@ export function ProgramListClient({
                     setSearch("");
                     setChipFilter("all");
                     handleResetFilters();
+                    handleSchedulingPillChange("all");
                   }}
                 >
                   <X className="size-4" />
@@ -1937,23 +1958,34 @@ export function ProgramListClient({
                 className="h-10 pl-9 sm:h-9"
               />
             </div>
-            <SchedulingPillFilter value={schedulingPill} onChange={handleSchedulingPillChange} />
-            <Select value={chipFilter} onValueChange={(v) => setChipFilter((v as typeof chipFilter) ?? "all")}>
-              <SelectTrigger className="h-10 min-w-0 grow basis-[calc(50%-0.25rem)] sm:h-9 sm:grow-0 sm:basis-auto sm:w-40 sm:flex-none">
-                <SelectValue>
-                  {(value: string | null) => `View: ${VIEW_OPTIONS.find((o) => o.value === value)?.label ?? "All"}`}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {VIEW_OPTIONS.map((o) => (
-                  <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div
+              role="radiogroup"
+              aria-label="Show"
+              className="flex h-10 shrink-0 items-center gap-0.5 rounded-lg bg-muted p-0.5 sm:h-9"
+            >
+              {VIEW_OPTIONS.map((o) => (
+                <button
+                  key={o.value}
+                  type="button"
+                  role="radio"
+                  aria-checked={chipFilter === o.value}
+                  onClick={() => setChipFilter(o.value)}
+                  className={cn(
+                    "inline-flex h-full items-center gap-1.5 rounded-md px-3 text-label transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none",
+                    chipFilter === o.value
+                      ? "bg-surface text-foreground shadow-xs"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  {o.value === "favorites" && <Star className="size-3.5" aria-hidden />}
+                  {o.label}
+                </button>
+              ))}
+            </div>
             <Select value={librarySort} onValueChange={(v) => setLibrarySort((v as LibrarySort) ?? "recent")}>
-              <SelectTrigger className="h-10 min-w-0 grow basis-[calc(50%-0.25rem)] sm:h-9 sm:grow-0 sm:basis-auto sm:w-44 sm:flex-none">
+              <SelectTrigger className="h-10 min-w-0 grow basis-[calc(50%-0.25rem)] sm:h-9 sm:grow-0 sm:basis-auto sm:w-56 sm:flex-none">
                 <SelectValue>
-                  {(value: string | null) => `Sort: ${LIBRARY_SORT_OPTIONS.find((o) => o.value === value)?.label ?? "Recently Used"}`}
+                  {(value: string | null) => `Sort: ${LIBRARY_SORT_OPTIONS.find((o) => o.value === value)?.label ?? "Recently updated"}`}
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
@@ -1970,8 +2002,14 @@ export function ProgramListClient({
             >
               <SlidersHorizontal className="h-3.5 w-3.5" />
               Filters
-              {activeFilterCount > 0 && (
-                <StatusBadge status="count" role="brand" dot={false} size="sm" label={String(activeFilterCount)} />
+              {activeFilterCount + (schedulingPill !== "all" ? 1 : 0) > 0 && (
+                <StatusBadge
+                  status="count"
+                  role="brand"
+                  dot={false}
+                  size="sm"
+                  label={String(activeFilterCount + (schedulingPill !== "all" ? 1 : 0))}
+                />
               )}
             </Button>
           </PageToolbar>
@@ -1996,7 +2034,12 @@ export function ProgramListClient({
               onToggleDuration={makeToggleSet(setDurationFilter)}
               statusFilter={libraryStatusFilter}
               onToggleStatus={makeToggleSet(setLibraryStatusFilter)}
-              onReset={handleResetFilters}
+              schedulingPill={schedulingPill}
+              onSchedulingPillChange={handleSchedulingPillChange}
+              onReset={() => {
+                handleResetFilters();
+                handleSchedulingPillChange("all");
+              }}
               onApply={() => setFiltersOpen(false)}
             />
           )}
@@ -2084,12 +2127,47 @@ export function ProgramListClient({
       {/* ================= ASSIGNED TAB ================= */}
       {activeTab === "programs" && (
         <div className="flex flex-col gap-4">
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 xl:grid-cols-5">
-            <StatCard size="compact" label="Active" value={assignedStatCounts.ACTIVE} icon={CheckCircle2} href={hrefWithParams({ status: "ACTIVE" })} role="success" />
-            <StatCard size="compact" label="Starting Soon" value={assignedStatCounts.STARTING_SOON} icon={CalendarClock} href={hrefWithParams({ status: "STARTING_SOON" })} role="info" />
-            <StatCard size="compact" label="Total Assigned" value={assignedPrograms.length} icon={ClipboardList} href={hrefWithParams({ status: null })} role="brand" />
-            <StatCard size="compact" label="On Hold" value={assignedStatCounts.ON_HOLD} icon={PauseCircle} href={hrefWithParams({ status: "ON_HOLD" })} role="warning" />
-            <StatCard size="compact" label="Completed" value={assignedStatCounts.COMPLETED} icon={CheckCircle2} href={hrefWithParams({ status: "COMPLETED" })} role="neutral" />
+          {/* One status switcher with counts — replaces a row of stat cards plus
+              a separate Status dropdown that did the same job. */}
+          <div
+            role="tablist"
+            aria-label="Filter by status"
+            className="-mx-4 flex scrollbar-none items-center gap-2 overflow-x-auto px-4 *:shrink-0 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0"
+          >
+            {([
+              { value: "all", label: "All", count: assignedPrograms.length },
+              { value: "ACTIVE", label: "Active", count: assignedStatCounts.ACTIVE },
+              { value: "STARTING_SOON", label: "Starting soon", count: assignedStatCounts.STARTING_SOON },
+              { value: "ON_HOLD", label: "On hold", count: assignedStatCounts.ON_HOLD },
+              { value: "COMPLETED", label: "Completed", count: assignedStatCounts.COMPLETED },
+            ] as const).map((t) => {
+              const active = assignedStatusFilter === t.value;
+              return (
+                <button
+                  key={t.value}
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  onClick={() => handleAssignedStatusChange(t.value)}
+                  className={cn(
+                    "inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-sm transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none",
+                    active
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : "border-border bg-card text-foreground hover:bg-muted"
+                  )}
+                >
+                  {t.label}
+                  <span
+                    className={cn(
+                      "text-xs tabular-nums",
+                      active ? "text-primary-foreground/80" : "text-muted-foreground"
+                    )}
+                  >
+                    {t.count}
+                  </span>
+                </button>
+              );
+            })}
           </div>
 
           <PageToolbar
@@ -2110,28 +2188,10 @@ export function ProgramListClient({
               />
             </div>
             <SchedulingPillFilter value={schedulingPill} onChange={handleSchedulingPillChange} />
-            <Select value={assignedStatusFilter} onValueChange={handleAssignedStatusChange}>
-              <SelectTrigger className="h-10 min-w-0 grow basis-[calc(50%-0.25rem)] sm:h-9 sm:grow-0 sm:basis-auto sm:w-40 sm:flex-none">
-                <SelectValue>
-                  {(value: string | null) => `Status: ${value && value !== "all" ? assignedStatusConfig[value as AssignedStatus]?.label : "All"}`}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All</SelectItem>
-                {(["ACTIVE", "STARTING_SOON", "ON_HOLD", "COMPLETED"] as AssignedStatus[]).map((s) => (
-                  <SelectItem key={s} value={s}>
-                    <span className="flex items-center gap-2">
-                      <span className={cn("h-2 w-2 rounded-full", ROLE_CLASSES[statusRole(s)].dot)} />
-                      {assignedStatusConfig[s].label}
-                    </span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
             <Select value={assignedSort} onValueChange={(v) => setAssignedSort((v as AssignedSort) ?? "updated_desc")}>
               <SelectTrigger className="h-10 min-w-0 grow basis-[calc(50%-0.25rem)] sm:h-9 sm:grow-0 sm:basis-auto sm:w-52 sm:flex-none">
                 <SelectValue>
-                  {(value: string | null) => `Sort by: ${SORT_OPTIONS.find((o) => o.value === value)?.label ?? "Recently Updated"}`}
+                  {(value: string | null) => `Sort: ${SORT_OPTIONS.find((o) => o.value === value)?.label ?? "Recently Updated"}`}
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>

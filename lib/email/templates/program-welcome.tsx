@@ -22,7 +22,7 @@ export function ProgramWelcomeEmail({
     <EmailLayout
       title="Welcome"
       organizationName={brand?.organizationName}
-      accent={brand?.accent ?? "#2563eb"}
+      accent={brand?.accent ?? "#8b5a36"}
       logoUrl={brand?.logoUrl}
       greeting={firstName ? `Welcome, ${firstName}!` : "Welcome!"}
       intro={

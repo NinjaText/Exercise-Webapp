@@ -83,7 +83,7 @@ export function NutritionTrendCharts({ history, streak }: NutritionTrendChartsPr
               <YAxis tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} width={36} />
               <Tooltip content={<ChartTooltip suffix="g" />} />
               <Legend wrapperStyle={{ fontSize: 11 }} />
-              <Line type="monotone" dataKey="protein" name="Protein" stroke="#3b82f6" strokeWidth={2} dot={{ r: 3 }} />
+              <Line type="monotone" dataKey="protein" name="Protein" stroke="#8b5a36" strokeWidth={2} dot={{ r: 3 }} />
               <Line type="monotone" dataKey="carbs" name="Carbs" stroke="#22c55e" strokeWidth={2} dot={{ r: 3 }} />
               <Line type="monotone" dataKey="fat" name="Fat" stroke="#eab308" strokeWidth={2} dot={{ r: 3 }} />
             </LineChart>

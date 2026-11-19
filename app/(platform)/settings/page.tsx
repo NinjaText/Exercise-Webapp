@@ -20,6 +20,7 @@ export default async function AccountSettingsPage() {
       <ProfilePanel
         initial={{ firstName: user.firstName, lastName: user.lastName, phone: user.phone ?? "" }}
         email={user.email}
+        isClient={user.role === "CLIENT"}
       />
       <EmailPanel />
       <PasswordPanel />
