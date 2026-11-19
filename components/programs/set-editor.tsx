@@ -27,7 +27,7 @@ interface Props {
 // every field; from sm up the wrappers below collapse (`sm:contents`) so the
 // cells fall back into the single-row column grid with one header row.
 const STRENGTH_GRID =
-  "sm:grid-cols-[24px_100px_minmax(70px,1fr)_minmax(70px,1fr)_minmax(110px,1.4fr)_minmax(60px,1fr)_32px]";
+  "sm:grid-cols-[20px_104px_minmax(64px,88px)_minmax(72px,104px)_minmax(128px,160px)_minmax(60px,80px)_32px] sm:justify-start";
 const RUN_GRID =
   "sm:grid-cols-[minmax(70px,1fr)_minmax(110px,1.4fr)_minmax(90px,1fr)_minmax(80px,1fr)_minmax(60px,1fr)_40px]";
 const ROW_CARD =
@@ -173,7 +173,7 @@ export function SetEditor({ sets, activityType = "STRENGTH", onChange }: Props) 
 
   return (
     <div className="space-y-1.5 sm:overflow-x-auto">
-      <div className="space-y-2 sm:min-w-[540px] sm:space-y-1.5">
+      <div className="space-y-2 sm:min-w-[480px] sm:space-y-1.5">
         {/* Header row (phones label each field inline instead) */}
         <div className={cn("hidden px-1 text-xs font-medium text-muted-foreground sm:grid", STRENGTH_GRID)}>
           <span className="text-center">Set</span>

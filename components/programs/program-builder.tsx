@@ -238,6 +238,8 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
   const [selection, setSelection] = useState<SelectionState>(DEFAULT_SELECTION);
   const [hoveredPasteTarget, setHoveredPasteTarget] = useState<string | null>(null);
   const [collapsedWeeks, setCollapsedWeeks] = useState<Set<number>>(new Set());
+  // Exercises whose (empty) instructions field the trainer has opened.
+  const [notesOpen, setNotesOpen] = useState<Set<string>>(new Set());
   const [collapsedDays, setCollapsedDays] = useState<Set<string>>(new Set());
   const [aiRevisionOpen, setAiRevisionOpen] = useState(false);
   const [aiRevisionInstructions, setAiRevisionInstructions] = useState("");
@@ -796,7 +798,6 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
     }
   }
 
-  const totalDays = workouts.length;
 
   return (
     <div className="flex flex-col gap-4">
@@ -805,8 +806,8 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
           <h2 className="text-heading text-foreground">Workouts</h2>
           <p className="mt-0.5 text-body text-muted-foreground">
             {weekGroups.length > 0
-              ? `${weekGroups.length} week${weekGroups.length === 1 ? "" : "s"} · ${totalDays} day${totalDays === 1 ? "" : "s"} · drag blocks and exercises to reorder`
-              : "Organize the program into weeks of up to 7 days."}
+              ? "Drag blocks and exercises to reorder them."
+              : "Build the program week by week, up to 7 days each."}
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
@@ -829,15 +830,10 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
                     : "text-muted-foreground hover:text-foreground"
                 )}
               >
-                {mode === "focus" ? "Focus" : "Expanded"}
+                {mode === "focus" ? "Compact" : "Expanded"}
               </button>
             ))}
           </div>
-          {weekGroups.length > 0 && (
-            <Button type="button" variant="outline" size="sm" onClick={addWeek}>
-              <Plus /> Add week
-            </Button>
-          )}
         </div>
       </div>
 
@@ -907,9 +903,9 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
           <section
             key={weekIndex}
             aria-label={weekLabel}
-            className="rounded-xl bg-surface-muted/60 ring-1 ring-border"
+            className="space-y-3"
           >
-            <div className="flex items-center gap-2 py-2 pr-2 pl-3">
+            <div className="flex items-center gap-2 border-b border-border pb-1.5">
               <button
                 type="button"
                 className="flex min-w-0 flex-1 items-center gap-2 rounded-md py-1 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -924,7 +920,7 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
                 />
                 <h3 className="text-heading text-foreground">{weekLabel}</h3>
                 <span className="text-caption text-muted-foreground tabular-nums">
-                  {dayIdxs.length} of {MAX_DAYS_PER_WEEK} days
+                  {dayIdxs.length} {dayIdxs.length === 1 ? "day" : "days"}
                 </span>
               </button>
               <RowMenu
@@ -935,7 +931,7 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
             </div>
 
             {!isCollapsed && (
-              <div className="space-y-3 px-2 pb-2 sm:px-3 sm:pb-3">
+              <div className="space-y-3">
                 {dayIdxs.map((wi, dayPos) => {
                   const workout = workouts[wi];
                   const isDayCollapsed = collapsedDays.has(
@@ -981,9 +977,12 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
                 )}
               />
             </button>
-            <span className="shrink-0 rounded-md bg-muted px-1.5 py-0.5 text-caption font-medium text-muted-foreground tabular-nums">
-              Day {dayPos + 1}
-            </span>
+            {/* The position chip only earns its place once the day has its own name. */}
+            {workout.name.trim() !== `Day ${dayPos + 1}` && (
+              <span className="shrink-0 rounded-md bg-muted px-1.5 py-0.5 text-caption font-medium text-muted-foreground tabular-nums">
+                Day {dayPos + 1}
+              </span>
+            )}
             <Input
               value={workout.name}
               onChange={(e) =>
@@ -1014,7 +1013,7 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
             />
           </div>
           {!isDayCollapsed && (
-          <div className="space-y-3 border-t border-border p-2 sm:p-3">
+          <div className="space-y-4 border-t border-border p-3 sm:p-4">
             {/* Stable ids: dnd-kit's auto ids differ between server and client. */}
             <DndContext
               id={`blocks-${wi}`}
@@ -1033,7 +1032,7 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
                     {(dragHandleProps) => (
                       <div
                         className={cn(
-                          "rounded-lg border border-border bg-surface-muted/50 transition-shadow motion-reduce:transition-none",
+                          "rounded-lg transition-shadow motion-reduce:transition-none",
                           selection.level === "block" &&
                           selection.workoutIdx === wi &&
                           selection.blockIdx === bi
@@ -1051,7 +1050,7 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
                       >
                         {/* Block header */}
                         <div
-                          className="flex flex-wrap items-center gap-2 px-2 py-2"
+                          className="flex flex-wrap items-center gap-2 pb-2"
                           onClick={(e) => {
                             const target = e.target as HTMLElement;
                             if (target.closest("input, button, select")) return;
@@ -1079,7 +1078,7 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
                             }
                             placeholder="Block name"
                             aria-label="Block name"
-                            className={cn(INLINE_INPUT, "min-w-[8rem] flex-1 font-medium")}
+                            className={cn(INLINE_INPUT, "min-w-[8rem] flex-1 text-label")}
                           />
                           <Select
                             items={BLOCK_TYPE_ITEMS}
@@ -1088,7 +1087,7 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
                               updateBlockField(wi, bi, "type", v)
                             }
                           >
-                            <SelectTrigger size="sm" className="w-32 shrink-0" aria-label="Block type">
+                            <SelectTrigger size="sm" className="w-auto shrink-0 gap-1.5 border-transparent bg-muted text-caption font-medium shadow-none hover:bg-muted/80" aria-label="Block type">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -1121,7 +1120,7 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
                             variant="ghost"
                             size="icon-sm"
                             onClick={() => removeBlock(wi, bi)}
-                            className="ml-auto text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                            className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                             aria-label={`Delete block ${block.name || bi + 1}`}
                             title="Delete block"
                           >
@@ -1130,7 +1129,7 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
                         </div>
 
                         {/* Exercises in this block */}
-                        <div className="space-y-1.5 px-2 pb-2">
+                        <div className="overflow-hidden rounded-lg border border-border bg-surface">
                         <DndContext
                           id={`exercises-${wi}-${bi}`}
                           sensors={sensors}
@@ -1143,7 +1142,7 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
                             )}
                             strategy={verticalListSortingStrategy}
                           >
-                            <div className="space-y-1.5">
+                            <div className="divide-y divide-border">
                               {block.exercises.map((ex, ei) => (
                                 <SortableExercise
                                   key={ei}
@@ -1168,8 +1167,8 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
                                     return open ? (
                                     <div
                                       className={cn(
-                                        "group rounded-md border p-2.5 shadow-xs sm:p-3",
-                                        isChecked ? "border-info-border bg-info-soft" : "border-border bg-surface"
+                                        "group p-3",
+                                        isChecked ? "bg-info-soft" : "bg-muted/30"
                                       )}
                                     >
                                       <div className="mb-2.5 flex flex-wrap items-center gap-x-2 gap-y-1.5">
@@ -1224,7 +1223,7 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
                                             updateExerciseField(wi, bi, ei, "activityType", v)
                                           }
                                         >
-                                          <SelectTrigger size="sm" className="h-7 w-auto shrink-0 gap-1 text-caption" aria-label="Activity type">
+                                          <SelectTrigger size="sm" className="h-7 w-auto shrink-0 gap-1 border-transparent bg-transparent text-caption text-muted-foreground shadow-none hover:bg-muted" aria-label="Activity type">
                                             <SelectValue />
                                           </SelectTrigger>
                                           <SelectContent>
@@ -1264,8 +1263,18 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
                                         </Button>
                                         </div>
                                       </div>
-                                      {/* Trainer notes for this exercise */}
+                                      {/* Trainer notes: tucked behind a link until there's something to say. */}
+                                      {!ex.notes && !notesOpen.has(key) ? (
+                                        <button
+                                          type="button"
+                                          onClick={() => setNotesOpen((prev) => new Set(prev).add(key))}
+                                          className="mb-2 inline-flex items-center gap-1 rounded text-caption font-medium text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+                                        >
+                                          <Plus className="size-3" /> Add instructions for the client
+                                        </button>
+                                      ) : (
                                       <Textarea
+                                        autoFocus={!ex.notes && notesOpen.has(key)}
                                         value={ex.notes ?? ""}
                                         onChange={(e) =>
                                           updateExerciseNotes(
@@ -1277,9 +1286,10 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
                                         }
                                         aria-label={`Instructions for ${name}`}
                                         placeholder="Instructions for the client (e.g. use one hand only, keep back straight)…"
-                                        className="mb-3 min-h-9 resize-none bg-surface-muted/40 text-base sm:text-sm"
+                                        className="mb-3 min-h-9 resize-none bg-surface text-base sm:text-sm [field-sizing:content]"
                                         rows={1}
                                       />
+                                      )}
                                       <SetEditor
                                         sets={ex.sets}
                                         activityType={ex.activityType || "STRENGTH"}
@@ -1313,15 +1323,16 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
                           </SortableContext>
                         </DndContext>
 
-                        <Button
+                        <button
                           type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="text-primary hover:bg-primary/10 hover:text-primary"
+                          className={cn(
+                            "flex h-10 w-full items-center gap-1.5 px-3 text-label text-primary outline-none hover:bg-primary/5 focus-visible:bg-primary/5 sm:h-9",
+                            block.exercises.length > 0 && "border-t border-border"
+                          )}
                           onClick={() => openExercisePicker(wi, bi)}
                         >
-                          <Plus /> Add exercise
-                        </Button>
+                          <Plus className="size-4" /> Add exercise
+                        </button>
                         </div>
                       </div>
                     )}
@@ -1335,7 +1346,7 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
               variant="ghost"
               size="sm"
               onClick={() => addBlock(wi)}
-              className="w-full border border-dashed border-border-strong text-muted-foreground hover:text-foreground"
+              className="text-muted-foreground hover:text-foreground"
             >
               <Plus /> Add block
             </Button>
@@ -1351,7 +1362,7 @@ export function ProgramBuilder({ workouts, onChange, exerciseLibrary, organizati
                   size="sm"
                   disabled={dayIdxs.length >= MAX_DAYS_PER_WEEK}
                   onClick={() => addDayToWeek(weekIndex)}
-                  className="w-full border-dashed bg-surface/60 text-muted-foreground hover:text-foreground"
+                  className="h-10 w-full border-dashed bg-transparent text-muted-foreground shadow-none hover:bg-surface hover:text-foreground"
                 >
                   <Plus />
                   {dayIdxs.length >= MAX_DAYS_PER_WEEK

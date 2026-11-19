@@ -67,6 +67,9 @@ export function ClientProgramsView({ programs, progressByProgramId, initialTab }
       if (getProgramSchedulingType(program) === "ON_DEMAND") resources.push(program);
       else scheduled.push(program);
     }
+    // Live programs first, so the one the client is working through sits at
+    // the top instead of whatever was assigned most recently.
+    scheduled.sort((a, b) => statusRank(a.status) - statusRank(b.status));
     return { scheduled, resources };
   }, [programs]);
 
@@ -82,10 +85,14 @@ export function ClientProgramsView({ programs, progressByProgramId, initialTab }
           scheduled.length === 1 ? "program" : "programs"
         } assigned.`}
         tabs={
-          <TabsList variant="line">
-            <TabsTrigger value="programs">Programs ({scheduled.length})</TabsTrigger>
-            <TabsTrigger value="resources">Resources ({resources.length})</TabsTrigger>
-          </TabsList>
+          // A Resources tab with nothing in it is just noise — only show the
+          // switcher once the trainer has actually shared a resource.
+          resources.length > 0 || tab === "resources" ? (
+            <TabsList variant="line">
+              <TabsTrigger value="programs">Programs ({scheduled.length})</TabsTrigger>
+              <TabsTrigger value="resources">Resources ({resources.length})</TabsTrigger>
+            </TabsList>
+          ) : undefined
         }
       />
 
@@ -96,6 +103,13 @@ export function ClientProgramsView({ programs, progressByProgramId, initialTab }
       )}
     </Tabs>
   );
+}
+
+const STATUS_ORDER = ["ACTIVE", "DRAFT", "PAUSED", "COMPLETED", "ARCHIVED"];
+
+function statusRank(status: string): number {
+  const index = STATUS_ORDER.indexOf(status);
+  return index === -1 ? STATUS_ORDER.length : index;
 }
 
 // ---------------------------------------------------------------- Programs
@@ -219,7 +233,7 @@ function ScheduledProgramCard({
             >
               <Link href={`/sessions/${next.sessionId}`}>
                 <Play className="size-4 fill-current" />
-                Continue Workout
+                {completed > 0 ? "Continue" : "Start workout"}
               </Link>
             </Button>
           </>
@@ -232,7 +246,7 @@ function ScheduledProgramCard({
             </p>
             <Button variant="outline" className="h-11 shrink-0 sm:h-9" asChild>
               <Link href={`/programs/${program.id}`}>
-                View Program
+                View program
                 <ChevronRight className="size-4" />
               </Link>
             </Button>
@@ -294,7 +308,7 @@ function ResourceCard({ resource }: { resource: ClientProgramCard }) {
 
       <Button variant="outline" className="mt-auto h-11 w-full sm:h-9" asChild>
         <Link href={`/programs/${resource.id}`}>
-          View Resource
+          Open
           <ChevronRight className="size-4" />
         </Link>
       </Button>
@@ -363,8 +377,8 @@ function QuickTipCallout() {
   if (dismissed) return null;
 
   return (
-    <div className="flex items-start gap-3 rounded-lg border border-warning-border bg-warning-soft p-3 text-body">
-      <Lightbulb className="mt-0.5 h-4 w-4 shrink-0 text-warning-foreground" />
+    <div className="flex items-start gap-3 rounded-lg border border-border bg-card p-3 text-body">
+      <Lightbulb className="mt-0.5 h-4 w-4 shrink-0 text-brand" />
       <p className="flex-1 text-muted-foreground">
         <span className="font-medium text-foreground">Quick tip.</span> {tip.text}
       </p>
@@ -372,7 +386,7 @@ function QuickTipCallout() {
         type="button"
         onClick={dismiss}
         aria-label="Dismiss tip"
-        className="flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-warning/10 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+        className="flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
       >
         <X className="size-4" />
       </button>

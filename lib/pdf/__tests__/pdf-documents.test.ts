@@ -129,7 +129,7 @@ describe("ProgramDocument", () => {
 
   it("keeps the product title colour when no accent is given", () => {
     const tree = collect(ProgramDocument(baseProgram));
-    expect(flatStyle(textEl(tree, "Knee Rehab")?.props.style).color).toBe("#1d4ed8");
+    expect(flatStyle(textEl(tree, "Knee Rehab")?.props.style).color).toBe("#74482a");
   });
 
   it("renders the logo (max 48pt tall) above the title only when a buffer is given", () => {

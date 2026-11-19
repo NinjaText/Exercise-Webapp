@@ -21,7 +21,7 @@ export function ExerciseNoteEmail({
   return (
     <EmailLayout
       title="New exercise note"
-      accent="#2563eb"
+      accent="#8b5a36"
       greeting={`Hi ${recipientName},`}
       intro={`${clientName} left a note while training.`}
       details={[

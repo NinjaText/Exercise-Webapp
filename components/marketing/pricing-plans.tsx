@@ -115,22 +115,22 @@ function CheckList({ items, tone = "light" }: { items: string[]; tone?: "light" 
       {items.map((item) => (
         <li key={item} className="flex gap-3 text-sm leading-relaxed">
           <Check
-            className={cn("mt-0.5 h-4 w-4 shrink-0", tone === "dark" ? "text-ember" : "text-clay")}
+            className={cn("mt-0.5 h-4 w-4 shrink-0", tone === "dark" ? "text-copper" : "text-clay")}
             strokeWidth={2.2}
             aria-hidden
           />
-          <span className={tone === "dark" ? "text-cream/85" : "text-ink-soft"}>{item}</span>
+          <span className={tone === "dark" ? "text-ink/80" : "text-ink-soft"}>{item}</span>
         </li>
       ))}
     </ul>
   );
 }
 
-function Price({ amount, unit = "/ month", tone = "light" }: { amount: string; unit?: string; tone?: "light" | "dark" }) {
+function Price({ amount, unit = "/ month" }: { amount: string; unit?: string }) {
   return (
     <p className="mt-3 flex items-baseline gap-1.5">
       <span className="text-4xl font-medium tracking-[-0.03em]">{amount}</span>
-      <span className={cn("text-sm", tone === "dark" ? "text-cream/70" : "text-ink-soft")}>{unit}</span>
+      <span className={cn("text-sm", "text-ink-soft")}>{unit}</span>
     </p>
   );
 }
@@ -231,7 +231,7 @@ function IndividualsPanel() {
   return (
     <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)]">
       <div className="flex flex-col rounded-3xl border border-sand-line bg-white/60 p-6 sm:p-8">
-        <Eyebrow>Starter</Eyebrow>
+        <Eyebrow className="text-copper">Starter</Eyebrow>
         <h3 className="mt-3 text-2xl font-normal tracking-[-0.02em] text-ink">Train with MIA on your own schedule.</h3>
         <Price amount="$39.99" />
         <div className="mt-6 mb-8 border-t border-sand-line pt-5">
@@ -245,30 +245,30 @@ function IndividualsPanel() {
         </p>
       </div>
 
-      <div className="flex flex-col rounded-3xl bg-ink p-6 text-cream sm:p-8">
+      <div className="flex flex-col rounded-3xl border border-tan bg-gradient-to-br from-tan via-sand to-cream-deep p-6 text-ink shadow-sm sm:p-8">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="text-[11px] font-medium tracking-[0.22em] text-cream/70 uppercase sm:text-xs">
+          <p className="text-[11px] font-medium tracking-[0.22em] text-ink/75 uppercase sm:text-xs">
             Advanced · 3-Month Personalized Program
           </p>
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-cream/10 px-3 py-1 text-[11px] text-cream">
-            <Stethoscope className="h-3.5 w-3.5" aria-hidden />
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-cream/80 px-3 py-1 text-[11px] text-ink shadow-sm">
+            <Stethoscope className="h-3.5 w-3.5 text-copper" aria-hidden />
             With a Doctor of Physical Therapy
           </span>
         </div>
         <h3 className="mt-4 text-2xl font-normal tracking-[-0.02em] sm:text-3xl">
-          Beyond generic workouts. <span className="text-ember">Built specifically for you.</span>
+          Beyond generic workouts. <span className="text-copper">Built specifically for you.</span>
         </h3>
-        <p className="mt-3 max-w-xl text-sm leading-relaxed text-cream/75 sm:text-base">
+        <p className="mt-3 max-w-xl text-sm leading-relaxed text-ink/75 sm:text-base">
           A comprehensive 3-month program designed around your individual needs, goals, and physical abilities.
         </p>
         <p className="mt-5 text-lg font-medium">Inquire for pricing</p>
-        <div className="mt-5 mb-8 border-t border-cream/15 pt-5">
+        <div className="mt-5 mb-8 border-t border-ink/10 pt-5">
           <CheckList items={INDIVIDUAL_ADVANCED} tone="dark" />
         </div>
         <a
           href={CALENDLY_URL}
           {...(CALENDLY_URL.startsWith("http") ? { target: "_blank", rel: "noopener noreferrer" } : {})}
-          className="mt-auto inline-flex h-11 w-full items-center justify-center rounded-full bg-cream px-6 text-sm font-medium text-ink transition-colors hover:bg-cream-deep sm:h-12 sm:w-fit sm:px-7"
+          className="mt-auto inline-flex h-11 w-full items-center justify-center rounded-full bg-cream px-6 text-sm font-medium text-ink shadow-sm transition-colors hover:bg-white sm:h-12 sm:w-fit sm:px-7"
         >
           Inquire for pricing
         </a>
@@ -351,8 +351,8 @@ export function PricingTabs({ initialTab }: { initialTab: PricingTab }) {
                 tabIndex={selected ? 0 : -1}
                 onClick={() => select(t.id)}
                 className={cn(
-                  "h-10 flex-1 rounded-full px-4 text-sm transition-colors focus-visible:ring-2 focus-visible:ring-clay focus-visible:outline-none sm:h-11 sm:flex-none sm:px-7",
-                  selected ? "bg-ink text-cream" : "text-ink-soft hover:text-ink",
+                  "h-10 flex-1 rounded-full px-4 text-sm transition-colors focus-visible:ring-2 focus-visible:ring-copper focus-visible:outline-none sm:h-11 sm:flex-none sm:px-7",
+                  selected ? "bg-gradient-to-b from-copper to-bronze-deep text-cream shadow-sm" : "text-ink-soft hover:text-ink",
                 )}
               >
                 {t.label}

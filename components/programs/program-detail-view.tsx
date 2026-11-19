@@ -206,9 +206,12 @@ export function ProgramDetailView({
   // Use the trainer-curated program equipment list when available;
   // fall back to auto-detecting from exercises if the list is empty.
   const savedEquipment = (program.equipmentRequired as string[] | undefined) ?? [];
-  const equipmentNeeded = savedEquipment.length > 0
-    ? savedEquipment
-    : aggregateProgramEquipment(workouts);
+  const equipmentNeeded = dedupeCaseInsensitive(
+    savedEquipment.length > 0 ? savedEquipment : aggregateProgramEquipment(workouts)
+  );
+  const durationWeeks = program.durationWeeks as number | null | undefined;
+  const daysPerWeek = program.daysPerWeek as number | null | undefined;
+  const level = program.level as string | null | undefined;
   const startableSession = !isTrainer && !isResource ? pickStartableSession(sessions, new Date()) : null;
 
   const [voiceMemoWorkout, setVoiceMemoWorkout] = useState<{ id: string; name: string } | null>(null);
@@ -343,7 +346,15 @@ export function ProgramDetailView({
           meta={
             <>
               <StatusBadge status={program.status as string} size="sm" />
-              {client && (
+              {!isResource && !!durationWeeks && (
+                <span>
+                  {durationWeeks} {durationWeeks === 1 ? "week" : "weeks"}
+                  {!!daysPerWeek && ` · ${daysPerWeek} ${daysPerWeek === 1 ? "day" : "days"}/week`}
+                </span>
+              )}
+              {!!level && <span>{level.charAt(0) + level.slice(1).toLowerCase()}</span>}
+              {/* A client doesn't need to be told the program is assigned to them. */}
+              {client && (isTrainer || adminMode) && (
                 <span>
                   Assigned to {client.firstName} {client.lastName}
                 </span>
@@ -382,7 +393,7 @@ export function ProgramDetailView({
             <Button className="h-11 shrink-0 sm:h-9" asChild>
               <Link href={`/sessions/${startableSession.id as string}`}>
                 <Play className="size-4 fill-current" />
-                Start Workout
+                Start workout
               </Link>
             </Button>
           </div>
@@ -741,4 +752,15 @@ export function ProgramDetailView({
       </Dialog>
     </>
   );
+}
+
+/** "Chair" and "chair" are the same item; keep the first spelling (saved lists put the canonical one first). */
+function dedupeCaseInsensitive(items: string[]): string[] {
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    const key = item.trim().toLowerCase();
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }

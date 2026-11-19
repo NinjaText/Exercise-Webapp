@@ -25,7 +25,7 @@ const cases: Array<{
 }> = [
   {
     name: "SessionReminderEmail",
-    defaultAccent: "#2563eb",
+    defaultAccent: "#8b5a36",
     el: (b) => (
       <SessionReminderEmail
         clientName="Sarah"
@@ -39,7 +39,7 @@ const cases: Array<{
   },
   {
     name: "CheckInAssignedEmail",
-    defaultAccent: "#2563eb",
+    defaultAccent: "#8b5a36",
     el: (b) => (
       <CheckInAssignedEmail
         recipientName="Sarah"
@@ -52,7 +52,7 @@ const cases: Array<{
   },
   {
     name: "NewMessageEmail",
-    defaultAccent: "#2563eb",
+    defaultAccent: "#8b5a36",
     el: (b) => (
       <NewMessageEmail
         recipientName="Sarah"
@@ -80,7 +80,7 @@ const cases: Array<{
   },
   {
     name: "FeedbackResponseEmail",
-    defaultAccent: "#2563eb",
+    defaultAccent: "#8b5a36",
     el: (b) => (
       <FeedbackResponseEmail
         recipientName="Sarah"
@@ -93,7 +93,7 @@ const cases: Array<{
   },
   {
     name: "NutritionCommentEmail",
-    defaultAccent: "#2563eb",
+    defaultAccent: "#8b5a36",
     el: (b) => (
       <NutritionCommentEmail
         recipientName="Sarah"
@@ -107,7 +107,7 @@ const cases: Array<{
   },
   {
     name: "NutritionNudgeEmail",
-    defaultAccent: "#2563eb",
+    defaultAccent: "#8b5a36",
     el: (b) => (
       <NutritionNudgeEmail
         recipientName="Sarah"
@@ -120,7 +120,7 @@ const cases: Array<{
   },
   {
     name: "ProgramWelcomeEmail",
-    defaultAccent: "#2563eb",
+    defaultAccent: "#8b5a36",
     el: (b) => (
       <ProgramWelcomeEmail
         firstName="Sarah"
@@ -133,7 +133,7 @@ const cases: Array<{
   },
   {
     name: "ShareProgramEmail",
-    defaultAccent: "#2563eb",
+    defaultAccent: "#8b5a36",
     el: (b) => (
       <ShareProgramEmail
         programName="Strong 12"

@@ -40,9 +40,9 @@ export function PillLink({
   const newTab = href.startsWith("http");
   const classes = cn(
     "inline-flex h-11 items-center justify-center gap-2.5 rounded-full px-6 text-sm font-medium transition-colors sm:h-12 sm:px-7",
-    variant === "dark"
-      ? "bg-ink text-cream shadow-sm hover:bg-ink/90"
-      : "border border-sand-line bg-white/70 text-ink backdrop-blur hover:bg-white",
+    variant === "light"
+      ? "border border-sand-line bg-white/70 text-ink backdrop-blur hover:bg-white"
+      : "bg-gradient-to-b from-copper to-bronze-deep text-cream shadow-md shadow-bronze/20 hover:from-bronze hover:to-bronze-deep",
     className,
   );
   const content = (

@@ -62,7 +62,7 @@ interface Props {
 // Status config
 // ---------------------------------------------------------------------------
 const statusConfig: Record<string, { dot: string; label: string }> = {
-  SCHEDULED:   { dot: "#3b82f6", label: "Scheduled"   },
+  SCHEDULED:   { dot: "#8b5a36", label: "Scheduled"   },
   IN_PROGRESS: { dot: "#f59e0b", label: "In Progress" },
   COMPLETED:   { dot: "#22c55e", label: "Completed"   },
   MISSED:      { dot: "#ef4444", label: "Missed"      },

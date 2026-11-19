@@ -54,7 +54,7 @@ describe('getEmailBranding — defaults', () => {
     expect(b).toEqual({
       enabled: false,
       organizationName: 'MIA Performance',
-      accent: '#2563eb',
+      accent: '#8b5a36',
       fromName: 'MIA Performance',
     })
     expect(b.logoUrl).toBeUndefined()
@@ -143,7 +143,7 @@ describe('getEmailBranding — enabled', () => {
 
 describe('emailSafeAccent', () => {
   it('keeps a colour that already reaches 4.5:1 against white', () => {
-    expect(emailSafeAccent('#2563eb')).toBe('#2563eb')
+    expect(emailSafeAccent('#8b5a36')).toBe('#8b5a36')
     expect(emailSafeAccent('#0F766E')).toBe('#0f766e')
   })
 
@@ -155,7 +155,7 @@ describe('emailSafeAccent', () => {
   })
 
   it('falls back to the default accent for an unparseable value', () => {
-    expect(emailSafeAccent('red; background:url(x)')).toBe('#2563eb')
+    expect(emailSafeAccent('red; background:url(x)')).toBe('#8b5a36')
   })
 })
 

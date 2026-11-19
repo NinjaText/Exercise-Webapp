@@ -169,8 +169,15 @@ describe("deriveBrandTokens — contrast invariants over the hue × l × c grid"
   });
 });
 
-describe("deriveBrandTokens — reproduces the product's existing tokens", () => {
-  const t = deriveBrandTokens(DEFAULT_PRIMARY_HEX);
+// Calibration fixture: the engine was tuned so that the product's original
+// indigo primary (#204ec3 ≈ oklch(0.47 0.19 264)) reproduced the hand-tuned
+// indigo theme. The product default is now the Clay & Espresso bronze, whose
+// hand-tuned tokens are deliberately quieter than the engine output, so the
+// engine's calibration is pinned to the original indigo instead.
+const CALIBRATION_HEX = "#204ec3";
+
+describe("deriveBrandTokens — reproduces the original indigo calibration", () => {
+  const t = deriveBrandTokens(CALIBRATION_HEX);
 
   function near(
     css: string,
@@ -202,7 +209,7 @@ describe("deriveBrandTokens — reproduces the product's existing tokens", () =>
   });
   it("does not adjust the product's own primary", () => {
     expect(t.meta.adjusted).toBe(false);
-    expect(t.meta.primaryHex).toBe(DEFAULT_PRIMARY_HEX);
+    expect(t.meta.primaryHex).toBe(CALIBRATION_HEX);
     expect(t.meta.primaryForeground).toBe("light");
   });
 });

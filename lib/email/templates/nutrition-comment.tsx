@@ -26,7 +26,7 @@ export function NutritionCommentEmail({
     <EmailLayout
       title={isReply ? "Nutrition reply" : "Nutrition feedback"}
       organizationName={brand?.organizationName}
-      accent={brand?.accent ?? "#2563eb"}
+      accent={brand?.accent ?? "#8b5a36"}
       logoUrl={brand?.logoUrl}
       greeting={`Hi ${recipientName},`}
       intro={

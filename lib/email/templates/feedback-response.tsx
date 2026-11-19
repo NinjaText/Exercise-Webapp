@@ -24,7 +24,7 @@ export function FeedbackResponseEmail({
     <EmailLayout
       title="Feedback reply"
       organizationName={brand?.organizationName}
-      accent={brand?.accent ?? "#2563eb"}
+      accent={brand?.accent ?? "#8b5a36"}
       logoUrl={brand?.logoUrl}
       greeting={`Hi ${recipientName},`}
       intro={`${trainerName} replied to the feedback you left on an exercise.`}

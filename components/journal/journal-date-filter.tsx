@@ -97,11 +97,11 @@ export function JournalDateFilter({ range }: { range: JournalRangeKeys }) {
   const active = Boolean(range.from || range.to);
 
   return (
-    <div className="flex flex-col gap-3 rounded-xl bg-card p-4 shadow-xs ring-1 ring-border sm:flex-row sm:flex-wrap sm:items-end">
-      <div className="flex flex-col gap-2 sm:w-48">
-        <Label htmlFor="journal-range">Show entries from</Label>
+    <div className="flex flex-wrap items-end justify-end gap-2">
+      <div className="w-full sm:w-44">
+        <Label htmlFor="journal-range" className="sr-only">Show entries from</Label>
         <Select value={preset} onValueChange={(next) => choosePreset((next as Preset) ?? "all")}>
-          <SelectTrigger id="journal-range">
+          <SelectTrigger id="journal-range" size="sm" className="w-full">
             <CalendarRange className="size-4 text-muted-foreground" aria-hidden />
             <SelectValue>{(value: string | null) => PRESETS.find((p) => p.value === value)?.label ?? "All time"}</SelectValue>
           </SelectTrigger>
@@ -139,7 +139,7 @@ export function JournalDateFilter({ range }: { range: JournalRangeKeys }) {
         </form>
       )}
 
-      <div className="flex items-center gap-2 empty:hidden sm:ml-auto">
+      <div className="flex items-center gap-2 empty:hidden">
         {isPending && <Loader2 className="size-4 animate-spin text-muted-foreground" aria-label="Loading entries" />}
         {active && (
           <Button type="button" variant="ghost" size="sm" onClick={clear} disabled={isPending}>
@@ -150,7 +150,7 @@ export function JournalDateFilter({ range }: { range: JournalRangeKeys }) {
       </div>
 
       {customInvalid && (
-        <p className="text-caption text-danger sm:basis-full" role="alert">
+        <p className="basis-full text-right text-caption text-danger" role="alert">
           The start date must be on or before the end date.
         </p>
       )}

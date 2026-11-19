@@ -26,7 +26,7 @@ export function NewMessageEmail({
     <EmailLayout
       title="New message"
       organizationName={brand?.organizationName}
-      accent={brand?.accent ?? "#2563eb"}
+      accent={brand?.accent ?? "#8b5a36"}
       logoUrl={brand?.logoUrl}
       greeting={`Hi ${recipientName},`}
       intro={`${senderName} sent you a message.`}

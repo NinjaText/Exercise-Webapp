@@ -73,7 +73,7 @@ describe("EmailLayout", () => {
   it("defaults to brand blue when no accent is given", () => {
     const html = renderToStaticMarkup(<EmailLayout title="T" greeting="Hi," intro="i" />);
 
-    expect(html).toContain("#2563eb");
+    expect(html).toContain("#8b5a36");
   });
 
   it("uses a passed accent for the header bar and CTA button", () => {
@@ -88,7 +88,7 @@ describe("EmailLayout", () => {
     );
 
     expect(html).toContain("#dc2626");
-    expect(html).not.toContain("#2563eb");
+    expect(html).not.toContain("#8b5a36");
   });
   it("renders the logo image in the header bar when logoUrl is given", () => {
     const html = renderToStaticMarkup(

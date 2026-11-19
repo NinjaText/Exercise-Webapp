@@ -24,7 +24,7 @@ export function CheckInAssignedEmail({
     <EmailLayout
       title="New check-in"
       organizationName={brand?.organizationName}
-      accent={brand?.accent ?? "#2563eb"}
+      accent={brand?.accent ?? "#8b5a36"}
       logoUrl={brand?.logoUrl}
       greeting={`Hi ${recipientName},`}
       intro="Your trainer has assigned you a new check-in."

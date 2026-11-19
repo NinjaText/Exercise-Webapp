@@ -39,7 +39,7 @@ export interface EmailLayoutProps {
 export function EmailLayout({
   title,
   organizationName = "MIA Performance",
-  accent = "#2563eb",
+  accent = "#8b5a36",
   logoUrl,
   greeting,
   intro,
@@ -189,7 +189,7 @@ const styles: Record<string, React.CSSProperties> = {
     overflow: "hidden",
     boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
   },
-  headerBar: { backgroundColor: "#2563eb", padding: "24px 32px" },
+  headerBar: { backgroundColor: "#8b5a36", padding: "24px 32px" },
   brandName: {
     color: "#ffffff",
     fontSize: "18px",
@@ -240,7 +240,7 @@ const styles: Record<string, React.CSSProperties> = {
     padding: "4px 0 4px 16px",
   },
   ctaButton: {
-    backgroundColor: "#2563eb",
+    backgroundColor: "#8b5a36",
     borderRadius: "8px",
     color: "#ffffff",
     display: "inline-block",

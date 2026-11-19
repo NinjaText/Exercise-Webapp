@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm, useWatch } from "react-hook-form";
@@ -8,7 +8,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import {
   Form,
   FormControl,
@@ -26,8 +27,7 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { ArrowLeft, CalendarDays, Dumbbell, FileText, Info, Loader2, Sparkles, Tags, X } from "lucide-react";
-import { SectionCard } from "@/components/shared/section-card";
+import { Activity, ArrowLeft, Gauge, Info, Loader2, Sparkles } from "lucide-react";
 import {
   createProgramSchema,
   type CreateProgramInput,
@@ -60,12 +60,12 @@ const ACTIVITY_SUGGESTIONS = ["Tennis", "Golf", "Running", "Basketball", "Soccer
 // given an items map — without this it shows "PERFORMANCE" / "UNSET" etc.
 // instead of the item's label.
 const PROGRAM_TYPE_ITEMS = {
-  UNSET: "Select program type",
+  UNSET: "No type",
   PERFORMANCE: "Performance / Athletic",
   CLINICAL: "Rehab / Clinical",
 };
 const LEVEL_ITEMS = {
-  UNSET: "Select level",
+  UNSET: "Any level",
   BEGINNER: "Beginner",
   INTERMEDIATE: "Intermediate",
   ADVANCED: "Advanced",
@@ -203,8 +203,6 @@ export function ProgramEditor({ program, exercises, onSave, redirectTo, organiza
   const [selectedOrganizationIds, setSelectedOrganizationIds] = useState<string[]>(
     (program?.organizationIds as string[]) || []
   );
-  const [equipmentInput, setEquipmentInput] = useState("");
-  const equipmentInputRef = useRef<HTMLInputElement>(null);
 
   // Category fields — pre-populated from saved program or empty
   const [bodyAreas, setBodyAreas] = useState<string[]>((program?.bodyAreas as string[]) || []);
@@ -308,24 +306,6 @@ export function ProgramEditor({ program, exercises, onSave, redirectTo, organiza
     toast.success(`Equipment updated — ${merged.length} item${merged.length !== 1 ? "s" : ""} listed`);
   }
 
-  function addEquipmentItem(item: string) {
-    const trimmed = item.trim();
-    if (!trimmed || equipment.includes(trimmed)) return;
-    setEquipment((prev) => [...prev, trimmed].sort());
-  }
-
-  function removeEquipmentItem(item: string) {
-    setEquipment((prev) => prev.filter((e) => e !== item));
-  }
-
-  function handleEquipmentKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (e.key === "Enter" || e.key === ",") {
-      e.preventDefault();
-      addEquipmentItem(equipmentInput);
-      setEquipmentInput("");
-    }
-  }
-
   async function onSubmit(data: CreateProgramInput) {
     if (needsStartDate && !startDate) {
       toast.error("Pick a start date for this scheduled program");
@@ -412,7 +392,16 @@ export function ProgramEditor({ program, exercises, onSave, redirectTo, organiza
   }
 
   const heading = title ?? (program ? "Edit program" : "New program");
-  const subtitle = watchedName?.trim() || (program ? "Untitled program" : "Name your program to get started");
+  const programName = watchedName?.trim();
+  const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
+  // The bar's subtitle doubles as the live program summary, so there's no
+  // separate stats panel to keep in sync.
+  const summary = isOnDemand
+    ? `Resource · ${plural(workouts.length, "workout")} · ${plural(totalExercises, "exercise")}`
+    : scheduleSummary.durationWeeks > 0
+      ? `${plural(scheduleSummary.durationWeeks, "week")} · ${plural(scheduleSummary.daysPerWeek, "day")}/week · ${plural(totalExercises, "exercise")}`
+      : "No workouts yet";
+  const categoryCount = bodyAreas.length + goals.length + activities.length + tags.length + selectedCollectionIds.length;
 
   return (
     <Form {...form}>
@@ -442,7 +431,7 @@ export function ProgramEditor({ program, exercises, onSave, redirectTo, organiza
             )}
             <div className="min-w-40 flex-1 sm:min-w-0">
               <div className="flex min-w-0 items-center gap-2">
-                <h1 className="truncate text-heading text-foreground">{heading}</h1>
+                <h1 className="truncate text-heading text-foreground">{programName || heading}</h1>
                 {isDirty && (
                   <span
                     data-slot="unsaved-indicator"
@@ -453,7 +442,9 @@ export function ProgramEditor({ program, exercises, onSave, redirectTo, organiza
                   </span>
                 )}
               </div>
-              <p className="truncate text-caption text-muted-foreground">{subtitle}</p>
+              <p className="truncate text-caption text-muted-foreground tabular-nums">
+                {programName ? `${heading} · ${summary}` : summary}
+              </p>
             </div>
             <div className="ml-auto flex shrink-0 items-center gap-2">
               {isAssignedCopyOfTemplate && (
@@ -489,87 +480,96 @@ export function ProgramEditor({ program, exercises, onSave, redirectTo, organiza
           </p>
         )}
 
-        {/* Main column (details + builder) with a settings sidebar from xl.
-            DOM order details → sidebar → builder keeps settings above the
+        {/* Main column (overview + builder) with a settings sidebar from xl.
+            DOM order overview → sidebar → builder keeps settings above the
             long builder when stacked; from xl the sidebar spans both rows. */}
         <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_20rem] xl:grid-rows-[auto_1fr] 2xl:grid-cols-[minmax(0,1fr)_22rem]">
-          <SectionCard title="Details" icon={FileText} contentClassName="grid gap-4 sm:grid-cols-2">
+          {/* Overview: reads like the top of a document — big name, a line of
+              description, then the two classifiers as quiet inline selects. */}
+          <Card data-slot="program-overview" className="gap-0 px-5 py-5 sm:px-6">
             <FormField
               control={form.control}
               name="name"
               render={({ field }) => (
-                <FormItem className="sm:col-span-2">
-                  <FormLabel>Program name</FormLabel>
-                  <FormControl>
-                    <Input placeholder="e.g., 12-Week Strength Program" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="programType"
-              render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Program type</FormLabel>
+                  <FormLabel className="sr-only">Program name</FormLabel>
                   <FormControl>
-                    <Select
-                      items={PROGRAM_TYPE_ITEMS}
-                      value={field.value || "UNSET"}
-                      onValueChange={(v) => field.onChange(v === "UNSET" ? null : v)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="UNSET">Select program type</SelectItem>
-                        <SelectItem value="PERFORMANCE">Performance / Athletic</SelectItem>
-                        <SelectItem value="CLINICAL">Rehab / Clinical</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormItem>
-              <FormLabel>Level</FormLabel>
-              <Select
-                items={LEVEL_ITEMS}
-                value={level || "UNSET"}
-                onValueChange={(v) => setLevel(v === "UNSET" ? null : v)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select level" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="UNSET">Select level</SelectItem>
-                  <SelectItem value="BEGINNER">Beginner</SelectItem>
-                  <SelectItem value="INTERMEDIATE">Intermediate</SelectItem>
-                  <SelectItem value="ADVANCED">Advanced</SelectItem>
-                </SelectContent>
-              </Select>
-            </FormItem>
-            <FormField
-              control={form.control}
-              name="description"
-              render={({ field }) => (
-                <FormItem className="sm:col-span-2">
-                  <FormLabel>Description</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      placeholder="What this program is for, who it suits, and what to expect."
-                      rows={3}
+                    <input
                       {...field}
-                      value={field.value ?? ""}
+                      placeholder="Program name"
+                      autoComplete="off"
+                      className="w-full bg-transparent text-title text-foreground outline-none placeholder:text-muted-foreground/60"
                     />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
-          </SectionCard>
+            <FormField
+              control={form.control}
+              name="description"
+              render={({ field }) => (
+                <FormItem className="mt-1">
+                  <FormLabel className="sr-only">Description</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      placeholder="Add a short description: who it's for and what to expect"
+                      rows={2}
+                      {...field}
+                      value={field.value ?? ""}
+                      className="min-h-0 resize-none border-0 bg-transparent px-0 py-0 text-body text-muted-foreground shadow-none focus-visible:ring-0 dark:bg-transparent [field-sizing:content]"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-border pt-4">
+              <FormField
+                control={form.control}
+                name="programType"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="sr-only">Program type</FormLabel>
+                    <FormControl>
+                      <Select
+                        items={PROGRAM_TYPE_ITEMS}
+                        value={field.value || "UNSET"}
+                        onValueChange={(v) => field.onChange(v === "UNSET" ? null : v)}
+                      >
+                        <SelectTrigger size="sm" className={cn("w-auto gap-1.5", !field.value && "text-muted-foreground")}>
+                          <Activity className="size-3.5" aria-hidden />
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="UNSET">No type</SelectItem>
+                          <SelectItem value="PERFORMANCE">Performance / Athletic</SelectItem>
+                          <SelectItem value="CLINICAL">Rehab / Clinical</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <Select
+                items={LEVEL_ITEMS}
+                value={level || "UNSET"}
+                onValueChange={(v) => setLevel(v === "UNSET" ? null : v)}
+              >
+                <SelectTrigger size="sm" aria-label="Level" className={cn("w-auto gap-1.5", !level && "text-muted-foreground")}>
+                  <Gauge className="size-3.5" aria-hidden />
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="UNSET">Any level</SelectItem>
+                  <SelectItem value="BEGINNER">Beginner</SelectItem>
+                  <SelectItem value="INTERMEDIATE">Intermediate</SelectItem>
+                  <SelectItem value="ADVANCED">Advanced</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </Card>
 
           <aside
             data-slot="program-editor-sidebar"
@@ -577,191 +577,124 @@ export function ProgramEditor({ program, exercises, onSave, redirectTo, organiza
             // 1.5rem under the editor bar (sticky offsets start inside <main>'s
             // padding, 1.5rem at xl and 2rem at 2xl), capped to the viewport
             // below the app header (3.5rem) and scrolling on its own. The 4px
-            // inner padding keeps card rings and shadows from being clipped, and
-            // shrink-0 stops the capped flex column squashing the cards.
-            className="flex min-w-0 flex-col gap-6 *:shrink-0 xl:sticky xl:top-[var(--editor-bar-h)] xl:col-start-2 xl:row-span-2 xl:row-start-1 xl:-m-1 xl:max-h-[calc(100dvh-3.5rem-var(--editor-bar-h)-3rem+0.5rem)] xl:overflow-y-auto xl:overscroll-contain xl:p-1 2xl:top-[calc(var(--editor-bar-h)-0.5rem)]"
+            // inner padding keeps card rings and shadows from being clipped.
+            className="min-w-0 xl:sticky xl:top-[var(--editor-bar-h)] xl:col-start-2 xl:row-span-2 xl:row-start-1 xl:-m-1 xl:max-h-[calc(100dvh-3.5rem-var(--editor-bar-h)-3rem+0.5rem)] xl:overflow-y-auto xl:overscroll-contain xl:p-1 2xl:top-[calc(var(--editor-bar-h)-0.5rem)]"
           >
-            <SectionCard title="Scheduling" icon={CalendarDays} size="compact" contentClassName="space-y-3">
-              <SchedulingTypeSelector
-                value={schedulingType}
-                onChange={setSchedulingType}
-                className="xl:grid-cols-1"
-              />
-              {!isOnDemand && (
-                <dl className="grid grid-cols-3 divide-x divide-border rounded-lg bg-surface-muted py-2.5 text-center">
-                  {[
-                    { label: "Weeks", value: scheduleSummary.durationWeeks },
-                    { label: "Days / wk", value: scheduleSummary.daysPerWeek },
-                    { label: "Exercises", value: totalExercises },
-                  ].map((stat) => (
-                    <div key={stat.label} className="px-2">
-                      <dd className="text-heading tabular-nums text-foreground">{stat.value}</dd>
-                      <dt className="text-caption text-muted-foreground">{stat.label}</dt>
-                    </div>
-                  ))}
-                </dl>
-              )}
-              {needsStartDate && (
-                <div className="space-y-1.5">
-                  <Label htmlFor="program-start-date">
-                    Start date <span className="text-destructive">*</span>
-                  </Label>
-                  <Input
-                    id="program-start-date"
-                    type="date"
-                    required
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                  />
-                  <p className="text-caption text-muted-foreground">
-                    The client&apos;s sessions are dated from this day.
-                  </p>
-                </div>
-              )}
-              {!isOnDemand && !hasClient && (
-                <p className="text-caption text-muted-foreground">
-                  You&apos;ll pick a start date when you assign it to a client.
-                </p>
-              )}
-              {!isOnDemand && scheduleSummary.durationWeeks === 0 && (
-                <p className="text-caption text-muted-foreground">
-                  The schedule follows the weeks and days you add in the builder.
-                </p>
-              )}
-            </SectionCard>
-
-            {clinics && (
-              <SectionCard title="Visibility" size="compact">
-                <ClinicVisibilitySelector
-                  clinics={clinics}
-                  value={selectedOrganizationIds}
-                  onChange={setSelectedOrganizationIds}
-                />
-              </SectionCard>
-            )}
-
-            <SectionCard title="Organization" icon={Tags} size="compact" contentClassName="space-y-4">
-              <div className="space-y-1.5">
-                <Label>Body area</Label>
-                <TagListInput
-                  values={bodyAreas}
-                  onChange={setBodyAreas}
-                  placeholder="Add body area..."
-                  suggestions={BODY_AREA_SUGGESTIONS}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Goal</Label>
-                <TagListInput
-                  values={goals}
-                  onChange={setGoals}
-                  placeholder="Add goal..."
-                  suggestions={GOAL_SUGGESTIONS}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Activity / sport</Label>
-                <TagListInput
-                  values={activities}
-                  onChange={setActivities}
-                  placeholder="Add activity..."
-                  suggestions={ACTIVITY_SUGGESTIONS}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Tags</Label>
-                <TagListInput values={tags} onChange={setTags} placeholder="Add a tag..." />
-              </div>
-              {collections && collections.length > 0 && (
-                <div className="space-y-2 border-t border-border pt-4">
-                  <Label id="program-collections-label">Collections</Label>
-                  <div role="group" aria-labelledby="program-collections-label" className="flex flex-wrap gap-1.5">
-                    {collections.map((c) => {
-                      const on = selectedCollectionIds.includes(c.id);
-                      return (
-                        <button
-                          key={c.id}
-                          type="button"
-                          aria-pressed={on}
-                          onClick={() =>
-                            setSelectedCollectionIds((prev) =>
-                              on ? prev.filter((id) => id !== c.id) : [...prev, c.id]
-                            )
-                          }
-                          className={cn(
-                            "inline-flex h-9 items-center rounded-full border px-3 text-label transition-colors sm:h-7 outline-none focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none",
-                            on
-                              ? "border-primary bg-primary/10 text-primary"
-                              : "border-border bg-surface text-muted-foreground hover:border-border-strong hover:text-foreground"
-                          )}
-                        >
-                          {c.name}
-                        </button>
-                      );
-                    })}
+            <Card className="gap-0 divide-y divide-border py-0">
+              <SettingsSection title="Schedule">
+                <SchedulingTypeSelector value={schedulingType} onChange={setSchedulingType} variant="compact" />
+                {needsStartDate && (
+                  <div className="mt-3 space-y-1.5">
+                    <Label htmlFor="program-start-date">
+                      Start date <span className="text-destructive">*</span>
+                    </Label>
+                    <Input
+                      id="program-start-date"
+                      type="date"
+                      required
+                      value={startDate}
+                      onChange={(e) => setStartDate(e.target.value)}
+                    />
+                    <p className="text-caption text-muted-foreground">
+                      The client&apos;s sessions are dated from this day.
+                    </p>
                   </div>
-                </div>
-              )}
-            </SectionCard>
+                )}
+                {!isOnDemand && !hasClient && (
+                  <p className="mt-1 text-caption text-muted-foreground">
+                    You&apos;ll pick a start date when you assign it.
+                  </p>
+                )}
+              </SettingsSection>
 
-            <SectionCard
-              title="Equipment"
-              icon={Dumbbell}
-              size="compact"
-              contentClassName="space-y-3"
-              action={
-                <Button type="button" variant="ghost" size="sm" onClick={autoDetectEquipment}>
-                  <Sparkles />
-                  Auto-detect
-                </Button>
-              }
-            >
-              {equipment.length === 0 ? (
-                <p className="text-caption text-muted-foreground">
-                  None yet. Add items below, or auto-detect them from the exercises in this program.
-                </p>
-              ) : (
-                <div className="flex flex-wrap gap-1.5">
-                  {equipment.map((item) => (
-                    <Badge key={item} variant="secondary" className="h-7 gap-1 pr-1 text-sm">
-                      {item}
-                      {/* Visible glyph stays small; the hit area is 32px via the
-                          negative-margin halo so the chip itself doesn't grow. */}
-                      <button
-                        type="button"
-                        onClick={() => removeEquipmentItem(item)}
-                        aria-label={`Remove ${item}`}
-                        className="relative inline-flex size-5 items-center justify-center rounded-full outline-none after:absolute after:-inset-1.5 hover:bg-muted-foreground/20 focus-visible:ring-2 focus-visible:ring-ring"
-                      >
-                        <X className="size-3" />
-                      </button>
-                    </Badge>
-                  ))}
-                </div>
+              {clinics && (
+                <SettingsSection title="Visibility">
+                  <ClinicVisibilitySelector
+                    clinics={clinics}
+                    value={selectedOrganizationIds}
+                    onChange={setSelectedOrganizationIds}
+                  />
+                </SettingsSection>
               )}
-              <div className="flex gap-2">
-                <Input
-                  ref={equipmentInputRef}
-                  value={equipmentInput}
-                  onChange={(e) => setEquipmentInput(e.target.value)}
-                  onKeyDown={handleEquipmentKeyDown}
-                  placeholder="e.g. Resistance band"
-                  aria-label="Add equipment"
-                  className="flex-1"
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => {
-                    addEquipmentItem(equipmentInput);
-                    setEquipmentInput("");
-                    equipmentInputRef.current?.focus();
-                  }}
-                >
-                  Add
-                </Button>
-              </div>
-            </SectionCard>
+
+              <Accordion multiple className="px-4">
+                <AccordionItem value="categories">
+                  <AccordionTrigger className="py-3.5 text-label hover:no-underline">
+                    <span className="flex items-center gap-2">
+                      Categories
+                      {categoryCount > 0 && <CountPill n={categoryCount} />}
+                    </span>
+                  </AccordionTrigger>
+                  <AccordionContent className="space-y-4 pb-4">
+                    <p className="text-caption text-muted-foreground">
+                      Helps you and your clients find this program in the library.
+                    </p>
+                    <CategoryField label="Body area">
+                      <TagListInput ariaLabel="Body area" values={bodyAreas} onChange={setBodyAreas} placeholder="Add body area…" suggestions={BODY_AREA_SUGGESTIONS} suggestionsOnFocus />
+                    </CategoryField>
+                    <CategoryField label="Goal">
+                      <TagListInput ariaLabel="Goal" values={goals} onChange={setGoals} placeholder="Add goal…" suggestions={GOAL_SUGGESTIONS} suggestionsOnFocus />
+                    </CategoryField>
+                    <CategoryField label="Activity / sport">
+                      <TagListInput ariaLabel="Activity or sport" values={activities} onChange={setActivities} placeholder="Add activity…" suggestions={ACTIVITY_SUGGESTIONS} suggestionsOnFocus />
+                    </CategoryField>
+                    <CategoryField label="Tags">
+                      <TagListInput ariaLabel="Tags" values={tags} onChange={setTags} placeholder="Add a tag…" />
+                    </CategoryField>
+                    {collections && collections.length > 0 && (
+                      <div className="space-y-2">
+                        <Label id="program-collections-label">Collections</Label>
+                        <div role="group" aria-labelledby="program-collections-label" className="flex flex-wrap gap-1.5">
+                          {collections.map((c) => {
+                            const on = selectedCollectionIds.includes(c.id);
+                            return (
+                              <button
+                                key={c.id}
+                                type="button"
+                                aria-pressed={on}
+                                onClick={() =>
+                                  setSelectedCollectionIds((prev) =>
+                                    on ? prev.filter((id) => id !== c.id) : [...prev, c.id]
+                                  )
+                                }
+                                className={cn(
+                                  "inline-flex h-9 items-center rounded-full border px-3 text-label transition-colors sm:h-7 outline-none focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none",
+                                  on
+                                    ? "border-primary bg-primary/10 text-primary"
+                                    : "border-border bg-surface text-muted-foreground hover:border-border-strong hover:text-foreground"
+                                )}
+                              >
+                                {c.name}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </AccordionContent>
+                </AccordionItem>
+                <AccordionItem value="equipment">
+                  <AccordionTrigger className="py-3.5 text-label hover:no-underline">
+                    <span className="flex items-center gap-2">
+                      Equipment
+                      {equipment.length > 0 && <CountPill n={equipment.length} />}
+                    </span>
+                  </AccordionTrigger>
+                  <AccordionContent className="space-y-3 pb-4">
+                    <TagListInput
+                      ariaLabel="Add equipment"
+                      values={equipment}
+                      onChange={setEquipment}
+                      placeholder="e.g. Resistance band"
+                    />
+                    <Button type="button" variant="outline" size="sm" className="w-full" onClick={autoDetectEquipment}>
+                      <Sparkles />
+                      Detect from exercises
+                    </Button>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
+            </Card>
           </aside>
 
           <div className="min-w-0 xl:col-start-1 xl:row-start-2">
@@ -789,5 +722,31 @@ export function ProgramEditor({ program, exercises, onSave, redirectTo, organiza
         }}
       />
     </Form>
+  );
+}
+
+function SettingsSection({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section className="px-4 py-4">
+      <h2 className="mb-2.5 text-label text-foreground">{title}</h2>
+      {children}
+    </section>
+  );
+}
+
+function CategoryField({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-1.5">
+      <p className="text-caption font-medium text-muted-foreground">{label}</p>
+      {children}
+    </div>
+  );
+}
+
+function CountPill({ n }: { n: number }) {
+  return (
+    <span className="rounded-full bg-muted px-1.5 text-caption font-medium text-muted-foreground tabular-nums">
+      {n}
+    </span>
   );
 }

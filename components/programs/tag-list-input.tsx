@@ -10,14 +10,19 @@ interface Props {
   onChange: (next: string[]) => void;
   placeholder: string;
   suggestions?: string[];
+  /** Only show the suggestion chips while the input has focus (keeps dense panels calm). */
+  suggestionsOnFocus?: boolean;
+  /** Accessible name when there's no visible <label> wired to the input. */
+  ariaLabel?: string;
 }
 
 // Free-text chip input for any repeated short value: the program editor's
 // category fields (Body Area, Goal, Activity/Sport, Tags) and a client's
 // secondary diagnoses and prior injuries. They all share the same "type and
 // press Enter, or pick a suggestion" interaction.
-export function TagListInput({ values, onChange, placeholder, suggestions }: Props) {
+export function TagListInput({ values, onChange, placeholder, suggestions, suggestionsOnFocus, ariaLabel }: Props) {
   const [input, setInput] = useState("");
+  const [focused, setFocused] = useState(false);
 
   function add(raw: string) {
     const trimmed = raw.trim();
@@ -49,6 +54,7 @@ export function TagListInput({ values, onChange, placeholder, suggestions }: Pro
               <button
                 type="button"
                 onClick={() => remove(value)}
+                aria-label={`Remove ${value}`}
                 className="ml-0.5 rounded-full hover:bg-muted-foreground/20 p-0.5"
               >
                 <X className="h-3 w-3" />
@@ -61,7 +67,10 @@ export function TagListInput({ values, onChange, placeholder, suggestions }: Pro
         value={input}
         onChange={(e) => setInput(e.target.value)}
         onKeyDown={handleKeyDown}
+        onFocus={() => setFocused(true)}
+        aria-label={ariaLabel}
         onBlur={() => {
+          setFocused(false);
           if (input.trim()) {
             add(input);
             setInput("");
@@ -70,14 +79,16 @@ export function TagListInput({ values, onChange, placeholder, suggestions }: Pro
         placeholder={placeholder}
         className="h-9"
       />
-      {unusedSuggestions && unusedSuggestions.length > 0 && (
+      {unusedSuggestions && unusedSuggestions.length > 0 && (!suggestionsOnFocus || focused) && (
         <div className="flex flex-wrap gap-1">
           {unusedSuggestions.map((s) => (
             <button
               key={s}
               type="button"
+              // Keep focus in the input so the chips don't vanish mid-click.
+              onMouseDown={(e) => e.preventDefault()}
               onClick={() => add(s)}
-              className="rounded-md px-1.5 py-0.5 text-[11px] leading-5 text-muted-foreground bg-muted/60 hover:bg-muted hover:text-foreground transition-colors"
+              className="rounded-md bg-muted/60 px-1.5 py-0.5 text-caption text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             >
               {s}
             </button>
