@@ -8,7 +8,11 @@ import type { BodyRegion, DifficultyLevel, ExercisePhase } from "@prisma/client"
 import { logAudit, deriveActorType, AUDIT_ACTIONS } from "@/lib/services/audit-log.service";
 import { isYouTubeUrl, extractYouTubeId, getYouTubeThumbnail } from "@/lib/utils/video";
 import type { CsvExerciseRow } from "@/lib/validators/csv-exercise";
-import { findBatchExerciseConflicts } from "@/lib/services/exercise-uniqueness.service";
+import {
+  findBatchExerciseConflictDetails,
+  findBatchExerciseConflicts,
+  type BatchExerciseConflict,
+} from "@/lib/services/exercise-uniqueness.service";
 
 // Keeps a rejected import's toast readable when many rows collide.
 function summarizeConflicts(messages: string[]): string {
@@ -35,26 +39,59 @@ export interface BulkExerciseInput {
   isAssessment?: boolean;
 }
 
-export async function bulkCreateExercisesAction(exercises: BulkExerciseInput[]) {
+async function getBulkTrainer() {
   const { userId } = await auth();
-  if (!userId) return { success: false as const, error: "Unauthorized" };
+  if (!userId) return { error: "Unauthorized" } as const;
 
   const dbUser = await activeCallerOnly(await prisma.user.findUnique({ where: { clerkId: userId } }));
-  if (!dbUser) return { success: false as const, error: "User not found" };
-  if (dbUser.role !== "TRAINER") return { success: false as const, error: "Forbidden" };
-
-  if (!exercises.length) return { success: false as const, error: "No exercises provided" };
+  if (!dbUser) return { error: "User not found" } as const;
+  if (dbUser.role !== "TRAINER") return { error: "Forbidden" } as const;
 
   // Route to org library if the trainer belongs to an org
   const orgData = dbUser.clerkOrgId
     ? { source: "ORGANIZATION" as const, organizationId: dbUser.clerkOrgId }
     : {};
+  return { dbUser, orgData } as const;
+}
 
-  const conflicts = await findBatchExerciseConflicts(
+function duplicateCountMessage(conflicts: BatchExerciseConflict[]): string {
+  const count = new Set(conflicts.map((c) => c.index)).size;
+  return count === 1
+    ? "1 duplicate exercise — nothing was imported. It's marked below."
+    : `${count} duplicate exercises — nothing was imported. They're marked below.`;
+}
+
+/**
+ * Read-only duplicate check the bulk import form runs while rows are being
+ * reviewed, so duplicates are flagged on their rows before Publish.
+ * `index` in each conflict refers to the position in `rows`.
+ */
+export async function checkBulkExerciseConflictsAction(rows: { name: string; videoUrl?: string }[]) {
+  const caller = await getBulkTrainer();
+  if ("error" in caller) return { success: false as const, error: caller.error };
+  if (rows.length > 200) return { success: false as const, error: "Too many rows" };
+
+  const conflicts = await findBatchExerciseConflictDetails(
+    rows.map((r) => ({ name: r.name.trim(), videoUrl: r.videoUrl?.trim() || null })),
+    { source: "UNIVERSAL", ...caller.orgData }
+  );
+  return { success: true as const, conflicts };
+}
+
+export async function bulkCreateExercisesAction(exercises: BulkExerciseInput[]) {
+  const caller = await getBulkTrainer();
+  if ("error" in caller) return { success: false as const, error: caller.error };
+  const { dbUser, orgData } = caller;
+
+  if (!exercises.length) return { success: false as const, error: "No exercises provided" };
+
+  const conflicts = await findBatchExerciseConflictDetails(
     exercises.map((ex) => ({ name: ex.name.trim(), videoUrl: ex.videoUrl?.trim() || null })),
     { source: "UNIVERSAL", ...orgData }
   );
-  if (conflicts.length > 0) return { success: false as const, error: summarizeConflicts(conflicts) };
+  if (conflicts.length > 0) {
+    return { success: false as const, error: duplicateCountMessage(conflicts), conflicts };
+  }
 
   try {
     const created = await prisma.$transaction(

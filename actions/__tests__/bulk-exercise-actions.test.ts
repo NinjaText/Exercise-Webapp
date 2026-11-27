@@ -13,7 +13,7 @@ vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 
 import { auth } from '@clerk/nextjs/server'
 import { prisma } from '@/lib/prisma'
-import { bulkCreateExercisesAction } from '../bulk-exercise-actions'
+import { bulkCreateExercisesAction, checkBulkExerciseConflictsAction } from '../bulk-exercise-actions'
 
 const mockAuth = vi.mocked(auth)
 const mockUserFindUnique = vi.mocked(prisma.user.findUnique)
@@ -128,5 +128,51 @@ describe('bulkCreateExercisesAction — isAssessment', () => {
         data: expect.objectContaining({ isAssessment: false }),
       })
     )
+  })
+})
+
+describe('bulk import duplicate detection', () => {
+  const LIBRARY = [
+    { id: 'ex_dead_bug', name: 'Dead Bug', videoUrl: 'https://youtu.be/abc123def45', source: 'UNIVERSAL', organizationId: null },
+  ]
+
+  beforeEach(() => {
+    mockUserFindUnique.mockResolvedValue(TRAINER_NO_ORG as any)
+    vi.mocked(prisma.exercise.findMany).mockResolvedValue(LIBRARY as any)
+  })
+
+  it('reports library and in-batch duplicates per row, keeping the first of a repeated pair', async () => {
+    const result = await checkBulkExerciseConflictsAction([
+      { name: 'Squat' },
+      { name: 'dead bug' },
+      { name: 'Lunge', videoUrl: 'https://www.youtube.com/watch?v=zzz999yyy88' },
+      { name: 'Squat' },
+      { name: 'Reverse Lunge', videoUrl: 'https://youtu.be/zzz999yyy88' },
+    ])
+
+    expect(result).toEqual({
+      success: true,
+      conflicts: [
+        { index: 1, field: 'name', existingName: 'Dead Bug' },
+        { index: 3, field: 'name', existingName: 'Squat', batchIndex: 0 },
+        { index: 4, field: 'videoUrl', existingName: 'Lunge', batchIndex: 2 },
+      ],
+    })
+  })
+
+  it('rejects the publish with structured conflicts and creates nothing', async () => {
+    const result = await bulkCreateExercisesAction([EXERCISE, { ...EXERCISE, name: 'Dead Bug' }])
+
+    expect(result.success).toBe(false)
+    expect(result).toMatchObject({
+      error: expect.stringContaining('1 duplicate exercise'),
+      conflicts: [{ index: 1, field: 'name', existingName: 'Dead Bug' }],
+    })
+    expect(mockTransaction).not.toHaveBeenCalled()
+  })
+
+  it('refuses the check for non-trainers', async () => {
+    mockUserFindUnique.mockResolvedValue({ ...TRAINER_NO_ORG, role: 'CLIENT' } as any)
+    expect(await checkBulkExerciseConflictsAction([{ name: 'Squat' }])).toEqual({ success: false, error: 'Forbidden' })
   })
 })

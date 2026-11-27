@@ -67,6 +67,13 @@ const columns: Column<ProgramRow>[] = [
           <p className="text-label text-foreground">{prog.trainer.firstName} {prog.trainer.lastName}</p>
           <p className="text-caption">{prog.trainer.email}</p>
         </>
+      ) : prog.isPublic ? (
+        <>
+          <p className="text-caption">Shared by</p>
+          <p className="text-label text-foreground">
+            {prog.sharedBy ? `${prog.sharedBy.firstName} ${prog.sharedBy.lastName}` : "Unknown trainer"}
+          </p>
+        </>
       ) : (
         <span className="text-caption">Global</span>
       ),
@@ -107,8 +114,9 @@ const columns: Column<ProgramRow>[] = [
     key: "actions",
     header: "",
     className: "w-12",
+    // Global (admin-curated) programs are managed from their own section.
     render: (prog) =>
-      prog.trainer ? (
+      prog.trainer || prog.isPublic ? (
         <div className="relative z-10 flex justify-end">
           <ProgramActionsMenu programId={prog.id} programName={prog.name} isPublic={prog.isPublic} />
         </div>

@@ -31,7 +31,7 @@ vi.mock('@/lib/services/program.service', () => ({
   deleteClientProgram: vi.fn().mockResolvedValue({}),
   duplicateProgram: vi.fn(),
   assignProgram: vi.fn(),
-  toggleProgramPublic: vi.fn().mockResolvedValue({}),
+  shareProgramToUniversal: vi.fn().mockResolvedValue({ id: 'copy_1' }),
 }))
 vi.mock('@/lib/services/client.service', () => ({ getClientIdsForTrainer: vi.fn() }))
 vi.mock('@/lib/services/audit-log.service', () => ({
@@ -48,6 +48,7 @@ vi.mock('@/lib/services/audit-log.service', () => ({
     PROGRAM_UPDATED: 'PROGRAM_UPDATED',
     PROGRAM_DELETED: 'PROGRAM_DELETED',
     PROGRAM_HARD_DELETED: 'PROGRAM_HARD_DELETED',
+    PROGRAM_SHARED_TO_UNIVERSAL: 'PROGRAM_SHARED_TO_UNIVERSAL',
   },
 }))
 
@@ -63,7 +64,7 @@ import {
   hardDeleteProgramAction,
   assignProgramAction,
   deleteClientProgramAction,
-  toggleProgramPublicAction,
+  shareProgramToUniversalAction,
   generateProgramAction,
   saveGeneratedProgramAction,
 } from '../program-actions'
@@ -77,7 +78,7 @@ const mockHardDeleteProgram = vi.mocked(programService.hardDeleteProgram)
 const mockDuplicateProgram = vi.mocked(programService.duplicateProgram)
 const mockAssignProgram = vi.mocked(programService.assignProgram)
 const mockDeleteClientProgram = vi.mocked(programService.deleteClientProgram)
-const mockToggleProgramPublic = vi.mocked(programService.toggleProgramPublic)
+const mockShareToUniversal = vi.mocked(programService.shareProgramToUniversal)
 
 const trainer = { id: 'trainer_1', role: 'TRAINER', clerkOrgId: 'org_1', firstName: 'Jane', lastName: 'Doe', email: 'jane@example.com' }
 
@@ -284,64 +285,64 @@ describe('deleteClientProgramAction', () => {
   })
 })
 
-describe('toggleProgramPublicAction', () => {
+describe('shareProgramToUniversalAction', () => {
   const ownedTemplate = {
     trainerId: 'trainer_1',
     name: 'My Template',
-    isTemplate: true,
     clientId: null,
+    status: 'DRAFT',
   }
 
-  it('publishes an owned template with no client, and logs the audit', async () => {
+  it('creates the Universal copy for an owned library program and logs the audit against the copy', async () => {
     mockProgramFindUnique.mockResolvedValue(ownedTemplate as never)
 
-    const result = await toggleProgramPublicAction('prog_1', true)
+    const result = await shareProgramToUniversalAction('prog_1')
 
-    expect(mockToggleProgramPublic).toHaveBeenCalledWith('prog_1', true)
+    expect(mockShareToUniversal).toHaveBeenCalledWith('prog_1', 'trainer_1')
     expect(result).toEqual({ success: true })
     expect(mockLogAudit).toHaveBeenCalledWith(expect.objectContaining({
-      action: 'PROGRAM_UPDATED', targetType: 'Program', targetId: 'prog_1', targetLabel: 'My Template',
-      metadata: { isPublic: true },
+      action: 'PROGRAM_SHARED_TO_UNIVERSAL', targetType: 'Program', targetId: 'copy_1', targetLabel: 'My Template',
+      metadata: { sourceProgramId: 'prog_1' },
     }))
   })
 
   it('rejects when the requesting trainer does not own the program', async () => {
     mockProgramFindUnique.mockResolvedValue({ ...ownedTemplate, trainerId: 'someone_else' } as never)
 
-    const result = await toggleProgramPublicAction('prog_1', true)
+    const result = await shareProgramToUniversalAction('prog_1')
 
     expect(result).toEqual({ success: false, error: 'Forbidden' })
-    expect(mockToggleProgramPublic).not.toHaveBeenCalled()
-  })
-
-  it('allows any library program with no client, whatever its old isTemplate flag', async () => {
-    mockProgramFindUnique.mockResolvedValue({ ...ownedTemplate, isTemplate: false } as never)
-
-    const result = await toggleProgramPublicAction('prog_1', true)
-
-    expect(result).toEqual({ success: true })
-    expect(mockToggleProgramPublic).toHaveBeenCalled()
+    expect(mockShareToUniversal).not.toHaveBeenCalled()
   })
 
   it('rejects a program that has a client assigned', async () => {
     mockProgramFindUnique.mockResolvedValue({ ...ownedTemplate, clientId: 'client_1' } as never)
 
-    const result = await toggleProgramPublicAction('prog_1', true)
+    const result = await shareProgramToUniversalAction('prog_1')
 
     expect(result).toEqual({
       success: false,
-      error: 'Only programs with no client assigned can be made public',
+      error: 'Only programs with no client assigned can be shared',
     })
-    expect(mockToggleProgramPublic).not.toHaveBeenCalled()
+    expect(mockShareToUniversal).not.toHaveBeenCalled()
+  })
+
+  it('rejects an archived program', async () => {
+    mockProgramFindUnique.mockResolvedValue({ ...ownedTemplate, status: 'ARCHIVED' } as never)
+
+    const result = await shareProgramToUniversalAction('prog_1')
+
+    expect(result).toEqual({ success: false, error: "Archived programs can't be shared" })
+    expect(mockShareToUniversal).not.toHaveBeenCalled()
   })
 
   it('surfaces a generic error when the service call fails', async () => {
     mockProgramFindUnique.mockResolvedValue(ownedTemplate as never)
-    mockToggleProgramPublic.mockRejectedValueOnce(new Error('db error'))
+    mockShareToUniversal.mockRejectedValueOnce(new Error('db error'))
 
-    const result = await toggleProgramPublicAction('prog_1', true)
+    const result = await shareProgramToUniversalAction('prog_1')
 
-    expect(result).toEqual({ success: false, error: 'Failed to update program' })
+    expect(result).toEqual({ success: false, error: 'Failed to share program' })
     expect(mockLogAudit).not.toHaveBeenCalled()
   })
 })

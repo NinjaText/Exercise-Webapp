@@ -48,33 +48,58 @@ export async function assertExerciseIsUnique(
   if (conflicts.length > 0) throw new ExerciseConflictError(conflicts);
 }
 
+export interface BatchExerciseConflict {
+  /** 0-based index of the offending row in the batch. */
+  index: number;
+  field: ExerciseConflictField;
+  existingName: string;
+  /** Set when the clash is with an earlier row of the same batch rather than the library. */
+  batchIndex?: number;
+}
+
+const BATCH_ID_PREFIX = "batch:";
+
 /**
  * Validates a batch of new exercises that all land in the same library,
- * against the existing library and against each other. Returns one message
- * per offending row (1-based row numbers); an empty array means the batch is clean.
+ * against the existing library and against each other. The first row of an
+ * in-batch pair is accepted; only the later one is reported. An empty array
+ * means the batch is clean.
  */
+export async function findBatchExerciseConflictDetails(
+  rows: { name: string; videoUrl?: string | null }[],
+  scope: { source: ExerciseSource; organizationId?: string | null }
+): Promise<BatchExerciseConflict[]> {
+  const pool = await loadExerciseConflictPool(scope);
+  const accepted: ExerciseIdentity[] = [];
+  const conflicts: BatchExerciseConflict[] = [];
+
+  rows.forEach((row, index) => {
+    const candidate: ExerciseIdentity = { ...row, ...scope, id: `${BATCH_ID_PREFIX}${index}` };
+    for (const c of findExerciseConflicts(candidate, pool)) {
+      conflicts.push({ index, field: c.field, existingName: c.existing.name });
+    }
+    for (const c of findExerciseConflicts(candidate, accepted)) {
+      const batchIndex = Number(c.existing.id!.slice(BATCH_ID_PREFIX.length));
+      conflicts.push({ index, field: c.field, existingName: c.existing.name, batchIndex });
+    }
+    accepted.push(candidate);
+  });
+
+  return conflicts;
+}
+
+/** Same check, as one message per offending row (1-based row numbers). */
 export async function findBatchExerciseConflicts(
   rows: { name: string; videoUrl?: string | null }[],
   scope: { source: ExerciseSource; organizationId?: string | null }
 ): Promise<string[]> {
-  const pool = await loadExerciseConflictPool(scope);
-  const accepted: ExerciseIdentity[] = [];
-  const messages: string[] = [];
-
-  rows.forEach((row, index) => {
-    const candidate: ExerciseIdentity = { ...row, ...scope };
-    const problems = [
-      ...findExerciseConflicts(candidate, pool).map((c) => describeBatchConflict(c, "")),
-      ...findExerciseConflicts(candidate, accepted).map((c) => describeBatchConflict(c, " earlier in this import")),
-    ];
-    if (problems.length > 0) messages.push(`Row ${index + 1} ("${row.name}"): ${problems.join("; ")}`);
-    accepted.push(candidate);
-  });
-
-  return messages;
-}
-
-function describeBatchConflict(conflict: ExerciseConflict, where: string): string {
-  const what = conflict.field === "name" ? "name" : "video";
-  return `${what} already used by "${conflict.existing.name}"${where}`;
+  const byRow = new Map<number, string[]>();
+  for (const c of await findBatchExerciseConflictDetails(rows, scope)) {
+    const what = c.field === "name" ? "name" : "video";
+    const where = c.batchIndex !== undefined ? " earlier in this import" : "";
+    const list = byRow.get(c.index) ?? [];
+    list.push(`${what} already used by "${c.existingName}"${where}`);
+    byRow.set(c.index, list);
+  }
+  return [...byRow].map(([index, problems]) => `Row ${index + 1} ("${rows[index].name}"): ${problems.join("; ")}`);
 }

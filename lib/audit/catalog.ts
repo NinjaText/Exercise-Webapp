@@ -49,6 +49,7 @@ export const AUDIT_ACTION_CATALOG = {
   PROGRAM_DELETED: { label: "Deleted program", category: "PROGRAMS", tone: "danger" },
   PROGRAM_HARD_DELETED: { label: "Permanently deleted program", category: "PROGRAMS", tone: "danger" },
   PROGRAM_UNPUBLISHED: { label: "Unpublished program", category: "PROGRAMS", tone: "warning" },
+  PROGRAM_SHARED_TO_UNIVERSAL: { label: "Shared program to Universal", category: "PROGRAMS", tone: "success" },
   GLOBAL_PROGRAM_CREATED: { label: "Created global program", category: "PROGRAMS", tone: "success" },
   GLOBAL_PROGRAM_UPDATED: { label: "Updated global program", category: "PROGRAMS", tone: "info" },
   GLOBAL_PROGRAM_DELETED: { label: "Deleted global program", category: "PROGRAMS", tone: "danger" },

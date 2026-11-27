@@ -412,13 +412,13 @@ export async function hardDeleteProgramAction(programId: string) {
   }
 }
 
-export async function toggleProgramPublicAction(programId: string, isPublic: boolean) {
+export async function shareProgramToUniversalAction(programId: string) {
   const user = await getTrainerUser();
   if (!user) return { success: false as const, error: "Unauthorized" };
 
   const program = await prisma.program.findUnique({
     where: { id: programId },
-    select: { trainerId: true, name: true, clientId: true },
+    select: { trainerId: true, name: true, clientId: true, status: true },
   });
   if (!program || program.trainerId !== user.id) {
     return { success: false as const, error: "Forbidden" };
@@ -426,28 +426,32 @@ export async function toggleProgramPublicAction(programId: string, isPublic: boo
   if (program.clientId) {
     return {
       success: false as const,
-      error: "Only programs with no client assigned can be made public",
+      error: "Only programs with no client assigned can be shared",
     };
+  }
+  if (program.status === "ARCHIVED") {
+    return { success: false as const, error: "Archived programs can't be shared" };
   }
 
   try {
-    await programService.toggleProgramPublic(programId, isPublic);
+    const copy = await programService.shareProgramToUniversal(programId, user.id);
     await logAudit({
       actorId: user.id,
       actorType: deriveActorType(user),
       actorName: `${user.firstName} ${user.lastName}`,
-      action: AUDIT_ACTIONS.PROGRAM_UPDATED,
+      action: AUDIT_ACTIONS.PROGRAM_SHARED_TO_UNIVERSAL,
       targetType: "Program",
-      targetId: programId,
+      targetId: copy.id,
       targetLabel: program.name,
       orgId: user.clerkOrgId,
-      metadata: { isPublic },
+      metadata: { sourceProgramId: programId },
     });
     revalidatePath("/programs");
+    revalidatePath("/admin/programs");
     return { success: true as const };
   } catch (error) {
-    console.error("Failed to toggle program public:", error);
-    return { success: false as const, error: "Failed to update program" };
+    console.error("Failed to share program to universal:", error);
+    return { success: false as const, error: "Failed to share program" };
   }
 }
 
