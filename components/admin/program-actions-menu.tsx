@@ -19,14 +19,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { MoreHorizontal, Trash2, Globe2 } from "lucide-react";
+import { MoreHorizontal, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import { deleteAdminProgramAction, unpublishAdminProgramAction } from "@/actions/admin-program-actions";
+import { deleteAdminProgramAction } from "@/actions/admin-program-actions";
 
 interface ProgramActionsMenuProps {
   programId: string;
   programName: string;
-  /** Whether the program is trainer-marked public ("Universal"). */
+  /** Whether the program is a Universal copy (deleting removes it for every trainer). */
   isPublic?: boolean;
   /** Where to send the admin after a successful delete (detail pages only). */
   redirectTo?: string;
@@ -41,7 +41,6 @@ export function ProgramActionsMenu({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [showUnpublishDialog, setShowUnpublishDialog] = useState(false);
 
   function handleDelete() {
     startTransition(async () => {
@@ -54,19 +53,6 @@ export function ProgramActionsMenu({
       }
       toast.error(result.error ?? "Failed to delete program.");
       setShowDeleteDialog(false);
-    });
-  }
-
-  function handleUnpublish() {
-    startTransition(async () => {
-      const result = await unpublishAdminProgramAction(programId);
-      if (result.success) {
-        toast.success("Program removed from Universal.");
-        setShowUnpublishDialog(false);
-        return;
-      }
-      toast.error(result.error ?? "Failed to remove program from universal.");
-      setShowUnpublishDialog(false);
     });
   }
 
@@ -88,15 +74,6 @@ export function ProgramActionsMenu({
           onClick={(e) => e.stopPropagation()}
           onMouseDown={(e) => e.stopPropagation()}
         >
-          {isPublic && (
-            <DropdownMenuItem
-              onClick={() => setShowUnpublishDialog(true)}
-              className="gap-2"
-            >
-              <Globe2 className="h-4 w-4" />
-              Remove from Universal
-            </DropdownMenuItem>
-          )}
           <DropdownMenuItem
             onClick={() => setShowDeleteDialog(true)}
             variant="destructive"
@@ -116,8 +93,9 @@ export function ProgramActionsMenu({
           <AlertDialogHeader>
             <AlertDialogTitle>Delete {programName}?</AlertDialogTitle>
             <AlertDialogDescription>
-              This permanently deletes the program along with all of its
-              workouts, exercises, and logged sessions. This cannot be undone.
+              {isPublic
+                ? "This removes the program from the Universal library for every trainer and permanently deletes it. Copies trainers already added to their own libraries are not affected. This cannot be undone."
+                : "This permanently deletes the program along with all of its workouts, exercises, and logged sessions. This cannot be undone."}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -133,26 +111,6 @@ export function ProgramActionsMenu({
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog
-        open={showUnpublishDialog}
-        onOpenChange={(open) => !open && setShowUnpublishDialog(false)}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Remove {programName} from Universal?</AlertDialogTitle>
-            <AlertDialogDescription>
-              The program stays with its trainer, but other trainers will no
-              longer see it as a shared template.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isPending}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleUnpublish} disabled={isPending}>
-              {isPending ? "Removing…" : "Remove from Universal"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </>
   );
 }

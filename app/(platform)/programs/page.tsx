@@ -62,7 +62,7 @@ export default async function ProgramsPage({ searchParams }: Props) {
       // yet given to anyone (drafts and reusable templates alike).
       hasClient: tab === "programs",
     }),
-    programService.getGlobalPrograms(user.clerkOrgId ?? undefined, user.id),
+    programService.getGlobalPrograms(user.clerkOrgId ?? undefined),
     getCollectionsWithCounts(user.id),
   ]);
 

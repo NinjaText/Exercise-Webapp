@@ -62,7 +62,8 @@ export default async function AdminProgramDetailPage({ params }: Props) {
     })) as unknown as Record<string, unknown>[];
   }
 
-  const trainerData = program.trainer as { firstName?: string; lastName?: string } | null;
+  // Universal copies have no owner; credit the trainer who shared them.
+  const trainerData = program.trainer ?? program.sharedBy;
   const trainerName = trainerData
     ? `${trainerData.firstName ?? ""} ${trainerData.lastName ?? ""}`.trim()
     : "Unknown trainer";

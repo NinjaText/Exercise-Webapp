@@ -30,7 +30,7 @@ vi.mock('@/lib/services/program.service', () => ({
   deleteClientProgram: vi.fn().mockResolvedValue({}),
   duplicateProgram: vi.fn(),
   assignProgram: vi.fn(),
-  toggleProgramPublic: vi.fn().mockResolvedValue({}),
+  shareProgramToUniversal: vi.fn().mockResolvedValue({ id: 'copy_1' }),
 }))
 vi.mock('@/lib/services/client.service', () => ({ getClientIdsForTrainer: vi.fn() }))
 vi.mock('@/lib/services/audit-log.service', () => ({

@@ -167,6 +167,7 @@ model User {
   exercisesCreated Exercise[]
 
   programsCreated           Program[]               @relation("ProgramsCreated")
+  programsSharedToUniversal Program[]               @relation("ProgramsSharedToUniversal")
   programsAssigned          Program[]               @relation("ProgramsAssigned")
   sessionsV2                WorkoutSessionV2[]      @relation("SessionsV2")
   checkInTemplates          CheckInTemplate[]       @relation("CheckInTemplatesCreated")
@@ -633,37 +634,46 @@ model Message {
 // --- Phase 1 Models ---
 
 model Program {
-  id                 String                 @id @default(auto()) @map("_id") @db.ObjectId
-  name               String
-  description        String?
-  isTemplate         Boolean                @default(false)
-  isGlobal           Boolean                @default(false)
-  isPublic           Boolean                @default(false)
-  globalUpdatedAt    DateTime?
-  sourceTemplateId   String?                @db.ObjectId
-  trainerId          String?                @map("clinicianId") @db.ObjectId
-  trainer            User?                  @relation("ProgramsCreated", fields: [trainerId], references: [id])
-  clientId           String?                @map("patientId") @db.ObjectId
-  client             User?                  @relation("ProgramsAssigned", fields: [clientId], references: [id])
-  status             PlanStatus             @default(DRAFT)
-  programType        String?
+  id                       String                 @id @default(auto()) @map("_id") @db.ObjectId
+  name                     String
+  description              String?
+  isTemplate               Boolean                @default(false)
+  isGlobal                 Boolean                @default(false)
+  isPublic                 Boolean                @default(false)
+  globalUpdatedAt          DateTime?
+  sourceTemplateId         String?                @db.ObjectId
+  // Universal library copy (trainer "Share to Universal"): an ownerless
+  // (trainerId null), isPublic, frozen snapshot that only a super admin can
+  // delete. sharedBy credits the trainer; universalSourceProgramId is the
+  // trainer program it was copied from. Optional — no backfill needed.
+  sharedById               String?                @db.ObjectId
+  sharedBy                 User?                  @relation("ProgramsSharedToUniversal", fields: [sharedById], references: [id])
+  universalSourceProgramId String?                @db.ObjectId
+  // On the trainer's own program: when it was last shared to Universal.
+  sharedToUniversalAt      DateTime?
+  trainerId                String?                @map("clinicianId") @db.ObjectId
+  trainer                  User?                  @relation("ProgramsCreated", fields: [trainerId], references: [id])
+  clientId                 String?                @map("patientId") @db.ObjectId
+  client                   User?                  @relation("ProgramsAssigned", fields: [clientId], references: [id])
+  status                   PlanStatus             @default(DRAFT)
+  programType              String?
   // Scheduled = a normal dated program with pre-generated sessions.
   // ON_DEMAND = an anytime "Resource" (warm-up, mobility, recovery) with no
   // schedule; sessions are created lazily when the client actually starts one
   // so the mark-missed-sessions cron can never flag them as non-compliance.
   // Optional (no @default) on purpose: Mongo has no migrations, so existing
   // documents simply lack the key — read them via getProgramSchedulingType().
-  schedulingType     ProgramSchedulingType?
-  durationWeeks      Int?
-  daysPerWeek        Int?
-  tags               String[]
-  equipmentRequired  String[]               @default([])
-  organizationIds    String[]               @default([])
-  aiGenerationParams Json?
-  startDate          DateTime?
-  createdAt          DateTime               @default(now())
-  updatedAt          DateTime               @updatedAt
-  workouts           Workout[]
+  schedulingType           ProgramSchedulingType?
+  durationWeeks            Int?
+  daysPerWeek              Int?
+  tags                     String[]
+  equipmentRequired        String[]               @default([])
+  organizationIds          String[]               @default([])
+  aiGenerationParams       Json?
+  startDate                DateTime?
+  createdAt                DateTime               @default(now())
+  updatedAt                DateTime               @updatedAt
+  workouts                 Workout[]
 
   // Structured categorization (Programs page redesign) — distinct from the
   // free-form `tags` above so body area / goal / sport / level stay filterable

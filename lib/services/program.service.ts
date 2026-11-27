@@ -35,6 +35,7 @@ import type {
 // --- Include presets ---
 const programListInclude = {
   trainer: { select: { id: true, firstName: true, lastName: true } },
+  sharedBy: { select: { id: true, firstName: true, lastName: true } },
   client: { select: { id: true, firstName: true, lastName: true, email: true } },
   workouts: { select: { id: true, name: true } },
   _count: { select: { workouts: true } },
@@ -42,6 +43,7 @@ const programListInclude = {
 
 const programDetailInclude = {
   trainer: { select: { id: true, firstName: true, lastName: true } },
+  sharedBy: { select: { id: true, firstName: true, lastName: true } },
   client: {
     select: {
       id: true,
@@ -917,7 +919,7 @@ export async function getTemplates(trainerId: string) {
 
 // --- Global Programs (super admin) ---
 
-export async function getGlobalPrograms(clerkOrgId?: string, excludeTrainerId?: string) {
+export async function getGlobalPrograms(clerkOrgId?: string) {
   const adminCuratedBranch: Prisma.ProgramWhereInput = { isGlobal: true };
   if (clerkOrgId) {
     adminCuratedBranch.OR = [
@@ -926,25 +928,71 @@ export async function getGlobalPrograms(clerkOrgId?: string, excludeTrainerId?: 
     ];
   }
 
-  const publicTrainerBranch: Prisma.ProgramWhereInput = excludeTrainerId
-    ? { isPublic: true, trainerId: { not: excludeTrainerId } }
-    : { isPublic: true };
-
+  // Trainer-shared programs are ownerless Universal copies (see
+  // shareProgramToUniversal), so the sharing trainer sees theirs here too.
   return prisma.program.findMany({
     where: {
       status: { not: "ARCHIVED" },
-      OR: [adminCuratedBranch, publicTrainerBranch],
+      OR: [adminCuratedBranch, { isPublic: true }],
     },
     include: programListInclude,
     orderBy: { updatedAt: "desc" },
   });
 }
 
-export async function toggleProgramPublic(id: string, isPublic: boolean) {
-  return prisma.program.update({
-    where: { id, ...nullOrUnset("clientId") },
-    data: { isPublic },
+/**
+ * Shares a trainer's library program to the Universal library as a frozen,
+ * ownerless snapshot (trainerId null, isPublic). The trainer keeps their own
+ * program to edit, archive or delete; the Universal copy is unaffected and
+ * only a super admin can delete it. Sharing again adds another snapshot.
+ */
+export async function shareProgramToUniversal(id: string, sharedById: string) {
+  const source = await getProgramById(id);
+  if (!source) throw new Error("Program not found");
+  if (source.trainerId !== sharedById) throw new Error("Unauthorized");
+  if (source.clientId) throw new Error("Only programs with no client assigned can be shared");
+  if (source.status === "ARCHIVED") throw new Error("Archived programs can't be shared");
+
+  const copy = await createUniversalCopy(source, sharedById);
+  // isPublic: false clears the legacy in-place flag on programs that were
+  // made public before Universal copies existed.
+  await prisma.program.update({
+    where: { id },
+    data: { sharedToUniversalAt: new Date(), isPublic: false },
   });
+  return copy;
+}
+
+/** Writes the Universal snapshot of `source`; also used by the one-off conversion script. */
+export async function createUniversalCopy(source: ProgramWithDetails, sharedById: string | null) {
+  const copy = await prisma.program.create({
+    data: {
+      name: source.name,
+      description: source.description,
+      isTemplate: true,
+      isPublic: true,
+      // Explicit nulls (not omitted): Mongo `field: null` filters don't match
+      // absent keys — see createProgram.
+      trainerId: null,
+      clientId: null,
+      sharedById,
+      universalSourceProgramId: source.id,
+      status: source.status === "ARCHIVED" ? "ACTIVE" : source.status,
+      programType: source.programType,
+      schedulingType: source.schedulingType,
+      contentFormat: source.contentFormat,
+      durationWeeks: source.durationWeeks,
+      daysPerWeek: source.daysPerWeek,
+      tags: source.tags,
+      equipmentRequired: source.equipmentRequired ?? [],
+      bodyAreas: source.bodyAreas ?? [],
+      goals: source.goals ?? [],
+      activities: source.activities ?? [],
+      level: source.level,
+    },
+  });
+  await insertWorkoutTree(copy.id, mapWorkoutsForCopy(source.workouts));
+  return copy;
 }
 
 export async function createGlobalProgram(data: CreateProgramInput) {

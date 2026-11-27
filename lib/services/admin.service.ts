@@ -307,6 +307,7 @@ export async function getAllPrograms(params: {
       where,
       include: {
         trainer: { select: { firstName: true, lastName: true, email: true } },
+        sharedBy: { select: { firstName: true, lastName: true, email: true } },
         client: { select: { firstName: true, lastName: true, email: true } },
       },
       orderBy: { createdAt: "desc" },

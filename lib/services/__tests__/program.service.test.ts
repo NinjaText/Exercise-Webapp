@@ -27,7 +27,7 @@ import {
   computeDurationWeeksFromWorkouts,
   hardDeleteProgram,
   deleteClientProgram,
-  toggleProgramPublic,
+  shareProgramToUniversal,
   copyGlobalProgramToOrganization,
   duplicateProgram,
 } from '../program.service'
@@ -119,46 +119,57 @@ describe('getGlobalPrograms', () => {
   })
 })
 
-describe('toggleProgramPublic', () => {
-  it('flips isPublic on a program with no client attached', async () => {
-    mockUpdate.mockResolvedValue({ id: 'prog_1', isPublic: true } as any)
+describe('shareProgramToUniversal', () => {
+  const source = {
+    id: 'prog_1', name: 'Knee Rehab', description: 'desc', trainerId: 'trainer_1', clientId: null,
+    status: 'DRAFT', tags: ['knee'], equipmentRequired: [], bodyAreas: [], goals: [], activities: [],
+    level: null, durationWeeks: 4, daysPerWeek: 3, programType: null, schedulingType: null, contentFormat: null,
+    workouts: [{
+      name: 'Day 1', description: null, dayIndex: 0, weekIndex: 0, estimatedMinutes: 30,
+      videoUrl: null, videoDurationSec: null, blocks: [],
+    }],
+  }
 
-    await toggleProgramPublic('prog_1', true)
+  it('creates an ownerless public snapshot crediting the trainer, and marks the original shared (not public)', async () => {
+    mockFindUnique.mockResolvedValue(source as any)
+    mockCreate.mockResolvedValue({ id: 'copy_1' } as any)
+    mockUpdate.mockResolvedValue({} as any)
 
+    const copy = await shareProgramToUniversal('prog_1', 'trainer_1')
+
+    expect(copy).toEqual({ id: 'copy_1' })
+    expect(mockCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        name: 'Knee Rehab',
+        isPublic: true,
+        isTemplate: true,
+        trainerId: null,
+        clientId: null,
+        sharedById: 'trainer_1',
+        universalSourceProgramId: 'prog_1',
+        status: 'DRAFT',
+      }),
+    })
+    expect(prisma.workout.createMany).toHaveBeenCalledWith({
+      data: [expect.objectContaining({ programId: 'copy_1', name: 'Day 1' })],
+    })
     expect(mockUpdate).toHaveBeenCalledWith({
-      where: { id: 'prog_1', OR: [{ clientId: null }, { clientId: { isSet: false } }] },
-      data: { isPublic: true },
+      where: { id: 'prog_1' },
+      data: { sharedToUniversalAt: expect.any(Date), isPublic: false },
     })
   })
-})
 
-describe('getGlobalPrograms excluding the viewing trainer\'s own public programs', () => {
-  it('excludes the viewing trainer from the public-trainer-program branch when excludeTrainerId is provided', async () => {
-    mockFindMany.mockResolvedValue([])
+  it('refuses another trainer\'s program, an assigned program, and an archived one', async () => {
+    mockFindUnique.mockResolvedValueOnce(source as any)
+    await expect(shareProgramToUniversal('prog_1', 'trainer_2')).rejects.toThrow('Unauthorized')
 
-    await getGlobalPrograms(undefined, 'trainer_1')
+    mockFindUnique.mockResolvedValueOnce({ ...source, clientId: 'client_1' } as any)
+    await expect(shareProgramToUniversal('prog_1', 'trainer_1')).rejects.toThrow('no client assigned')
 
-    expect(mockFindMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: {
-          status: { not: 'ARCHIVED' },
-          OR: [
-            { isGlobal: true },
-            { isPublic: true, trainerId: { not: 'trainer_1' } },
-          ],
-        },
-      })
-    )
-  })
+    mockFindUnique.mockResolvedValueOnce({ ...source, status: 'ARCHIVED' } as any)
+    await expect(shareProgramToUniversal('prog_1', 'trainer_1')).rejects.toThrow('Archived')
 
-  it('does not filter by trainerId in the public branch when excludeTrainerId is omitted', async () => {
-    mockFindMany.mockResolvedValue([])
-
-    await getGlobalPrograms()
-
-    const call = mockFindMany.mock.calls[0][0] as any
-    const publicBranch = call.where.OR.find((clause: any) => 'isPublic' in clause)
-    expect(publicBranch).not.toHaveProperty('trainerId')
+    expect(mockCreate).not.toHaveBeenCalled()
   })
 })
 

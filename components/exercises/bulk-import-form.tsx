@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,7 +12,11 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { BODY_REGIONS, DIFFICULTY_LEVELS, musclesToGroups, applyMuscleGroupSelection } from "@/lib/utils/constants";
 import { EquipmentPicker } from "@/components/equipment/equipment-picker";
 import { MuscleGroupChips } from "@/components/exercises/muscle-group-chips";
-import { bulkCreateExercisesAction, type BulkExerciseInput } from "@/actions/bulk-exercise-actions";
+import {
+  bulkCreateExercisesAction,
+  checkBulkExerciseConflictsAction,
+  type BulkExerciseInput,
+} from "@/actions/bulk-exercise-actions";
 import { isYouTubeUrl, isYouTubePlaylistUrl } from "@/lib/utils/video";
 import type { ExerciseContext } from "@/lib/utils/exercise-context";
 import { ExerciseContextSelector, describeExerciseContexts } from "@/components/exercises/exercise-context-selector";
@@ -20,7 +24,7 @@ import { toast } from "sonner";
 import {
   Loader2, Sparkles, ChevronDown, ChevronUp,
   Trash2, CheckCircle2, Video,
-  Youtube, ListVideo, Search, ClipboardCheck,
+  Youtube, ListVideo, Search, ClipboardCheck, TriangleAlert,
 } from "lucide-react";
 
 const EXERCISE_PHASES = [
@@ -192,6 +196,42 @@ function makeRow(videoUrl: string, videoFileName: string, imageUrl = ""): Exerci
   };
 }
 
+/** A duplicate found for one review row, keyed by rowId in the form's state. */
+interface RowConflict {
+  field: "name" | "videoUrl";
+  existingName: string;
+  /** The earlier row in this batch it clashes with; absent when it clashes with the library. */
+  batchRowId?: string;
+}
+
+type ServerConflict = { index: number; field: "name" | "videoUrl"; existingName: string; batchIndex?: number };
+
+/** Re-keys server conflicts (indexed by position in `sent`) onto rowIds. */
+function conflictsByRowId(sent: ExerciseRow[], list: ServerConflict[]): Record<string, RowConflict[]> {
+  const out: Record<string, RowConflict[]> = {};
+  for (const c of list) {
+    const rowId = sent[c.index]?.rowId;
+    if (!rowId) continue;
+    (out[rowId] ??= []).push({
+      field: c.field,
+      existingName: c.existingName,
+      batchRowId: c.batchIndex !== undefined ? sent[c.batchIndex]?.rowId : undefined,
+    });
+  }
+  return out;
+}
+
+function describeRowConflict(c: RowConflict, rows: ExerciseRow[]): string {
+  if (c.batchRowId) {
+    const n = rows.findIndex((r) => r.rowId === c.batchRowId) + 1;
+    const other = n > 0 ? `row ${n}` : "another row";
+    return c.field === "name" ? `Same name as ${other} ("${c.existingName}")` : `Same video as ${other}`;
+  }
+  return c.field === "name"
+    ? `Already in your library as "${c.existingName}"`
+    : `Video already used by "${c.existingName}" in your library`;
+}
+
 function parseYoutubeUrls(raw: string): string[] {
   return raw
     .split(/[\n,\s]+/)
@@ -225,6 +265,26 @@ export function BulkImportForm() {
 
   const [rows, setRows] = useState<ExerciseRow[]>([]);
   const [publishing, setPublishing] = useState(false);
+  const [conflicts, setConflicts] = useState<Record<string, RowConflict[]>>({});
+  const conflictCheckSeq = useRef(0);
+
+  // Re-check for duplicates (library + within this batch) whenever a row's
+  // name or video changes, so they're flagged on the row before Publish.
+  const identityKey = rows.map((r) => `${r.rowId}\u0000${r.name.trim()}\u0000${r.videoUrl}`).join("\u0001");
+  useEffect(() => {
+    const seq = ++conflictCheckSeq.current;
+    if (rows.length === 0) { setConflicts({}); return; }
+    const sent = rows;
+    const timer = setTimeout(async () => {
+      const result = await checkBulkExerciseConflictsAction(
+        sent.map((r) => ({ name: r.name, videoUrl: r.videoUrl || undefined }))
+      ).catch(() => null);
+      if (seq !== conflictCheckSeq.current || !result?.success) return;
+      setConflicts(conflictsByRowId(sent, result.conflicts));
+    }, 400);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only name/video edits matter
+  }, [identityKey]);
 
   // ── Shared URL processing ────────────────────────────────────────────────────
 
@@ -437,6 +497,18 @@ export function BulkImportForm() {
     setRows((prev) => prev.filter((r) => r.rowId !== rowId));
   }
 
+  function removeAllDuplicates() {
+    const ids = new Set(Object.keys(conflicts));
+    setRows((prev) => prev.filter((r) => !ids.has(r.rowId)));
+    setConflicts({});
+    toast.success(`Removed ${ids.size} duplicate${ids.size === 1 ? "" : "s"}`);
+  }
+
+  function jumpToFirstDuplicate() {
+    const first = rows.find((r) => conflicts[r.rowId]);
+    if (first) document.getElementById(`exercise-row-${first.rowId}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
   function toggleBodyRegion(rowId: string, region: string) {
     setRows((prev) =>
       prev.map((r) => {
@@ -484,10 +556,12 @@ export function BulkImportForm() {
   // ── Publish ─────────────────────────────────────────────────────────────────
 
   const readyCount = rows.filter((r) => r.name.trim() && r.bodyRegion.length > 0 && r.difficultyLevel).length;
+  const duplicateCount = rows.filter((r) => conflicts[r.rowId]).length;
 
   async function handlePublish() {
     const ready = rows.filter((r) => r.name.trim() && r.bodyRegion.length > 0 && r.difficultyLevel);
     if (!ready.length) { toast.error("Each exercise needs a name, body region, and difficulty"); return; }
+    if (duplicateCount > 0) { jumpToFirstDuplicate(); toast.error("Remove the duplicates before publishing"); return; }
     setPublishing(true);
     const payload: BulkExerciseInput[] = ready.map((r) => ({
       name: r.name.trim(),
@@ -513,6 +587,16 @@ export function BulkImportForm() {
       router.push("/exercises");
     } else {
       toast.error(result.error);
+      if ("conflicts" in result && result.conflicts) {
+        const found = conflictsByRowId(ready, result.conflicts);
+        setConflicts(found);
+        const first = ready.find((r) => found[r.rowId]);
+        if (first) {
+          requestAnimationFrame(() =>
+            document.getElementById(`exercise-row-${first.rowId}`)?.scrollIntoView({ behavior: "smooth", block: "start" })
+          );
+        }
+      }
     }
   }
 
@@ -847,9 +931,31 @@ export function BulkImportForm() {
                 AI-filled fields are editable. At minimum each exercise needs a name, body region, and difficulty.
               </p>
             </div>
-            <div className="flex gap-2">
-            </div>
           </div>
+
+          {duplicateCount > 0 && (
+            <div
+              role="alert"
+              className="flex flex-col gap-3 rounded-xl border border-danger-border bg-danger-soft px-4 py-3 text-sm text-danger-foreground sm:flex-row sm:items-center sm:justify-between"
+            >
+              <div className="flex items-start gap-2">
+                <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" />
+                <p>
+                  <span className="font-semibold">
+                    {duplicateCount} duplicate{duplicateCount === 1 ? "" : "s"} found.
+                  </span>{" "}
+                  {duplicateCount === 1 ? "It's" : "They're"} already in your library or repeated in this list. Remove {duplicateCount === 1 ? "it" : "them"} to publish.
+                </p>
+              </div>
+              <div className="flex gap-2 *:flex-1 sm:*:flex-none">
+                <Button variant="outline" size="sm" onClick={jumpToFirstDuplicate}>Jump to first</Button>
+                <Button variant="destructive" size="sm" onClick={removeAllDuplicates}>
+                  <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+                  Remove all duplicates
+                </Button>
+              </div>
+            </div>
+          )}
 
           <div className="space-y-3">
             {rows.map((row, index) => (
@@ -857,6 +963,7 @@ export function BulkImportForm() {
                 key={row.rowId}
                 row={row}
                 index={index}
+                conflicts={conflicts[row.rowId]?.map((c) => describeRowConflict(c, rows))}
                 onUpdate={(patch) => updateRow(row.rowId, patch)}
                 onRemove={() => removeRow(row.rowId)}
                 onGenerate={() => generateMetadata(row.rowId)}
@@ -873,13 +980,19 @@ export function BulkImportForm() {
                 <p className="font-semibold">
                   {readyCount} of {rows.length} ready to publish
                 </p>
-                <p className="text-xs text-muted-foreground">
-                  Needs name + body region + difficulty
-                </p>
+                {duplicateCount > 0 ? (
+                  <p className="text-xs text-danger-foreground">
+                    Remove {duplicateCount} duplicate{duplicateCount === 1 ? "" : "s"} to publish
+                  </p>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    Needs name + body region + difficulty
+                  </p>
+                )}
               </div>
               <div className="flex gap-2 *:flex-1 sm:*:flex-none">
                 <Button variant="outline" onClick={() => router.back()} disabled={publishing}>Cancel</Button>
-                <Button onClick={handlePublish} disabled={publishing || readyCount === 0 || ytProcessing}>
+                <Button onClick={handlePublish} disabled={publishing || readyCount === 0 || ytProcessing || duplicateCount > 0}>
                   {publishing
                     ? <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     : <CheckCircle2 className="mr-2 h-4 w-4" />
@@ -900,18 +1013,26 @@ export function BulkImportForm() {
 interface RowProps {
   row: ExerciseRow;
   index: number;
+  /** Duplicate messages for this row; non-empty marks the row as a duplicate. */
+  conflicts?: string[];
   onUpdate: (patch: Partial<ExerciseRow>) => void;
   onRemove: () => void;
   onGenerate: () => void;
   onToggleBodyRegion: (region: string) => void;
 }
 
-export function ExerciseRowCard({ row, index, onUpdate, onRemove, onGenerate, onToggleBodyRegion }: RowProps) {
+export function ExerciseRowCard({ row, index, conflicts, onUpdate, onRemove, onGenerate, onToggleBodyRegion }: RowProps) {
   const isReady = !!(row.name.trim() && row.bodyRegion.length > 0 && row.difficultyLevel);
   const isYT = isYouTubeUrl(row.videoUrl);
+  const isDuplicate = !!conflicts?.length;
 
   return (
-    <div className={`rounded-xl bg-card shadow-xs ring-1 ring-border transition-colors ${isReady ? "ring-success-border" : ""}`}>
+    <div
+      id={`exercise-row-${row.rowId}`}
+      className={`scroll-mt-24 rounded-xl bg-card shadow-xs ring-1 ring-border transition-colors ${
+        isDuplicate ? "ring-2 ring-danger" : isReady ? "ring-success-border" : ""
+      }`}
+    >
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3">
         <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold">
@@ -923,7 +1044,11 @@ export function ExerciseRowCard({ row, index, onUpdate, onRemove, onGenerate, on
           <Video className="h-4 w-4 shrink-0 text-muted-foreground" />
         )}
         <p className="flex-1 truncate text-sm text-muted-foreground">{row.videoFileName || row.videoUrl}</p>
-        {isReady && <CheckCircle2 className="h-4 w-4 shrink-0 text-success" />}
+        {isDuplicate ? (
+          <StatusBadge status="DUPLICATE" label="Duplicate" role="danger" dot={false} size="sm" />
+        ) : (
+          isReady && <CheckCircle2 className="h-4 w-4 shrink-0 text-success" />
+        )}
         {row.isAssessment && (
           <StatusBadge status="ASSESSMENT" label="Assessment" role="info" dot={false} size="sm" />
         )}
@@ -950,6 +1075,18 @@ export function ExerciseRowCard({ row, index, onUpdate, onRemove, onGenerate, on
           <Trash2 className="h-4 w-4" />
         </button>
       </div>
+
+      {isDuplicate && (
+        <div className="flex items-center gap-3 border-t border-danger-border bg-danger-soft px-4 py-2.5 text-sm text-danger-foreground">
+          <TriangleAlert className="h-4 w-4 shrink-0" />
+          <div className="min-w-0 flex-1">
+            {conflicts!.map((message) => <p key={message}>{message}</p>)}
+          </div>
+          <Button type="button" variant="outline" size="sm" onClick={onRemove} className="shrink-0">
+            Remove
+          </Button>
+        </div>
+      )}
 
       {/* Name + AI button */}
       <div className="flex gap-2 border-t px-4 py-3">

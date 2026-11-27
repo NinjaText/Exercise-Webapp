@@ -58,7 +58,6 @@ import {
   Pencil,
   Dumbbell,
   Globe,
-  Lock,
   Eye,
   X,
   Star,
@@ -77,7 +76,7 @@ import {
   deleteProgramAction,
   hardDeleteProgramAction,
   copyGlobalProgramAction,
-  toggleProgramPublicAction,
+  shareProgramToUniversalAction,
   toggleProgramFavoriteAction,
   setProgramCollectionsAction,
 } from "@/actions/program-actions";
@@ -267,6 +266,7 @@ interface ProgramListItem extends Categorized {
   isTemplate: boolean;
   isGlobal: boolean;
   isPublic: boolean;
+  sharedToUniversalAt?: Date | null;
   sourceTemplateId?: string | null;
   updatedAt: Date;
   createdAt: Date;
@@ -294,6 +294,8 @@ interface GlobalProgramItem extends Categorized {
   globalUpdatedAt?: Date | null;
   isGlobal: boolean;
   trainer: { id: string; firstName: string; lastName: string } | null;
+  /** Trainer who shared a Universal copy (copies have no trainer). */
+  sharedBy?: { id: string; firstName: string; lastName: string } | null;
   workouts: { id: string; name: string }[];
   _count: { workouts: number };
 }
@@ -403,6 +405,14 @@ function UpdatedAt({ date }: { date: Date }) {
   );
 }
 
+function SharedToUniversalBadge() {
+  return (
+    <Badge variant="outline" className="gap-1 text-[10px] font-medium" title="A copy of this program is in the Universal library">
+      <Globe className="h-3 w-3" /> Shared to Universal
+    </Badge>
+  );
+}
+
 // Row-actions menu for a Library program, shared by the desktop table row and
 // the phone card.
 function LibraryProgramMenu({
@@ -410,16 +420,14 @@ function LibraryProgramMenu({
   onDuplicate,
   onArchive,
   onRequestHardDelete,
-  onTogglePublic,
-  togglingPublicId,
+  onShareToUniversal,
   onAddToCollection,
 }: {
   program: ProgramListItem;
   onDuplicate: (id: string) => void;
   onArchive: (id: string) => void;
   onRequestHardDelete: (id: string, name: string) => void;
-  onTogglePublic: (id: string, isPublic: boolean) => void;
-  togglingPublicId: string | null;
+  onShareToUniversal: (id: string, name: string) => void;
   onAddToCollection: (program: ProgramListItem) => void;
 }) {
   const router = useRouter();
@@ -431,7 +439,7 @@ function LibraryProgramMenu({
       >
         <MoreVertical className="h-4 w-4" />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-48">
+      <DropdownMenuContent align="end" className="w-56">
         <DropdownMenuItem onClick={() => router.push(`/programs/${program.id}/edit`)}>
           <Pencil className="mr-2 h-4 w-4" /> Edit
         </DropdownMenuItem>
@@ -444,10 +452,12 @@ function LibraryProgramMenu({
         <DropdownMenuItem onClick={() => onAddToCollection(program)}>
           <Folder className="mr-2 h-4 w-4" /> Add to Collection
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => onTogglePublic(program.id, !program.isPublic)} disabled={togglingPublicId === program.id}>
-          {program.isPublic ? <Lock className="mr-2 h-4 w-4" /> : <Globe className="mr-2 h-4 w-4" />}
-          {program.isPublic ? "Make Private" : "Make Public"}
-        </DropdownMenuItem>
+        {program.status !== "ARCHIVED" && (
+          <DropdownMenuItem onClick={() => onShareToUniversal(program.id, program.name)}>
+            <Globe className="mr-2 h-4 w-4" />
+            {program.sharedToUniversalAt ? "Share to Universal again" : "Share to Universal"}
+          </DropdownMenuItem>
+        )}
         <DropdownMenuSeparator />
         {program.status === "ARCHIVED" ? (
           <DropdownMenuItem
@@ -522,8 +532,7 @@ function LibraryProgramRow({
   onDuplicate,
   onArchive,
   onRequestHardDelete,
-  onTogglePublic,
-  togglingPublicId,
+  onShareToUniversal,
   onToggleFavorite,
   togglingFavoriteId,
   onAddToCollection,
@@ -535,8 +544,7 @@ function LibraryProgramRow({
   onDuplicate: (id: string) => void;
   onArchive: (id: string) => void;
   onRequestHardDelete: (id: string, name: string) => void;
-  onTogglePublic: (id: string, isPublic: boolean) => void;
-  togglingPublicId: string | null;
+  onShareToUniversal: (id: string, name: string) => void;
   onToggleFavorite: (id: string, next: boolean) => void;
   togglingFavoriteId: string | null;
   onAddToCollection: (program: ProgramListItem) => void;
@@ -573,6 +581,7 @@ function LibraryProgramRow({
               {updatableSet.has(program.id) && (
                 <Badge variant="outline" className="text-[10px] font-medium">Update available</Badge>
               )}
+              {program.sharedToUniversalAt && <SharedToUniversalBadge />}
             </div>
           </div>
         </div>
@@ -636,8 +645,7 @@ function LibraryProgramRow({
             onDuplicate={onDuplicate}
             onArchive={onArchive}
             onRequestHardDelete={onRequestHardDelete}
-            onTogglePublic={onTogglePublic}
-            togglingPublicId={togglingPublicId}
+            onShareToUniversal={onShareToUniversal}
             onAddToCollection={onAddToCollection}
           />
         </div>
@@ -655,6 +663,7 @@ function GlobalProgramRow({
   copying: string | null;
   onCopy: (id: string, name: string) => void;
 }) {
+  const author = program.sharedBy ?? program.trainer;
   return (
     <TableRow className="group">
       <TableCell className="max-w-64">
@@ -677,9 +686,9 @@ function GlobalProgramRow({
           <Badge variant="secondary" className="text-[11px] font-medium">
             {program.isGlobal ? "Global" : "Community"}
           </Badge>
-          {!program.isGlobal && program.trainer && (
+          {!program.isGlobal && author && (
             <span className="text-caption">
-              by {program.trainer.firstName} {program.trainer.lastName}
+              by {author.firstName} {author.lastName}
             </span>
           )}
           {program.tags.slice(0, 2).map((tag) => (
@@ -849,8 +858,7 @@ function LibraryProgramCard({
   onDuplicate: (id: string) => void;
   onArchive: (id: string) => void;
   onRequestHardDelete: (id: string, name: string) => void;
-  onTogglePublic: (id: string, isPublic: boolean) => void;
-  togglingPublicId: string | null;
+  onShareToUniversal: (id: string, name: string) => void;
   onToggleFavorite: (id: string, next: boolean) => void;
   togglingFavoriteId: string | null;
   onAddToCollection: (program: ProgramListItem) => void;
@@ -875,8 +883,13 @@ function LibraryProgramCard({
           <WorkoutCount count={program._count.workouts} />
           <UpdatedAt date={program.updatedAt} />
         </div>
-        {updatableSet.has(program.id) && (
-          <Badge variant="outline" className="mt-1.5 text-[10px] font-medium">Update available</Badge>
+        {(updatableSet.has(program.id) || program.sharedToUniversalAt) && (
+          <div className="mt-1.5 flex flex-wrap gap-1">
+            {updatableSet.has(program.id) && (
+              <Badge variant="outline" className="text-[10px] font-medium">Update available</Badge>
+            )}
+            {program.sharedToUniversalAt && <SharedToUniversalBadge />}
+          </div>
         )}
       </div>
       <div className="-mt-1.5 -mr-2 flex shrink-0 items-center">
@@ -1360,7 +1373,8 @@ export function ProgramListClient({
   const [librarySort, setLibrarySort] = useState<LibrarySort>("recent");
   const [pendingHardDelete, setPendingHardDelete] = useState<{ id: string; name: string } | null>(null);
   const [hardDeleting, setHardDeleting] = useState(false);
-  const [togglingPublicId, setTogglingPublicId] = useState<string | null>(null);
+  const [pendingShare, setPendingShare] = useState<{ id: string; name: string } | null>(null);
+  const [sharing, setSharing] = useState(false);
   const [togglingFavoriteId, setTogglingFavoriteId] = useState<string | null>(null);
 
   // Library-tab-only: quick View dropdown, the Filters panel, and Collections.
@@ -1677,18 +1691,20 @@ export function ProgramListClient({
     }
   }
 
-  async function handleTogglePublic(id: string, isPublic: boolean) {
-    setTogglingPublicId(id);
+  async function handleConfirmShare() {
+    if (!pendingShare) return;
+    setSharing(true);
     try {
-      const result = await toggleProgramPublicAction(id, isPublic);
+      const result = await shareProgramToUniversalAction(pendingShare.id);
       if (result.success) {
-        toast.success(isPublic ? "Program is now public" : "Program is now private");
+        toast.success(`"${pendingShare.name}" shared to Universal`);
+        setPendingShare(null);
         router.refresh();
       } else {
         toast.error(result.error);
       }
     } finally {
-      setTogglingPublicId(null);
+      setSharing(false);
     }
   }
 
@@ -2065,8 +2081,7 @@ export function ProgramListClient({
                     onDuplicate={handleDuplicate}
                     onArchive={handleArchive}
                     onRequestHardDelete={(id, name) => setPendingHardDelete({ id, name })}
-                    onTogglePublic={handleTogglePublic}
-                    togglingPublicId={togglingPublicId}
+                    onShareToUniversal={(id, name) => setPendingShare({ id, name })}
                     onToggleFavorite={handleToggleFavorite}
                     togglingFavoriteId={togglingFavoriteId}
                     onAddToCollection={openAddToCollections}
@@ -2100,8 +2115,7 @@ export function ProgramListClient({
                         onDuplicate={handleDuplicate}
                         onArchive={handleArchive}
                         onRequestHardDelete={(id, name) => setPendingHardDelete({ id, name })}
-                        onTogglePublic={handleTogglePublic}
-                        togglingPublicId={togglingPublicId}
+                        onShareToUniversal={(id, name) => setPendingShare({ id, name })}
                         onToggleFavorite={handleToggleFavorite}
                         togglingFavoriteId={togglingFavoriteId}
                         onAddToCollection={openAddToCollections}
@@ -2261,6 +2275,34 @@ export function ProgramListClient({
           )}
         </div>
       )}
+
+      <Dialog open={!!pendingShare} onOpenChange={(open) => !open && !sharing && setPendingShare(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Share &quot;{pendingShare?.name}&quot; to Universal?</DialogTitle>
+            <DialogDescription>
+              A copy of this program will be added to the Universal library, where every
+              trainer can see it and add it to their own library.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex items-start gap-2 rounded-lg border border-warning-border bg-warning-soft px-3 py-2.5 text-sm text-warning-foreground">
+            <Globe className="mt-0.5 h-4 w-4 shrink-0" />
+            <p>
+              <span className="font-semibold">Once shared, the Universal copy stays permanently.</span>{" "}
+              Editing, archiving or deleting your own program won&apos;t change or remove it. Only a
+              MIA administrator can remove it.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPendingShare(null)} disabled={sharing}>
+              Cancel
+            </Button>
+            <Button onClick={handleConfirmShare} disabled={sharing}>
+              {sharing ? "Sharing..." : "Share to Universal"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!pendingHardDelete} onOpenChange={(open) => !open && setPendingHardDelete(null)}>
         <DialogContent>
